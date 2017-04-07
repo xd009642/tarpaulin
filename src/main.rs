@@ -3,28 +3,25 @@ extern crate rustc_serialize;
 extern crate dwarf;
 
 use docopt::Docopt;
-use std::env;
 
 const USAGE: &'static str = "
 Tarpaulin - a cargo code coverage tool
-Usage: cargo tarpaulin [Options]
-       cargo tarpaulin --help
+
+Usage: 
+    cargo-tarpaulin [options]
+    cargo-tarpaulin (-h | --help)
 
 Options:
     -h, --help          Show this message.
-    -t --type CTYPE     Coverage algorithm to run.
-    -o --output OTYPE   Output type.
+    -l, --line          Collect line coverage.
+    -b, --branch        Collect branch coverage.
+    -c, --condition     Collect condition coverage.
+    --out ARG           Specify output type [default: Report].
+    -v, --verbose       Show extra output.
 ";
 
 #[derive(RustcDecodable, Debug)]
-enum CoverageType {
-    Line,
-    Branch,
-    Condition,
-}
-
-#[derive(RustcDecodable, Debug)]
-enum OutputType {
+enum Out {
     Json,
     Toml,
     Report
@@ -32,15 +29,16 @@ enum OutputType {
 
 #[derive(RustcDecodable, Debug)]
 struct Args {
-    arg_ctype: Option<CoverageType>,
-    arg_otype: Option<OutputType>,
+    flag_line: bool,
+    flag_branch: bool,
+    flag_condition:bool,
+    flag_verbose: bool,
+    flag_out: Option<Out>,
 }
 
 fn main() {
-    let args: Vec<String> = env::args().collect();
-    
     let args:Args = Docopt::new(USAGE)
-                           .and_then(|d| d.argv(argv()).decode())
+                           .and_then(|d| d.decode())
                            .unwrap_or_else(|e| e.exit());
 
     println!("{:?}", args);

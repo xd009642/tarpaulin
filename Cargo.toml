@@ -11,5 +11,5 @@ name = "cargo-tarpaulin"
 
 [dependencies]
 docopt = "0.7.*"
+rustc-serialize = "0.3"
 dwarf = "0.0.3"
-
