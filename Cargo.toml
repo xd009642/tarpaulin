@@ -1,0 +1,15 @@
+[package]
+name = "cargo-tarpaulin"
+version = "0.1.0"
+authors = ["Daniel McKenna <danielmckenna93@gmail.com>"]
+license = "MIT/Apache-2.0"
+categories = ["development-tools"]
+keywords = ["cargo-subcommand", "testing"]
+
+[[bin]]
+name = "cargo-tarpaulin"
+
+[dependencies]
+docopt = "0.7.*"
+dwarf = "0.0.3"
+
