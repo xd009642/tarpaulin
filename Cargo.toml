@@ -4,7 +4,7 @@ version = "0.1.0"
 authors = ["Daniel McKenna <danielmckenna93@gmail.com>"]
 license = "MIT/Apache-2.0"
 categories = ["development-tools"]
-keywords = ["cargo-subcommand", "testing"]
+keywords = ["cargo", "cargo-subcommand", "testing"]
 
 [[bin]]
 name = "cargo-tarpaulin"
@@ -12,4 +12,7 @@ name = "cargo-tarpaulin"
 [dependencies]
 docopt = "0.7.*"
 rustc-serialize = "0.3"
-dwarf = "0.0.3"
+gimli = "0.13.0"
+addr2line = "0.3.0"
+object = "0.3.0"
+cargo = "0.17.0"
