@@ -5,9 +5,8 @@ extern crate rustc_serialize;
 use docopt::Docopt;
 use std::path::{Path, PathBuf};
 use rustc_serialize::json::Json;
-use cargo::util::{Config, CargoResult};
+use cargo::util::Config;
 use cargo::core::Workspace;
-use cargo::ops::{Compilation, TestOptions};
 use cargo::ops;
 
 const USAGE: &'static str = "
@@ -18,14 +17,15 @@ Usage:
     cargo-tarpaulin (-h | --help)
 
 Options:
-    -h, --help          Show this message.
-    -l, --line          Collect line coverage.
-    -b, --branch        Collect branch coverage.
-    -c, --condition     Collect condition coverage.
-    --out ARG           Specify output type [default: Report].
-    -v, --verbose       Show extra output.
-    --manifest ARG      Path to a cargo.toml to execute tarpaulin on. 
-                        Default is current directory
+    -h, --help                  Show this message.
+    -l, --line                  Collect line coverage.
+    -b, --branch                Collect branch coverage.
+    -c, --condition             Collect condition coverage.
+    --out ARG                   Specify output type [default: Report].
+    -v, --verbose               Show extra output.
+    -m ARG, --manifest ARG      Path to a cargo.toml to execute tarpaulin on. 
+                                Default is current directory
+
 ";
 
 #[derive(RustcDecodable, Debug)]

@@ -1,7 +1,7 @@
+pub mod unused;
 
 
-
-fn branch_test_one(x: i32) -> i32 {
+pub fn branch_test_one(x: i32) -> i32 {
     if x > 5 {
         10
     } else {
