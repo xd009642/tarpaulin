@@ -1,10 +1,15 @@
+extern crate nix;
+extern crate libc;
 extern crate docopt;
 extern crate cargo;
 extern crate rustc_serialize;
 
+use std::ffi::CString;
 use docopt::Docopt;
 use std::path::{Path, PathBuf};
 use rustc_serialize::json::Json;
+use nix::sys::signal::*;
+use nix::unistd::*;
 use cargo::util::Config;
 use cargo::core::Workspace;
 use cargo::ops;
@@ -82,7 +87,20 @@ fn main() {
     };
     // Do I need to clean beforehand?
     if let Ok(comp) = ops::compile(&workspace, &copt) {
-        println!("Tests are\n {:#?}", comp.tests);
+    
+        for c in comp.tests.iter() {
+            analyse_coverage(c.2.as_path());
+        }
     }
+}
 
+
+fn analyse_coverage(test: &Path) {
+    let mut executable = test.to_str()
+                             .unwrap()
+                             .as_bytes()
+                             .to_vec();
+    executable.insert(0, '.' as u8);
+    let exec_path = &CString::new(executable).unwrap();
+    execve(exec_path, &[], &[]);
 }
