@@ -1,18 +1,22 @@
 extern crate nix;
-extern crate libc;
 extern crate docopt;
 extern crate cargo;
 extern crate rustc_serialize;
 
 use std::ffi::CString;
 use docopt::Docopt;
-use std::path::{Path, PathBuf};
-use rustc_serialize::json::Json;
-use nix::sys::signal::*;
+use std::path::Path;
+use nix::sys::signal;
 use nix::unistd::*;
+use nix::libc::pid_t;
+use nix::sys::wait::*;
+use nix::sys::ptrace::*;
+use nix::sys::ptrace::ptrace::*;
 use cargo::util::Config;
 use cargo::core::Workspace;
 use cargo::ops;
+use std::ptr;
+
 
 const USAGE: &'static str = "
 Tarpaulin - a cargo code coverage tool
@@ -89,18 +93,53 @@ fn main() {
     if let Ok(comp) = ops::compile(&workspace, &copt) {
     
         for c in comp.tests.iter() {
-            analyse_coverage(c.2.as_path());
+            match fork() {
+                Ok(ForkResult::Parent{ child }) => {
+                    println!("Parent. Child pid = {}", child);
+                    collect_coverage(child);
+                }
+                Ok(ForkResult::Child) => {
+                    println!("Child");
+                    execute_test(c.2.as_path(), true);
+                }
+                Err(err) => { 
+                    println!("Failed to run {}", c.2.display());
+                    println!("Error {}", err);
+                }
+            }
         }
     }
 }
 
+fn collect_coverage(test: pid_t) {
+    
+    match waitpid(test, None) {
+        Ok(WaitStatus::Stopped(child, signal::SIGTRAP)) => {
+            println!("Got her, continuing run");
+            ptrace(PTRACE_CONT, child, ptr::null_mut(), ptr::null_mut())
+                .ok()
+                .expect("Failed to continue test");
+        }
+        Ok(_) => {
+            println!("Unexpected grab");
+        }
+        Err(err) => println!("{}", err)
+    }
+}
 
-fn analyse_coverage(test: &Path) {
-    let mut executable = test.to_str()
-                             .unwrap()
-                             .as_bytes()
-                             .to_vec();
-    executable.insert(0, '.' as u8);
-    let exec_path = &CString::new(executable).unwrap();
-    execve(exec_path, &[], &[]);
+fn execute_test(test: &Path, backtrace_on: bool) {
+    
+    let exec_path = &CString::new(test.to_str().unwrap()).unwrap();
+
+    ptrace(PTRACE_TRACEME, 0, ptr::null_mut(), ptr::null_mut())
+        .ok()
+        .expect("Failed to trace");
+
+    let envars: Vec<CString> = if backtrace_on {
+        vec![CString::new("RUST_BACKTRACE=1").unwrap()]
+    } else {
+        vec![]
+    };
+    execve(exec_path, &[], envars.as_slice())
+        .unwrap();
 }
