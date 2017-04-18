@@ -95,11 +95,9 @@ fn main() {
         for c in comp.tests.iter() {
             match fork() {
                 Ok(ForkResult::Parent{ child }) => {
-                    println!("Parent. Child pid = {}", child);
                     collect_coverage(child);
                 }
                 Ok(ForkResult::Child) => {
-                    println!("Child");
                     execute_test(c.2.as_path(), true);
                 }
                 Err(err) => { 
@@ -115,7 +113,7 @@ fn collect_coverage(test: pid_t) {
     
     match waitpid(test, None) {
         Ok(WaitStatus::Stopped(child, signal::SIGTRAP)) => {
-            println!("Got her, continuing run");
+            println!("Running test without analysing for now");
             ptrace(PTRACE_CONT, child, ptr::null_mut(), ptr::null_mut())
                 .ok()
                 .expect("Failed to continue test");
@@ -129,7 +127,7 @@ fn collect_coverage(test: pid_t) {
 
 fn execute_test(test: &Path, backtrace_on: bool) {
     
-    let exec_path = &CString::new(test.to_str().unwrap()).unwrap();
+    let exec_path = CString::new(test.to_str().unwrap()).unwrap();
 
     ptrace(PTRACE_TRACEME, 0, ptr::null_mut(), ptr::null_mut())
         .ok()
@@ -140,6 +138,6 @@ fn execute_test(test: &Path, backtrace_on: bool) {
     } else {
         vec![]
     };
-    execve(exec_path, &[], envars.as_slice())
+    execve(&exec_path, &[exec_path.clone()], envars.as_slice())
         .unwrap();
 }
