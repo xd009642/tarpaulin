@@ -2,7 +2,14 @@ extern crate nix;
 extern crate docopt;
 extern crate cargo;
 extern crate rustc_serialize;
+extern crate gimli;
+extern crate object;
+extern crate memmap;
 
+use std::io;
+use memmap::{Mmap, Protection};
+use object::Object;
+use std::fs::File;
 use std::ffi::CString;
 use docopt::Docopt;
 use std::path::Path;
@@ -16,7 +23,6 @@ use cargo::util::Config;
 use cargo::core::Workspace;
 use cargo::ops;
 use std::ptr;
-
 
 const USAGE: &'static str = "
 Tarpaulin - a cargo code coverage tool
@@ -71,6 +77,9 @@ fn main() {
         Ok(w) => w,
         Err(_) => panic!("Invalid project directory specified"),
     };
+    for m in workspace.members() {
+        println!("{:?}", m.manifest_path());
+    }
 
     let filter = ops::CompileFilter::Everything;
 
@@ -91,11 +100,10 @@ fn main() {
     };
     // Do I need to clean beforehand?
     if let Ok(comp) = ops::compile(&workspace, &copt) {
-    
         for c in comp.tests.iter() {
             match fork() {
                 Ok(ForkResult::Parent{ child }) => {
-                    collect_coverage(child);
+                    collect_coverage(c.2.as_path(), child);
                 }
                 Ok(ForkResult::Child) => {
                     execute_test(c.2.as_path(), true);
@@ -109,11 +117,39 @@ fn main() {
     }
 }
 
-fn collect_coverage(test: pid_t) {
+fn parse_object_file<Endianness>(obj: &object::File) 
+    where Endianness: gimli::Endianity {
+
+    let debug_info = obj.get_section(".debug_info").unwrap_or(&[]);
+    let debug_info = gimli::DebugInfo::<Endianness>::new(debug_info);
+
+}
+
+fn generate_hook_addresses(test: &Path) -> io::Result<()> {
+    use gimli::Endianity;
+    let file = File::open(test)?;
+    let file = Mmap::open(&file, Protection::Read)?;
+    if let Ok(obj) = object::File::parse(unsafe {file.as_slice() }) {
+        
+        if obj.is_little_endian() {
+            parse_object_file::<gimli::LittleEndian>(&obj);
+        } else {
+            parse_object_file::<gimli::BigEndian>(&obj);
+        }
+        Ok(())
+    } else {
+        Err(io::Error::new(io::ErrorKind::InvalidData, "Unable to parse binary."))
+    }
+}
+
+fn collect_coverage(test_path: &Path, test: pid_t) -> io::Result<()> {
+    generate_hook_addresses(test_path)?;
     
     match waitpid(test, None) {
         Ok(WaitStatus::Stopped(child, signal::SIGTRAP)) => {
             println!("Running test without analysing for now");
+            // Use PTRACE_POKETEXT here to attach software breakpoints to lines 
+            // we need to cover
             ptrace(PTRACE_CONT, child, ptr::null_mut(), ptr::null_mut())
                 .ok()
                 .expect("Failed to continue test");
@@ -123,6 +159,7 @@ fn collect_coverage(test: pid_t) {
         }
         Err(err) => println!("{}", err)
     }
+    Ok(())
 }
 
 fn execute_test(test: &Path, backtrace_on: bool) {

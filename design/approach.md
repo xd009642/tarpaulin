@@ -1,12 +1,12 @@
-                           Tarpaulin
+# Tarpaulin
 
-1.  Introduction
+## 1.  Introduction
 
   Tarpaulin is a proposed coverage tool to calculate various metrics of rust 
   projects. Code coverage analysis is a difficult problem and therefore some 
   design must be done upfront.
 
-2.  User Interface
+## 2.  User Interface
 
   Ideally this tool would have an interface similar to cargo check, test and 
   fmt. Users would go to the root level of their project and type:
@@ -34,13 +34,13 @@
   * Service integration - integrate with tools like coveralls and codecov
   * Test gap identification - find an area to test to give the most gains 
 
-3.  Representing the Binary
+## 3.  Representing the Binary
 
   Representing the source code and the tests is important as this data structure
   will direct a lot of the design of the parts downstream and how easily 
   different approaches can be developed in future.
 
-3.1.  Naive Approaches
+### 3.1.  Naive Approaches
 
   Naive approaches have the benefit of being easily implemented, however they 
   may hinder design and result in a lot of future rework. Approaches could 
@@ -49,7 +49,7 @@
   * Hashmap of line addresses and coverage statistics of interest
   * The raw binary, using something like ptrace and bespoke logging together
 
-3.2.  Graph Structures
+### 3.2.  Graph Structures
 
   Source code can be represented as a graph structure which enables easy 
   traversal as well as showing the structural relationship of the code.
@@ -64,21 +64,9 @@
   would then represent code at a line or decision level. This could make it 
   harder to identify relationships between callers and callees.
 
-4.  Further Investigation
+## 4.  Further Investigation
 
   The rust compiler may represent the source in some manner before the MIR level
   to aid in analysis of borrowing and other rules. I should investigate how it
   solves it's problems. This may also lead to a compiler plugin as a potential
   solution.
-
-5.  Implementation
-
-  * Look for Cargo.toml in current directory. 
-  * Look for /tests/ directory.
-  * Log name of all rust files in /tests/
-  * Log name of all files in src? (or just the lib/bin name?)
-  * Clean project
-  * Build tests no-run with dead code.
-  * Find test entry points
-  * Parse
-  * Be happy.
