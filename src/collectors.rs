@@ -4,5 +4,5 @@ use nix::libc::pid_t;
 
 
 trait Coverage {
-    fn collect(test: &Path, proc: pid_t);
+    fn collect(test: &Path, process: pid_t);
 }
