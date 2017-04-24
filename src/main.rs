@@ -5,6 +5,8 @@ extern crate rustc_serialize;
 extern crate gimli;
 extern crate object;
 extern crate memmap;
+extern crate fallible_iterator;
+extern crate cpp_demangle;
 
 use std::io;
 use memmap::{Mmap, Protection};
@@ -21,6 +23,8 @@ use nix::sys::ptrace::*;
 use nix::sys::ptrace::ptrace::*;
 use cargo::util::Config;
 use cargo::core::Workspace;
+use fallible_iterator::FallibleIterator;
+use cpp_demangle::Symbol;
 use cargo::ops;
 use std::ptr;
 
@@ -103,7 +107,10 @@ fn main() {
         for c in comp.tests.iter() {
             match fork() {
                 Ok(ForkResult::Parent{ child }) => {
-                    collect_coverage(c.2.as_path(), child);
+                    match collect_coverage(c.2.as_path(), child) {
+                        Ok(_) => println!("Coverage successful"),
+                        Err(e) => println!("Error occurred: \n{}", e),
+                    }
                 }
                 Ok(ForkResult::Child) => {
                     execute_test(c.2.as_path(), true);
@@ -122,11 +129,54 @@ fn parse_object_file<Endianness>(obj: &object::File)
 
     let debug_info = obj.get_section(".debug_info").unwrap_or(&[]);
     let debug_info = gimli::DebugInfo::<Endianness>::new(debug_info);
-
+    let debug_abbrev = obj.get_section(".debug_abbrev").unwrap_or(&[]);
+    let debug_abbrev = gimli::DebugAbbrev::<Endianness>::new(debug_abbrev);
+    // Used to map functions to location in source.
+    let debug_line = obj.get_section(".debug_line").unwrap_or(&[]);
+    let debug_line = gimli::DebugLine::<Endianness>::new(debug_line);
+    let debug_string = obj.get_section(".debug_str").unwrap_or(&[]);
+    let debug_string = gimli::DebugStr::<Endianness>::new(debug_string);
+    // This is the root compilation unit. 
+    // This should be the one for the executable. Rest should be rust-buildbot 
+    // and rust core for test executables. 
+    // WARNING: This is an assumption based on analysis
+    if let Some(root) = debug_info.units().nth(0).unwrap() {
+        println!("Searching for functions!");
+        // We now follow all namespaces down and log all DW_TAG_subprograms as 
+        // these are function entry points
+        let abbreviations = root.abbreviations(debug_abbrev).unwrap();
+        let mut cursor = root.entries(&abbreviations);
+        let _ = cursor.next_entry();
+        let mut accumulator: isize = 0;
+        while let Some((delta, node)) = cursor.next_dfs().expect("Parsing failed") {
+            accumulator += delta;
+            if accumulator < 0 {
+                //skipped to next CU
+                break;
+            }
+            
+            if node.tag() == gimli::DW_TAG_subprogram {
+                if let Ok(Some(at)) = node.attr(gimli::DW_AT_linkage_name) {
+                    if let Some(st) = at.string_value(&debug_string) {
+                        match Symbol::new(st.to_bytes()) {
+                            Ok(x) => {
+                                println!("{}", x);
+                            },
+                            _ => {},
+                        }
+                    }
+                }
+            }
+            
+        }
+        // We now have all our functions.
+    } else {
+        println!("Root was NONE");
+    }
 }
 
 fn generate_hook_addresses(test: &Path) -> io::Result<()> {
-    use gimli::Endianity;
+    println!("Finding hook addresses");
     let file = File::open(test)?;
     let file = Mmap::open(&file, Protection::Read)?;
     if let Ok(obj) = object::File::parse(unsafe {file.as_slice() }) {
