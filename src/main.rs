@@ -104,7 +104,8 @@ fn main() {
         for c in comp.tests.iter() {
             match fork() {
                 Ok(ForkResult::Parent{ child }) => {
-                    match collect_coverage(c.2.as_path(), child) {
+                    match collect_coverage(workspace.root(), 
+                                           c.2.as_path(), child) {
                         Ok(_) => println!("Coverage successful"),
                         Err(e) => println!("Error occurred: \n{}", e),
                     }
@@ -121,14 +122,19 @@ fn main() {
     }
 }
 
-fn collect_coverage(test_path: &Path, test: pid_t) -> io::Result<()> {
-    tracer::generate_hook_addresses(test_path)?;
+fn collect_coverage(project_path: &Path, 
+                    test_path: &Path, 
+                    test: pid_t) -> io::Result<()> {
+    let traces = tracer::generate_tracer_data(project_path, test_path)?;
     
     match waitpid(test, None) {
         Ok(WaitStatus::Stopped(child, signal::SIGTRAP)) => {
             println!("Running test without analysing for now");
             // Use PTRACE_POKETEXT here to attach software breakpoints to lines 
             // we need to cover
+            for trace in traces.iter() {
+                // Attach traces and start listening!
+            }
             ptrace(PTRACE_CONT, child, ptr::null_mut(), ptr::null_mut())
                 .ok()
                 .expect("Failed to continue test");
