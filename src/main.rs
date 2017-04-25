@@ -16,7 +16,7 @@ use docopt::Docopt;
 use std::path::Path;
 use nix::sys::signal;
 use nix::unistd::*;
-use nix::libc::pid_t;
+use nix::libc::{pid_t, c_void};
 use nix::sys::wait::*;
 use nix::sys::ptrace::*;
 use nix::sys::ptrace::ptrace::*;
@@ -133,7 +133,12 @@ fn collect_coverage(project_path: &Path,
             // Use PTRACE_POKETEXT here to attach software breakpoints to lines 
             // we need to cover
             for trace in traces.iter() {
-                // Attach traces and start listening!
+                let raw_addr = trace.address as * mut c_void;
+                match ptrace(PTRACE_POKETEXT, child, raw_addr, ptr::null_mut()) {
+                    Ok(_) => println!("Added trace"),
+                    Err(e) => println!("Failed to add trace:\n {}", e),
+                }
+                    
             }
             ptrace(PTRACE_CONT, child, ptr::null_mut(), ptr::null_mut())
                 .ok()
@@ -143,6 +148,23 @@ fn collect_coverage(project_path: &Path,
             println!("Unexpected grab");
         }
         Err(err) => println!("{}", err)
+    }
+    // Now we start hitting lines!
+    loop {
+        match waitpid(test, None) {
+            Ok(WaitStatus::Stopped(child, signal::SIGTRAP)) => {
+                println!("Hit an instrumentation point");
+                ptrace(PTRACE_CONT, child, ptr::null_mut(), ptr::null_mut())
+                    .ok()
+                    .expect("Failed to continue test");
+                   
+            },
+            Ok(WaitStatus::Exited(child, code)) => {
+                println!("Test finished");
+                break;
+            },
+            _ => {},
+        }
     }
     Ok(())
 }

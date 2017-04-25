@@ -1,5 +1,9 @@
 language: rust
 cache: cargo
+addons:
+  apt:
+    packages:
+      - libssl-dev
 rust:
   - stable
   - beta

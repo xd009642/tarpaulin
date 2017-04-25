@@ -123,7 +123,6 @@ fn get_line_addresses<Endian: Endianity>(project: &Path, obj: &OFile) -> Vec<Tra
 
 
 pub fn generate_tracer_data(manifest: &Path, test: &Path) -> io::Result<Vec<TracerData>> {
-    println!("Finding hook addresses");
     let file = File::open(test)?;
     let file = Mmap::open(&file, Protection::Read)?;
     if let Ok(obj) = OFile::parse(unsafe {file.as_slice() }) {
