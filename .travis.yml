@@ -4,6 +4,7 @@ addons:
   apt:
     packages:
       - libssl-dev
+      - libssh-dev
 rust:
   - stable
   - beta
