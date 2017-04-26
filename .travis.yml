@@ -1,11 +1,11 @@
 language: rust
+sudo: required
 cache: cargo
 addons:
   apt:
     packages:
       - libssl-dev
-      - libssh-dev
-      - cmake
+      - libssl/lucid
 rust:
   - stable
   - beta
@@ -13,7 +13,13 @@ rust:
 matrix:
   allow_failures:
     - rust: nightly
+before_script:
+- sudo ldconfig
 script:
 - cargo clean
 - cargo build
 - cargo test
+
+branches:
+  only:
+    - master
