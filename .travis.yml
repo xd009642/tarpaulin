@@ -5,6 +5,7 @@ addons:
     packages:
       - libssl-dev
       - libssh-dev
+      - cmake
 rust:
   - stable
   - beta
