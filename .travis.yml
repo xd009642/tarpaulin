@@ -5,7 +5,6 @@ addons:
   apt:
     packages:
       - libssl-dev
-      - libssl/lucid
 rust:
   - stable
   - beta

@@ -11,3 +11,4 @@ extern crate rustc_demangle;
 
 pub mod tracer;
 pub mod collectors;
+pub mod personality;

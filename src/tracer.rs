@@ -63,7 +63,6 @@ fn parse_object_file<Endian: Endianity>(obj: &OFile) -> Vec<TracerData> {
                     }
                 }
             }
-            
         }
     }
     result
@@ -99,7 +98,7 @@ fn get_line_addresses<Endian: Endianity>(project: &Path, obj: &OFile) -> Vec<Tra
                                     let data = TracerData {
                                         path: path,
                                         line: ln_row.line().unwrap_or(0),
-                                        address: header.header_length() + ln_row.address(),
+                                        address: ln_row.address(),
                                         branch_data: None,
                                     };
                                     result.push(data);

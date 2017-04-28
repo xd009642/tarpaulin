@@ -9,7 +9,7 @@ extern crate memmap;
 extern crate fallible_iterator;
 extern crate rustc_demangle;
 
-use cargo_tarpaulin::tracer;
+use cargo_tarpaulin::{tracer, personality};
 use std::io;
 use std::ffi::CString;
 use docopt::Docopt;
@@ -170,9 +170,16 @@ fn collect_coverage(project_path: &Path,
 }
 
 fn execute_test(test: &Path, backtrace_on: bool) {
-    
+    use personality::*; 
     let exec_path = CString::new(test.to_str().unwrap()).unwrap();
-
+    if let Ok(ret) = personality(GET_PERSONA) {
+        match personality(ret as u64 | ADDR_NO_RANDOMIZE) {
+            Ok(_) => println!("Address space randomisation disabled"),
+            Err(e) => println!("An error occurred: {}", e),
+        }
+    } else {
+        println!("Failed to call personality");
+    }
     ptrace(PTRACE_TRACEME, 0, ptr::null_mut(), ptr::null_mut())
         .ok()
         .expect("Failed to trace");
