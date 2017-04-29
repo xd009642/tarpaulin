@@ -1,4 +1,5 @@
 language: rust
+dist: trusty
 sudo: required
 cache: cargo
 addons:
@@ -16,7 +17,7 @@ before_script:
 - sudo ldconfig
 script:
 - cargo clean
-- cargo build
+- RUST_BACKTRRACE=1 cargo build
 - cargo test
 
 branches:

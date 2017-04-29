@@ -1,5 +1,5 @@
 use nix::{Errno, Error, Result};
-use nix::libc::{c_int, c_ulong};
+use nix::libc::{c_int, c_long};
 
 #[cfg(all(target_os = "linux",
           any(target_arch = "x86",
@@ -7,17 +7,17 @@ use nix::libc::{c_int, c_ulong};
               target_arch = "arm")),
               )]
 
-pub type Persona = c_ulong;
+pub type Persona = c_long;
 
 pub const ADDR_NO_RANDOMIZE: Persona = 0x0040000;
-pub const GET_PERSONA: Persona = 0xFFFFFF;
+pub const GET_PERSONA: Persona = 0xFFFFFFFF;
 
 
 mod ffi {
-    use nix::libc::{c_ulong, c_int};
+    use nix::libc::{c_long, c_int};
 
     extern {
-        pub fn personality(persona: c_ulong) -> c_int;
+        pub fn personality(persona: c_long) -> c_int;
     }
 }
 
