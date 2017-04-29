@@ -1,8 +1,9 @@
+
 use std::ptr;
 use nix::sys::ptrace::ptrace;
 use nix::sys::ptrace::ptrace::*;
-use nix::libc::{pid_t, c_void};
-
+use nix::libc::{pid_t, c_void, c_long};
+use nix::{Result, Error, Errno};
 
 #[cfg(any(target_arch = "x86", target_arch = "x86_64"))]
 const INT: u8 = 0xCC;
@@ -20,41 +21,52 @@ pub struct Breakpoint {
     pub address: isize,
     /// Bottom byte of address data. 
     /// This is replaced to enable the interrupt. Rest of data is never changed.
-    pub data: u8,
+    data: u8,
 }
 
 impl Breakpoint {
     
-    /// Attaches the current breakpoint.
-    pub fn enable(&mut self) {
-        let raw_addr = self.address as * mut c_void;
-        if let Ok(data) = ptrace(PTRACE_PEEKDATA, self.pid, raw_addr, ptr::null_mut()) {
-            self.data = (data & 0xFF) as u8;
-            let intdata = (data & !(0xFF as i64)) | (INT as i64);
-            let intdata = intdata as * mut c_void;
-            if let Err(e) = ptrace(PTRACE_POKEDATA, self.pid, raw_addr, intdata) {
-                println!("WARNING: Couldn't instrument code {}", e);   
-            }
+    pub fn new(pid:pid_t, pc:u64, address:isize) ->Result<Breakpoint> {
+        let mut b = Breakpoint{ 
+            pid:pid,
+            pc:pc,
+            address:address,
+            data:0x00,
+        };
+        match b.enable() {
+            Ok(_) => Ok(b),
+            Err(e) => Err(e)
         }
     }
-    
-    fn disable(&self) {
+
+    /// Attaches the current breakpoint.
+    fn enable(&mut self) -> Result<c_long> {
         let raw_addr = self.address as * mut c_void;
-        if let Ok(data) = ptrace(PTRACE_PEEKDATA, self.pid, raw_addr, ptr::null_mut()) {
-            let orgdata = data & !(0xFF as i64) | (self.data as i64);
-            let orgdata = orgdata as * mut c_void;
-            if let Err(e) = ptrace(PTRACE_POKEDATA, self.pid, raw_addr, orgdata) {
-                println!("WARNING: Couldn't restore data {}", e);   
-            }
-        }
+        let data = ptrace(PTRACE_PEEKDATA, self.pid, 
+                          raw_addr, ptr::null_mut())?;
+
+        self.data = (data & 0xFF) as u8;
+        let intdata = (data & !(0xFF as i64)) | (INT as i64);
+        let intdata = intdata as * mut c_void;
+        ptrace(PTRACE_POKEDATA, self.pid, raw_addr, intdata) 
+    }
+    
+    fn disable(&self) -> Result<c_long> {
+        let raw_addr = self.address as * mut c_void;
+        let data = ptrace(PTRACE_PEEKDATA, self.pid, 
+                          raw_addr, ptr::null_mut())?;
+        
+        let orgdata = data & !(0xFF as i64) | (self.data as i64);
+        let orgdata = orgdata as * mut c_void;
+        ptrace(PTRACE_POKEDATA, self.pid, raw_addr, orgdata) 
     }
 
     /// Steps past the current breakpoint.
     /// For more advanced coverage may interrogate the variables of a branch.
-    pub fn step(&mut self) {
-        self.disable();
+    pub fn step(&mut self) -> Result<c_long> {
+        self.disable()?;
         // Need to set the program counter back one. 
-        self.enable();
-        panic!("Unimplemented!");
+        self.enable()?;
+        Err(Error::Sys(Errno::UnknownErrno))
     }
 }

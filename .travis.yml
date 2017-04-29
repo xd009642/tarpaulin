@@ -13,8 +13,6 @@ rust:
 matrix:
   allow_failures:
     - rust: nightly
-before_script:
-- sudo ldconfig
 script:
 - cargo clean
 - RUST_BACKTRRACE=1 cargo build

@@ -12,8 +12,9 @@ use std::io;
 use std::ptr;
 use std::ffi::CString;
 use std::path::Path;
+use std::collections::HashMap;
 use nix::unistd::*;
-use nix::libc::{pid_t, c_void};
+use nix::libc::pid_t;
 use nix::sys::signal;
 use nix::sys::wait::*;
 use nix::sys::ptrace::ptrace;
@@ -24,6 +25,9 @@ pub mod collectors;
 pub mod breakpoint;
 /// Should be unnecessary with a future nix crate release.
 mod personality;
+
+use tracer::*;
+use breakpoint::*;
 
 
 pub fn get_test_coverage(root: &Path, test: &Path) {
@@ -47,28 +51,24 @@ pub fn get_test_coverage(root: &Path, test: &Path) {
 fn collect_coverage(project_path: &Path, 
                     test_path: &Path, 
                     test: pid_t) -> io::Result<()> {
-    let traces = tracer::generate_tracer_data(project_path, test_path)?;
-    
+    let traces = generate_tracer_data(project_path, test_path)?;
+    let mut bps: HashMap<u64, Breakpoint> = HashMap::new();
     match waitpid(test, None) {
         Ok(WaitStatus::Stopped(child, signal::SIGTRAP)) => {
             println!("Running test without analysing for now");
-            // Use PTRACE_POKETEXT here to attach software breakpoints to lines 
-            // we need to cover
             for trace in traces.iter() {
-                let raw_addr = trace.address as * mut c_void;
-                match ptrace(PTRACE_POKETEXT, child, test as * mut c_void, raw_addr) {
-                    Ok(_) => println!("Added trace"),
-                    Err(e) => println!("Failed to add trace at {:X}: {}", trace.address, e),
+                match Breakpoint::new(test, trace.address, trace.address as isize) {
+                    Ok(bp) => { 
+                        let _ = bps.insert(trace.address, bp);
+                    },
+                    Err(e) => println!("Failed to add trace: {}", e),
                 }
-                    
             }
             ptrace(PTRACE_CONT, child, ptr::null_mut(), ptr::null_mut())
                 .ok()
                 .expect("Failed to continue test");
         }
-        Ok(_) => {
-            println!("Unexpected grab");
-        }
+        Ok(_) => println!("Unexpected grab"),   
         Err(err) => println!("{}", err)
     }
     // Now we start hitting lines!
