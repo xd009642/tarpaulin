@@ -9,6 +9,7 @@ extern crate memmap;
 extern crate fallible_iterator;
 extern crate rustc_demangle;
 
+use std::env;
 use cargo_tarpaulin::get_test_coverage;
 use docopt::Docopt;
 use cargo::util::Config;
@@ -73,7 +74,12 @@ fn main() {
     }
 
     let filter = ops::CompileFilter::Everything;
-
+    let rustflags = "RUSTFLAGS";
+    let mut value = "-Crelocation-model=dynamic-no-pic -Clink-dead-code".to_string();
+    if let Ok(vtemp) = env::var(rustflags) {
+        value.push_str(vtemp.as_ref());
+    }
+    env::set_var(rustflags, value);
     let copt = ops::CompileOptions {
         config: &config,
         jobs: None,
@@ -89,10 +95,16 @@ fn main() {
         target_rustdoc_args: None,
         target_rustc_args: None,
     };
-    // Do I need to clean beforehand?
-    if let Ok(comp) = ops::compile(&workspace, &copt) {
-        for c in comp.tests.iter() {
-            get_test_coverage(workspace.root(), c.2.as_path());
-        }
+    // TODO Determine if I should clean the target before compiling.
+    let compilation = ops::compile(&workspace, &copt);
+    match compilation {
+        Ok(comp) => {
+            println!("Running Tarpaulin");
+            for c in comp.tests.iter() {
+                println!("Processing {}", c.1);
+                get_test_coverage(workspace.root(), c.2.as_path());
+            }
+        },
+        Err(e) => println!("Failed to compile: {}", e),
     }
 }

@@ -29,7 +29,7 @@ mod personality;
 use tracer::*;
 use breakpoint::*;
 
-
+/// Returns the coverage statistics for a test executable in the given workspace
 pub fn get_test_coverage(root: &Path, test: &Path) {
     match fork() {
         Ok(ForkResult::Parent{ child }) => {
@@ -48,6 +48,7 @@ pub fn get_test_coverage(root: &Path, test: &Path) {
     }
 }
 
+/// Collects the coverage data from the launched test
 fn collect_coverage(project_path: &Path, 
                     test_path: &Path, 
                     test: pid_t) -> io::Result<()> {
@@ -55,13 +56,13 @@ fn collect_coverage(project_path: &Path,
     let mut bps: HashMap<u64, Breakpoint> = HashMap::new();
     match waitpid(test, None) {
         Ok(WaitStatus::Stopped(child, signal::SIGTRAP)) => {
-            println!("Running test without analysing for now");
             for trace in traces.iter() {
+                let file = trace.path.file_name().unwrap().to_str().unwrap();
                 match Breakpoint::new(test, trace.address) {
                     Ok(bp) => { 
                         let _ = bps.insert(trace.address, bp);
                     },
-                    Err(e) => println!("Failed to add trace: {}", e),
+                    Err(e) => println!("Failed to instrument {}:{}\n{}", file, trace.line, e),
                 }
             }
             ptrace(PTRACE_CONT, child, ptr::null_mut(), ptr::null_mut())
@@ -75,14 +76,12 @@ fn collect_coverage(project_path: &Path,
     loop {
         match waitpid(test, None) {
             Ok(WaitStatus::Stopped(child, signal::SIGTRAP)) => {
-                println!("Hit an instrumentation point");
                 ptrace(PTRACE_CONT, child, ptr::null_mut(), ptr::null_mut())
                     .ok()
                     .expect("Failed to continue test");
-                   
             },
             Ok(WaitStatus::Exited(_, _)) => {
-                println!("Test finished");
+                println!("Analysis complete");
                 break;
             },
             _ => {},
@@ -91,11 +90,12 @@ fn collect_coverage(project_path: &Path,
     Ok(())
 }
 
+/// Launches the test executable
 fn execute_test(test: &Path, backtrace_on: bool) {
     let exec_path = CString::new(test.to_str().unwrap()).unwrap();
-
-    if let Err(e) = personality::disable_aslr() {
-        println!("Disable ASLR failed: {}", e);
+    match personality::disable_aslr() {
+        Ok(_) => {},
+        Err(e) => println!("ASLR disable failed: {}", e),
     }
     ptrace(PTRACE_TRACEME, 0, ptr::null_mut(), ptr::null_mut())
         .ok()

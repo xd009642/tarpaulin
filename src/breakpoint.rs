@@ -41,7 +41,6 @@ impl Breakpoint {
         let raw_addr = self.pc as * mut c_void;
         let data = ptrace(PTRACE_PEEKDATA, self.pid, 
                           raw_addr, ptr::null_mut())?;
-
         self.data = (data & 0xFF) as u8;
         let intdata = (data & !(0xFF as i64)) | (INT as i64);
         let intdata = intdata as * mut c_void;
