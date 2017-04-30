@@ -94,7 +94,6 @@ fn get_line_addresses<Endian: Endianity>(project: &Path, obj: &OFile) -> Vec<Tra
                                 let file = file.path_name();
                                 if let Ok(file) = String::from_utf8(file.to_bytes().to_vec()) {
                                     path.push(file);
-                                    
                                     let data = TracerData {
                                         path: path,
                                         line: ln_row.line().unwrap_or(0),
@@ -129,7 +128,7 @@ pub fn generate_tracer_data(manifest: &Path, test: &Path) -> io::Result<Vec<Trac
         let data = if obj.is_little_endian() {
             get_line_addresses::<LittleEndian>(manifest, &obj)
         } else {
-            get_line_addresses::<LittleEndian>(manifest, &obj)
+            get_line_addresses::<BigEndian>(manifest, &obj)
         };
         Ok(data)
     } else {

@@ -7,10 +7,10 @@ use nix::libc::{c_int, c_long};
               target_arch = "arm")),
               )]
 
-pub type Persona = c_long;
+type Persona = c_long;
 
-pub const ADDR_NO_RANDOMIZE: Persona = 0x0040000;
-pub const GET_PERSONA: Persona = 0xFFFFFFFF;
+const ADDR_NO_RANDOMIZE: Persona = 0x0040000;
+const GET_PERSONA: Persona = 0xFFFFFFFF;
 
 
 mod ffi {
@@ -21,7 +21,7 @@ mod ffi {
     }
 }
 
-pub fn personality(persona: Persona) -> Result<c_int> {
+fn personality(persona: Persona) -> Result<c_int> {
     let ret = unsafe {
         Errno::clear();
         ffi::personality(persona)
@@ -32,3 +32,14 @@ pub fn personality(persona: Persona) -> Result<c_int> {
     }
 }
 
+pub fn disable_aslr() -> Result<i32> {
+    match personality(GET_PERSONA) {
+        Ok(p) => {
+            match personality(p as Persona | ADDR_NO_RANDOMIZE) {
+                ok @ Ok(_) => ok,
+                err @ Err(..) => err,
+            }
+        },
+        err @ Err(..) => err,
+    }
+}

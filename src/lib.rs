@@ -57,7 +57,7 @@ fn collect_coverage(project_path: &Path,
         Ok(WaitStatus::Stopped(child, signal::SIGTRAP)) => {
             println!("Running test without analysing for now");
             for trace in traces.iter() {
-                match Breakpoint::new(test, trace.address, trace.address as isize) {
+                match Breakpoint::new(test, trace.address) {
                     Ok(bp) => { 
                         let _ = bps.insert(trace.address, bp);
                     },
@@ -92,11 +92,11 @@ fn collect_coverage(project_path: &Path,
 }
 
 fn execute_test(test: &Path, backtrace_on: bool) {
-    use personality::*; 
     let exec_path = CString::new(test.to_str().unwrap()).unwrap();
-    if let Ok(ret) = personality(GET_PERSONA) {
-        let _ = personality(ret as Persona | ADDR_NO_RANDOMIZE);
-    } 
+
+    if let Err(e) = personality::disable_aslr() {
+        println!("Disable ASLR failed: {}", e);
+    }
     ptrace(PTRACE_TRACEME, 0, ptr::null_mut(), ptr::null_mut())
         .ok()
         .expect("Failed to trace");

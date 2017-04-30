@@ -17,8 +17,6 @@ pub struct Breakpoint {
     pub pid: pid_t,
     /// Program counter
     pub pc: u64,
-    /// Address of the breakpoint, used to attach interrupt to memory
-    pub address: isize,
     /// Bottom byte of address data. 
     /// This is replaced to enable the interrupt. Rest of data is never changed.
     data: u8,
@@ -26,11 +24,10 @@ pub struct Breakpoint {
 
 impl Breakpoint {
     
-    pub fn new(pid:pid_t, pc:u64, address:isize) ->Result<Breakpoint> {
+    pub fn new(pid:pid_t, pc:u64) ->Result<Breakpoint> {
         let mut b = Breakpoint{ 
             pid:pid,
             pc:pc,
-            address:address,
             data:0x00,
         };
         match b.enable() {
@@ -41,7 +38,7 @@ impl Breakpoint {
 
     /// Attaches the current breakpoint.
     fn enable(&mut self) -> Result<c_long> {
-        let raw_addr = self.address as * mut c_void;
+        let raw_addr = self.pc as * mut c_void;
         let data = ptrace(PTRACE_PEEKDATA, self.pid, 
                           raw_addr, ptr::null_mut())?;
 
@@ -52,7 +49,7 @@ impl Breakpoint {
     }
     
     fn disable(&self) -> Result<c_long> {
-        let raw_addr = self.address as * mut c_void;
+        let raw_addr = self.pc as * mut c_void;
         let data = ptrace(PTRACE_PEEKDATA, self.pid, 
                           raw_addr, ptr::null_mut())?;
         
