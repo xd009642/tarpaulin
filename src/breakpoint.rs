@@ -3,10 +3,12 @@ use std::ptr;
 use nix::sys::ptrace::ptrace;
 use nix::sys::ptrace::ptrace::*;
 use nix::libc::{pid_t, c_void, c_long};
-use nix::{Result, Error, Errno};
+use nix::Result;
 
 #[cfg(any(target_arch = "x86", target_arch = "x86_64"))]
 const INT: u8 = 0xCC;
+
+const RIP: u8 = 128;
 
 /// Breakpoint construct used to monitor program execution. As tarpaulin is an
 /// automated process, this will likely have less functionality than most 
@@ -37,7 +39,7 @@ impl Breakpoint {
     }
 
     /// Attaches the current breakpoint.
-    fn enable(&mut self) -> Result<c_long> {
+    pub fn enable(&mut self) -> Result<c_long> {
         let raw_addr = self.pc as * mut c_void;
         let data = ptrace(PTRACE_PEEKDATA, self.pid, 
                           raw_addr, ptr::null_mut())?;
@@ -60,9 +62,11 @@ impl Breakpoint {
     /// Steps past the current breakpoint.
     /// For more advanced coverage may interrogate the variables of a branch.
     pub fn step(&mut self) -> Result<c_long> {
+        let pc = ptrace(PTRACE_PEEKUSER, self.pid, 
+                        RIP as * mut c_void, ptr::null_mut())?;
+        let pc = pc - 1;
         self.disable()?;
         // Need to set the program counter back one. 
-        self.enable()?;
-        Err(Error::Sys(Errno::UnknownErrno))
+        ptrace(PTRACE_POKEUSER, self.pid, RIP as * mut c_void, pc as * mut c_void)
     }
 }

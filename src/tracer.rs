@@ -20,6 +20,7 @@ pub struct TracerData {
     pub line: u64,
     pub address: u64,
     pub branch_data: Option<Branch>,
+    pub hits: u64,
 }
 
 
@@ -53,6 +54,7 @@ fn get_line_addresses<Endian: Endianity>(project: &Path, obj: &OFile) -> Vec<Tra
                                         line: ln_row.line().unwrap_or(0),
                                         address: ln_row.address(),
                                         branch_data: None,
+                                        hits: 0u64
                                     };
                                     result.push(data);
                                 }
