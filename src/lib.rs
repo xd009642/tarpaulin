@@ -36,7 +36,7 @@ pub fn get_test_coverage(root: &Path, test: &Path) {
         Ok(ForkResult::Parent{ child }) => {
             match collect_coverage(root, test, child) {
                 Ok(_) => println!("Coverage successful"),
-                Err(e) => println!("Error occurred: \n{}", e),
+                Err(e) => println!("Error occurred: {}", e),
             }
         }
         Ok(ForkResult::Child) => {
@@ -59,25 +59,28 @@ fn collect_coverage(project_path: &Path,
         Ok(WaitStatus::Stopped(child, signal::SIGTRAP)) => {
             for trace in traces.iter() {
                 let file = trace.path.file_name().unwrap().to_str().unwrap();
-                match Breakpoint::new(test, trace.address) {
+                match Breakpoint::new(child, trace.address) {
                     Ok(bp) => { 
                         let _ = bps.insert(trace.address, bp);
                     },
                     Err(e) => println!("Failed to instrument {}:{}\n{}", file, trace.line, e),
                 }
             }
-            ptrace(PTRACE_CONT, child, ptr::null_mut(), ptr::null_mut())
-                .ok()
-                .expect("Failed to continue test");
-        }
+            let _ = ptrace(PTRACE_CONT, child, ptr::null_mut(), ptr::null_mut());
+        },
         Ok(_) => println!("Unexpected grab"),   
         Err(err) => println!("{}", err)
     }
+    println!("Test process: {}", test);
     // Now we start hitting lines!
     loop {
         match waitpid(test, None) {
-            Ok(WaitStatus::Stopped(child, signal::SIGTRAP)) => {
-                let mut moved = false;
+            Ok(WaitStatus::Exited(_, sig)) => {
+                println!("Test finished returned {}", sig);
+                break;
+            },
+            Ok(WaitStatus::Stopped(child, signal::SIGTRAP)) | 
+                Ok(WaitStatus::Signaled(child, signal::SIGTRAP, true)) => {
                 if let Ok(reg) = ptrace(PTRACE_PEEKUSER, child, 
                                         128 as * mut c_void, ptr::null_mut()) {
                     let reg = (reg-1) as u64;
@@ -87,26 +90,25 @@ fn collect_coverage(project_path: &Path,
                                 t.hits += 1;
                             }
                         }
-                        ptrace(PTRACE_SINGLESTEP, child, ptr::null_mut(), ptr::null_mut())
-                            .ok()
-                            .expect("Failed to continue test");
-                        let _ = bp.enable();
-                        moved = true;
+
+                        let _ = bp.step();
+                        let _ = ptrace(PTRACE_CONT, child, ptr::null_mut(), ptr::null_mut());
                     }
                 }
-                if !moved {
-                    ptrace(PTRACE_CONT, child, ptr::null_mut(), ptr::null_mut())
-                        .ok()
-                        .expect("Failed to continue test");
-                }
             },
-            Ok(WaitStatus::Exited(_, _)) => {
-                println!("Analysis complete");
+            Ok(WaitStatus::Stopped(_, signal)) => {
+                println!("Stopped due to {:?}", signal);
                 break;
             },
-            Ok(_) => println!("Unexpected stop in test"),
-            Err(_) => return Err(Error::new(ErrorKind::Other, "Failed to run test")),
+            Ok(x) => println!("Unexpected stop in test\n{:?}", x),
+            Err(e) => {
+                return Err(Error::new(ErrorKind::Other, e))
+            },
         }
+    }
+    for t in traces.iter() {
+        let file = t.path.file_name().unwrap().to_str().unwrap();
+        println!("{}:{} - hits: {}", file, t.line, t.hits);
     }
     Ok(())
 }

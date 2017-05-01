@@ -21,16 +21,18 @@ pub struct Breakpoint {
     pub pc: u64,
     /// Bottom byte of address data. 
     /// This is replaced to enable the interrupt. Rest of data is never changed.
-    data: u8,
+    data: i64,
 }
 
 impl Breakpoint {
     
     pub fn new(pid:pid_t, pc:u64) ->Result<Breakpoint> {
+        
+        let data = ptrace(PTRACE_PEEKDATA, pid, pc as * mut c_void, ptr::null_mut())?;
         let mut b = Breakpoint{ 
-            pid:pid,
-            pc:pc,
-            data:0x00,
+            pid: pid,
+            pc: pc,
+            data: data,
         };
         match b.enable() {
             Ok(_) => Ok(b),
@@ -39,34 +41,24 @@ impl Breakpoint {
     }
 
     /// Attaches the current breakpoint.
-    pub fn enable(&mut self) -> Result<c_long> {
-        let raw_addr = self.pc as * mut c_void;
-        let data = ptrace(PTRACE_PEEKDATA, self.pid, 
-                          raw_addr, ptr::null_mut())?;
-        self.data = (data & 0xFF) as u8;
-        let intdata = (data & !(0xFF as i64)) | (INT as i64);
+    fn enable(&mut self) -> Result<c_long> {
+        let intdata = (self.data & !(0xFF as i64)) | (INT as i64);
         let intdata = intdata as * mut c_void;
-        ptrace(PTRACE_POKEDATA, self.pid, raw_addr, intdata) 
+        ptrace(PTRACE_POKEDATA, self.pid, self.pc as * mut c_void, intdata) 
     }
     
     fn disable(&self) -> Result<c_long> {
         let raw_addr = self.pc as * mut c_void;
-        let data = ptrace(PTRACE_PEEKDATA, self.pid, 
-                          raw_addr, ptr::null_mut())?;
-        
-        let orgdata = data & !(0xFF as i64) | (self.data as i64);
-        let orgdata = orgdata as * mut c_void;
-        ptrace(PTRACE_POKEDATA, self.pid, raw_addr, orgdata) 
+        ptrace(PTRACE_POKEDATA, self.pid, raw_addr, self.data as * mut c_void) 
     }
 
     /// Steps past the current breakpoint.
     /// For more advanced coverage may interrogate the variables of a branch.
     pub fn step(&mut self) -> Result<c_long> {
-        let pc = ptrace(PTRACE_PEEKUSER, self.pid, 
-                        RIP as * mut c_void, ptr::null_mut())?;
-        let pc = pc - 1;
         self.disable()?;
         // Need to set the program counter back one. 
-        ptrace(PTRACE_POKEUSER, self.pid, RIP as * mut c_void, pc as * mut c_void)
+        ptrace(PTRACE_POKEUSER, self.pid, RIP as * mut c_void, self.pc as * mut c_void)?;
+        ptrace(PTRACE_SINGLESTEP, self.pid, ptr::null_mut(), ptr::null_mut())
+        //self.enable()
     }
 }
