@@ -74,6 +74,7 @@ fn collect_coverage(project_path: &Path,
     println!("Test process: {}", test);
     // Now we start hitting lines!
     loop {
+        let _ = ptrace(PTRACE_CONT, test, ptr::null_mut(), ptr::null_mut());
         match waitpid(test, None) {
             Ok(WaitStatus::Exited(_, sig)) => {
                 println!("Test finished returned {}", sig);
@@ -90,9 +91,7 @@ fn collect_coverage(project_path: &Path,
                                 t.hits += 1;
                             }
                         }
-
                         let _ = bp.step();
-                        let _ = ptrace(PTRACE_CONT, child, ptr::null_mut(), ptr::null_mut());
                     }
                 }
             },
@@ -124,12 +123,11 @@ fn execute_test(test: &Path, backtrace_on: bool) {
     ptrace(PTRACE_TRACEME, 0, ptr::null_mut(), ptr::null_mut())
         .ok()
         .expect("Failed to trace");
-
-    let envars: Vec<CString> = if backtrace_on {
-        vec![CString::new("RUST_BACKTRACE=1").unwrap()]
-    } else {
-        vec![]
-    };
+    
+    let mut envars: Vec<CString> = vec![CString::new("RUST_TEST_THREADS=1").unwrap()];
+    if backtrace_on {
+        envars.push(CString::new("RUST_BACKTRACE=1").unwrap());
+    } 
     execve(&exec_path, &[exec_path.clone()], envars.as_slice())
         .unwrap();
 }
