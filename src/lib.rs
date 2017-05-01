@@ -7,6 +7,7 @@ extern crate object;
 extern crate memmap;
 extern crate fallible_iterator;
 extern crate rustc_demangle;
+extern crate regex;
 
 use std::io;
 use std::io::{Error, ErrorKind};
@@ -59,11 +60,12 @@ fn collect_coverage(project_path: &Path,
         Ok(WaitStatus::Stopped(child, signal::SIGTRAP)) => {
             for trace in traces.iter() {
                 let file = trace.path.file_name().unwrap().to_str().unwrap();
+                println!("Instrumenting {}:{}", file, trace.line);
                 match Breakpoint::new(child, trace.address) {
                     Ok(bp) => { 
                         let _ = bps.insert(trace.address, bp);
                     },
-                    Err(e) => println!("Failed to instrument {}:{}\n{}", file, trace.line, e),
+                    Err(e) => println!("Failed to instrument {}", e),
                 }
             }
             let _ = ptrace(PTRACE_CONT, child, ptr::null_mut(), ptr::null_mut());

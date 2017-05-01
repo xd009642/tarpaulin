@@ -1,4 +1,5 @@
 use std::io;
+use std::io::{BufRead, BufReader};
 use std::path::{PathBuf, Path};
 use std::fs::File;
 use std::collections::HashSet;
@@ -6,7 +7,7 @@ use object::Object;
 use object::File as OFile;
 use memmap::{Mmap, Protection};
 use gimli::*;
-
+use regex::Regex;
 
 
 #[derive(Debug, Clone)]
@@ -21,6 +22,19 @@ pub struct TracerData {
     pub address: u64,
     pub branch_data: Option<Branch>,
     pub hits: u64,
+}
+
+fn line_is_traceable(file: &PathBuf, line: u64) -> bool {
+    let mut result = false;
+    // Module imports are flagged as debuggable. But are always ran so meaningless!
+    let reg: Regex = Regex::new(r"(:?^|\s)mod\s+\w+;").unwrap();
+    if let Ok(f) = File::open(file) {
+        let reader = BufReader::new(&f);
+        if let Some(Ok(l)) = reader.lines().nth((line - 1) as usize) {
+            result = !reg.is_match(l.as_ref());
+        }
+    }
+    result
 }
 
 
@@ -46,12 +60,22 @@ fn get_line_addresses<Endian: Endianity>(project: &Path, obj: &OFile) -> Vec<Tra
                         // Source is part of project so we cover it.
                         if path.starts_with(project) {
                             if let Some(file) = ln_row.file(header) {
+                                // If we can't map to line, we can't trace it.
+                                let line = ln_row.line().unwrap_or(0);
+                                if line == 0 {
+                                    continue;
+                                }
                                 let file = file.path_name();
+                                // We now need to filter out lines which are meaningless to trace.
+                                
                                 if let Ok(file) = String::from_utf8(file.to_bytes().to_vec()) {
                                     path.push(file);
+                                    if !line_is_traceable(&path, line) {
+                                        continue;
+                                    }
                                     let data = TracerData {
                                         path: path,
-                                        line: ln_row.line().unwrap_or(0),
+                                        line: line,
                                         address: ln_row.address(),
                                         branch_data: None,
                                         hits: 0u64
