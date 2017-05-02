@@ -1,14 +1,10 @@
-
-use std::ptr;
-use nix::sys::ptrace::ptrace;
-use nix::sys::ptrace::ptrace::*;
-use nix::libc::{pid_t, c_void, c_long};
+use nix::libc::{pid_t, c_long};
 use nix::Result;
+use ptrace_control::*;
 
 #[cfg(any(target_arch = "x86", target_arch = "x86_64"))]
 const INT: u64 = 0xCC;
 
-const RIP: u8 = 128;
 
 /// Breakpoint construct used to monitor program execution. As tarpaulin is an
 /// automated process, this will likely have less functionality than most 
@@ -31,7 +27,7 @@ impl Breakpoint {
     
     pub fn new(pid:pid_t, pc:u64) ->Result<Breakpoint> {
         let aligned = pc & !0x7u64;
-        let data = ptrace(PTRACE_PEEKDATA, pid, aligned as * mut c_void, ptr::null_mut())?;
+        let data = read_address(pid, aligned)?;
         let mut b = Breakpoint{ 
             pid: pid,
             pc: pc,
@@ -48,23 +44,21 @@ impl Breakpoint {
     fn enable(&mut self) -> Result<c_long> {
         let mut intdata = self.data & (!(0xFFu64 << self.shift) as i64);
         intdata |= (INT << self.shift) as i64;
-        let intdata = intdata as * mut c_void;
         
-        ptrace(PTRACE_POKEDATA, self.pid, self.pc as * mut c_void, intdata) 
+        write_to_address(self.pid, self.aligned_address(), intdata)
     }
     
     fn disable(&self) -> Result<c_long> {
-        let raw_addr = self.aligned_address() as * mut c_void;
-        ptrace(PTRACE_POKEDATA, self.pid, raw_addr, self.data as * mut c_void) 
+        write_to_address(self.pid, self.aligned_address(), self.data)
     }
 
     /// Steps past the current breakpoint.
     /// For more advanced coverage may interrogate the variables of a branch.
     pub fn step(&mut self) -> Result<c_long> {
         self.disable()?;
-        // Need to set the program counter back one. 
-        ptrace(PTRACE_POKEUSER, self.pid, RIP as * mut c_void, self.pc as * mut c_void)?;
-        ptrace(PTRACE_SINGLESTEP, self.pid, ptr::null_mut(), ptr::null_mut())?;
+        // Need to set the program counter back one.
+        set_instruction_pointer(self.pid, self.pc)?;
+        step(self.pid)?;
         self.enable()
     }
 

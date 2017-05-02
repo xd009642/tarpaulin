@@ -11,25 +11,24 @@ extern crate regex;
 
 use std::io;
 use std::io::{Error, ErrorKind};
-use std::ptr;
 use std::ffi::CString;
 use std::path::Path;
 use std::collections::HashMap;
 use nix::unistd::*;
-use nix::libc::{pid_t, c_void};
+use nix::libc::pid_t;
 use nix::sys::signal;
 use nix::sys::wait::*;
-use nix::sys::ptrace::ptrace;
-use nix::sys::ptrace::ptrace::*;
 
 pub mod tracer;
 pub mod collectors;
 pub mod breakpoint;
 /// Should be unnecessary with a future nix crate release.
 mod personality;
+mod ptrace_control;
 
 use tracer::*;
 use breakpoint::*;
+use ptrace_control::*;
 
 /// Returns the coverage statistics for a test executable in the given workspace
 pub fn get_test_coverage(root: &Path, test: &Path) {
@@ -55,12 +54,13 @@ fn collect_coverage(project_path: &Path,
                     test_path: &Path, 
                     test: pid_t) -> io::Result<()> {
     let mut traces = generate_tracer_data(project_path, test_path)?;
+    
     let mut bps: HashMap<u64, Breakpoint> = HashMap::new();
     match waitpid(test, None) {
         Ok(WaitStatus::Stopped(child, signal::SIGTRAP)) => {
             for trace in traces.iter() {
                 let file = trace.path.file_name().unwrap().to_str().unwrap();
-                println!("Instrumenting {}:{}", file, trace.line);
+                println!("Instrumenting {}:{} - {:X}", file, trace.line, trace.address);
                 match Breakpoint::new(child, trace.address) {
                     Ok(bp) => { 
                         let _ = bps.insert(trace.address, bp);
@@ -68,7 +68,7 @@ fn collect_coverage(project_path: &Path,
                     Err(e) => println!("Failed to instrument {}", e),
                 }
             }
-            let _ = ptrace(PTRACE_CONT, child, ptr::null_mut(), ptr::null_mut());
+            let _ = continue_exec(child);
         },
         Ok(_) => println!("Unexpected grab"),   
         Err(err) => println!("{}", err)
@@ -76,7 +76,7 @@ fn collect_coverage(project_path: &Path,
     println!("Test process: {}", test);
     // Now we start hitting lines!
     loop {
-        let _ = ptrace(PTRACE_CONT, test, ptr::null_mut(), ptr::null_mut());
+        let _ = continue_exec(test);
         match waitpid(test, None) {
             Ok(WaitStatus::Exited(_, sig)) => {
                 println!("Test finished returned {}", sig);
@@ -84,8 +84,7 @@ fn collect_coverage(project_path: &Path,
             },
             Ok(WaitStatus::Stopped(child, signal::SIGTRAP)) | 
                 Ok(WaitStatus::Signaled(child, signal::SIGTRAP, true)) => {
-                if let Ok(reg) = ptrace(PTRACE_PEEKUSER, child, 
-                                        128 as * mut c_void, ptr::null_mut()) {
+                if let Ok(reg) = current_instruction_pointer(child) {
                     let reg = (reg-1) as u64;
                     if let Some(ref mut bp) = bps.get_mut(&reg) {
                         for t in traces.iter_mut() {
@@ -122,9 +121,8 @@ fn execute_test(test: &Path, backtrace_on: bool) {
         Ok(_) => {},
         Err(e) => println!("ASLR disable failed: {}", e),
     }
-    ptrace(PTRACE_TRACEME, 0, ptr::null_mut(), ptr::null_mut())
-        .ok()
-        .expect("Failed to trace");
+    request_trace().ok()
+                   .expect("Failed to trace");
     
     let mut envars: Vec<CString> = vec![CString::new("RUST_TEST_THREADS=1").unwrap()];
     if backtrace_on {
