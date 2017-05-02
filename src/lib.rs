@@ -54,7 +54,6 @@ fn collect_coverage(project_path: &Path,
                     test_path: &Path, 
                     test: pid_t) -> io::Result<()> {
     let mut traces = generate_tracer_data(project_path, test_path)?;
-    
     let mut bps: HashMap<u64, Breakpoint> = HashMap::new();
     match waitpid(test, None) {
         Ok(WaitStatus::Stopped(child, signal::SIGTRAP)) => {

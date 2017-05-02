@@ -58,8 +58,7 @@ impl Breakpoint {
         self.disable()?;
         // Need to set the program counter back one.
         set_instruction_pointer(self.pid, self.pc)?;
-        step(self.pid)?;
-        self.enable()
+        step(self.pid)
     }
 
     fn aligned_address(&self) -> u64 {
