@@ -13,17 +13,32 @@ use regex::Regex;
 /// the DWARF debug information with the future ones being libraries and rustc.
 const TEST_CU_OFFSET: usize = 0;
 
-#[derive(Debug, Clone)]
-pub struct Branch {
+pub type FuncLength = u64;
 
+/// Describes a function as low_pc, high_pc and bool representing is_test.
+type FuncDesc = (u64, u64, bool);
+
+#[derive(Debug, Clone, Copy)]
+pub enum LineType {
+    /// Entry of function known to be a test
+    TestEntry(FuncLength),
+    /// Entry of function. May or may not be test
+    FunctionEntry(FuncLength),
+    /// Standard statement
+    Statement,
+    /// Condition
+    Condition,
+    /// Unknown type
+    Unknown,
 }
+
 
 #[derive(Debug, Clone)]
 pub struct TracerData {
     pub path: PathBuf,
     pub line: u64,
     pub address: u64,
-    pub branch_data: Option<Branch>,
+    pub trace_type: LineType,
     pub hits: u64,
 }
 
@@ -42,19 +57,25 @@ fn line_is_traceable(file: &PathBuf, line: u64) -> bool {
     result
 }
 
-fn get_address_size<Endian: Endianity>(obj: &OFile) -> Result<u8> {
-    let debug_info = obj.get_section(".debug_info").unwrap_or(&[]);
-    let debug_info = DebugInfo::<Endian>::new(debug_info);
-
-    let cu = debug_info.header_from_offset(DebugInfoOffset(TEST_CU_OFFSET))?;
-    Ok(cu.address_size())
+/// Finds all function entry points and returns a vector
+/// This will identify definite tests, but may be prone to false negatives.
+/// TODO Potential to trace all function calls from __test::main and find addresses of interest
+fn get_entry_points<T: Endianity>(debug_info: &CompilationUnitHeader<T>) -> Vec<FuncDesc> {
+    let mut result:Vec<FuncDesc> = Vec::new();
+    
+    result
 }
 
 
 fn get_line_addresses<Endian: Endianity>(project: &Path, obj: &OFile) -> Result<Vec<TracerData>>  {
     let mut result: Vec<TracerData> = Vec::new();
     
-    let addr_size = get_address_size::<Endian>(obj)?;
+    let debug_info = obj.get_section(".debug_info").unwrap_or(&[]);
+    let debug_info = DebugInfo::<Endian>::new(debug_info);
+    let cu = debug_info.header_from_offset(DebugInfoOffset(TEST_CU_OFFSET))?;
+
+    let addr_size = cu.address_size();
+    let entries = get_entry_points(&cu);
 
     let debug_line = obj.get_section(".debug_line").unwrap_or(&[]);
     let debug_line = DebugLine::<Endian>::new(debug_line);
@@ -89,7 +110,7 @@ fn get_line_addresses<Endian: Endianity>(project: &Path, obj: &OFile) -> Result<
                                 path: path,
                                 line: line,
                                 address: ln_row.address(),
-                                branch_data: None,
+                                trace_type: LineType::Unknown,
                                 hits: 0u64
                             };
                             result.push(data);
@@ -99,7 +120,6 @@ fn get_line_addresses<Endian: Endianity>(project: &Path, obj: &OFile) -> Result<
             }
         }
     }
-    
     // Due to rust being a higher level language multiple instructions may map
     // to the same line. This prunes these to just the first instruction address
     let mut check: HashSet<(&Path, u64)> = HashSet::new();
@@ -111,7 +131,8 @@ fn get_line_addresses<Endian: Endianity>(project: &Path, obj: &OFile) -> Result<
 }
 
 
-
+/// Generates a list of lines we want to trace the coverage of. Used to instrument the
+/// traces into the test executable
 pub fn generate_tracer_data(manifest: &Path, test: &Path) -> io::Result<Vec<TracerData>> {
     let file = File::open(test)?;
     let file = Mmap::open(&file, Protection::Read)?;

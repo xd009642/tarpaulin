@@ -44,11 +44,10 @@ impl Breakpoint {
     fn enable(&mut self) -> Result<c_long> {
         let mut intdata = self.data & (!(0xFFu64 << self.shift) as i64);
         intdata |= (INT << self.shift) as i64;
-        
         write_to_address(self.pid, self.aligned_address(), intdata)
     }
     
-    fn disable(&self) -> Result<c_long> {
+    pub fn disable(&self) -> Result<c_long> {
         write_to_address(self.pid, self.aligned_address(), self.data)
     }
 
@@ -58,7 +57,7 @@ impl Breakpoint {
         self.disable()?;
         // Need to set the program counter back one.
         set_instruction_pointer(self.pid, self.pc)?;
-        step(self.pid)
+        single_step(self.pid)
     }
 
     fn aligned_address(&self) -> u64 {

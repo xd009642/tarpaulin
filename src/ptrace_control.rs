@@ -13,7 +13,7 @@ pub fn continue_exec(pid: pid_t) -> Result<c_long> {
     ptrace(PTRACE_CONT, pid, ptr::null_mut(), ptr::null_mut()) 
 }
 
-pub fn step(pid: pid_t) -> Result<c_long> {
+pub fn single_step(pid: pid_t) -> Result<c_long> {
     ptrace(PTRACE_SINGLESTEP, pid, ptr::null_mut(), ptr::null_mut())
 }
 
