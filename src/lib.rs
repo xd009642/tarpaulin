@@ -73,7 +73,6 @@ fn collect_coverage(project_path: &Path,
     }
     println!("Test process: {}", test);
     // Now we start hitting lines!
-
     let e = run_function(test, u64::max_value(), &mut traces, &mut bps);
     println!("{:?}", e);
 
@@ -83,6 +82,7 @@ fn collect_coverage(project_path: &Path,
     }
     Ok(())
 }
+
 
 fn run_function(pid: pid_t,
                 end: u64,
@@ -149,7 +149,7 @@ fn tests_mod_coverage(pid: pid_t,
     println!("{:?}", test_entries);
     for te in test_entries.iter() {
         println!("Setting RIP");
-        set_instruction_pointer(pid, te.0);
+        let _ = set_instruction_pointer(pid, te.0);
         
         let func_length:u64 = match te.1 {
             LineType::TestEntry(len) => len as u64,
