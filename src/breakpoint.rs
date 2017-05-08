@@ -1,7 +1,6 @@
 use nix::libc::{pid_t, c_long};
 use nix::Result;
 use ptrace_control::*;
-use nix::{Error, Errno};
 
 #[cfg(any(target_arch = "x86", target_arch = "x86_64"))]
 const INT: u64 = 0xCC;
@@ -58,7 +57,6 @@ impl Breakpoint {
 
     /// Processes the breakpoint. This steps over the breakpoint
     pub fn process(&mut self) -> Result<bool> {
-        println!("Processing");
         if self.is_running {
             self.step()?;
             self.is_running = false;

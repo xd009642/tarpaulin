@@ -101,7 +101,7 @@ fn get_entry_points<T: Endianity>(debug_info: &CompilationUnitHeader<T>,
     let mut cursor = debug_info.entries(debug_abbrev);
     // skip compilation unit root.
     let _ = cursor.next_entry();
-    while let Ok(Some((delta, node))) = cursor.next_dfs() {
+    while let Ok(Some((_, node))) = cursor.next_dfs() {
         // Function DIE
         if node.tag() == DW_TAG_subprogram {
             
@@ -173,7 +173,7 @@ fn get_line_addresses<Endian: Endianity>(project: &Path, obj: &OFile) -> Result<
 
                             let desc = entries.iter()
                                               .filter(|&&(addr, _)| addr == address )
-                                              .map(|&(a, t)| t)
+                                              .map(|&(_, t)| t)
                                               .nth(0)
                                               .unwrap_or(LineType::Unknown);
                             let data = TracerData {

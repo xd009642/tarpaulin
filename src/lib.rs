@@ -58,8 +58,6 @@ fn collect_coverage(project_path: &Path,
     match waitpid(test, None) {
         Ok(WaitStatus::Stopped(child, signal::SIGTRAP)) => {
             for trace in traces.iter() {
-                let file = trace.path.file_name().unwrap().to_str().unwrap();
-                println!("Instrumenting {}:{} - {:X}", file, trace.line, trace.address);
                 match Breakpoint::new(child, trace.address) {
                     Ok(bp) => { 
                         let _ = bps.insert(trace.address, bp);
@@ -73,22 +71,27 @@ fn collect_coverage(project_path: &Path,
         Err(err) => println!("Error on start: {}", err)
     }
     // Now we start hitting lines!
-    let e = run_function(test, u64::max_value(), &mut traces, &mut bps);
-    println!("{:?}", e);
+    //let e = run_function(test, u64::max_value(), &mut traces, &mut bps);
+    tests_mod_coverage(test, &mut traces, &mut bps);
 
     for t in traces.iter() {
         let file = t.path.file_name().unwrap().to_str().unwrap();
         println!("{}:{} - hits: {}", file, t.line, t.hits);
-    }
+    } 
+    let covered = traces.iter().filter(|&x| (x.hits > 0 )).count();
+    let total = traces.iter().count();
+    println!("{}/{} lines covered", covered, total);
     Ok(())
 }
 
-
+/// Starts running a test. Child must have signalled STOP or SIGNALED to show the
+/// parent it is not executing or it will be killed.
 fn run_function(pid: pid_t,
                 end: u64,
                 mut traces: &mut Vec<TracerData>,
                 mut breakpoints: &mut HashMap<u64, Breakpoint>) -> Result<i8, Error> {
     let mut res = 0i8;
+    // Start the function running. 
     continue_exec(pid)?;
     loop {
         //continue_exec(pid)?;
@@ -97,29 +100,36 @@ fn run_function(pid: pid_t,
                 res = sig;
                 break;
             },
-            Ok(WaitStatus::Stopped(child, signal::SIGTRAP)) => { 
+            Ok(WaitStatus::Stopped(child, signal::SIGTRAP)) => {
                 if let Ok(rip) = current_instruction_pointer(child) {
                     let rip = (rip - 1) as u64;
+                    
                     if let Some(ref mut bp) = breakpoints.get_mut(&rip) {
-                        if Ok(true) == bp.process() {
+                        
+                        let updated = if let Ok(x) = bp.process() {
+                            x
+                        } else {
+                            rip == end
+                        };
+                        if updated {
                             for mut t in traces.iter_mut()
-                                           .filter(|ref x| x.address == rip) {
+                                               .filter(|ref x| x.address == rip) {
                                 (*t).hits += 1;
                             }
-                        }
+                        } 
                     }
-                    else {
+                    else if rip == end {
+                        // test over. Leave run function.
+                        break;
+                    } else {
                         continue_exec(pid)?;
                     }
                 } 
             },
-            Ok(WaitStatus::Stopped(_, sig)) => {
-                println!("Stopped due to {:?}", sig);
+            Ok(WaitStatus::Stopped(_, _)) => {
                 break;
             },
-            Ok(WaitStatus::Signaled(child, signal::SIGTRAP, true)) => {
-                println!("Signaled...");
-            },
+            Ok(WaitStatus::Signaled(_, signal::SIGTRAP, true)) => println!("Child killed"),
             Ok(x) => println!("Unexpected: {:?}", x),
             Err(e) => {
                 return Err(Error::new(ErrorKind::Other, e))
@@ -146,28 +156,16 @@ fn tests_mod_coverage(pid: pid_t,
                              .map(|t| (t.address, t.trace_type))
                              .collect::<Vec<(u64, LineType)>>();
     
-    println!("{:?}", test_entries);
     for te in test_entries.iter() {
-        println!("Setting RIP");
         let _ = set_instruction_pointer(pid, te.0);
         
-        let func_length:u64 = match te.1 {
-            LineType::TestEntry(len) => len as u64,
-            _ => 0,
+        let func_end:u64 = match te.1 {
+            LineType::TestEntry(len) => te.0 + len as u64,
+            _ => u64::max_value(),
         };
-        println!("Running");
-        match run_function(pid, te.0 + func_length, &mut traces, &mut breakpoints) {
-            Ok(r) => println!("Ran function return {}", r),
+        match run_function(pid, func_end, &mut traces, &mut breakpoints) {
+            Ok(_) => {},
             Err(e) => println!("Error running function: {}", e),
-        }
-
-        // Disable breakpoints in that function. It's a top level test and we've
-        // covered it. This is likely unnecessary. But it gives me some level of
-        // verification later.
-        for bp in breakpoints.values() {
-            if bp.pc >= te.0 && bp.pc < (te.0 + func_length) {
-                //let _ = bp.disable();
-            }
         }
     }
 }
