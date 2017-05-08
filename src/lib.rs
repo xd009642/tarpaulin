@@ -66,12 +66,12 @@ fn collect_coverage(project_path: &Path,
                     },
                     Err(e) => println!("Failed to instrument {}", e),
                 }
-            }    
+            }  
+           // let _ = continue_exec(child);
         },
         Ok(_) => println!("Unexpected grab"),   
-        Err(err) => println!("{}", err)
+        Err(err) => println!("Error on start: {}", err)
     }
-    println!("Test process: {}", test);
     // Now we start hitting lines!
     let e = run_function(test, u64::max_value(), &mut traces, &mut bps);
     println!("{:?}", e);
@@ -89,39 +89,39 @@ fn run_function(pid: pid_t,
                 mut traces: &mut Vec<TracerData>,
                 mut breakpoints: &mut HashMap<u64, Breakpoint>) -> Result<i8, Error> {
     let mut res = 0i8;
+    continue_exec(pid)?;
     loop {
-        continue_exec(pid)?;
+        //continue_exec(pid)?;
         match waitpid(pid, None) {
             Ok(WaitStatus::Exited(_, sig)) => {
                 res = sig;
                 break;
             },
-            Ok(WaitStatus::Stopped(child, signal::SIGTRAP)) | 
-                Ok(WaitStatus::Signaled(child, signal::SIGTRAP, true))=> {
+            Ok(WaitStatus::Stopped(child, signal::SIGTRAP)) => { 
                 if let Ok(rip) = current_instruction_pointer(child) {
                     let rip = (rip - 1) as u64;
                     if let Some(ref mut bp) = breakpoints.get_mut(&rip) {
-                        for mut t in traces.iter_mut()
-                                       .filter(|ref x| x.address == rip) {
-                            (*t).hits += 1;
-                        }
-                        if rip != end {
-                            let _ = bp.step();
-                        } else {
-                            // Hit function end.
-                            break;
+                        if Ok(true) == bp.process() {
+                            for mut t in traces.iter_mut()
+                                           .filter(|ref x| x.address == rip) {
+                                (*t).hits += 1;
+                            }
                         }
                     }
-                }
-
+                    else {
+                        continue_exec(pid)?;
+                    }
+                } 
             },
             Ok(WaitStatus::Stopped(_, sig)) => {
                 println!("Stopped due to {:?}", sig);
                 break;
             },
+            Ok(WaitStatus::Signaled(child, signal::SIGTRAP, true)) => {
+                println!("Signaled...");
+            },
             Ok(x) => println!("Unexpected: {:?}", x),
             Err(e) => {
-                println!("e {}", e);
                 return Err(Error::new(ErrorKind::Other, e))
             },
         }
@@ -166,7 +166,7 @@ fn tests_mod_coverage(pid: pid_t,
         // verification later.
         for bp in breakpoints.values() {
             if bp.pc >= te.0 && bp.pc < (te.0 + func_length) {
-                let _ = bp.disable();
+                //let _ = bp.disable();
             }
         }
     }
@@ -186,7 +186,7 @@ fn execute_test(test: &Path, backtrace_on: bool) {
     let mut envars: Vec<CString> = vec![CString::new("RUST_TEST_THREADS=1").unwrap()];
     if backtrace_on {
         envars.push(CString::new("RUST_BACKTRACE=1").unwrap());
-    } 
+    }
     execve(&exec_path, &[exec_path.clone()], envars.as_slice())
         .unwrap();
 }

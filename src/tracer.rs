@@ -8,7 +8,7 @@ use object::File as OFile;
 use memmap::{Mmap, Protection};
 use gimli::*;
 use regex::Regex;
-
+use rustc_demangle::demangle;
 /// So far from my tests the test executable is the first compilation unit in
 /// the DWARF debug information with the future ones being libraries and rustc.
 const TEST_CU_OFFSET: usize = 0;
