@@ -1,6 +1,8 @@
 use std::io;
 use std::io::{BufRead, BufReader};
 use std::path::{PathBuf, Path};
+use std::ffi::CString;
+use std::ops::Deref;
 use std::fs::File;
 use std::collections::HashSet;
 use object::Object;
@@ -13,7 +15,6 @@ use rustc_demangle::demangle;
 /// the DWARF debug information with the future ones being libraries and rustc.
 const TEST_CU_OFFSET: usize = 0;
 
-pub type FuncLength = u64;
 
 /// Describes a function as low_pc, high_pc and bool representing is_test.
 type FuncDesc = (u64, u64, bool);
@@ -21,9 +22,9 @@ type FuncDesc = (u64, u64, bool);
 #[derive(Debug, Clone, Copy)]
 pub enum LineType {
     /// Entry of function known to be a test
-    TestEntry(FuncLength),
+    TestEntry(u64),
     /// Entry of function. May or may not be test
-    FunctionEntry(FuncLength),
+    FunctionEntry(u64),
     /// Standard statement
     Statement,
     /// Condition
@@ -57,12 +58,58 @@ fn line_is_traceable(file: &PathBuf, line: u64) -> bool {
     result
 }
 
+fn generate_func_desc<T: Endianity>(die: &DebuggingInformationEntry<T>,
+                                    debug_str: &DebugStr<T>) -> Result<FuncDesc> {
+    let mut is_test = false;
+    let low = die.attr_value(DW_AT_low_pc)?;
+    let high = die.attr_value(DW_AT_high_pc)?;
+    let linkage = die.attr_value(DW_AT_linkage_name)?;
+
+    // Low is a program counter address so stored in an Addr
+    let low = match low {
+        Some(AttributeValue::Addr(x)) => x,
+        _ => 0u64,
+    };
+    // High is an offset from the base pc, therefore is u64 data.
+    let high = match high {
+        Some(AttributeValue::Udata(x)) => x,
+        _ => 0u64,
+    };
+    if let Some(AttributeValue::DebugStrRef(offset)) = linkage {
+        let empty = CString::new("").unwrap();
+        let name = debug_str.get_str(offset).unwrap_or(empty.deref());
+        // go from CStr to Owned String
+        let name = name.to_str().unwrap_or("");
+        let name = demangle(name).to_string();
+        // Simplest test is whether it's in tests namespace.
+        // Rust guidelines recommend all tests are in a tests module.
+        is_test = name.contains("tests::");
+        // May need further tests in future for completeness.
+    }
+
+    Ok((low, high, is_test))
+}
+
+
 /// Finds all function entry points and returns a vector
 /// This will identify definite tests, but may be prone to false negatives.
 /// TODO Potential to trace all function calls from __test::main and find addresses of interest
-fn get_entry_points<T: Endianity>(debug_info: &CompilationUnitHeader<T>) -> Vec<FuncDesc> {
+fn get_entry_points<T: Endianity>(debug_info: &CompilationUnitHeader<T>,
+                                  debug_abbrev: &Abbreviations,
+                                  debug_str: &DebugStr<T>) -> Vec<FuncDesc> {
     let mut result:Vec<FuncDesc> = Vec::new();
-    
+    let mut cursor = debug_info.entries(debug_abbrev);
+    // skip compilation unit root.
+    let _ = cursor.next_entry();
+    while let Ok(Some((delta, node))) = cursor.next_dfs() {
+        // Function DIE
+        if node.tag() == DW_TAG_subprogram {
+            
+            if let Ok(fd) = generate_func_desc(&node, &debug_str) {
+                result.push(fd);
+            }
+        }
+    }
     result
 }
 
@@ -72,10 +119,26 @@ fn get_line_addresses<Endian: Endianity>(project: &Path, obj: &OFile) -> Result<
     
     let debug_info = obj.get_section(".debug_info").unwrap_or(&[]);
     let debug_info = DebugInfo::<Endian>::new(debug_info);
+    let debug_abbrev = obj.get_section(".debug_abbrev").unwrap_or(&[]);
+    let debug_abbrev = DebugAbbrev::<Endian>::new(debug_abbrev);
+    let debug_strings = obj.get_section(".debug_str").unwrap_or(&[]);
+    let debug_strings = DebugStr::<Endian>::new(debug_strings);
     let cu = debug_info.header_from_offset(DebugInfoOffset(TEST_CU_OFFSET))?;
 
     let addr_size = cu.address_size();
-    let entries = get_entry_points(&cu);
+    let entries = if let Ok(abbr) = cu.abbreviations(debug_abbrev) {
+        get_entry_points(&cu, &abbr, &debug_strings)
+            .iter()
+            .map(|&(a, b, c)| { 
+                if c {
+                    (a, LineType::TestEntry(b))
+                } else {
+                    (a, LineType::FunctionEntry(b))
+                }
+            }).collect()
+    } else {
+        Vec::<(u64, LineType)>::new()
+    };
 
     let debug_line = obj.get_section(".debug_line").unwrap_or(&[]);
     let debug_line = DebugLine::<Endian>::new(debug_line);
@@ -106,11 +169,18 @@ fn get_line_addresses<Endian: Endianity>(project: &Path, obj: &OFile) -> Result<
                             if !line_is_traceable(&path, line) {
                                 continue;
                             }
+                            let address = ln_row.address();
+
+                            let desc = entries.iter()
+                                              .filter(|&&(addr, _)| addr == address )
+                                              .map(|&(a, t)| t)
+                                              .nth(0)
+                                              .unwrap_or(LineType::Unknown);
                             let data = TracerData {
                                 path: path,
                                 line: line,
-                                address: ln_row.address(),
-                                trace_type: LineType::Unknown,
+                                address: address,
+                                trace_type: desc,
                                 hits: 0u64
                             };
                             result.push(data);
