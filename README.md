@@ -5,15 +5,17 @@
 Tarpaulin is designed to be a code coverage reporting tool for the Cargo build system, named for a waterproof cloth used to cover cargo on a ship. Currently, tarpaulin is in the early development stage and as thus is largely unstable although it may be possible to use certain features. But check out our roadmap for planned features.
 
 ## Usage
+To get detailed help on available arguments when running tarpaulin call:
+```text
+cargo tarpaulin --help
+```
+Currently no options are required, if no root directory is defined Tarpaulin will run in the current working directory.
 
-Below is a Tarpaulin run utilising one of our example projects. This is a relatively simple project to test and the output is still rather rough. This is an area which is likely to have large amounts of change.
+Below is a Tarpaulin run utilising one of our example projects. This is a relatively simple project to test and the output is still rather rough. This is an area which is likely to have large amounts of change. If you check the test, you can see the output correctly reports the lines the test hits.
 
 ```text
-cargo run -- -m data/simple_project/
-   Compiling cargo-tarpaulin v0.1.0 (file:///home/xd009642/dev/rust/tarpaulin)
-    Finished dev [unoptimized + debuginfo] target(s) in 4.57 secs
-     Running `target/debug/cargo-tarpaulin -m data/simple_project/`
-"/home/xd009642/dev/rust/tarpaulin/data/simple_project/Cargo.toml"
+cargo tarpaulin
+"/home/xd009642/rust/tarpaulin/data/simple_project/Cargo.toml"
        Fresh simple_project v0.1.0 (file:///home/xd009642/dev/rust/tarpaulin/data/simple_project)
     Finished dev [unoptimized + debuginfo] target(s) in 0.0 secs
 Running Tarpaulin
