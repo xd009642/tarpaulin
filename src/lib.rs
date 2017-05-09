@@ -1,6 +1,5 @@
 extern crate nix;
 extern crate cargo;
-extern crate rustc_serialize;
 extern crate gimli;
 extern crate object;
 extern crate memmap;
