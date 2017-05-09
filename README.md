@@ -1,6 +1,6 @@
 # Tarpaulin
 
-![Build Status](https://travis-ci.org/xd009642/tarpaulin.svg?branch=master) [![License:MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
+![Build Status](https://travis-ci.org/xd009642/tarpaulin.svg?branch=master) ![Latest Version](https://img.shields.io/crates/v/cargo-tarpaulin.svg) [![License:MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
 
 Tarpaulin is designed to be a code coverage reporting tool for the Cargo build system, named for a waterproof cloth used to cover cargo on a ship. Currently, tarpaulin is in the early development stage and as thus is largely unstable although it may be possible to use certain features. But check out our roadmap for planned features.
 
@@ -33,6 +33,9 @@ lib.rs:23 - hits: 1
 7/12 lines covered
 Coverage successful
 ```
+## Limitations
+
+Currently Tarpaulin only works on projects where tests are located within a tests module (either by being in a tests directory or within a mod tests block. Also, any functions in the tests module which aren't tests will be ran as well. Tarpaulin is also untested in most situations so if any issues are spotted please raise them to help support our continued development
 
 ## Roadmap
 
