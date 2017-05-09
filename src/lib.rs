@@ -10,6 +10,7 @@ extern crate regex;
 #[macro_use]
 extern crate clap;
 
+use std::env;
 use std::io;
 use std::io::{Error, ErrorKind};
 use std::ffi::CString;
@@ -19,6 +20,9 @@ use nix::unistd::*;
 use nix::libc::pid_t;
 use nix::sys::signal;
 use nix::sys::wait::*;
+use cargo::util::Config as CargoConfig;
+use cargo::core::Workspace;
+use cargo::ops;
 
 pub mod config;
 pub mod tracer;
@@ -28,9 +32,58 @@ pub mod breakpoint;
 mod personality;
 mod ptrace_control;
 
+use config::*;
 use tracer::*;
 use breakpoint::*;
 use ptrace_control::*;
+
+/// Launches tarpaulin with the given configuration.
+pub fn launch_tarpaulin(config: Config) {
+    let cargo_config = CargoConfig::default().unwrap();
+    let workspace =match Workspace::new(config.manifest.as_path(), &cargo_config) {
+        Ok(w) => w,
+        Err(_) => panic!("Invalid project directory specified"),
+    };
+    for m in workspace.members() {
+        println!("{:?}", m.manifest_path());
+    }
+
+    let filter = ops::CompileFilter::Everything;
+    let rustflags = "RUSTFLAGS";
+    let mut value = "-Crelocation-model=dynamic-no-pic -Clink-dead-code".to_string();
+    if let Ok(vtemp) = env::var(rustflags) {
+        value.push_str(vtemp.as_ref());
+    }
+    env::set_var(rustflags, value);
+    let copt = ops::CompileOptions {
+        config: &cargo_config,
+        jobs: None,
+        target: None,
+        features: &[],
+        all_features: true,
+        no_default_features:false ,
+        spec: ops::Packages::All,
+        release: false,
+        mode: ops::CompileMode::Test,
+        filter: filter,
+        message_format: ops::MessageFormat::Human,
+        target_rustdoc_args: None,
+        target_rustc_args: None,
+    };
+    // TODO Determine if I should clean the target before compiling.
+    let compilation = ops::compile(&workspace, &copt);
+    match compilation {
+        Ok(comp) => {
+            println!("Running Tarpaulin");
+            for c in comp.tests.iter() {
+                println!("Processing {}", c.1);
+                get_test_coverage(workspace.root(), c.2.as_path());
+            }
+        },
+        Err(e) => println!("Failed to compile: {}", e),
+    }
+}
+
 
 /// Returns the coverage statistics for a test executable in the given workspace
 pub fn get_test_coverage(root: &Path, test: &Path) {
@@ -50,6 +103,7 @@ pub fn get_test_coverage(root: &Path, test: &Path) {
         }
     }
 }
+
 /// Collects the coverage data from the launched test
 fn collect_coverage(project_path: &Path, 
                     test_path: &Path, 
@@ -67,14 +121,12 @@ fn collect_coverage(project_path: &Path,
                     Err(e) => println!("Failed to instrument {}", e),
                 }
             }  
-           // let _ = continue_exec(child);
         },
         Ok(_) => println!("Unexpected grab"),   
         Err(err) => println!("Error on start: {}", err)
     }
     // Now we start hitting lines!
-    //let e = run_function(test, u64::max_value(), &mut traces, &mut bps);
-    tests_mod_coverage(test, &mut traces, &mut bps);
+    run_coverage_on_all_tests(test, &mut traces, &mut bps);
 
     for t in traces.iter() {
         let file = t.path.file_name().unwrap().to_str().unwrap();
@@ -96,7 +148,6 @@ fn run_function(pid: pid_t,
     // Start the function running. 
     continue_exec(pid)?;
     loop {
-        //continue_exec(pid)?;
         match waitpid(pid, None) {
             Ok(WaitStatus::Exited(_, sig)) => {
                 res = sig;
@@ -141,8 +192,8 @@ fn run_function(pid: pid_t,
     Ok(res)
 }
 
-
-fn tests_mod_coverage(pid: pid_t,
+/// Tests the coverage of all identified tests
+fn run_coverage_on_all_tests(pid: pid_t,
                       mut traces: &mut Vec<TracerData>,
                       mut breakpoints: &mut HashMap<u64, Breakpoint>) {
 
