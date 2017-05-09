@@ -52,8 +52,7 @@ Currently Tarpaulin only works on projects where tests are located within a test
 
 ## License
 
-Tarpaulin is currently licensed under the MIT license. See LICENSE for more
-details.
+Tarpaulin is currently licensed under the terms of both the MIT license and the Apache License (Version 2.0). See LICENSE-MIT and LICENSE-APACHE for more details.
 
 ## Thanks
 
