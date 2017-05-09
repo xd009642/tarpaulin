@@ -8,6 +8,10 @@ extern crate rustc_demangle;
 extern crate regex;
 #[macro_use]
 extern crate clap;
+extern crate serde;
+extern crate serde_json;
+#[macro_use]
+extern crate serde_derive;
 
 use std::env;
 use std::io;
@@ -27,6 +31,7 @@ pub mod config;
 pub mod tracer;
 pub mod collectors;
 pub mod breakpoint;
+pub mod report;
 /// Should be unnecessary with a future nix crate release.
 mod personality;
 mod ptrace_control;
