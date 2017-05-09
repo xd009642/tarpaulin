@@ -1,5 +1,4 @@
 extern crate nix;
-extern crate docopt;
 extern crate cargo;
 extern crate rustc_serialize;
 extern crate gimli;
@@ -8,6 +7,8 @@ extern crate memmap;
 extern crate fallible_iterator;
 extern crate rustc_demangle;
 extern crate regex;
+#[macro_use]
+extern crate clap;
 
 use std::io;
 use std::io::{Error, ErrorKind};
@@ -19,6 +20,7 @@ use nix::libc::pid_t;
 use nix::sys::signal;
 use nix::sys::wait::*;
 
+pub mod config;
 pub mod tracer;
 pub mod collectors;
 pub mod breakpoint;

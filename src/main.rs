@@ -1,71 +1,59 @@
 extern crate cargo_tarpaulin;
 extern crate nix;
-extern crate docopt;
 extern crate cargo;
-extern crate rustc_serialize;
 extern crate gimli;
 extern crate object;
 extern crate memmap;
 extern crate fallible_iterator;
 extern crate rustc_demangle;
+#[macro_use]
+extern crate clap;
 
 use std::env;
-use cargo_tarpaulin::get_test_coverage;
-use docopt::Docopt;
-use cargo::util::Config;
+use std::path::Path;
+use clap::{App, Arg, SubCommand};
+use cargo_tarpaulin::{get_test_coverage};
+use cargo_tarpaulin::config::*;
+use cargo::util::Config as CargoConfig;
 use cargo::core::Workspace;
 use cargo::ops;
 
-const USAGE: &'static str = "
-Tarpaulin - a cargo code coverage tool
 
-Usage: 
-    cargo-tarpaulin [options]
-    cargo-tarpaulin (-h | --help)
-
-Options:
-    -h, --help                  Show this message.
-    -l, --line                  Collect line coverage.
-    -b, --branch                Collect branch coverage.
-    -c, --condition             Collect condition coverage.
-    --out ARG                   Specify output type [default: Report].
-    -v, --verbose               Show extra output.
-    -m ARG, --manifest ARG      Path to a cargo.toml to execute tarpaulin on. 
-                                Default is current directory
-
-";
-
-#[derive(RustcDecodable, Debug)]
-enum Out {
-    Json,
-    Toml,
-    Report
+fn is_dir(d: String) -> Result<(), String> {
+    if Path::new(&d).is_dir() {
+        Ok(())
+    } else {
+        Err(String::from("root must be a directory"))
+    }
 }
 
-#[derive(RustcDecodable, Debug)]
-struct Args {
-    flag_line: bool,
-    flag_branch: bool,
-    flag_condition:bool,
-    flag_verbose: bool,
-    flag_out: Option<Out>,
-    flag_manifest: Option<String>,
-}
 
 fn main() {
-    let args:Args = Docopt::new(USAGE)
-                           .and_then(|d| d.decode())
-                           .unwrap_or_else(|e| e.exit());
-   
-    let mut path = std::env::current_dir().unwrap();
-
-    if let Some(p) = args.flag_manifest {
-        path.push(p);
-    };
-    path.push("Cargo.toml");
+    let args = App::new("cargo-tarpaulin")
+        .author("Daniel McKenna, <danielmckenna93@gmail.com>")
+        .about("Tool to analyse test coverage of cargo projects")
+        .version(concat!("version: ", crate_version!()))
+        .bin_name("cargo")
+        .subcommand(SubCommand::with_name("tarpaulin")
+            .about("Tool to analyse test coverage of cargo projects")
+            .args_from_usage(
+                "--help -h    'Prints help information'
+                 --verbose -v 'Show extra output'
+                 --line -l    'Line coverage: UNSTABLE'
+                 --branch -b  'Branch coverage: NOT IMPLEMENTED'")
+            .args(&[
+                Arg::from_usage("--out -o [FMT]   'Output format'")
+                    .possible_values(&OutputFile::variants())
+                    .multiple(true),
+                Arg::from_usage("--root -r [DIR]  'Root directory containing Cargo.toml to use'")
+                    .validator(is_dir)
+            ]))
+        .get_matches();
+    let args = args.subcommand_matches("tarpaulin").unwrap_or(&args);
+    let tarp_config = Config::from_args(args);
     
-    let config = Config::default().unwrap();
-    let workspace =match  Workspace::new(path.as_path(), &config) {
+    let config = CargoConfig::default().unwrap();
+    let workspace =match Workspace::new(tarp_config.manifest.as_path(), &config) {
         Ok(w) => w,
         Err(_) => panic!("Invalid project directory specified"),
     };
