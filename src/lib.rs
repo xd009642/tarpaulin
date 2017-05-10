@@ -85,7 +85,6 @@ pub fn launch_tarpaulin(config: Config) {
                 println!("Processing {}", c.1);
                 let res = get_test_coverage(workspace.root(), c.2.as_path())
                     .unwrap_or(vec![]);
-                report_coverage(&config, &result);
                 merge_test_results(&mut result, &res);
             }
         },

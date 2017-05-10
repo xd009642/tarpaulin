@@ -85,7 +85,7 @@ fn generate_func_desc<T: Endianity>(die: &DebuggingInformationEntry<T>,
         // Rust guidelines recommend all tests are in a tests module.
         is_test = name.contains("tests::");
         // May need further tests in future for completeness.
-    }
+    } 
 
     Ok((low, high, is_test))
 }
@@ -113,10 +113,8 @@ fn get_entry_points<T: Endianity>(debug_info: &CompilationUnitHeader<T>,
     result
 }
 
-
 fn get_line_addresses<Endian: Endianity>(project: &Path, obj: &OFile) -> Result<Vec<TracerData>>  {
     let mut result: Vec<TracerData> = Vec::new();
-    
     let debug_info = obj.get_section(".debug_info").unwrap_or(&[]);
     let debug_info = DebugInfo::<Endian>::new(debug_info);
     let debug_abbrev = obj.get_section(".debug_abbrev").unwrap_or(&[]);
@@ -145,6 +143,7 @@ fn get_line_addresses<Endian: Endianity>(project: &Path, obj: &OFile) -> Result<
     
     let prog = debug_line.program(DebugLineOffset(TEST_CU_OFFSET), addr_size, None, None)?; 
     let (cprog, seq) = prog.sequences()?;
+
     for s in &seq {
         let mut sm = cprog.resume_from(s);
         while let Ok(Some((ref header, &ln_row))) = sm.next_row() {
@@ -157,7 +156,8 @@ fn get_line_addresses<Endian: Endianity>(project: &Path, obj: &OFile) -> Result<
                     }
                 }
                 // Source is part of project so we cover it.
-                if path.starts_with(project) {
+                if path.starts_with(project) { 
+                    let force_test = path.starts_with(project.join("tests"));
                     if let Some(file) = ln_row.file(header) {
                         // If we can't map to line, we can't trace it.
                         let line = ln_row.line().unwrap_or(0);
@@ -170,20 +170,25 @@ fn get_line_addresses<Endian: Endianity>(project: &Path, obj: &OFile) -> Result<
                                 continue;
                             }
                             let address = ln_row.address();
-
+                            
                             let desc = entries.iter()
                                               .filter(|&&(addr, _)| addr == address )
                                               .map(|&(_, t)| t)
                                               .nth(0)
                                               .unwrap_or(LineType::Unknown);
-                            let data = TracerData {
+                            // TODO HACK: If in tests/ directory force it to a TestEntry 
+                            let desc = match desc {
+                                LineType::FunctionEntry(e) if force_test => LineType::TestEntry(e),
+                                x @ _ => x
+                            };
+                            
+                            result.push( TracerData {
                                 path: path,
                                 line: line,
                                 address: address,
                                 trace_type: desc,
                                 hits: 0u64
-                            };
-                            result.push(data);
+                            });
                         }
                     }
                 }
@@ -197,6 +202,7 @@ fn get_line_addresses<Endian: Endianity>(project: &Path, obj: &OFile) -> Result<
                        .filter(|x| check.insert((x.path.as_path(), x.line)))
                        .map(|x| x.clone())
                        .collect::<Vec<TracerData>>();
+    
     Ok(result)
 }
 
