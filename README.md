@@ -20,20 +20,20 @@ cargo tarpaulin
     Finished dev [unoptimized + debuginfo] target(s) in 0.0 secs
 Running Tarpaulin
 Processing simple_project
-unused.rs:4 - hits: 0
-unused.rs:5 - hits: 0
-unused.rs:6 - hits: 0
-unused.rs:7 - hits: 0
-lib.rs:4 - hits: 1
-lib.rs:5 - hits: 1
-lib.rs:6 - hits: 0
-lib.rs:8 - hits: 1
-lib.rs:10 - hits: 1
-lib.rs:21 - hits: 1
-lib.rs:22 - hits: 1
-lib.rs:23 - hits: 1
-7/12 lines covered
-Coverage successful
+Coverage Results
+src/unused.rs:4 - hits: 0
+src/unused.rs:5 - hits: 0
+src/unused.rs:6 - hits: 0
+src/unused.rs:7 - hits: 0
+src/lib.rs:4 - hits: 1
+src/lib.rs:5 - hits: 1
+src/lib.rs:6 - hits: 0
+src/lib.rs:8 - hits: 1
+src/lib.rs:10 - hits: 1
+src/lib.rs:21 - hits: 1
+src/lib.rs:22 - hits: 1
+src/lib.rs:23 - hits: 1
+Total of 7/12 lines covered
 ```
 ## Limitations
 

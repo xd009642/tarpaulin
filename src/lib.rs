@@ -74,6 +74,8 @@ pub fn launch_tarpaulin(config: Config) {
         target_rustdoc_args: None,
         target_rustc_args: None,
     };
+
+    let mut result:Vec<TracerData> = Vec::new();
     // TODO Determine if I should clean the target before compiling.
     let compilation = ops::compile(&workspace, &copt);
     match compilation {
@@ -81,29 +83,72 @@ pub fn launch_tarpaulin(config: Config) {
             println!("Running Tarpaulin");
             for c in comp.tests.iter() {
                 println!("Processing {}", c.1);
-                get_test_coverage(workspace.root(), c.2.as_path());
+                let res = get_test_coverage(workspace.root(), c.2.as_path())
+                    .unwrap_or(vec![]);
+                merge_test_results(&mut result, &res);
             }
         },
         Err(e) => println!("Failed to compile: {}", e),
     }
+    report_coverage(&config, &result);
 }
 
+/// Test artefacts may have different lines visible to them therefore for 
+/// each test artefact covered we need to merge the TracerData entries to get
+/// the overall coverage.
+pub fn merge_test_results(master: &mut Vec<TracerData>, new: &Vec<TracerData>) {
+    for t in new.iter() {
+        let mut update = master.iter_mut()
+                               .filter(|x| x.path== t.path && x.line == t.line)
+                               .collect::<Vec<_>>();
+        for ref mut u in update.iter_mut() {
+            u.hits += t.hits;
+        }
+    }
+}
+
+pub fn report_coverage(config: &Config, result: &Vec<TracerData>) {
+    if result.len() > 0 {
+        println!("Coverage Results");
+        for r in result.iter() {
+            let path = if let Some(root) = config.manifest.parent() {
+                r.path.strip_prefix(root).unwrap_or(r.path.as_path())
+            } else {
+                r.path.as_path()
+            };
+            println!("{}:{} - hits: {}", path.display(), r.line, r.hits);
+        }    
+        let covered = result.iter().filter(|&x| (x.hits > 0 )).count();
+        let total = result.iter().count();
+        println!("Total of {}/{} lines covered", covered, total);
+    } else {
+        println!("No coverage results collected.");
+    }
+
+}
 
 /// Returns the coverage statistics for a test executable in the given workspace
-pub fn get_test_coverage(root: &Path, test: &Path) {
+pub fn get_test_coverage(root: &Path, test: &Path) -> Option<Vec<TracerData>> {
     match fork() {
         Ok(ForkResult::Parent{ child }) => {
             match collect_coverage(root, test, child) {
-                Ok(_) => println!("Coverage successful"),
-                Err(e) => println!("Error occurred: {}", e),
+                Ok(t) => {
+                    Some(t)
+                },
+                Err(e) => {
+                    println!("Error occurred: {}", e);
+                    None
+                },
             }
         }
         Ok(ForkResult::Child) => {
             execute_test(test, true);
+            None
         }
         Err(err) => { 
             println!("Failed to run {}", test.display());
             println!("Error {}", err);
+            None
         }
     }
 }
@@ -111,7 +156,7 @@ pub fn get_test_coverage(root: &Path, test: &Path) {
 /// Collects the coverage data from the launched test
 fn collect_coverage(project_path: &Path, 
                     test_path: &Path, 
-                    test: pid_t) -> io::Result<()> {
+                    test: pid_t) -> io::Result<Vec<TracerData>> {
     let mut traces = generate_tracer_data(project_path, test_path)?;
     let mut bps: HashMap<u64, Breakpoint> = HashMap::new();
     
@@ -132,14 +177,7 @@ fn collect_coverage(project_path: &Path,
     // Now we start hitting lines!
     run_coverage_on_all_tests(test, &mut traces, &mut bps);
 
-    for t in traces.iter() {
-        let file = t.path.file_name().unwrap().to_str().unwrap();
-        println!("{}:{} - hits: {}", file, t.line, t.hits);
-    } 
-    let covered = traces.iter().filter(|&x| (x.hits > 0 )).count();
-    let total = traces.iter().count();
-    println!("{}/{} lines covered", covered, total);
-    Ok(())
+    Ok(traces)
 }
 
 /// Starts running a test. Child must have signalled STOP or SIGNALED to show the
@@ -244,4 +282,54 @@ fn execute_test(test: &Path, backtrace_on: bool) {
     }
     execve(&exec_path, &[exec_path.clone()], envars.as_slice())
         .unwrap();
+}
+
+
+#[cfg(test)]
+mod tests {
+    use std::path::PathBuf;
+    use ::*;
+    
+    #[test]
+    fn result_merge_test() {
+        let mut master:Vec<TracerData> = vec![];
+
+        master.push(TracerData { 
+            path: PathBuf::from("testing/test.rs"),
+            line: 2,
+            address: 0,
+            trace_type: LineType::Unknown,
+            hits: 1
+        });
+        master.push(TracerData { 
+            path: PathBuf::from("testing/test.rs"),
+            line: 3,
+            address: 1,
+            trace_type: LineType::Unknown,
+            hits: 1
+        });
+        master.push(TracerData {
+            path: PathBuf::from("testing/not.rs"),
+            line: 2,
+            address: 0,
+            trace_type: LineType::Unknown,
+            hits: 7
+        });
+
+        let other:Vec<TracerData> = vec![
+            TracerData {
+                path:PathBuf::from("testing/test.rs"),
+                line: 2,
+                address: 0,
+                trace_type: LineType::Unknown,
+                hits: 2
+            }];
+
+        merge_test_results(&mut master, &other);
+        let expected = vec![3, 1, 7];
+        for (act, exp) in master.iter().zip(expected) {
+            assert_eq!(act.hits, exp);
+        }
+    }
+
 }
