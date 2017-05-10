@@ -85,6 +85,7 @@ pub fn launch_tarpaulin(config: Config) {
                 println!("Processing {}", c.1);
                 let res = get_test_coverage(workspace.root(), c.2.as_path())
                     .unwrap_or(vec![]);
+                report_coverage(&config, &result);
                 merge_test_results(&mut result, &res);
             }
         },
@@ -97,6 +98,7 @@ pub fn launch_tarpaulin(config: Config) {
 /// each test artefact covered we need to merge the TracerData entries to get
 /// the overall coverage.
 pub fn merge_test_results(master: &mut Vec<TracerData>, new: &Vec<TracerData>) {
+    let mut unmerged:Vec<TracerData> = Vec::new();
     for t in new.iter() {
         let mut update = master.iter_mut()
                                .filter(|x| x.path== t.path && x.line == t.line)
@@ -104,7 +106,12 @@ pub fn merge_test_results(master: &mut Vec<TracerData>, new: &Vec<TracerData>) {
         for ref mut u in update.iter_mut() {
             u.hits += t.hits;
         }
+
+        if update.iter().count() == 0 {
+            unmerged.push(t.clone());
+        }
     }
+    master.append(&mut unmerged);
 }
 
 pub fn report_coverage(config: &Config, result: &Vec<TracerData>) {
