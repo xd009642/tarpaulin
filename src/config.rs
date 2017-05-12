@@ -28,6 +28,7 @@ impl Config {
     pub fn from_args(args: &ArgMatches) -> Config {
         let mut line = args.is_present("line");
         let mut branch = args.is_present("branch");
+        let verbose = args.is_present("verbose");
         // If no coverage selected do everything!
         if !branch && !line {
             branch = true;
@@ -44,7 +45,7 @@ impl Config {
 
         Config{
             manifest: root,
-            verbose: true,
+            verbose: verbose,
             line_coverage: line,
             branch_coverage: branch,
             generate: out

@@ -74,21 +74,28 @@ pub fn launch_tarpaulin(config: Config) {
         target_rustdoc_args: None,
         target_rustc_args: None,
     };
-
     let mut result:Vec<TracerData> = Vec::new();
     // TODO Determine if I should clean the target before compiling.
     let compilation = ops::compile(&workspace, &copt);
     match compilation {
         Ok(comp) => {
-            println!("Running Tarpaulin");
+            if config.verbose {
+                println!("Running Tarpaulin");
+            }
             for c in comp.tests.iter() {
-                println!("Processing {}", c.1);
+                if config.verbose {
+                    println!("Processing {}", c.1);
+                }
                 let res = get_test_coverage(workspace.root(), c.2.as_path())
                     .unwrap_or(vec![]);
                 merge_test_results(&mut result, &res);
             }
         },
-        Err(e) => println!("Failed to compile: {}", e),
+        Err(e) => {
+            if config.verbose{
+                println!("Error: failed to compile: {}", e);
+            }
+        },
     }
     report_coverage(&config, &result);
 }
