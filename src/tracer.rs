@@ -11,10 +11,6 @@ use memmap::{Mmap, Protection};
 use gimli::*;
 use regex::Regex;
 use rustc_demangle::demangle;
-/// So far from my tests the test executable is the first compilation unit in
-/// the DWARF debug information with the future ones being libraries and rustc.
-const TEST_CU_OFFSET: usize = 0;
-
 
 /// Describes a function as low_pc, high_pc and bool representing is_test.
 type FuncDesc = (u64, u64, bool);
@@ -113,40 +109,14 @@ fn get_entry_points<T: Endianity>(debug_info: &CompilationUnitHeader<T>,
     result
 }
 
-fn get_line_addresses<Endian: Endianity>(project: &Path, obj: &OFile) -> Result<Vec<TracerData>>  {
+fn get_addresses_from_program<T:Endianity>(prog: IncompleteLineNumberProgram<T>,
+                                           entries: &Vec<(u64, LineType)>,
+                                           project: &Path) -> Result<Vec<TracerData>> {
     let mut result: Vec<TracerData> = Vec::new();
-    let debug_info = obj.get_section(".debug_info").unwrap_or(&[]);
-    let debug_info = DebugInfo::<Endian>::new(debug_info);
-    let debug_abbrev = obj.get_section(".debug_abbrev").unwrap_or(&[]);
-    let debug_abbrev = DebugAbbrev::<Endian>::new(debug_abbrev);
-    let debug_strings = obj.get_section(".debug_str").unwrap_or(&[]);
-    let debug_strings = DebugStr::<Endian>::new(debug_strings);
-    let cu = debug_info.header_from_offset(DebugInfoOffset(TEST_CU_OFFSET))?;
-
-    let addr_size = cu.address_size();
-    let entries = if let Ok(abbr) = cu.abbreviations(debug_abbrev) {
-        get_entry_points(&cu, &abbr, &debug_strings)
-            .iter()
-            .map(|&(a, b, c)| { 
-                if c {
-                    (a, LineType::TestEntry(b))
-                } else {
-                    (a, LineType::FunctionEntry(b))
-                }
-            }).collect()
-    } else {
-        Vec::<(u64, LineType)>::new()
-    };
-
-    let debug_line = obj.get_section(".debug_line").unwrap_or(&[]);
-    let debug_line = DebugLine::<Endian>::new(debug_line);
-    
-    let prog = debug_line.program(DebugLineOffset(TEST_CU_OFFSET), addr_size, None, None)?; 
-    let (cprog, seq) = prog.sequences()?;
-
-    for s in &seq {
-        let mut sm = cprog.resume_from(s);
-        while let Ok(Some((ref header, &ln_row))) = sm.next_row() {
+    let ( cprog, seq) = prog.sequences()?;
+    for s in seq {
+        let mut sm = cprog.resume_from(&s);   
+         while let Ok(Some((ref header, &ln_row))) = sm.next_row() {
             if let Some(file) = ln_row.file(header) {
                 let mut path = PathBuf::new();
                 
@@ -192,6 +162,49 @@ fn get_line_addresses<Endian: Endianity>(project: &Path, obj: &OFile) -> Result<
                         }
                     }
                 }
+            }
+        }
+    }
+    Ok(result)
+}
+
+fn get_line_addresses<Endian: Endianity>(project: &Path, obj: &OFile) -> Result<Vec<TracerData>>  {
+    let mut result: Vec<TracerData> = Vec::new();
+    let debug_info = obj.get_section(".debug_info").unwrap_or(&[]);
+    let debug_info = DebugInfo::<Endian>::new(debug_info);
+    let debug_abbrev = obj.get_section(".debug_abbrev").unwrap_or(&[]);
+    let debug_abbrev = DebugAbbrev::<Endian>::new(debug_abbrev);
+    let debug_strings = obj.get_section(".debug_str").unwrap_or(&[]);
+    let debug_strings = DebugStr::<Endian>::new(debug_strings);
+
+    let mut iter = debug_info.units();
+    while let Ok(Some(cu)) = iter.next() {
+        let addr_size = cu.address_size();
+        let abbr = match cu.abbreviations(debug_abbrev) {
+            Ok(a) => a,
+            _ => continue,
+        };
+        let entries = get_entry_points(&cu, &abbr, &debug_strings)
+            .iter()
+            .map(|&(a, b, c)| { 
+                if c {
+                    (a, LineType::TestEntry(b))
+                } else {
+                    (a, LineType::FunctionEntry(b))
+                }
+            }).collect();
+
+        if let Ok(Some((_, root))) = cu.entries(&abbr).next_dfs() {
+            let offset = match root.attr_value(DW_AT_stmt_list) {
+                Ok(Some(AttributeValue::DebugLineRef(o))) => o,
+                _ => continue,
+            };
+            let debug_line = obj.get_section(".debug_line").unwrap_or(&[]);
+            let debug_line = DebugLine::<Endian>::new(debug_line);
+            
+            let prog = debug_line.program(offset, addr_size, None, None)?; 
+            if let Ok(mut addresses) = get_addresses_from_program(prog, &entries, &project) {
+                result.append(&mut addresses);
             }
         }
     }
