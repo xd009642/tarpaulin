@@ -1,24 +1,52 @@
-use coveralls_api::{CiService, Source, CoverallsReport};
+use std::collections::HashMap;
+use coveralls_api::*;
 use tracer::TracerData;
-use report::Report;
 use config::Config;
 
-impl Report<CoverallsReport> for CoverallsReport {
-    fn export(coverage_data: &Vec<TracerData>, config: &Config) {
-        if let Some(ref key) = config.coveralls {
-            // find unique file paths and get tracer data for only those paths.
-            // Strip manifest root from path and convert to c_api::Source
-            // Add all sources to CoverallsReport
-            // Send!
+pub fn export(coverage_data: &Vec<TracerData>, config: &Config) {
+    if let Some(ref key) = config.coveralls {
+        let id = match config.ci_tool {
+            Some(ref service) => Identity::ServiceToken(Service {
+                service_name: service.clone(),
+                service_job_id: key.clone()
+            }),
+            _ => Identity::RepoToken(key.clone()),
+        };
+        let mut report = CoverallsReport::new(id);
+        let files = coverage_data.iter()
+                                 .fold(vec![], |mut acc, ref x| {
+                                     if !acc.contains(&x.path.as_path()) {
+                                         acc.push(x.path.as_path());
+                                     }
+                                     acc    
+                                 });
+        
+        for file in files.iter() {
+            let rel_path = if let Some(root) = config.manifest.parent() {
+                file.strip_prefix(root).unwrap_or(file)
+            } else {
+                file
+            };
+            let mut lines: HashMap<usize, usize> = HashMap::new();
+            let fcov = coverage_data.iter()
+                                    .filter(|x| x.path == *file)
+                                    .collect::<Vec<&TracerData>>();
 
-            match config.ci_tool {
-                Some(CiService::Travis) => {},
-                Some(CiService::TravisPro) => {},
-                _ => {},
+            for c in fcov.iter() {
+                lines.insert(c.line as usize, c.hits as usize);
             }
-            
-        } else {
-            panic!("Not coveralls key specified.");
+            if let Ok(source) = Source::new(rel_path, file, &lines, &None, false) {
+                report.add_source(source);
+            }
         }
+        let res = report.send_to_coveralls();
+        if config.verbose {
+            match res {
+                Ok(_) => {},
+                Err(e) => println!("Coveralls send failed. {}", e),
+            }
+        }
+    } else {
+        panic!("No coveralls key specified.");
     }
 }

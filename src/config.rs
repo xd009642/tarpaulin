@@ -88,4 +88,9 @@ impl Config {
             ci_tool: ci_tool,
         }
     }
+
+    /// Determine whether to send data to coveralls 
+    pub fn is_coveralls(&self) -> bool {
+        self.coveralls.is_some()
+    }
 }

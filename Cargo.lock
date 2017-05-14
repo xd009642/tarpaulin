@@ -4,7 +4,7 @@ version = "0.1.4"
 dependencies = [
  "cargo 0.18.0 (registry+https://github.com/rust-lang/crates.io-index)",
  "clap 2.24.1 (registry+https://github.com/rust-lang/crates.io-index)",
- "coveralls-api 0.3.2 (registry+https://github.com/rust-lang/crates.io-index)",
+ "coveralls-api 0.3.3 (registry+https://github.com/rust-lang/crates.io-index)",
  "fallible-iterator 0.1.3 (registry+https://github.com/rust-lang/crates.io-index)",
  "gimli 0.13.0 (registry+https://github.com/rust-lang/crates.io-index)",
  "libc 0.2.21 (registry+https://github.com/rust-lang/crates.io-index)",
@@ -163,7 +163,7 @@ dependencies = [
 
 [[package]]
 name = "coveralls-api"
-version = "0.3.2"
+version = "0.3.3"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 dependencies = [
  "curl 0.4.6 (registry+https://github.com/rust-lang/crates.io-index)",
@@ -982,7 +982,7 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 "checksum chrono 0.2.25 (registry+https://github.com/rust-lang/crates.io-index)" = "9213f7cd7c27e95c2b57c49f0e69b1ea65b27138da84a170133fd21b07659c00"
 "checksum clap 2.24.1 (registry+https://github.com/rust-lang/crates.io-index)" = "b7541069be0b8aec41030802abe8b5cdef0490070afaa55418adea93b1e431e0"
 "checksum cmake 0.1.22 (registry+https://github.com/rust-lang/crates.io-index)" = "d18d68987ed4c516dcc3e7913659bfa4076f5182eea4a7e0038bb060953e76ac"
-"checksum coveralls-api 0.3.2 (registry+https://github.com/rust-lang/crates.io-index)" = "f08aa3349d6026f684985e80bd6944b95c942c682aa2fd46a0d6520a92306199"
+"checksum coveralls-api 0.3.3 (registry+https://github.com/rust-lang/crates.io-index)" = "1a7f17235b2f17cec847ea899124e7de0527bacd52452ecbd26d4372b9cad640"
 "checksum crates-io 0.7.0 (registry+https://github.com/rust-lang/crates.io-index)" = "adbbd5aa757bb6c4676a0c864546f2518b379c929ddaaca191df22c3ba68d1c9"
 "checksum crc 1.4.0 (registry+https://github.com/rust-lang/crates.io-index)" = "bc1914fae6f18ae347320f0ba5e4fc270e17c037ea621fe41ec7e8adf67d11b0"
 "checksum crossbeam 0.2.10 (registry+https://github.com/rust-lang/crates.io-index)" = "0c5ea215664ca264da8a9d9c3be80d2eaf30923c259d03e870388eb927508f97"

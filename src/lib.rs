@@ -132,6 +132,10 @@ pub fn report_coverage(config: &Config, result: &Vec<TracerData>) {
         let covered = result.iter().filter(|&x| (x.hits > 0 )).count();
         let total = result.iter().count();
         println!("Total of {}/{} lines covered", covered, total);
+        if config.is_coveralls() {
+            println!("Sending coverage data to coveralls.io");
+            report::coveralls::export(&result, config); 
+        }
     } else {
         println!("No coverage results collected.");
     }
