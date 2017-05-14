@@ -1,5 +1,5 @@
-use std::path::Path;
 use tracer::TracerData;
+use config::Config;
 use serde::Serialize;
 
 
@@ -9,6 +9,6 @@ pub mod coveralls;
 /// Currently reports must be serializable using serde
 pub trait Report<Out: Serialize> {
     /// Export coverage report
-    fn export(coverage_data: &Vec<TracerData>, path: &Path);
+    fn export(coverage_data: &Vec<TracerData>, config: &Config);
     
 }

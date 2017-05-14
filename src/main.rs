@@ -22,6 +22,12 @@ fn is_dir(d: String) -> Result<(), String> {
     }
 }
 
+const CI_SERVER_HELP: &'static str = 
+"Name of service, supported services are:
+\ntravis-ci, travis-pro, circle-ci, semaphore, jenkins and codeship.
+\nIf you are interfacing with coveralls.io or another site you can
+also specify a name that they will recognise. Refer to their documentation for this.";
+
 
 fn main() {
     let args = App::new("cargo-tarpaulin")
@@ -35,13 +41,16 @@ fn main() {
                 "--help -h    'Prints help information'
                  --verbose -v 'Show extra output'
                  --line -l    'Line coverage: UNSTABLE'
-                 --branch -b  'Branch coverage: NOT IMPLEMENTED'")
+                 --branch -b  'Branch coverage: NOT IMPLEMENTED'
+                 --coveralls [KEY]  'Coveralls key, either the repo token, or if you're using travis use $TRAVIS_JOB_ID and specify travis-{ci|pro} in --ciserver'")
             .args(&[
-                Arg::from_usage("--out -o [FMT]   'Output format'")
+                Arg::from_usage("--out -o [FMT]   'Output path'")
                     .possible_values(&OutputFile::variants())
                     .multiple(true),
                 Arg::from_usage("--root -r [DIR]  'Root directory containing Cargo.toml to use'")
-                    .validator(is_dir)
+                    .validator(is_dir),
+                Arg::from_usage("--ciserver [SERVICE] 'CI server being used'")
+                    .help(CI_SERVER_HELP)
             ]))
         .get_matches();
 

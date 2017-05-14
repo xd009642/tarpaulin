@@ -3,6 +3,7 @@ extern crate cargo;
 extern crate gimli;
 extern crate object;
 extern crate memmap;
+extern crate coveralls_api;
 extern crate fallible_iterator;
 extern crate rustc_demangle;
 extern crate regex;
@@ -10,8 +11,6 @@ extern crate regex;
 extern crate clap;
 extern crate serde;
 extern crate serde_json;
-#[macro_use]
-extern crate serde_derive;
 
 use std::env;
 use std::io;
@@ -29,7 +28,6 @@ use cargo::ops;
 
 pub mod config;
 pub mod tracer;
-pub mod collectors;
 pub mod breakpoint;
 pub mod report;
 /// Should be unnecessary with a future nix crate release.

@@ -1,6 +1,9 @@
 use std::path::PathBuf;
 use std::env;
+use std::str::FromStr;
 use clap::ArgMatches;
+use coveralls_api::CiService;
+
 
 arg_enum!{
     /// Enum to represent possible output formats.
@@ -12,6 +15,25 @@ arg_enum!{
         Xml
     }
 }
+
+struct Ci(CiService);
+
+impl FromStr for Ci {
+    type Err = ();
+    /// This will never error so no need to implement the error type.
+    fn from_str(s: &str) -> Result<Ci, ()> {
+        match s {
+            "travis-ci" => Ok(Ci(CiService::Travis)),
+            "travis-pro" => Ok(Ci(CiService::TravisPro)),
+            "circle-ci" => Ok(Ci(CiService::Circle)),
+            "semaphore" => Ok(Ci(CiService::Semaphore)),
+            "jenkins" => Ok(Ci(CiService::Jenkins)),
+            "codeship" => Ok(Ci(CiService::Codeship)),
+            other => Ok(Ci(CiService::Other(other.to_string()))),
+        }
+    }
+}
+
 /// Specifies the current configuration tarpaulin is using.
 #[derive(Debug)]
 pub struct Config {
@@ -20,6 +42,10 @@ pub struct Config {
     pub line_coverage: bool,
     pub branch_coverage: bool,
     pub generate: Vec<OutputFile>,
+    /// Key relating to coveralls service or repo
+    pub coveralls: Option<String>,
+    /// Enum representing CI tool used.
+    pub ci_tool: Option<CiService>,
 }
 
 
@@ -40,6 +66,15 @@ impl Config {
         };
         root.push("Cargo.toml");
 
+        let ci_tool = match value_t!(args, "ciserver", Ci) {
+            Ok(ci) => Some(ci.0),
+            Err(_) => None,
+        };
+        let coveralls = if let Some(cio) = args.value_of("coveralls") {
+            Some(cio.to_string())
+        } else {
+            None
+        };
         let out:Vec<OutputFile> = values_t!(args.values_of("out"), OutputFile)
             .unwrap_or(vec![]);
 
@@ -48,7 +83,9 @@ impl Config {
             verbose: verbose,
             line_coverage: line,
             branch_coverage: branch,
-            generate: out
+            generate: out,
+            coveralls: coveralls,
+            ci_tool: ci_tool,
         }
     }
 }
