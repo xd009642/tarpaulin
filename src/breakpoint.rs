@@ -45,7 +45,8 @@ impl Breakpoint {
     }
 
     /// Attaches the current breakpoint.
-    fn enable(&mut self) -> Result<c_long> {
+    pub fn enable(&mut self) -> Result<c_long> {
+        self.is_running = true;
         let mut intdata = self.data & (!(0xFFu64 << self.shift) as i64);
         intdata |= (INT << self.shift) as i64;
         write_to_address(self.pid, self.aligned_address(), intdata)

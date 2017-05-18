@@ -43,7 +43,7 @@ fn line_is_traceable(file: &PathBuf, line: u64) -> bool {
     let mut result = false;
     if line > 0 {
         // Module imports are flagged as debuggable. But are always ran so meaningless!
-        let reg: Regex = Regex::new(r"(:?^|\s)mod\s+\w+;").unwrap();
+        let reg: Regex = Regex::new(r"(:?^|\s)(:?mod)|(:?crate)\s+\w+;").unwrap();
         if let Ok(f) = File::open(file) {
             let reader = BufReader::new(&f);
             if let Some(Ok(l)) = reader.lines().nth((line - 1) as usize) {
@@ -151,7 +151,6 @@ fn get_addresses_from_program<T:Endianity>(prog: IncompleteLineNumberProgram<T>,
                                 LineType::FunctionEntry(e) if force_test => LineType::TestEntry(e),
                                 x @ _ => x
                             };
-                            
                             result.push( TracerData {
                                 path: path,
                                 line: line,

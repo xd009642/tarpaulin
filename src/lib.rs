@@ -174,7 +174,6 @@ fn collect_coverage(project_path: &Path,
                     test: pid_t) -> io::Result<Vec<TracerData>> {
     let mut traces = generate_tracer_data(project_path, test_path)?;
     let mut bps: HashMap<u64, Breakpoint> = HashMap::new();
-    
     match waitpid(test, None) {
         Ok(WaitStatus::Stopped(child, signal::SIGTRAP)) => {
             for trace in traces.iter() {
@@ -191,7 +190,6 @@ fn collect_coverage(project_path: &Path,
     }
     // Now we start hitting lines!
     run_coverage_on_all_tests(test, &mut traces, &mut bps);
-
     Ok(traces)
 }
 
@@ -204,6 +202,7 @@ fn run_function(pid: pid_t,
     let mut res = 0i8;
     // Start the function running. 
     continue_exec(pid)?;
+    let mut previous_bp:Option<u64> = None;
     loop {
         match waitpid(pid, None) {
             Ok(WaitStatus::Exited(_, sig)) => {
@@ -213,15 +212,15 @@ fn run_function(pid: pid_t,
             Ok(WaitStatus::Stopped(child, signal::SIGTRAP)) => {
                 if let Ok(rip) = current_instruction_pointer(child) {
                     let rip = (rip - 1) as u64;
-                    
-                    if let Some(ref mut bp) = breakpoints.get_mut(&rip) {
-                        
+                    if  breakpoints.contains_key(&rip) {
+                        let ref mut bp = breakpoints.get_mut(&rip).unwrap();
                         let updated = if let Ok(x) = bp.process() {
                             x
                         } else {
                             rip == end
                         };
                         if updated {
+                            previous_bp = Some(rip);
                             for mut t in traces.iter_mut()
                                                .filter(|ref x| x.address == rip) {
                                 (*t).hits += 1;
@@ -231,6 +230,10 @@ fn run_function(pid: pid_t,
                     else if rip == end {
                         // test over. Leave run function.
                         break;
+                    } else if let Some(rip) = previous_bp {
+                        if let Some(ref mut bp) = breakpoints.get_mut(&rip) {
+                            let _ = bp.process();
+                        }
                     } else {
                         continue_exec(pid)?;
                     }
