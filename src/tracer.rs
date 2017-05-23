@@ -15,6 +15,7 @@ use rustc_demangle::demangle;
 /// Describes a function as low_pc, high_pc and bool representing is_test.
 type FuncDesc = (u64, u64, bool);
 
+
 #[derive(Debug, Clone, Copy)]
 pub enum LineType {
     /// Entry of function known to be a test
@@ -38,6 +39,13 @@ pub struct TracerData {
     pub trace_type: LineType,
     pub hits: u64,
 }
+
+
+fn get_function_registers<T: Endianity>(offset: usize, frames: &DebugFrame<T>) {
+    
+    
+}
+
 
 fn line_is_traceable(file: &PathBuf, line: u64) -> bool {
     let mut result = false;

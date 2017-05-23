@@ -176,6 +176,11 @@ fn collect_coverage(project_path: &Path,
     let mut bps: HashMap<u64, Breakpoint> = HashMap::new();
     match waitpid(test, None) {
         Ok(WaitStatus::Stopped(child, signal::SIGTRAP)) => {
+            println!("Child: {}", child);
+            let child_trace = trace_children(child);
+            if let Err(c) = child_trace {
+                println!("Failed to trace child threads: {}", c);
+            }
             for trace in traces.iter() {
                 match Breakpoint::new(child, trace.address) {
                     Ok(bp) => { 
@@ -189,7 +194,8 @@ fn collect_coverage(project_path: &Path,
         Err(err) => println!("Error on start: {}", err)
     }
     // Now we start hitting lines!
-    run_coverage_on_all_tests(test, &mut traces, &mut bps);
+    //run_coverage_on_all_tests(test, &mut traces, &mut bps);
+    run_function(test, u64::max_value(), &mut traces, &mut bps);
     Ok(traces)
 }
 
@@ -239,8 +245,14 @@ fn run_function(pid: pid_t,
                     }
                 } 
             },
-            Ok(WaitStatus::Stopped(_, _)) => {
+            Ok(WaitStatus::Stopped(child, _)) => {
                 break;
+            },
+            Ok(WaitStatus::PtraceEvent(child, signal::SIGTRAP, 3)) => {
+                if let Ok(tid) = get_event_data(child) {
+                    println!("tid: {}", tid);
+                    continue_exec(tid as pid_t)?;
+                }
             },
             Ok(WaitStatus::Signaled(_, signal::SIGTRAP, true)) => println!("Child killed"),
             Ok(x) => println!("Unexpected: {:?}", x),
@@ -257,13 +269,14 @@ fn run_coverage_on_all_tests(pid: pid_t,
                       mut traces: &mut Vec<TracerData>,
                       mut breakpoints: &mut HashMap<u64, Breakpoint>) {
 
+    let _ =single_step(pid);
+    let _ = waitpid(pid, None);
     let is_test = | t: &TracerData | {
         match t.trace_type {
             LineType::TestEntry(_) => true,
             _ => false,
         }
     };
-
     let test_entries = traces.iter()
                              .filter(|t| is_test(t))
                              .map(|t| (t.address, t.trace_type))
