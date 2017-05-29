@@ -1,7 +1,7 @@
 use std::ptr;
 use nix::sys::ptrace::{ptrace, ptrace_setoptions};
 use nix::sys::ptrace::ptrace::*;
-use nix::libc::{pid_t, c_void, c_long, c_ulonglong};
+use nix::libc::{pid_t, c_void, c_long, c_ulonglong, siginfo_t};
 use nix::Result;
 use std::mem;
 use std::fmt;
@@ -133,4 +133,13 @@ pub fn get_event_data(pid: pid_t) -> Result<c_long> {
         },
         err @ Err(..) => err,
     }
+}
+
+
+pub fn get_signal_info(pid: pid_t) -> Result<siginfo_t> {
+    let data: Box<siginfo_t> = Box::new( unsafe { mem::uninitialized() });
+    let temp: *mut c_void = unsafe { mem::transmute(data) };
+    ptrace(PTRACE_GETSIGINFO, pid, ptr::null_mut(), temp)?;
+    let data: Box<siginfo_t> = unsafe { mem::transmute(temp) };
+    Ok(*data)
 }

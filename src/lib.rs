@@ -36,6 +36,7 @@ mod ptrace_control;
 
 use config::*;
 use tracer::*;
+use tracer::LineType;
 use breakpoint::*;
 use ptrace_control::*;
 
@@ -208,9 +209,10 @@ fn run_function(pid: pid_t,
     let mut res = 0i8;
     // Start the function running. 
     continue_exec(pid)?;
-    let mut previous_bp:Option<u64> = None;
+    let mut ltid = pid;
+    let mut test_end = end;
     loop {
-        match waitpid(pid, None) {
+        match waitpid(-1/*pid*/, Some(__WALL)) {
             Ok(WaitStatus::Exited(_, sig)) => {
                 res = sig;
                 break;
@@ -226,31 +228,30 @@ fn run_function(pid: pid_t,
                             rip == end
                         };
                         if updated {
-                            previous_bp = Some(rip);
                             for mut t in traces.iter_mut()
                                                .filter(|ref x| x.address == rip) {
                                 (*t).hits += 1;
+                                if let LineType::TestEntry(x) = t.trace_type {
+                                    test_end = (*t).address + x;
+                                }
                             }
                         } 
-                    }
-                    else if rip == end {
+                    } else if rip == test_end {
                         // test over. Leave run function.
+                        continue_exec(ltid)?;
                         break;
-                    } else if let Some(rip) = previous_bp {
-                        if let Some(ref mut bp) = breakpoints.get_mut(&rip) {
-                            let _ = bp.process();
-                        }
                     } else {
-                        continue_exec(pid)?;
+                        continue_exec(child)?;
                     }
                 } 
             },
             Ok(WaitStatus::Stopped(child, _)) => {
+                continue_exec(child)?;
                 break;
             },
             Ok(WaitStatus::PtraceEvent(child, signal::SIGTRAP, 3)) => {
                 if let Ok(tid) = get_event_data(child) {
-                    println!("tid: {}", tid);
+                    ltid = tid as pid_t;
                     continue_exec(tid as pid_t)?;
                 }
             },

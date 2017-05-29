@@ -41,12 +41,6 @@ pub struct TracerData {
 }
 
 
-fn get_function_registers<T: Endianity>(offset: usize, frames: &DebugFrame<T>) {
-    
-    
-}
-
-
 fn line_is_traceable(file: &PathBuf, line: u64) -> bool {
     let mut result = false;
     if line > 0 {
