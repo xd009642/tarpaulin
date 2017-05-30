@@ -177,7 +177,6 @@ fn collect_coverage(project_path: &Path,
     let mut bps: HashMap<u64, Breakpoint> = HashMap::new();
     match waitpid(test, None) {
         Ok(WaitStatus::Stopped(child, signal::SIGTRAP)) => {
-            println!("Child: {}", child);
             let child_trace = trace_children(child);
             if let Err(c) = child_trace {
                 println!("Failed to trace child threads: {}", c);
@@ -196,7 +195,10 @@ fn collect_coverage(project_path: &Path,
     }
     // Now we start hitting lines!
     //run_coverage_on_all_tests(test, &mut traces, &mut bps);
-    run_function(test, u64::max_value(), &mut traces, &mut bps);
+    match run_function(test, u64::max_value(), &mut traces, &mut bps) {
+        Err(e) => println!("Error while collecting coverage. {}", e),
+        _ => {},
+    }
     Ok(traces)
 }
 
@@ -212,7 +214,7 @@ fn run_function(pid: pid_t,
     let mut ltid = pid;
     let mut test_end = end;
     loop {
-        match waitpid(-1/*pid*/, Some(__WALL)) {
+        match waitpid(-1, Some(__WALL)) {
             Ok(WaitStatus::Exited(_, sig)) => {
                 res = sig;
                 break;
@@ -236,7 +238,7 @@ fn run_function(pid: pid_t,
                                 }
                             }
                         } 
-                    } else if rip == test_end {
+                    } else if rip >= test_end {
                         // test over. Leave run function.
                         continue_exec(ltid)?;
                         break;
@@ -263,38 +265,6 @@ fn run_function(pid: pid_t,
         }
     }
     Ok(res)
-}
-
-/// Tests the coverage of all identified tests
-fn run_coverage_on_all_tests(pid: pid_t,
-                      mut traces: &mut Vec<TracerData>,
-                      mut breakpoints: &mut HashMap<u64, Breakpoint>) {
-
-    let _ =single_step(pid);
-    let _ = waitpid(pid, None);
-    let is_test = | t: &TracerData | {
-        match t.trace_type {
-            LineType::TestEntry(_) => true,
-            _ => false,
-        }
-    };
-    let test_entries = traces.iter()
-                             .filter(|t| is_test(t))
-                             .map(|t| (t.address, t.trace_type))
-                             .collect::<Vec<(u64, LineType)>>();
-    
-    for te in test_entries.iter() {
-        let _ = set_instruction_pointer(pid, te.0);
-        
-        let func_end:u64 = match te.1 {
-            LineType::TestEntry(len) => te.0 + len as u64,
-            _ => u64::max_value(),
-        };
-        match run_function(pid, func_end, &mut traces, &mut breakpoints) {
-            Ok(_) => {},
-            Err(e) => println!("Error running function: {}", e),
-        }
-    }
 }
 
 

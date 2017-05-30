@@ -212,11 +212,37 @@ fn get_line_addresses<Endian: Endianity>(project: &Path, obj: &OFile) -> Result<
     // Due to rust being a higher level language multiple instructions may map
     // to the same line. This prunes these to just the first instruction address
     let mut check: HashSet<(&Path, u64)> = HashSet::new();
-    let result = result.iter()
-                       .filter(|x| check.insert((x.path.as_path(), x.line)))
-                       .map(|x| x.clone())
-                       .collect::<Vec<TracerData>>();
-    
+    let mut result = result.iter()
+                           .filter(|x| check.insert((x.path.as_path(), x.line)))
+                           .map(|x| x.clone())
+                           .collect::<Vec<TracerData>>();
+    let addresses = result.iter()
+                          .map(|x| x.address)
+                          .collect::<Vec<_>>();
+    // TODO Probably a more idiomatic way to do this.
+    {
+        let test_entries = result.iter_mut()
+                                 .filter(|x| match x.trace_type {
+                                     LineType::TestEntry(_) => true,
+                                     _ => false,
+                                 });
+
+        for ref mut test_entry in test_entries {
+            let endpoint = match test_entry.trace_type {
+                LineType::TestEntry(x) => x,
+                _ => continue,
+            };
+            let max_address = addresses.iter()
+                                       .fold(0, |acc, x| {
+                                           if x > &(test_entry.address + acc) && (x-test_entry.address) <= endpoint {
+                                               *x - test_entry.address
+                                           } else { 
+                                               acc  
+                                           }
+                                       });
+            test_entry.trace_type = LineType::TestEntry(max_address);
+        }
+    }
     Ok(result)
 }
 
