@@ -147,6 +147,7 @@ pub fn report_coverage(config: &Config, result: &Vec<TracerData>) {
 pub fn get_test_coverage(root: &Path, test: &Path) -> Option<Vec<TracerData>> {
     match fork() {
         Ok(ForkResult::Parent{ child }) => {
+            println!("Launching coverage");
             match collect_coverage(root, test, child) {
                 Ok(t) => {
                     Some(t)
@@ -158,6 +159,7 @@ pub fn get_test_coverage(root: &Path, test: &Path) -> Option<Vec<TracerData>> {
             }
         }
         Ok(ForkResult::Child) => {
+            println!("Launching test");
             execute_test(test, true);
             None
         }
@@ -182,6 +184,7 @@ fn collect_coverage(project_path: &Path,
                 println!("Failed to trace child threads: {}", c);
             }
             for trace in traces.iter() {
+                //TODO Does pid vs tid matter?
                 match Breakpoint::new(child, trace.address) {
                     Ok(bp) => { 
                         let _ = bps.insert(trace.address, bp);
@@ -224,7 +227,7 @@ fn run_function(pid: pid_t,
                     let rip = (rip - 1) as u64;
                     if  breakpoints.contains_key(&rip) {
                         let ref mut bp = breakpoints.get_mut(&rip).unwrap();
-                        let updated = if let Ok(x) = bp.process() {
+                        let updated = if let Ok(x) = bp.process(Some(child)) {
                             x
                         } else {
                             rip == end
@@ -240,8 +243,8 @@ fn run_function(pid: pid_t,
                         } 
                     } else if rip >= test_end {
                         // test over. Leave run function.
+                        test_end = end;
                         continue_exec(ltid)?;
-                        break;
                     } else {
                         continue_exec(child)?;
                     }

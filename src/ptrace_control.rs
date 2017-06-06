@@ -88,7 +88,7 @@ pub fn report_regs(pid: pid_t) -> Box<Regs> {
     let temp: *mut c_void = unsafe { mem::transmute(data) };
     let _ = ptrace(PTRACE_GETREGS, pid, ptr::null_mut(), temp);
     let data: Box<Regs> = unsafe { mem::transmute(temp) };
-
+    println!("{:#?}", data);
     data
 }
 
@@ -136,10 +136,3 @@ pub fn get_event_data(pid: pid_t) -> Result<c_long> {
 }
 
 
-pub fn get_signal_info(pid: pid_t) -> Result<siginfo_t> {
-    let data: Box<siginfo_t> = Box::new( unsafe { mem::uninitialized() });
-    let temp: *mut c_void = unsafe { mem::transmute(data) };
-    ptrace(PTRACE_GETSIGINFO, pid, ptr::null_mut(), temp)?;
-    let data: Box<siginfo_t> = unsafe { mem::transmute(temp) };
-    Ok(*data)
-}

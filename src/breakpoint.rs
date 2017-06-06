@@ -13,6 +13,8 @@ const INT: u64 = 0xCC;
 pub struct Breakpoint { 
     /// Current process id
     pub pid: pid_t,
+    /// process or thread id to use at present time
+    uid: pid_t,
     /// Program counter
     pub pc: u64,
     /// Bottom byte of address data. 
@@ -33,6 +35,7 @@ impl Breakpoint {
 
         let mut b = Breakpoint{ 
             pid: pid,
+            uid: pid,
             pc: pc,
             data: data,
             shift: 8 * (pc - aligned),
@@ -49,23 +52,28 @@ impl Breakpoint {
         self.is_running = true;
         let mut intdata = self.data & (!(0xFFu64 << self.shift) as i64);
         intdata |= (INT << self.shift) as i64;
-        write_to_address(self.pid, self.aligned_address(), intdata)
+        write_to_address(self.uid, self.aligned_address(), intdata)
     }
     
     fn disable(&self) -> Result<c_long> {
-        write_to_address(self.pid, self.aligned_address(), self.data)
+        write_to_address(self.uid, self.aligned_address(), self.data)
     }
 
     /// Processes the breakpoint. This steps over the breakpoint
-    pub fn process(&mut self) -> Result<bool> {
+    pub fn process(&mut self, tid: Option<pid_t>) -> Result<bool> {
+        if let Some(tid) = tid {
+            self.uid = tid;
+        }
         if self.is_running {
             self.step()?;
             self.is_running = false;
+            self.uid = self.pid;
             Ok(true)
         } else {
             self.enable()?;
-            continue_exec(self.pid)?;
+            continue_exec(self.uid)?;
             self.is_running = true;
+            self.uid = self.pid;
             Ok(false)
         }
     }
@@ -77,8 +85,8 @@ impl Breakpoint {
         // hit the breakpoint then step to execute the original instruction.
         self.disable()?;
         // Need to set the program counter back one.
-        set_instruction_pointer(self.pid, self.pc)?;
-        single_step(self.pid)
+        set_instruction_pointer(self.uid, self.pc)?;
+        single_step(self.uid)
     }
 
     fn aligned_address(&self) -> u64 {
