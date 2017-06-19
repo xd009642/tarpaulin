@@ -46,11 +46,11 @@ src/lib.rs:23 - hits: 1
 Total of 7/12 lines covered
 ```
 
-Hint: if using coveralls.io with travis-ci run with the options "--ciserver travis-ci --coveralls $TRAVIS_JOB_ID". The coveralls.io repo-token is mainly designed for private repos and it won't generate a badge for the coverage results submitted (although you can still see them on the coveralls web interface).
+Hint: if using coveralls.io with travis-ci run with the options "--ciserver travis-ci --coveralls $TRAVIS_JOB_ID". The coveralls.io repo-token is mainly designed for private repos and it won't generate a badge for the coverage results submitted (although you can still see them on the coveralls web interface). For an example of a project using Tarpaulin, you can check out my crate [keygraph-rs](https://github.com/xd009642/keygraph-rs).
 
 ## Limitations
 
-Currently Tarpaulin only works on projects where tests are located within a tests module (either by being in a tests directory or within a mod tests block. Also, any functions in the tests module which aren't tests will be ran as well. Tarpaulin is also untested in most situations so if any issues are spotted please raise them to help support our continued development
+Tarpaulin is also untested in most situations so if any issues are spotted please raise them to help support our continued development.
 
 ## Roadmap
 
