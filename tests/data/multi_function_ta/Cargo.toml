@@ -1,0 +1,6 @@
+[package]
+name = "multi_function_ta"
+version = "0.1.0"
+authors = ["xd009642 <danielmckenna93@gmail.com>"]
+
+[dependencies]

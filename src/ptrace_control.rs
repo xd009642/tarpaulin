@@ -1,7 +1,7 @@
 use std::ptr;
 use nix::sys::ptrace::{ptrace, ptrace_setoptions};
 use nix::sys::ptrace::ptrace::*;
-use nix::libc::{pid_t, c_void, c_long, c_ulonglong, siginfo_t};
+use nix::libc::{pid_t, c_void, c_long, c_ulonglong};
 use nix::Result;
 use std::mem;
 use std::fmt;

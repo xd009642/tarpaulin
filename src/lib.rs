@@ -218,9 +218,15 @@ fn run_function(pid: pid_t,
     let mut test_end = end;
     loop {
         match waitpid(-1, Some(__WALL)) {
-            Ok(WaitStatus::Exited(_, sig)) => {
+            Ok(WaitStatus::Exited(child, sig)) => {
                 res = sig;
-                break;
+                // If test executable exiting break, else continue the program
+                // to launch the next test function
+                if child == pid {
+                    break;
+                } else {
+                    continue_exec(pid)?;
+                }
             },
             Ok(WaitStatus::Stopped(child, signal::SIGTRAP)) => {
                 if let Ok(rip) = current_instruction_pointer(child) {
