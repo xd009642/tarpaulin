@@ -122,14 +122,16 @@ pub fn merge_test_results(master: &mut Vec<TracerData>, new: &Vec<TracerData>) {
 pub fn report_coverage(config: &Config, result: &Vec<TracerData>) {
     if result.len() > 0 {
         println!("Coverage Results");
-        for r in result.iter() {
-            let path = if let Some(root) = config.manifest.parent() {
-                r.path.strip_prefix(root).unwrap_or(r.path.as_path())
-            } else {
-                r.path.as_path()
-            };
-            println!("{}:{} - hits: {}", path.display(), r.line, r.hits);
-        }    
+        if config.verbose {
+            for r in result.iter() {
+                let path = if let Some(root) = config.manifest.parent() {
+                    r.path.strip_prefix(root).unwrap_or(r.path.as_path())
+                } else {
+                    r.path.as_path()
+                };
+                println!("{}:{} - hits: {}", path.display(), r.line, r.hits);
+            }
+        }
         let covered = result.iter().filter(|&x| (x.hits > 0 )).count();
         let total = result.iter().count();
         println!("Total of {}/{} lines covered", covered, total);
@@ -224,8 +226,9 @@ fn run_function(pid: pid_t,
                 // to launch the next test function
                 if child == pid {
                     break;
-                } else {
-                    continue_exec(pid)?;
+                } else if let Err(_) = continue_exec(pid) {
+                    // The err will be no child process and means test is over.
+                    break;
                 }
             },
             Ok(WaitStatus::Stopped(child, signal::SIGTRAP)) => {
@@ -258,16 +261,17 @@ fn run_function(pid: pid_t,
             },
             Ok(WaitStatus::Stopped(child, _)) => {
                 continue_exec(child)?;
-                break;
             },
             Ok(WaitStatus::PtraceEvent(child, signal::SIGTRAP, 3)) => {
                 if let Ok(tid) = get_event_data(child) {
                     ltid = tid as pid_t;
-                    continue_exec(tid as pid_t)?;
+                    continue_exec(child)?;
                 }
             },
-            Ok(WaitStatus::Signaled(_, signal::SIGTRAP, true)) => println!("Child killed"),
-            Ok(x) => println!("Unexpected: {:?}", x),
+            Ok(WaitStatus::Signaled(_, signal::SIGTRAP, true)) => break,
+            Ok(_) => {
+                break;
+            },
             Err(e) => {
                 return Err(Error::new(ErrorKind::Other, e))
             },
