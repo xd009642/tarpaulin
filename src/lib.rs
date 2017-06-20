@@ -216,8 +216,6 @@ fn run_function(pid: pid_t,
     let mut res = 0i8;
     // Start the function running. 
     continue_exec(pid)?;
-    let mut ltid = pid;
-    let mut test_end = end;
     loop {
         match waitpid(-1, Some(__WALL)) {
             Ok(WaitStatus::Exited(child, sig)) => {
@@ -226,9 +224,9 @@ fn run_function(pid: pid_t,
                 // to launch the next test function
                 if child == pid {
                     break;
-                } else if let Err(_) = continue_exec(pid) {
+                } else {
                     // The err will be no child process and means test is over.
-                    break;
+                    let _ =continue_exec(pid);
                 }
             },
             Ok(WaitStatus::Stopped(child, signal::SIGTRAP)) => {
@@ -245,31 +243,28 @@ fn run_function(pid: pid_t,
                             for mut t in traces.iter_mut()
                                                .filter(|ref x| x.address == rip) {
                                 (*t).hits += 1;
-                                if let LineType::TestEntry(x) = t.trace_type {
-                                    test_end = (*t).address + x;
-                                }
                             }
                         } 
-                    } else if rip >= test_end {
-                        // test over. Leave run function.
-                        test_end = end;
-                        continue_exec(ltid)?;
                     } else {
                         continue_exec(child)?;
                     }
                 } 
             },
-            Ok(WaitStatus::Stopped(child, _)) => {
+            Ok(WaitStatus::Stopped(child, signal::SIGSTOP)) => {
+                continue_exec(child)?;
+            },
+            Ok(WaitStatus::Stopped(child, sig)) => {
+                println!("Unexpected signal {:?}", sig);
                 continue_exec(child)?;
             },
             Ok(WaitStatus::PtraceEvent(child, signal::SIGTRAP, 3)) => {
-                if let Ok(tid) = get_event_data(child) {
-                    ltid = tid as pid_t;
+                if let Ok(_) = get_event_data(child) {
                     continue_exec(child)?;
                 }
             },
             Ok(WaitStatus::Signaled(_, signal::SIGTRAP, true)) => break,
             Ok(_) => {
+                println!("Unexpected stop");
                 break;
             },
             Err(e) => {
