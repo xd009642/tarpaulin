@@ -36,7 +36,6 @@ mod ptrace_control;
 
 use config::*;
 use tracer::*;
-use tracer::LineType;
 use breakpoint::*;
 use ptrace_control::*;
 
@@ -119,6 +118,8 @@ pub fn merge_test_results(master: &mut Vec<TracerData>, new: &Vec<TracerData>) {
     master.append(&mut unmerged);
 }
 
+/// Reports the test coverage using the users preferred method. See config.rs 
+/// or help text for details.
 pub fn report_coverage(config: &Config, result: &Vec<TracerData>) {
     if result.len() > 0 {
         println!("Coverage Results");
@@ -137,7 +138,8 @@ pub fn report_coverage(config: &Config, result: &Vec<TracerData>) {
         println!("Total of {}/{} lines covered", covered, total);
         if config.is_coveralls() {
             println!("Sending coverage data to coveralls.io");
-            report::coveralls::export(&result, config); 
+            report::coveralls::export(&result, config);
+            println!("Coverage data sent");
         }
     } else {
         println!("No coverage results collected.");
@@ -149,7 +151,6 @@ pub fn report_coverage(config: &Config, result: &Vec<TracerData>) {
 pub fn get_test_coverage(root: &Path, test: &Path) -> Option<Vec<TracerData>> {
     match fork() {
         Ok(ForkResult::Parent{ child }) => {
-            println!("Launching coverage");
             match collect_coverage(root, test, child) {
                 Ok(t) => {
                     Some(t)
@@ -177,6 +178,7 @@ pub fn get_test_coverage(root: &Path, test: &Path) -> Option<Vec<TracerData>> {
 fn collect_coverage(project_path: &Path, 
                     test_path: &Path, 
                     test: pid_t) -> io::Result<Vec<TracerData>> {
+
     let mut traces = generate_tracer_data(project_path, test_path)?;
     let mut bps: HashMap<u64, Breakpoint> = HashMap::new();
     match waitpid(test, None) {

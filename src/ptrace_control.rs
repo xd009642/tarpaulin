@@ -88,7 +88,6 @@ pub fn report_regs(pid: pid_t) -> Box<Regs> {
     let temp: *mut c_void = unsafe { mem::transmute(data) };
     let _ = ptrace(PTRACE_GETREGS, pid, ptr::null_mut(), temp);
     let data: Box<Regs> = unsafe { mem::transmute(temp) };
-    println!("{:#?}", data);
     data
 }
 
