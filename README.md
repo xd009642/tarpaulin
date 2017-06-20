@@ -14,6 +14,9 @@ Below is a list of features currently implemented. As Tarpaulin loads binary fil
 * Uploading coverage to https://coveralls.io
 
 ## Usage
+
+Tarpaulin depends on cargo which depends on SSL. Make sure you've installed your distros ssl development libraries and they are on your path before attempting to install tarpaulin.
+
 To get detailed help on available arguments when running tarpaulin call:
 ```text
 cargo tarpaulin --help
@@ -48,9 +51,44 @@ Total of 7/12 lines covered
 
 Hint: if using coveralls.io with travis-ci run with the options "--ciserver travis-ci --coveralls $TRAVIS_JOB_ID". The coveralls.io repo-token is mainly designed for private repos and it won't generate a badge for the coverage results submitted (although you can still see them on the coveralls web interface). For an example of a project using Tarpaulin, you can check out my crate [keygraph-rs](https://github.com/xd009642/keygraph-rs).
 
+### Travis-ci and Coveralls.io
+
+The expected most common usecase is launching coverage via a CI service to upload to a site like codecov or coveralls. Given the built in support and ubiquity of travis-ci it seems prudent to document the required steps here for new users. To follow these steps you'll first need a travis-ci and coveralls project for your repo. 
+
+We recommend taking the minimal rust .travis.yml, installing the libssl-dev dependency tarpaulin has and then after the clean, build and test with the stable compiler installing tarpaulin and running it on the cleaned project. The clean step shouldn't be necessary but it's just to make sure for people who may have more complicated build steps (i.e. code generation).
+
+```text
+language: rust
+dist: trusty
+addons:
+    apt:
+        packages:
+            - libssl-dev
+cache: cargo
+rust:
+  - stable
+  - beta
+  - nightly
+matrix:
+  allow_failures:
+    - rust: nightly
+script:
+- cargo clean
+- cargo build
+- cargo test
+
+after_success: |
+  if [[ "$TRAVIS_RUST_VERSION" == stable ]]; then
+    cargo clean
+    cargo install cargo-tarpaulin
+    cargo tarpaulin --ciserver travis-ci --coveralls $TRAVIS_JOB_ID
+  fi
+```
+
+
 ## Limitations
 
-Tarpaulin is also untested in most situations so if any issues are spotted please raise them to help support our continued development.
+Tarpaulin has currently only been tested on small crates or projects. It is entirely possible issues could occur with larger or more complicated projects. Please raise any issues you find to help improve tarpaulin for everyone.
 
 ## Roadmap
 
