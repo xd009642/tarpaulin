@@ -42,13 +42,22 @@ use ptrace_control::*;
 /// Launches tarpaulin with the given configuration.
 pub fn launch_tarpaulin(config: Config) {
     let cargo_config = CargoConfig::default().unwrap();
-    let workspace =match Workspace::new(config.manifest.as_path(), &cargo_config) {
+    let flag_quiet = if config.verbose {
+        None
+    } else {
+        Some(true)
+    };
+    // This shouldn't fail so no checking the error.
+    let _ = cargo_config.configure(0u32,
+                                   flag_quiet,
+                                   &None,
+                                   false,
+                                   false);
+
+    let workspace = match Workspace::new(config.manifest.as_path(), &cargo_config) {
         Ok(w) => w,
         Err(_) => panic!("Invalid project directory specified"),
     };
-    for m in workspace.members() {
-        println!("{:?}", m.manifest_path());
-    }
 
     let filter = ops::CompileFilter::Everything;
     let rustflags = "RUSTFLAGS";
@@ -73,13 +82,13 @@ pub fn launch_tarpaulin(config: Config) {
         target_rustc_args: None,
     };
     let mut result:Vec<TracerData> = Vec::new();
+    if config.verbose {
+        println!("Running Tarpaulin");
+    }
     // TODO Determine if I should clean the target before compiling.
     let compilation = ops::compile(&workspace, &copt);
     match compilation {
         Ok(comp) => {
-            if config.verbose {
-                println!("Running Tarpaulin");
-            }
             for c in comp.tests.iter() {
                 if config.verbose {
                     println!("Processing {}", c.1);
