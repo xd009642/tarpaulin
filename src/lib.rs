@@ -197,7 +197,6 @@ fn collect_coverage(project_path: &Path,
                 println!("Failed to trace child threads: {}", c);
             }
             for trace in traces.iter() {
-                //TODO Does pid vs tid matter?
                 match Breakpoint::new(child, trace.address) {
                     Ok(bp) => { 
                         let _ = bps.insert(trace.address, bp);

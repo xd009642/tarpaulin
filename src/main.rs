@@ -37,6 +37,7 @@ fn main() {
         .bin_name("cargo")
         .subcommand(SubCommand::with_name("tarpaulin")
             .about("Tool to analyse test coverage of cargo projects")
+            .version(concat!("version: ", crate_version!()))
             .args_from_usage(
                 "--help -h    'Prints help information'
                  --verbose -v 'Show extra output'
