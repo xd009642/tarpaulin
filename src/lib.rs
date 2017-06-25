@@ -139,7 +139,7 @@ pub fn report_coverage(config: &Config, result: &Vec<TracerData>) {
                 } else {
                     r.path.as_path()
                 };
-                println!("{}:{} - hits: {}", path.display(), r.line, r.hits);
+                println!("{}:{}:x{:x} - hits: {}", path.display(), r.line, r.address, r.hits);
             }
         }
         let covered = result.iter().filter(|&x| (x.hits > 0 )).count();
@@ -217,8 +217,8 @@ fn collect_coverage(project_path: &Path,
     Ok(traces)
 }
 
-/// Starts running a test. Child must have signalled STOP or SIGNALED to show the
-/// parent it is not executing or it will be killed.
+/// Starts running a test. Child must have signalled STOP or SIGNALED to show 
+/// the parent it is not executing or it will be killed.
 fn run_function(pid: pid_t,
                 end: u64,
                 mut traces: &mut Vec<TracerData>,

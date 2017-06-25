@@ -19,7 +19,7 @@ pub struct Breakpoint {
     pub pc: u64,
     /// Bottom byte of address data. 
     /// This is replaced to enable the interrupt. Rest of data is never changed.
-    data: i64,
+    data: u8,
     /// Reading from memory with ptrace gives addresses aligned to bytes. 
     /// We therefore need to know the shift to place the breakpoint in the right place
     shift: u64,
@@ -32,13 +32,14 @@ impl Breakpoint {
     pub fn new(pid:pid_t, pc:u64) ->Result<Breakpoint> {
         let aligned = pc & !0x7u64;
         let data = read_address(pid, aligned)?;
-
+        let shift = 8 * (pc - aligned);
+        let data = ((data >> shift) & 0xFF) as u8;
         let mut b = Breakpoint{ 
             pid: pid,
             uid: pid,
             pc: pc,
             data: data,
-            shift: 8 * (pc - aligned),
+            shift: shift,
             is_running: true,
         };
         match b.enable() {
@@ -49,14 +50,19 @@ impl Breakpoint {
 
     /// Attaches the current breakpoint.
     pub fn enable(&mut self) -> Result<c_long> {
+        let data  = read_address(self.uid, self.aligned_address())?;
         self.is_running = true;
-        let mut intdata = self.data & (!(0xFFu64 << self.shift) as i64);
+        let mut intdata = data & (!(0xFFu64 << self.shift) as i64);
         intdata |= (INT << self.shift) as i64;
         write_to_address(self.uid, self.aligned_address(), intdata)
     }
     
     fn disable(&self) -> Result<c_long> {
-        write_to_address(self.uid, self.aligned_address(), self.data)
+        // I require the bit fiddlin this end.
+        let data = read_address(self.uid, self.aligned_address())?;
+        let mut orgdata = data & (!(0xFFu64 << self.shift) as i64);
+        orgdata |= (self.data as i64) << self.shift;
+        write_to_address(self.uid, self.aligned_address(), orgdata)
     }
 
     /// Processes the breakpoint. This steps over the breakpoint
