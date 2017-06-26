@@ -2,13 +2,13 @@
 
 ![Build Status](https://travis-ci.org/xd009642/tarpaulin.svg?branch=master) [![Latest Version](https://img.shields.io/crates/v/cargo-tarpaulin.svg)](https://crates.io/crates/cargo-tarpaulin)  [![License:MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
 
-Tarpaulin is designed to be a code coverage reporting tool for the Cargo build system, named for a waterproof cloth used to cover cargo on a ship. Currently, tarpaulin is in the early development stage and as thus is largely unstable although it may be possible to use certain features. But check out our roadmap for planned features.
+Tarpaulin is designed to be a code coverage reporting tool for the Cargo build system, named for a waterproof cloth used to cover cargo on a ship. Currently, tarpaulin provides working line coverage but is still in the early development stage and therefore may contain some bugs. A lot of work has been done to get it working on some example projects and smaller crates so please report anything you find that's wrong. Also, check out our roadmap for planned features.
 
 Tarpaulin only supports x86/x86_64 processors running linux. This is because instrumenting breakpoints into executables and tracing their execution requires processor and OS specific code. It is a goal when greater stability is reached to add wider system support, however this is sufficient to run Tarpaulin on popular CI tools like Travis. 
 
 ## Features
 
-Below is a list of features currently implemented. As Tarpaulin loads binary files into memory and parses the debugging information, different setups could lead to coverage not working. In this instance, please raise an issue detailing your setup and an example project and I'll attempt to fix it. 
+Below is a list of features currently implemented. As Tarpaulin loads binary files into memory and parses the debugging information, different setups could lead to coverage not working. In this instance, please raise an issue detailing your setup and an example project and I'll attempt to fix it (please link us to a repo and the commit containing your project and paste the verbose output).
 
 * Line coverage
 * Uploading coverage to https://coveralls.io
@@ -23,30 +23,34 @@ cargo tarpaulin --help
 ```
 Currently no options are required, if no root directory is defined Tarpaulin will run in the current working directory.
 
-Below is a Tarpaulin run utilising one of our example projects. This is a relatively simple project to test and the output is still rather rough. This is an area which is likely to have large amounts of change. If you check the test, you can see the output correctly reports the lines the test hits.
+Below is a Tarpaulin run utilising one of our example projects. This is a relatively simple project to test and if you check the test, you can see the output correctly reports the lines the test hits.
 
 
 ```text
 cargo tarpaulin
-"/home/xd009642/rust/tarpaulin/data/simple_project/Cargo.toml"
-       Fresh simple_project v0.1.0 (file:///home/xd009642/dev/rust/tarpaulin/data/simple_project)
-    Finished dev [unoptimized + debuginfo] target(s) in 0.0 secs
-Running Tarpaulin
 Processing simple_project
+Launching test
+
+running 1 test
+test tests::bad_test ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured
+
 Coverage Results
-src/unused.rs:4 - hits: 0
-src/unused.rs:5 - hits: 0
-src/unused.rs:6 - hits: 0
-src/unused.rs:7 - hits: 0
-src/lib.rs:4 - hits: 1
-src/lib.rs:5 - hits: 1
-src/lib.rs:6 - hits: 0
-src/lib.rs:8 - hits: 1
-src/lib.rs:10 - hits: 1
-src/lib.rs:21 - hits: 1
-src/lib.rs:22 - hits: 1
-src/lib.rs:23 - hits: 1
-Total of 7/12 lines covered
+src/unused.rs:4:x405250 - hits: 0
+src/unused.rs:5:x405268 - hits: 0
+src/unused.rs:6:x405294 - hits: 0
+src/unused.rs:7:x4052b0 - hits: 0
+src/lib.rs:4:x4052c0 - hits: 1
+src/lib.rs:5:x4052cd - hits: 1
+src/lib.rs:6:x4052d3 - hits: 0
+src/lib.rs:8:x4052dc - hits: 1
+src/lib.rs:10:x4052e3 - hits: 1
+src/lib.rs:21:x4052f0 - hits: 1
+src/lib.rs:22:x4052fd - hits: 1
+src/lib.rs:23:x405305 - hits: 1
+58.33% coverage, 7/12 lines covered
+
 ```
 
 Hint: if using coveralls.io with travis-ci run with the options "--ciserver travis-ci --coveralls $TRAVIS_JOB_ID". The coveralls.io repo-token is mainly designed for private repos and it won't generate a badge for the coverage results submitted (although you can still see them on the coveralls web interface). For an example of a project using Tarpaulin, you can check out my crate [keygraph-rs](https://github.com/xd009642/keygraph-rs).
