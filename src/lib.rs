@@ -144,7 +144,8 @@ pub fn report_coverage(config: &Config, result: &Vec<TracerData>) {
         }
         let covered = result.iter().filter(|&x| (x.hits > 0 )).count();
         let total = result.iter().count();
-        println!("Total of {}/{} lines covered", covered, total);
+        let percent = (covered as f64)/(total as f64) * 100.0f64;
+        println!("{:.2}% coverage, {}/{} lines covered", percent, covered, total);
         if config.is_coveralls() {
             println!("Sending coverage data to coveralls.io");
             report::coveralls::export(&result, config);

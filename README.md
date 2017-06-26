@@ -27,7 +27,7 @@ Below is a Tarpaulin run utilising one of our example projects. This is a relati
 
 
 ```text
-cargo tarpaulin
+cargo tarpaulin -v
 Processing simple_project
 Launching test
 
