@@ -127,6 +127,16 @@ pub fn merge_test_results(master: &mut Vec<TracerData>, new: &Vec<TracerData>) {
     master.append(&mut unmerged);
 }
 
+/// Strips the directory the project manifest is in from the path. Provides a
+/// nicer path for printing to the user.
+fn strip_project_path<'a>(config: &'a Config, path: &'a Path) -> &'a Path {
+    if let Some(root) = config.manifest.parent() {
+        &path.strip_prefix(root).unwrap_or(path)
+    } else {
+        path
+    }
+}
+
 /// Reports the test coverage using the users preferred method. See config.rs 
 /// or help text for details.
 pub fn report_coverage(config: &Config, result: &Vec<TracerData>) {
@@ -134,18 +144,31 @@ pub fn report_coverage(config: &Config, result: &Vec<TracerData>) {
         println!("Coverage Results");
         if config.verbose {
             for r in result.iter() {
-                let path = if let Some(root) = config.manifest.parent() {
-                    r.path.strip_prefix(root).unwrap_or(r.path.as_path())
-                } else {
-                    r.path.as_path()
-                };
-                println!("{}:{}:x{:x} - hits: {}", path.display(), r.line, r.address, r.hits);
+                let path = strip_project_path(config, r.path.as_path());
+                println!("{}:{} - hits: {}", path.display(), r.line, r.hits);
             }
+        }
+        // Hash map of files with the value (lines covered, total lines)
+        let mut file_map: HashMap<&Path, (u64, u64)> = HashMap::new();
+        for r in result.iter() {
+            if file_map.contains_key(r.path.as_path()) {
+                if let Some(v) = file_map.get_mut(r.path.as_path()) {
+                    (*v).0 += (r.hits > 0) as u64;
+                    (*v).1 += 1u64;
+                } 
+            } else {
+                file_map.insert(r.path.as_path(), ((r.hits > 0) as u64, 1));
+            }
+        }
+        for (k, v) in file_map.iter() {
+            let path = strip_project_path(config, k);
+            println!("{}: {}/{}", path.display(), v.0, v.1);
         }
         let covered = result.iter().filter(|&x| (x.hits > 0 )).count();
         let total = result.iter().count();
         let percent = (covered as f64)/(total as f64) * 100.0f64;
-        println!("{:.2}% coverage, {}/{} lines covered", percent, covered, total);
+        // Put file filtering here
+        println!("\n{:.2}% coverage, {}/{} lines covered", percent, covered, total);
         if config.is_coveralls() {
             println!("Sending coverage data to coveralls.io");
             report::coveralls::export(&result, config);
@@ -298,6 +321,13 @@ fn execute_test(test: &Path, backtrace_on: bool) {
                    .expect("Failed to trace");
     
     let mut envars: Vec<CString> = vec![CString::new("RUST_TEST_THREADS=1").unwrap()];
+    for (key, value) in env::vars() {
+        let mut temp = String::new();
+        temp.push_str(key.as_str());
+        temp.push('=');
+        temp.push_str(value.as_str());
+        envars.push(CString::new(temp).unwrap());
+    }
     if backtrace_on {
         envars.push(CString::new("RUST_BACKTRACE=1").unwrap());
     }
