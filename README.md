@@ -28,6 +28,8 @@ Below is a Tarpaulin run utilising one of our example projects. This is a relati
 
 ```text
 cargo tarpaulin -v
+Running Tarpaulin
+    Finished dev [unoptimized + debuginfo] target(s) in 0.0 secs
 Processing simple_project
 Launching test
 
@@ -37,20 +39,23 @@ test tests::bad_test ... ok
 test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured
 
 Coverage Results
-src/unused.rs:4:x405250 - hits: 0
-src/unused.rs:5:x405268 - hits: 0
-src/unused.rs:6:x405294 - hits: 0
-src/unused.rs:7:x4052b0 - hits: 0
-src/lib.rs:4:x4052c0 - hits: 1
-src/lib.rs:5:x4052cd - hits: 1
-src/lib.rs:6:x4052d3 - hits: 0
-src/lib.rs:8:x4052dc - hits: 1
-src/lib.rs:10:x4052e3 - hits: 1
-src/lib.rs:21:x4052f0 - hits: 1
-src/lib.rs:22:x4052fd - hits: 1
-src/lib.rs:23:x405305 - hits: 1
-58.33% coverage, 7/12 lines covered
+src/unused.rs:4 - hits: 0
+src/unused.rs:5 - hits: 0
+src/unused.rs:6 - hits: 0
+src/unused.rs:7 - hits: 0
+src/lib.rs:4 - hits: 1
+src/lib.rs:5 - hits: 1
+src/lib.rs:6 - hits: 0
+src/lib.rs:8 - hits: 1
+src/lib.rs:10 - hits: 1
+src/lib.rs:21 - hits: 1
+src/lib.rs:22 - hits: 1
+src/lib.rs:23 - hits: 1
 
+src/lib.rs: 7/8
+src/unused.rs: 0/4
+
+58.33% coverage, 7/12 lines covered
 ```
 
 Hint: if using coveralls.io with travis-ci run with the options "--ciserver travis-ci --coveralls $TRAVIS_JOB_ID". The coveralls.io repo-token is mainly designed for private repos and it won't generate a badge for the coverage results submitted (although you can still see them on the coveralls web interface). For an example of a project using Tarpaulin, you can check out my crate [keygraph-rs](https://github.com/xd009642/keygraph-rs).
