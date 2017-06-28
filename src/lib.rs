@@ -66,7 +66,8 @@ pub fn launch_tarpaulin(config: Config) {
         value.push_str(vtemp.as_ref());
     }
     env::set_var(rustflags, value);
-    let copt = ops::CompileOptions {
+    let modes = vec![ops::CompileMode::Test, ops::CompileMode::Doctest];
+    let mut copt = ops::CompileOptions {
         config: &cargo_config,
         jobs: None,
         target: None,
@@ -85,24 +86,27 @@ pub fn launch_tarpaulin(config: Config) {
     if config.verbose {
         println!("Running Tarpaulin");
     }
-    // TODO Determine if I should clean the target before compiling.
-    let compilation = ops::compile(&workspace, &copt);
-    match compilation {
-        Ok(comp) => {
-            for c in comp.tests.iter() {
-                if config.verbose {
-                    println!("Processing {}", c.1);
+    for mode in modes {
+        copt.mode = mode;
+        // TODO Determine if I should clean the target before compiling.
+        let compilation = ops::compile(&workspace, &copt);
+        match compilation {
+            Ok(comp) => {
+                for c in comp.tests.iter() {
+                    if config.verbose {
+                        println!("Processing {}", c.1);
+                    }
+                    let res = get_test_coverage(workspace.root(), c.2.as_path())
+                        .unwrap_or(vec![]);
+                    merge_test_results(&mut result, &res);
                 }
-                let res = get_test_coverage(workspace.root(), c.2.as_path())
-                    .unwrap_or(vec![]);
-                merge_test_results(&mut result, &res);
-            }
-        },
-        Err(e) => {
-            if config.verbose{
-                println!("Error: failed to compile: {}", e);
-            }
-        },
+            },
+            Err(e) => {
+                if config.verbose{
+                    println!("Error: failed to compile: {}", e);
+                }
+            },
+        }
     }
     report_coverage(&config, &result);
 }
@@ -147,6 +151,7 @@ pub fn report_coverage(config: &Config, result: &Vec<TracerData>) {
                 let path = strip_project_path(config, r.path.as_path());
                 println!("{}:{} - hits: {}", path.display(), r.line, r.hits);
             }
+            println!("");
         }
         // Hash map of files with the value (lines covered, total lines)
         let mut file_map: HashMap<&Path, (u64, u64)> = HashMap::new();
@@ -182,6 +187,9 @@ pub fn report_coverage(config: &Config, result: &Vec<TracerData>) {
 
 /// Returns the coverage statistics for a test executable in the given workspace
 pub fn get_test_coverage(root: &Path, test: &Path) -> Option<Vec<TracerData>> {
+    if !test.exists() {
+        return None;
+    }
     match fork() {
         Ok(ForkResult::Parent{ child }) => {
             match collect_coverage(root, test, child) {
