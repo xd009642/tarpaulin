@@ -66,8 +66,14 @@ pub fn launch_tarpaulin(config: Config) {
         value.push_str(vtemp.as_ref());
     }
     env::set_var(rustflags, value);
-    let modes = vec![ops::CompileMode::Test, ops::CompileMode::Doctest];
-    let mut copt = ops::CompileOptions {
+    let clean_opt = ops::CleanOptions {
+        config: &cargo_config,
+        spec: &[],
+        target: None,
+        release: false,
+    };
+    
+    let copt = ops::CompileOptions {
         config: &cargo_config,
         jobs: None,
         target: None,
@@ -86,27 +92,25 @@ pub fn launch_tarpaulin(config: Config) {
     if config.verbose {
         println!("Running Tarpaulin");
     }
-    for mode in modes {
-        copt.mode = mode;
-        // TODO Determine if I should clean the target before compiling.
-        let compilation = ops::compile(&workspace, &copt);
-        match compilation {
-            Ok(comp) => {
-                for c in comp.tests.iter() {
-                    if config.verbose {
-                        println!("Processing {}", c.1);
-                    }
-                    let res = get_test_coverage(workspace.root(), c.2.as_path())
-                        .unwrap_or(vec![]);
-                    merge_test_results(&mut result, &res);
+    // Clean isn't expected to fail and if it does it likely won't have an effect
+    let _ = ops::clean(&workspace, &clean_opt);
+    let compilation = ops::compile(&workspace, &copt);
+    match compilation {
+        Ok(comp) => {
+            for c in comp.tests.iter() {
+                if config.verbose {
+                    println!("Processing {}", c.1);
                 }
-            },
-            Err(e) => {
-                if config.verbose{
-                    println!("Error: failed to compile: {}", e);
-                }
-            },
-        }
+                let res = get_test_coverage(workspace.root(), c.2.as_path())
+                    .unwrap_or(vec![]);
+                merge_test_results(&mut result, &res);
+            }
+        },
+        Err(e) => {
+            if config.verbose{
+                println!("Error: failed to compile: {}", e);
+            }
+        },
     }
     report_coverage(&config, &result);
 }
