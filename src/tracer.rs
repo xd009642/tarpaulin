@@ -13,11 +13,19 @@ use regex::Regex;
 use rustc_demangle::demangle;
 
 /// Describes a function as low_pc, high_pc and bool representing is_test.
-type FuncDesc = (u64, u64, bool);
+type FuncDesc = (u64, u64, FunctionType);
 
+#[derive(Clone, Copy, PartialEq)]
+enum FunctionType {
+    Generated,
+    Test,
+    Standard
+}
 
-#[derive(Debug, Clone, Copy)]
+#[derive(Debug, Clone, Copy, PartialEq)]
 pub enum LineType {
+    /// Generated test main. Shouldn't be traced.
+    TestMain,
     /// Entry of function known to be a test
     TestEntry(u64),
     /// Entry of function. May or may not be test
@@ -58,7 +66,7 @@ fn line_is_traceable(file: &PathBuf, line: u64) -> bool {
 
 fn generate_func_desc<T: Endianity>(die: &DebuggingInformationEntry<T>,
                                     debug_str: &DebugStr<T>) -> Result<FuncDesc> {
-    let mut is_test = false;
+    let mut func_type = FunctionType::Standard;
     let low = die.attr_value(DW_AT_low_pc)?;
     let high = die.attr_value(DW_AT_high_pc)?;
     let linkage = die.attr_value(DW_AT_linkage_name)?;
@@ -81,11 +89,15 @@ fn generate_func_desc<T: Endianity>(die: &DebuggingInformationEntry<T>,
         let name = demangle(name).to_string();
         // Simplest test is whether it's in tests namespace.
         // Rust guidelines recommend all tests are in a tests module.
-        is_test = name.contains("tests::");
-        // May need further tests in future for completeness.
+        func_type = if name.contains("tests::") {
+            FunctionType::Test
+        } else if name.contains("__test::main") {
+            FunctionType::Generated
+        } else {
+            FunctionType::Standard
+        };
     } 
-
-    Ok((low, high, is_test))
+    Ok((low, high, func_type))
 }
 
 
@@ -188,13 +200,12 @@ fn get_line_addresses<Endian: Endianity>(project: &Path, obj: &OFile) -> Result<
         let entries = get_entry_points(&cu, &abbr, &debug_strings)
             .iter()
             .map(|&(a, b, c)| { 
-                if c {
-                    (a, LineType::TestEntry(b))
-                } else {
-                    (a, LineType::FunctionEntry(b))
+                match c {
+                    FunctionType::Test => (a, LineType::TestEntry(b)),
+                    FunctionType::Standard => (a, LineType::FunctionEntry(b)),
+                    FunctionType::Generated => (a, LineType::TestMain),
                 }
             }).collect();
-
         if let Ok(Some((_, root))) = cu.entries(&abbr).next_dfs() {
             let offset = match root.attr_value(DW_AT_stmt_list) {
                 Ok(Some(AttributeValue::DebugLineRef(o))) => o,
@@ -214,6 +225,7 @@ fn get_line_addresses<Endian: Endianity>(project: &Path, obj: &OFile) -> Result<
     let mut check: HashSet<(&Path, u64)> = HashSet::new();
     let mut result = result.iter()
                            .filter(|x| check.insert((x.path.as_path(), x.line)))
+                           .filter(|x| x.trace_type != LineType::TestMain)
                            .map(|x| x.clone())
                            .collect::<Vec<TracerData>>();
     let addresses = result.iter()
