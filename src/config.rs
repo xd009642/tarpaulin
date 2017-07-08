@@ -38,6 +38,7 @@ impl FromStr for Ci {
 #[derive(Debug)]
 pub struct Config {
     pub manifest: PathBuf,
+    pub run_ignored: bool,
     pub verbose: bool,
     pub line_coverage: bool,
     pub branch_coverage: bool,
@@ -55,6 +56,7 @@ impl Config {
         let mut line = args.is_present("line");
         let mut branch = args.is_present("branch");
         let verbose = args.is_present("verbose");
+        let ignored = args.is_present("ignored");
         // If no coverage selected do everything!
         if !branch && !line {
             branch = true;
@@ -80,6 +82,7 @@ impl Config {
 
         Config{
             manifest: root,
+            run_ignored: ignored,
             verbose: verbose,
             line_coverage: line,
             branch_coverage: branch,

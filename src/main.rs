@@ -41,6 +41,7 @@ fn main() {
             .args_from_usage(
                 "--help -h    'Prints help information'
                  --verbose -v 'Show extra output'
+                 --ignored -i 'Run ignored tests as well'
                  --line -l    'Line coverage'
                  --branch -b  'Branch coverage: NOT IMPLEMENTED'
                  --coveralls [KEY]  'Coveralls key, either the repo token, or if you're using travis use $TRAVIS_JOB_ID and specify travis-{ci|pro} in --ciserver'")

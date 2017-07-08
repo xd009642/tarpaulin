@@ -101,9 +101,14 @@ pub fn launch_tarpaulin(config: Config) {
                 if config.verbose {
                     println!("Processing {}", c.1);
                 }
-                let res = get_test_coverage(workspace.root(), c.2.as_path())
+                let res = get_test_coverage(workspace.root(), c.2.as_path(), false)
                     .unwrap_or(vec![]);
                 merge_test_results(&mut result, &res);
+                if config.run_ignored {
+                    let res = get_test_coverage(workspace.root(), c.2.as_path(), true)
+                        .unwrap_or(vec![]);
+                    merge_test_results(&mut result, &res);
+                }
             }
         },
         Err(e) => {
@@ -190,7 +195,7 @@ pub fn report_coverage(config: &Config, result: &Vec<TracerData>) {
 }
 
 /// Returns the coverage statistics for a test executable in the given workspace
-pub fn get_test_coverage(root: &Path, test: &Path) -> Option<Vec<TracerData>> {
+pub fn get_test_coverage(root: &Path, test: &Path, ignored: bool) -> Option<Vec<TracerData>> {
     if !test.exists() {
         return None;
     }
@@ -208,7 +213,7 @@ pub fn get_test_coverage(root: &Path, test: &Path) -> Option<Vec<TracerData>> {
         }
         Ok(ForkResult::Child) => {
             println!("Launching test");
-            execute_test(test, true);
+            execute_test(test, ignored, true);
             None
         }
         Err(err) => { 
@@ -323,7 +328,7 @@ fn run_function(pid: pid_t,
 
 
 /// Launches the test executable
-fn execute_test(test: &Path, backtrace_on: bool) {
+fn execute_test(test: &Path, ignored: bool, backtrace_on: bool) {
     let exec_path = CString::new(test.to_str().unwrap()).unwrap();
     match personality::disable_aslr() {
         Ok(_) => {},
@@ -343,7 +348,12 @@ fn execute_test(test: &Path, backtrace_on: bool) {
     if backtrace_on {
         envars.push(CString::new("RUST_BACKTRACE=1").unwrap());
     }
-    execve(&exec_path, &[exec_path.clone()], envars.as_slice())
+    let argv = if ignored {
+        vec![exec_path.clone(), CString::new("--ignored").unwrap()]
+    } else {
+        vec![exec_path.clone()]
+    };
+    execve(&exec_path, &argv, envars.as_slice())
         .unwrap();
 }
 
