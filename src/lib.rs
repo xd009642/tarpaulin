@@ -53,7 +53,7 @@ pub fn launch_tarpaulin(config: Config) {
                                    &None,
                                    false,
                                    false);
-
+    
     let workspace = match Workspace::new(config.manifest.as_path(), &cargo_config) {
         Ok(w) => w,
         Err(_) => panic!("Invalid project directory specified"),
@@ -61,7 +61,7 @@ pub fn launch_tarpaulin(config: Config) {
 
     let filter = ops::CompileFilter::Everything;
     let rustflags = "RUSTFLAGS";
-    let mut value = "-Crelocation-model=dynamic-no-pic -Clink-dead-code".to_string();
+    let mut value = "-C relocation-model=dynamic-no-pic -C link-dead-code".to_string();
     if let Ok(vtemp) = env::var(rustflags) {
         value.push_str(vtemp.as_ref());
     }
