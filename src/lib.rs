@@ -61,7 +61,8 @@ pub fn launch_tarpaulin(config: Config) {
 
     let filter = ops::CompileFilter::Everything;
     let rustflags = "RUSTFLAGS";
-    let mut value = "-C relocation-model=dynamic-no-pic -C link-dead-code".to_string();
+    let mut value = "-C relocation-model=dynamic-no-pic -C link-dead-code
+        -C link-args=-no-pie".to_string();
     if let Ok(vtemp) = env::var(rustflags) {
         value.push_str(vtemp.as_ref());
     }
