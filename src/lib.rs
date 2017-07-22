@@ -62,7 +62,7 @@ pub fn launch_tarpaulin(config: Config) {
     let filter = ops::CompileFilter::Everything;
     let rustflags = "RUSTFLAGS";
     let mut value = "-C relocation-model=dynamic-no-pic -C link-dead-code
-        -C link-args=-no-pie".to_string();
+        -C link-args=-fno-pie".to_string();
     if let Ok(vtemp) = env::var(rustflags) {
         value.push_str(vtemp.as_ref());
     }
@@ -229,8 +229,9 @@ pub fn get_test_coverage(root: &Path, test: &Path, ignored: bool) -> Option<Vec<
 fn collect_coverage(project_path: &Path, 
                     test_path: &Path, 
                     test: pid_t) -> io::Result<Vec<TracerData>> {
-
+    println!("Tracing");
     let mut traces = generate_tracer_data(project_path, test_path)?;
+    println!("found {} traceable lines", traces.iter().count());
     let mut bps: HashMap<u64, Breakpoint> = HashMap::new();
     match waitpid(test, None) {
         Ok(WaitStatus::Stopped(child, signal::SIGTRAP)) => {

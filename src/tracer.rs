@@ -1,4 +1,5 @@
 use std::io;
+use std::env;
 use std::io::{BufRead, BufReader};
 use std::path::{PathBuf, Path};
 use std::ffi::CString;
@@ -139,8 +140,14 @@ fn get_addresses_from_program<T:Endianity>(prog: IncompleteLineNumberProgram<T>,
                         path.push(temp);
                     }
                 }
+                if path.is_relative() {
+                    /* May be inefficient.. */
+                    if let Ok(pb) = env::current_dir() {
+                        path = pb.join(path);
+                    }
+                } 
                 // Source is part of project so we cover it.
-                if path.starts_with(project) { 
+                if path.starts_with(project) {
                     let force_test = path.starts_with(project.join("tests"));
                     if let Some(file) = ln_row.file(header) {
                         // If we can't map to line, we can't trace it.
