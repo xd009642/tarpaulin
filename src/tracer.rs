@@ -1,5 +1,4 @@
 use std::io;
-use std::env;
 use std::io::{BufRead, BufReader};
 use std::path::{PathBuf, Path};
 use std::ffi::CString;
@@ -141,9 +140,8 @@ fn get_addresses_from_program<T:Endianity>(prog: IncompleteLineNumberProgram<T>,
                     }
                 }
                 if path.is_relative() {
-                    /* May be inefficient.. */
-                    if let Ok(pb) = env::current_dir() {
-                        path = pb.join(path);
+                    if let Ok(p) = path.canonicalize() {
+                        path = p;
                     }
                 } 
                 // Source is part of project so we cover it.

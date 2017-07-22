@@ -229,9 +229,7 @@ pub fn get_test_coverage(root: &Path, test: &Path, ignored: bool) -> Option<Vec<
 fn collect_coverage(project_path: &Path, 
                     test_path: &Path, 
                     test: pid_t) -> io::Result<Vec<TracerData>> {
-    println!("Tracing");
     let mut traces = generate_tracer_data(project_path, test_path)?;
-    println!("found {} traceable lines", traces.iter().count());
     let mut bps: HashMap<u64, Breakpoint> = HashMap::new();
     match waitpid(test, None) {
         Ok(WaitStatus::Stopped(child, signal::SIGTRAP)) => {
