@@ -14,10 +14,12 @@ extern crate serde_json;
 
 use std::env;
 use std::io;
+use std::process;
 use std::io::{Error, ErrorKind};
 use std::ffi::CString;
 use std::path::Path;
 use std::collections::HashMap;
+use nix::Error as NixErr;
 use nix::unistd::*;
 use nix::libc::pid_t;
 use nix::sys::signal;
@@ -38,6 +40,11 @@ use config::*;
 use tracer::*;
 use breakpoint::*;
 use ptrace_control::*;
+
+
+const PIE_ERROR: &'static str = "ERROR: Tarpaulin cannot find code addresses check that \
+pie is disabled for your linker. If linking with gcc try adding -C link-args=-no-pie \
+to your rust flags";
 
 /// Launches tarpaulin with the given configuration.
 pub fn launch_tarpaulin(config: Config) {
@@ -61,8 +68,7 @@ pub fn launch_tarpaulin(config: Config) {
 
     let filter = ops::CompileFilter::Everything;
     let rustflags = "RUSTFLAGS";
-    let mut value = "-C relocation-model=dynamic-no-pic -C link-dead-code
-        -C link-args=-fno-pie".to_string();
+    let mut value = "-C relocation-model=dynamic-no-pic -C link-dead-code".to_string();
     if let Ok(vtemp) = env::var(rustflags) {
         value.push_str(vtemp.as_ref());
     }
@@ -199,7 +205,7 @@ pub fn report_coverage(config: &Config, result: &Vec<TracerData>) {
 pub fn get_test_coverage(root: &Path, test: &Path, ignored: bool) -> Option<Vec<TracerData>> {
     if !test.exists() {
         return None;
-    }
+    } 
     match fork() {
         Ok(ForkResult::Parent{ child }) => {
             match collect_coverage(root, test, child) {
@@ -223,6 +229,7 @@ pub fn get_test_coverage(root: &Path, test: &Path, ignored: bool) -> Option<Vec<
             None
         }
     }
+
 }
 
 /// Collects the coverage data from the launched test
@@ -241,6 +248,10 @@ fn collect_coverage(project_path: &Path,
                 match Breakpoint::new(child, trace.address) {
                     Ok(bp) => { 
                         let _ = bps.insert(trace.address, bp);
+                    },
+                    Err(e) if e == NixErr::Sys(nix::Errno::EIO) => {
+                        println!("{}", PIE_ERROR);
+                        process::exit(1);
                     },
                     Err(e) => println!("Failed to instrument {}", e),
                 }
