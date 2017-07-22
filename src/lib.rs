@@ -17,7 +17,8 @@ use std::io;
 use std::process;
 use std::io::{Error, ErrorKind};
 use std::ffi::CString;
-use std::path::Path;
+use std::path::{Path, PathBuf};
+use std::process::Command;
 use std::collections::HashMap;
 use nix::Error as NixErr;
 use nix::unistd::*;
@@ -68,11 +69,33 @@ pub fn launch_tarpaulin(config: Config) {
 
     let filter = ops::CompileFilter::Everything;
     let rustflags = "RUSTFLAGS";
-    let mut value = "-C relocation-model=dynamic-no-pic -C link-dead-code".to_string();
+    let mut value = "-C relocation-model=dynamic-no-pic -C link-dead-code ".to_string();
+    {
+        let host = get_target_path(&cargo_config, &cargo_config.rustc().unwrap().host);
+        let target_linker = match cargo_config.get_string("build.target").unwrap().map(|s| s.val) {
+            Some(triple) => get_target_path(&cargo_config, &triple),
+            None => host,
+        };
+
+        fn get_target_path(cargo_config: &CargoConfig, triple: &str) -> Option<PathBuf> {
+            cargo_config.get_path(&format!("target.{}.linker", triple)).unwrap().map(|v| v.val)
+        }
+
+        // For Linux (and most everything that isn't Windows) it is fair to
+        // assume the default linker is `cc` and that `cc` is GCC based.
+        let mut linker_cmd = Command::new(&target_linker.unwrap_or(PathBuf::from("cc")));
+        linker_cmd.arg("-v");
+        if let Ok(linker_output) = linker_cmd.output() {
+            if String::from_utf8_lossy(&linker_output.stderr).contains("--enable-default-pie") {
+                value.push_str("-C link-args=-no-pie ");
+            }
+        }
+    }
     if let Ok(vtemp) = env::var(rustflags) {
         value.push_str(vtemp.as_ref());
     }
     env::set_var(rustflags, value);
+
     let clean_opt = ops::CleanOptions {
         config: &cargo_config,
         spec: &[],
