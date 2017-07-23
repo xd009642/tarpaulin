@@ -71,15 +71,27 @@ pub fn launch_tarpaulin(config: Config) {
     let rustflags = "RUSTFLAGS";
     let mut value = "-C relocation-model=dynamic-no-pic -C link-dead-code ".to_string();
     {
-        let host = get_target_path(&cargo_config, &cargo_config.rustc().unwrap().host);
-        let target_linker = match cargo_config.get_string("build.target").unwrap().map(|s| s.val) {
-            Some(triple) => get_target_path(&cargo_config, &triple),
-            None => host,
-        };
+        let env_linker = env::var(rustflags)
+                            .ok()
+                            .and_then(|flags| flags.split(" ")
+                                                   .map(str::trim)
+                                                   .filter(|s| !s.is_empty())
+                                                   .skip_while(|s| !s.contains("linker="))
+                                                   .next()
+                                                   .map(|s| s.trim_left_matches("linker="))
+                                                   .map(|s| PathBuf::from(s)));
 
-        fn get_target_path(cargo_config: &CargoConfig, triple: &str) -> Option<PathBuf> {
-            cargo_config.get_path(&format!("target.{}.linker", triple)).unwrap().map(|v| v.val)
-        }
+        let target_linker = env_linker.or_else(|| {
+            fn get_target_path(cargo_config: &CargoConfig, triple: &str) -> Option<PathBuf> {
+                cargo_config.get_path(&format!("target.{}.linker", triple)).unwrap().map(|v| v.val)
+            }
+
+            let host = get_target_path(&cargo_config, &cargo_config.rustc().unwrap().host);
+            match cargo_config.get_string("build.target").unwrap().map(|s| s.val) {
+                Some(triple) => get_target_path(&cargo_config, &triple),
+                None => host,
+            }
+        });
 
         // For Linux (and most everything that isn't Windows) it is fair to
         // assume the default linker is `cc` and that `cc` is GCC based.
