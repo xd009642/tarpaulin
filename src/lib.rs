@@ -143,11 +143,13 @@ pub fn launch_tarpaulin(config: Config) {
                 if config.verbose {
                     println!("Processing {}", c.1);
                 }
-                let res = get_test_coverage(workspace.root(), c.2.as_path(), false)
+                let res = get_test_coverage(workspace.root(), c.2.as_path(),
+                                            config.forward_signals, false)
                     .unwrap_or(vec![]);
                 merge_test_results(&mut result, &res);
                 if config.run_ignored {
-                    let res = get_test_coverage(workspace.root(), c.2.as_path(), true)
+                    let res = get_test_coverage(workspace.root(), c.2.as_path(), 
+                                                config.forward_signals, true)
                         .unwrap_or(vec![]);
                     merge_test_results(&mut result, &res);
                 }
@@ -237,13 +239,13 @@ pub fn report_coverage(config: &Config, result: &Vec<TracerData>) {
 }
 
 /// Returns the coverage statistics for a test executable in the given workspace
-pub fn get_test_coverage(root: &Path, test: &Path, ignored: bool) -> Option<Vec<TracerData>> {
+pub fn get_test_coverage(root: &Path, test: &Path, forward:bool, ignored: bool) -> Option<Vec<TracerData>> {
     if !test.exists() {
         return None;
     } 
     match fork() {
         Ok(ForkResult::Parent{ child }) => {
-            match collect_coverage(root, test, child) {
+            match collect_coverage(root, test, child, forward) {
                 Ok(t) => {
                     Some(t)
                 },
@@ -270,7 +272,8 @@ pub fn get_test_coverage(root: &Path, test: &Path, ignored: bool) -> Option<Vec<
 /// Collects the coverage data from the launched test
 fn collect_coverage(project_path: &Path, 
                     test_path: &Path, 
-                    test: pid_t) -> io::Result<Vec<TracerData>> {
+                    test: pid_t,
+                    forward_signals: bool) -> io::Result<Vec<TracerData>> {
     let mut traces = generate_tracer_data(project_path, test_path)?;
     let mut bps: HashMap<u64, Breakpoint> = HashMap::new();
     match waitpid(test, None) {
@@ -297,7 +300,8 @@ fn collect_coverage(project_path: &Path,
     }
     // Now we start hitting lines!
     //run_coverage_on_all_tests(test, &mut traces, &mut bps);
-    match run_function(test, u64::max_value(), &mut traces, &mut bps) {
+    match run_function(test, u64::max_value(), forward_signals, 
+                       &mut traces, &mut bps) {
         Err(e) => println!("Error while collecting coverage. {}", e),
         _ => {},
     }
@@ -308,11 +312,12 @@ fn collect_coverage(project_path: &Path,
 /// the parent it is not executing or it will be killed.
 fn run_function(pid: pid_t,
                 end: u64,
+                forward_signals: bool,
                 mut traces: &mut Vec<TracerData>,
                 mut breakpoints: &mut HashMap<u64, Breakpoint>) -> Result<i8, Error> {
     let mut res = 0i8;
     // Start the function running. 
-    continue_exec(pid)?;
+    continue_exec(pid, None)?;
     loop {
         match waitpid(-1, Some(__WALL)) {
             Ok(WaitStatus::Exited(child, sig)) => {
@@ -323,7 +328,7 @@ fn run_function(pid: pid_t,
                     break;
                 } else {
                     // The err will be no child process and means test is over.
-                    let _ =continue_exec(pid);
+                    let _ =continue_exec(pid, None);
                 }
             },
             Ok(WaitStatus::Stopped(child, signal::SIGTRAP)) => {
@@ -343,20 +348,24 @@ fn run_function(pid: pid_t,
                             }
                         } 
                     } else {
-                        continue_exec(child)?;
+                        continue_exec(child, None)?;
                     }
                 } 
             },
             Ok(WaitStatus::Stopped(child, signal::SIGSTOP)) => {
-                continue_exec(child)?;
+                continue_exec(child, None)?;
             },
             Ok(WaitStatus::Stopped(child, sig)) => {
-                println!("Unexpected signal {:?}", sig);
-                continue_exec(child)?;
+                let s = if forward_signals {
+                    Some(sig)
+                } else {
+                    None
+                };
+                continue_exec(child, s)?;
             },
             Ok(WaitStatus::PtraceEvent(child, signal::SIGTRAP, 3)) => {
                 if let Ok(_) = get_event_data(child) {
-                    continue_exec(child)?;
+                    continue_exec(child, None)?;
                 }
             },
             Ok(WaitStatus::Signaled(_, signal::SIGTRAP, true)) => break,

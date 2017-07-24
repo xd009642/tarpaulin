@@ -47,6 +47,9 @@ pub struct Config {
     pub coveralls: Option<String>,
     /// Enum representing CI tool used.
     pub ci_tool: Option<CiService>,
+    /// Forward unexpected signals back to the tracee. Used for tests which
+    /// rely on signals to work. 
+    pub forward_signals: bool,
 }
 
 
@@ -57,6 +60,7 @@ impl Config {
         let mut branch = args.is_present("branch");
         let verbose = args.is_present("verbose");
         let ignored = args.is_present("ignored");
+        let forward = args.is_present("forward");
         // If no coverage selected do everything!
         if !branch && !line {
             branch = true;
@@ -89,6 +93,7 @@ impl Config {
             generate: out,
             coveralls: coveralls,
             ci_tool: ci_tool,
+            forward_signals: forward,
         }
     }
 

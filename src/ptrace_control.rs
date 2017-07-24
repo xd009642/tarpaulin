@@ -1,4 +1,5 @@
 use std::ptr;
+use nix::sys::signal::Signal;
 use nix::sys::ptrace::{ptrace, ptrace_setoptions};
 use nix::sys::ptrace::ptrace::*;
 use nix::libc::{pid_t, c_void, c_long};
@@ -16,8 +17,11 @@ pub fn trace_children(pid: pid_t) -> Result<()> {
 }
 
 
-pub fn continue_exec(pid: pid_t) -> Result<c_long> {
-    ptrace(PTRACE_CONT, pid, ptr::null_mut(), ptr::null_mut()) 
+pub fn continue_exec(pid: pid_t, sig: Option<Signal>) -> Result<c_long> {
+    match sig {
+        Some(s) => ptrace(PTRACE_CONT, pid, ptr::null_mut(), (s as i32) as * mut c_void)
+        None => ptrace(PTRACE_CONT, pid, ptr::null_mut(), ptr::null_mut()) 
+    }
 }
 
 pub fn single_step(pid: pid_t) -> Result<c_long> {

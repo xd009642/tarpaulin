@@ -77,7 +77,7 @@ impl Breakpoint {
             Ok(true)
         } else {
             self.enable()?;
-            continue_exec(self.uid)?;
+            continue_exec(self.uid, None)?;
             self.is_running = true;
             self.uid = self.pid;
             Ok(false)

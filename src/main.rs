@@ -44,6 +44,7 @@ fn main() {
                  --ignored -i 'Run ignored tests as well'
                  --line -l    'Line coverage'
                  --branch -b  'Branch coverage: NOT IMPLEMENTED'
+                 --forward -f 'Forwards unexpected signals to test. Tarpaulin will still take signals it is expecting.'
                  --coveralls [KEY]  'Coveralls key, either the repo token, or if you're using travis use $TRAVIS_JOB_ID and specify travis-{ci|pro} in --ciserver'")
             .args(&[
                 Arg::from_usage("--out -o [FMT]   'Output path'")
