@@ -19,8 +19,8 @@ pub fn trace_children(pid: pid_t) -> Result<()> {
 
 pub fn continue_exec(pid: pid_t, sig: Option<Signal>) -> Result<c_long> {
     match sig {
-        Some(s) => ptrace(PTRACE_CONT, pid, ptr::null_mut(), (s as i32) as * mut c_void)
-        None => ptrace(PTRACE_CONT, pid, ptr::null_mut(), ptr::null_mut()) 
+        Some(s) => ptrace(PTRACE_CONT, pid, ptr::null_mut(), (s as i32) as * mut c_void),
+        None => ptrace(PTRACE_CONT, pid, ptr::null_mut(), ptr::null_mut()),
     }
 }
 
