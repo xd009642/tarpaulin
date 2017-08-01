@@ -23,6 +23,7 @@ use std::collections::HashMap;
 use nix::Error as NixErr;
 use nix::unistd::*;
 use nix::libc::pid_t;
+use nix::sys::ptrace::ptrace::*;
 use nix::sys::signal;
 use nix::sys::wait::*;
 use cargo::util::Config as CargoConfig;
@@ -64,10 +65,12 @@ pub fn launch_tarpaulin(config: Config) {
     
     let workspace = match Workspace::new(config.manifest.as_path(), &cargo_config) {
         Ok(w) => w,
-        Err(_) => panic!("Invalid project directory specified"),
+        Err(_) => { 
+            println!("Invalid project directory specified");
+            return;
+        }
     };
-
-    let filter = ops::CompileFilter::Everything;
+    
     let rustflags = "RUSTFLAGS";
     let mut value = "-C relocation-model=dynamic-no-pic -C link-dead-code ".to_string();
     {
@@ -115,21 +118,8 @@ pub fn launch_tarpaulin(config: Config) {
         release: false,
     };
     
-    let copt = ops::CompileOptions {
-        config: &cargo_config,
-        jobs: None,
-        target: None,
-        features: &[],
-        all_features: true,
-        no_default_features:false ,
-        spec: ops::Packages::All,
-        release: false,
-        mode: ops::CompileMode::Test,
-        filter: filter,
-        message_format: ops::MessageFormat::Human,
-        target_rustdoc_args: None,
-        target_rustc_args: None,
-    };
+    let  copt = ops::CompileOptions::default(&cargo_config, ops::CompileMode::Test); 
+    
     let mut result:Vec<TracerData> = Vec::new();
     if config.verbose {
         println!("Running Tarpaulin");
@@ -337,7 +327,7 @@ fn run_function(pid: pid_t,
                     if  breakpoints.contains_key(&rip) {
                         let ref mut bp = breakpoints.get_mut(&rip).unwrap();
                         let updated = if let Ok(x) = bp.process(Some(child)) {
-                            x
+                             x
                         } else {
                             rip == end
                         };
@@ -363,14 +353,17 @@ fn run_function(pid: pid_t,
                 };
                 continue_exec(child, s)?;
             },
-            Ok(WaitStatus::PtraceEvent(child, signal::SIGTRAP, 3)) => {
+            Ok(WaitStatus::PtraceEvent(child, signal::SIGTRAP, PTRACE_EVENT_CLONE)) => {
                 if let Ok(_) = get_event_data(child) {
                     continue_exec(child, None)?;
                 }
             },
-            Ok(WaitStatus::Signaled(_, signal::SIGTRAP, true)) => break,
-            Ok(_) => {
-                println!("Unexpected stop");
+            Ok(WaitStatus::Signaled(child, signal::SIGTRAP, true)) => {
+                println!("unexpected SIGTRAP attempting to continue");
+                continue_exec(child, None)?;
+            },
+            Ok(s) => {
+                println!("Unexpected stop {:?}", s);
                 break;
             },
             Err(e) => {
