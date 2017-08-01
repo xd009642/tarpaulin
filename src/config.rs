@@ -71,7 +71,9 @@ impl Config {
             root.push(path);
         };
         root.push("Cargo.toml");
-
+        if let Ok(cpath) = root.canonicalize() {
+            root = cpath;
+        }
         let ci_tool = match value_t!(args, "ciserver", Ci) {
             Ok(ci) => Some(ci.0),
             Err(_) => None,
