@@ -45,7 +45,9 @@ fn main() {
                  --line -l    'Line coverage'
                  --branch -b  'Branch coverage: NOT IMPLEMENTED'
                  --forward -f 'Forwards unexpected signals to test. Tarpaulin will still take signals it is expecting.'
-                 --coveralls [KEY]  'Coveralls key, either the repo token, or if you're using travis use $TRAVIS_JOB_ID and specify travis-{ci|pro} in --ciserver'")
+                 --coveralls [KEY]  'Coveralls key, either the repo token, or if you're using travis use $TRAVIS_JOB_ID and specify travis-{ci|pro} in --ciserver'
+                 --features [FEATURE]... 'Features to be included in the target project'
+                 --packages -p [PACKAGE]... 'Package id specifications for which package should be build. See cargo help pkgid for more info'")
             .args(&[
                 Arg::from_usage("--out -o [FMT]   'Output path'")
                     .possible_values(&OutputFile::variants())
@@ -54,7 +56,6 @@ fn main() {
                     .validator(is_dir),
                 Arg::from_usage("--ciserver [SERVICE] 'CI server being used'")
                     .help(CI_SERVER_HELP),
-                Arg::from_usage("--features <FEATURE>... 'Features to be included in the target project'")
             ]))
         .get_matches();
 

@@ -120,6 +120,7 @@ pub fn launch_tarpaulin(config: Config) {
     
     let mut copt = ops::CompileOptions::default(&cargo_config, ops::CompileMode::Test); 
     copt.features = config.features.as_slice();
+    copt.spec = ops::Packages::Packages(config.packages.as_slice());
     let mut result:Vec<TracerData> = Vec::new();
     if config.verbose {
         println!("Running Tarpaulin");

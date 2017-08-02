@@ -50,7 +50,8 @@ pub struct Config {
     /// Forward unexpected signals back to the tracee. Used for tests which
     /// rely on signals to work. 
     pub forward_signals: bool,
-    pub features: Vec<String>
+    pub features: Vec<String>,
+    pub packages: Vec<String>,
 }
 
 
@@ -90,6 +91,10 @@ impl Config {
             Some(v) => v,
             None => vec![],
         };
+        let packages: Vec<String> = match args.values_of_lossy("packages") {
+            Some(v) => v,
+            None => vec![],
+        };
         Config{
             manifest: root,
             run_ignored: ignored,
@@ -101,6 +106,7 @@ impl Config {
             ci_tool: ci_tool,
             forward_signals: forward,
             features: features,
+            packages: packages,
         }
     }
 
