@@ -102,7 +102,7 @@ pub fn launch_tarpaulin(config: Config) {
         linker_cmd.arg("-v");
         if let Ok(linker_output) = linker_cmd.output() {
             if String::from_utf8_lossy(&linker_output.stderr).contains("--enable-default-pie") {
-                value.push_str("-C link-args=-no-pie ");
+                value.push_str("-C link-arg=-no-pie ");
             }
         }
     }
@@ -118,8 +118,8 @@ pub fn launch_tarpaulin(config: Config) {
         release: false,
     };
     
-    let  copt = ops::CompileOptions::default(&cargo_config, ops::CompileMode::Test); 
-    
+    let mut copt = ops::CompileOptions::default(&cargo_config, ops::CompileMode::Test); 
+    copt.features = config.features.as_slice();
     let mut result:Vec<TracerData> = Vec::new();
     if config.verbose {
         println!("Running Tarpaulin");

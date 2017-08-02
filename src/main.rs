@@ -53,7 +53,8 @@ fn main() {
                 Arg::from_usage("--root -r [DIR]  'Root directory containing Cargo.toml to use'")
                     .validator(is_dir),
                 Arg::from_usage("--ciserver [SERVICE] 'CI server being used'")
-                    .help(CI_SERVER_HELP)
+                    .help(CI_SERVER_HELP),
+                Arg::from_usage("--features <FEATURE>... 'Features to be included in the target project'")
             ]))
         .get_matches();
 

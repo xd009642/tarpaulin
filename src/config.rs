@@ -50,6 +50,7 @@ pub struct Config {
     /// Forward unexpected signals back to the tracee. Used for tests which
     /// rely on signals to work. 
     pub forward_signals: bool,
+    pub features: Vec<String>
 }
 
 
@@ -85,7 +86,10 @@ impl Config {
         };
         let out:Vec<OutputFile> = values_t!(args.values_of("out"), OutputFile)
             .unwrap_or(vec![]);
-
+        let features: Vec<String> = match args.values_of_lossy("features") {
+            Some(v) => v,
+            None => vec![],
+        };
         Config{
             manifest: root,
             run_ignored: ignored,
@@ -96,6 +100,7 @@ impl Config {
             coveralls: coveralls,
             ci_tool: ci_tool,
             forward_signals: forward,
+            features: features,
         }
     }
 
