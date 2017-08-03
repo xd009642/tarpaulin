@@ -9,8 +9,8 @@ use nix::libc::{c_int, c_long};
 
 type Persona = c_long;
 
-const ADDR_NO_RANDOMIZE: Persona = 0x0040000;
-const GET_PERSONA: Persona = 0xFFFFFFFF;
+const ADDR_NO_RANDOMIZE: Persona = 0x004_0000;
+const GET_PERSONA: Persona = 0xFFFF_FFFF;
 
 
 mod ffi {

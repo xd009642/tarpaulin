@@ -12,7 +12,7 @@ use gimli::*;
 use regex::Regex;
 use rustc_demangle::demangle;
 
-/// Describes a function as low_pc, high_pc and bool representing is_test.
+/// Describes a function as `low_pc`, `high_pc` and bool representing `is_test`.
 type FuncDesc = (u64, u64, FunctionType);
 
 #[derive(Clone, Copy, PartialEq)]
@@ -83,7 +83,7 @@ fn generate_func_desc<T: Endianity>(die: &DebuggingInformationEntry<T>,
     };
     if let Some(AttributeValue::DebugStrRef(offset)) = linkage {
         let empty = CString::new("").unwrap();
-        let name = debug_str.get_str(offset).unwrap_or(empty.deref());
+        let name = debug_str.get_str(offset).unwrap_or_else(|_| empty.deref());
         // go from CStr to Owned String
         let name = name.to_str().unwrap_or("");
         let name = demangle(name).to_string();
@@ -103,7 +103,7 @@ fn generate_func_desc<T: Endianity>(die: &DebuggingInformationEntry<T>,
 
 /// Finds all function entry points and returns a vector
 /// This will identify definite tests, but may be prone to false negatives.
-/// TODO Potential to trace all function calls from __test::main and find addresses of interest
+/// TODO Potential to trace all function calls from `__test::main` and find addresses of interest
 fn get_entry_points<T: Endianity>(debug_info: &CompilationUnitHeader<T>,
                                   debug_abbrev: &Abbreviations,
                                   debug_str: &DebugStr<T>) -> Vec<FuncDesc> {
@@ -115,7 +115,7 @@ fn get_entry_points<T: Endianity>(debug_info: &CompilationUnitHeader<T>,
         // Function DIE
         if node.tag() == DW_TAG_subprogram {
             
-            if let Ok(fd) = generate_func_desc(&node, &debug_str) {
+            if let Ok(fd) = generate_func_desc(node, debug_str) {
                 result.push(fd);
             }
         }
@@ -124,13 +124,13 @@ fn get_entry_points<T: Endianity>(debug_info: &CompilationUnitHeader<T>,
 }
 
 fn get_addresses_from_program<T:Endianity>(prog: IncompleteLineNumberProgram<T>,
-                                           entries: &Vec<(u64, LineType)>,
+                                           entries: &[(u64, LineType)],
                                            project: &Path) -> Result<Vec<TracerData>> {
     let mut result: Vec<TracerData> = Vec::new();
     let ( cprog, seq) = prog.sequences()?;
     for s in seq {
         let mut sm = cprog.resume_from(&s);   
-         while let Ok(Some((ref header, &ln_row))) = sm.next_row() {
+         while let Ok(Some((header, &ln_row))) = sm.next_row() {
             if let Some(file) = ln_row.file(header) {
                 let mut path = PathBuf::new();
                 
@@ -177,7 +177,7 @@ fn get_addresses_from_program<T:Endianity>(prog: IncompleteLineNumberProgram<T>,
                             // TODO HACK: If in tests/ directory force it to a TestEntry 
                             let desc = match desc {
                                 LineType::FunctionEntry(e) if force_test => LineType::TestEntry(e),
-                                x @ _ => x
+                                x => x
                             };
                             result.push( TracerData {
                                 path: path,
@@ -219,7 +219,7 @@ fn get_line_addresses<Endian: Endianity>(project: &Path, obj: &OFile) -> Result<
                     FunctionType::Standard => (a, LineType::FunctionEntry(b)),
                     FunctionType::Generated => (a, LineType::TestMain),
                 }
-            }).collect();
+            }).collect::<Vec<_>>();
         if let Ok(Some((_, root))) = cu.entries(&abbr).next_dfs() {
             let offset = match root.attr_value(DW_AT_stmt_list) {
                 Ok(Some(AttributeValue::DebugLineRef(o))) => o,
@@ -229,7 +229,7 @@ fn get_line_addresses<Endian: Endianity>(project: &Path, obj: &OFile) -> Result<
             let debug_line = DebugLine::<Endian>::new(debug_line);
             
             let prog = debug_line.program(offset, addr_size, None, None)?; 
-            if let Ok(mut addresses) = get_addresses_from_program(prog, &entries, &project) {
+            if let Ok(mut addresses) = get_addresses_from_program(prog, &entries, project) {
                 result.append(&mut addresses);
             }
         }
@@ -240,7 +240,7 @@ fn get_line_addresses<Endian: Endianity>(project: &Path, obj: &OFile) -> Result<
     let mut result = result.iter()
                            .filter(|x| check.insert((x.path.as_path(), x.line)))
                            .filter(|x| x.trace_type != LineType::TestMain)
-                           .map(|x| x.clone())
+                           .cloned()
                            .collect::<Vec<TracerData>>();
     let addresses = result.iter()
                           .map(|x| x.address)
@@ -253,7 +253,7 @@ fn get_line_addresses<Endian: Endianity>(project: &Path, obj: &OFile) -> Result<
                                      _ => false,
                                  });
 
-        for ref mut test_entry in test_entries {
+        for test_entry in test_entries {
             let endpoint = match test_entry.trace_type {
                 LineType::TestEntry(x) => x,
                 _ => continue,
