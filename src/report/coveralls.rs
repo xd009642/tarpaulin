@@ -3,7 +3,7 @@ use coveralls_api::*;
 use tracer::TracerData;
 use config::Config;
 
-pub fn export(coverage_data: &Vec<TracerData>, config: &Config) {
+pub fn export(coverage_data: &[TracerData], config: &Config) {
     if let Some(ref key) = config.coveralls {
         let id = match config.ci_tool {
             Some(ref service) => Identity::ServiceToken(Service {
@@ -14,14 +14,14 @@ pub fn export(coverage_data: &Vec<TracerData>, config: &Config) {
         };
         let mut report = CoverallsReport::new(id);
         let files = coverage_data.iter()
-                                 .fold(vec![], |mut acc, ref x| {
+                                 .fold(vec![], |mut acc, x| {
                                      if !acc.contains(&x.path.as_path()) {
                                          acc.push(x.path.as_path());
                                      }
                                      acc    
                                  });
         
-        for file in files.iter() {
+        for file in &files {
             let rel_path = if let Some(root) = config.manifest.parent() {
                 file.strip_prefix(root).unwrap_or(file)
             } else {
@@ -32,7 +32,7 @@ pub fn export(coverage_data: &Vec<TracerData>, config: &Config) {
                                     .filter(|x| x.path == *file)
                                     .collect::<Vec<&TracerData>>();
 
-            for c in fcov.iter() {
+            for c in &fcov {
                 lines.insert(c.line as usize, c.hits as usize);
             }
             if let Ok(source) = Source::new(rel_path, file, &lines, &None, false) {

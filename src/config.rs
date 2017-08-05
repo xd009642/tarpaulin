@@ -86,7 +86,7 @@ impl Config {
             None
         };
         let out:Vec<OutputFile> = values_t!(args.values_of("out"), OutputFile)
-            .unwrap_or(vec![]);
+            .unwrap_or_default();
         let features: Vec<String> = match args.values_of_lossy("features") {
             Some(v) => v,
             None => vec![],

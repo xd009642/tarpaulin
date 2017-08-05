@@ -8,6 +8,6 @@ pub mod coveralls;
 /// Currently reports must be serializable using serde
 pub trait Report<Out: Serialize> {
     /// Export coverage report
-    fn export(coverage_data: &Vec<TracerData>, config: &Config);
+    fn export(coverage_data: &[TracerData], config: &Config);
     
 }

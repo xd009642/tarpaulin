@@ -76,13 +76,13 @@ pub fn launch_tarpaulin(config: Config) {
     {
         let env_linker = env::var(rustflags)
                             .ok()
-                            .and_then(|flags| flags.split(" ")
+                            .and_then(|flags| flags.split(' ')
                                                    .map(str::trim)
                                                    .filter(|s| !s.is_empty())
                                                    .skip_while(|s| !s.contains("linker="))
                                                    .next()
                                                    .map(|s| s.trim_left_matches("linker="))
-                                                   .map(|s| PathBuf::from(s)));
+                                                   .map(PathBuf::from));
 
         let target_linker = env_linker.or_else(|| {
             fn get_target_path(cargo_config: &CargoConfig, triple: &str) -> Option<PathBuf> {
@@ -98,7 +98,7 @@ pub fn launch_tarpaulin(config: Config) {
 
         // For Linux (and most everything that isn't Windows) it is fair to
         // assume the default linker is `cc` and that `cc` is GCC based.
-        let mut linker_cmd = Command::new(&target_linker.unwrap_or(PathBuf::from("cc")));
+        let mut linker_cmd = Command::new(&target_linker.unwrap_or_else(|| PathBuf::from("cc")));
         linker_cmd.arg("-v");
         if let Ok(linker_output) = linker_cmd.output() {
             if String::from_utf8_lossy(&linker_output.stderr).contains("--enable-default-pie") {
@@ -130,18 +130,18 @@ pub fn launch_tarpaulin(config: Config) {
     let compilation = ops::compile(&workspace, &copt);
     match compilation {
         Ok(comp) => {
-            for c in comp.tests.iter() {
+            for c in &comp.tests {
                 if config.verbose {
                     println!("Processing {}", c.1);
                 }
                 let res = get_test_coverage(workspace.root(), c.2.as_path(),
                                             config.forward_signals, false)
-                    .unwrap_or(vec![]);
+                    .unwrap_or_default();
                 merge_test_results(&mut result, &res);
                 if config.run_ignored {
                     let res = get_test_coverage(workspace.root(), c.2.as_path(), 
                                                 config.forward_signals, true)
-                        .unwrap_or(vec![]);
+                        .unwrap_or_default();
                     merge_test_results(&mut result, &res);
                 }
             }
@@ -156,15 +156,15 @@ pub fn launch_tarpaulin(config: Config) {
 }
 
 /// Test artefacts may have different lines visible to them therefore for 
-/// each test artefact covered we need to merge the TracerData entries to get
+/// each test artefact covered we need to merge the `TracerData` entries to get
 /// the overall coverage.
-pub fn merge_test_results(master: &mut Vec<TracerData>, new: &Vec<TracerData>) {
+pub fn merge_test_results(master: &mut Vec<TracerData>, new: &[TracerData]) {
     let mut unmerged:Vec<TracerData> = Vec::new();
     for t in new.iter() {
         let mut update = master.iter_mut()
                                .filter(|x| x.path== t.path && x.line == t.line)
                                .collect::<Vec<_>>();
-        for ref mut u in update.iter_mut() {
+        for u in &mut update {
             u.hits += t.hits;
         }
 
@@ -179,7 +179,7 @@ pub fn merge_test_results(master: &mut Vec<TracerData>, new: &Vec<TracerData>) {
 /// nicer path for printing to the user.
 fn strip_project_path<'a>(config: &'a Config, path: &'a Path) -> &'a Path {
     if let Some(root) = config.manifest.parent() {
-        &path.strip_prefix(root).unwrap_or(path)
+        path.strip_prefix(root).unwrap_or(path)
     } else {
         path
     }
@@ -187,8 +187,8 @@ fn strip_project_path<'a>(config: &'a Config, path: &'a Path) -> &'a Path {
 
 /// Reports the test coverage using the users preferred method. See config.rs 
 /// or help text for details.
-pub fn report_coverage(config: &Config, result: &Vec<TracerData>) {
-    if result.len() > 0 {
+pub fn report_coverage(config: &Config, result: &[TracerData]) {
+    if !result.is_empty() {
         println!("Coverage Results");
         if config.verbose {
             for r in result.iter() {
@@ -209,7 +209,7 @@ pub fn report_coverage(config: &Config, result: &Vec<TracerData>) {
                 file_map.insert(r.path.as_path(), ((r.hits > 0) as u64, 1));
             }
         }
-        for (k, v) in file_map.iter() {
+        for (k, v) in &file_map {
             let path = strip_project_path(config, k);
             println!("{}: {}/{}", path.display(), v.0, v.1);
         }
@@ -220,7 +220,7 @@ pub fn report_coverage(config: &Config, result: &Vec<TracerData>) {
         println!("\n{:.2}% coverage, {}/{} lines covered", percent, covered, total);
         if config.is_coveralls() {
             println!("Sending coverage data to coveralls.io");
-            report::coveralls::export(&result, config);
+            report::coveralls::export(result, config);
             println!("Coverage data sent");
         }
     } else {
@@ -273,7 +273,7 @@ fn collect_coverage(project_path: &Path,
             if let Err(c) = child_trace {
                 println!("Failed to trace child threads: {}", c);
             }
-            for trace in traces.iter() {
+            for trace in &traces {
                 match Breakpoint::new(child, trace.address) {
                     Ok(bp) => { 
                         let _ = bps.insert(trace.address, bp);
@@ -291,10 +291,9 @@ fn collect_coverage(project_path: &Path,
     }
     // Now we start hitting lines!
     //run_coverage_on_all_tests(test, &mut traces, &mut bps);
-    match run_function(test, u64::max_value(), forward_signals, 
+    if let Err(e) = run_function(test, u64::max_value(), forward_signals,
                        &mut traces, &mut bps) {
-        Err(e) => println!("Error while collecting coverage. {}", e),
-        _ => {},
+        println!("Error while collecting coverage. {}", e);
     }
     Ok(traces)
 }
@@ -326,7 +325,7 @@ fn run_function(pid: pid_t,
                 if let Ok(rip) = current_instruction_pointer(child) {
                     let rip = (rip - 1) as u64;
                     if  breakpoints.contains_key(&rip) {
-                        let ref mut bp = breakpoints.get_mut(&rip).unwrap();
+                        let bp = &mut breakpoints.get_mut(&rip).unwrap();
                         let updated = if let Ok(x) = bp.process(Some(child)) {
                              x
                         } else {
@@ -334,7 +333,7 @@ fn run_function(pid: pid_t,
                         };
                         if updated {
                             for mut t in traces.iter_mut()
-                                               .filter(|ref x| x.address == rip) {
+                                               .filter(|x| x.address == rip) {
                                 (*t).hits += 1;
                             }
                         } 
@@ -355,7 +354,7 @@ fn run_function(pid: pid_t,
                 continue_exec(child, s)?;
             },
             Ok(WaitStatus::PtraceEvent(child, signal::SIGTRAP, PTRACE_EVENT_CLONE)) => {
-                if let Ok(_) = get_event_data(child) {
+                if get_event_data(child).is_ok() {
                     continue_exec(child, None)?;
                 }
             },
@@ -383,8 +382,7 @@ fn execute_test(test: &Path, ignored: bool, backtrace_on: bool) {
         Ok(_) => {},
         Err(e) => println!("ASLR disable failed: {}", e),
     }
-    request_trace().ok()
-                   .expect("Failed to trace");
+    request_trace().expect("Failed to trace");
     
     let mut envars: Vec<CString> = vec![CString::new("RUST_TEST_THREADS=1").unwrap()];
     for (key, value) in env::vars() {
