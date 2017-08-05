@@ -28,11 +28,27 @@ a repo and the commit containing your project and paste the verbose output).
 
 ## Usage
 
+### Installation
+
 Tarpaulin depends on cargo which depends on SSL. Make sure you've installed
 your distros ssl development libraries and they are on your path before
-attempting to install tarpaulin.
+attempting to install tarpaulin. For example for Debian/Ubuntu:
+
+```text
+apt-get update && apt-get install libssl-dev
+```
+
+Tarpaulin is a command-line program, you install it into your linux development
+environment with cargo install:
+
+```text
+cargo install cargo-tarpaulin
+```
+
+### Command line
 
 To get detailed help on available arguments when running tarpaulin call:
+
 ```text
 cargo tarpaulin --help
 ```
