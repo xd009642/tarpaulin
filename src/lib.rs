@@ -362,6 +362,15 @@ fn run_function(pid: pid_t,
                     continue_exec(child, None)?;
                 }
             },
+            Ok(WaitStatus::PtraceEvent(child, signal::SIGTRAP, PTRACE_EVENT_FORK)) => {
+                continue_exec(child, None)?;
+            },
+            Ok(WaitStatus::PtraceEvent(child, signal::SIGTRAP, PTRACE_EVENT_EXEC)) => {
+                detach_child(child)?;
+            },
+            Ok(WaitStatus::PtraceEvent(child, signal::SIGTRAP, PTRACE_EVENT_EXIT)) => {
+                continue_exec(child, None)?;
+            },
             Ok(WaitStatus::Signaled(child, signal::SIGTRAP, true)) => {
                 println!("unexpected SIGTRAP attempting to continue");
                 continue_exec(child, None)?;

@@ -12,10 +12,14 @@ const RIP: u8 = 128;
 
 pub fn trace_children(pid: pid_t) -> Result<()> {
     //TODO need to check support.
-    let options: PtraceOptions = PTRACE_O_TRACECLONE | PTRACE_O_TRACEFORK | PTRACE_O_TRACEVFORK;
+    let options: PtraceOptions = PTRACE_O_TRACESYSGOOD | PTRACE_O_TRACEEXEC | PTRACE_O_TRACEEXIT |
+        PTRACE_O_TRACECLONE | PTRACE_O_TRACEFORK | PTRACE_O_TRACEVFORK;
     ptrace_setoptions(pid, options)
 }
 
+pub fn detach_child(pid: pid_t) -> Result<c_long> {
+    ptrace(PTRACE_DETACH, pid, ptr::null_mut(), ptr::null_mut())
+}
 
 pub fn continue_exec(pid: pid_t, sig: Option<Signal>) -> Result<c_long> {
     match sig {
