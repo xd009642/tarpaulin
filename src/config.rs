@@ -39,6 +39,7 @@ impl FromStr for Ci {
 pub struct Config {
     pub manifest: PathBuf,
     pub run_ignored: bool,
+    pub skip_clean: bool,
     pub verbose: bool,
     pub line_coverage: bool,
     pub branch_coverage: bool,
@@ -63,6 +64,7 @@ impl Config {
         let verbose = args.is_present("verbose");
         let ignored = args.is_present("ignored");
         let forward = args.is_present("forward");
+        let skip_clean = args.is_present("skip-clean");
         // If no coverage selected do everything!
         if !branch && !line {
             branch = true;
@@ -100,6 +102,7 @@ impl Config {
             run_ignored: ignored,
             verbose: verbose,
             line_coverage: line,
+            skip_clean: skip_clean,
             branch_coverage: branch,
             generate: out,
             coveralls: coveralls,

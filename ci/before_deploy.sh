@@ -21,7 +21,7 @@ main() {
     cargo build --release 
 
     # TODO Update this to package the right artifacts
-    cp target/release/zxcvbn-rs $stage/
+    cp target/release/cargo-tarpaulin $stage/
 
     cd $stage
     tar czf $src/$CRATE_NAME-$TRAVIS_TAG-travis.tar.gz *

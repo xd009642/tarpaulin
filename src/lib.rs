@@ -111,13 +111,6 @@ pub fn launch_tarpaulin(config: Config) {
     }
     env::set_var(rustflags, value);
 
-    let clean_opt = ops::CleanOptions {
-        config: &cargo_config,
-        spec: &[],
-        target: None,
-        release: false,
-    };
-    
     let mut copt = ops::CompileOptions::default(&cargo_config, ops::CompileMode::Test); 
     copt.features = config.features.as_slice();
     copt.spec = ops::Packages::Packages(config.packages.as_slice());
@@ -125,8 +118,19 @@ pub fn launch_tarpaulin(config: Config) {
     if config.verbose {
         println!("Running Tarpaulin");
     }
-    // Clean isn't expected to fail and if it does it likely won't have an effect
-    let _ = ops::clean(&workspace, &clean_opt);
+    if !config.skip_clean {
+        if config.verbose {
+            println!("Cleaning project");
+        }
+        // Clean isn't expected to fail and if it does it likely won't have an effect
+        let clean_opt = ops::CleanOptions {
+            config: &cargo_config,
+            spec: &[],
+            target: None,
+            release: false,
+        };
+        let _ = ops::clean(&workspace, &clean_opt);
+    }
     let compilation = ops::compile(&workspace, &copt);
     match compilation {
         Ok(comp) => {
