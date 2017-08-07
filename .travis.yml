@@ -20,9 +20,6 @@ script:
 - cargo clean
 - RUST_BACKTRACE=1 cargo build
 - cargo test
-branches:
-  only:
-  - master
 before_deploy:
     - sh ci/before_deploy.sh
 deploy:
