@@ -19,7 +19,7 @@ use std::io::{Error, ErrorKind};
 use std::ffi::CString;
 use std::path::{Path, PathBuf};
 use std::process::Command;
-use std::collections::HashMap;
+use std::collections::{BTreeMap, HashMap};
 use nix::Error as NixErr;
 use nix::unistd::*;
 use nix::libc::pid_t;
@@ -202,7 +202,7 @@ pub fn report_coverage(config: &Config, result: &[TracerData]) {
             println!("");
         }
         // Hash map of files with the value (lines covered, total lines)
-        let mut file_map: HashMap<&Path, (u64, u64)> = HashMap::new();
+        let mut file_map: BTreeMap<&Path, (u64, u64)> = BTreeMap::new();
         for r in result.iter() {
             if file_map.contains_key(r.path.as_path()) {
                 if let Some(v) = file_map.get_mut(r.path.as_path()) {
