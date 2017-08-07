@@ -108,8 +108,14 @@ new users. To follow these steps you'll first need a travis-ci and coveralls
 project for your repo. 
 
 We recommend taking the minimal rust .travis.yml, installing the libssl-dev
-dependency tarpaulin has and then running Tarpaulin with the version of rustc
-you require.
+dependency tarpaulin has and then running Tarpaulin with the version of 
+rustc you require.
+
+The travis-install shell script will install the latest tagged release built
+on travis to your travis instance and significantly speeds up the travis 
+builds. If you want an earlier version of tarpaulin, look at the script to
+see what you need to implement and adjust accordingly or use 
+`cargo install cargo-tarpaulin` and specify the version in the arguments.
 
 ```text
 language: rust
@@ -133,7 +139,7 @@ script:
 
 after_success: |
   if [[ "$TRAVIS_RUST_VERSION" == stable ]]; then
-    cargo install cargo-tarpaulin
+    bash <(curl https://raw.githubusercontent.com/xd009642/tarpaulin/master/travis-install.sh)
     cargo tarpaulin --ciserver travis-ci --coveralls $TRAVIS_JOB_ID
   fi
 ```
