@@ -335,7 +335,7 @@ fn run_function(pid: pid_t,
                     let rip = (rip - 1) as u64;
                     if  breakpoints.contains_key(&rip) {
                         let bp = &mut breakpoints.get_mut(&rip).unwrap();
-                        let updated = if let Ok(x) = bp.process(Some(child)) {
+                        let updated = if let Ok(x) = bp.process(child) {
                              x
                         } else {
                             rip == end
@@ -368,6 +368,9 @@ fn run_function(pid: pid_t,
                 }
             },
             Ok(WaitStatus::PtraceEvent(child, signal::SIGTRAP, PTRACE_EVENT_FORK)) => {
+                continue_exec(child, None)?;
+            },
+            Ok(WaitStatus::PtraceEvent(child, signal::SIGTRAP, PTRACE_EVENT_VFORK)) => {
                 continue_exec(child, None)?;
             },
             Ok(WaitStatus::PtraceEvent(child, signal::SIGTRAP, PTRACE_EVENT_EXEC)) => {

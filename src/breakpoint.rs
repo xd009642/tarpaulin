@@ -1,3 +1,4 @@
+use std::collections::HashMap;
 use nix::libc::{pid_t, c_long};
 use nix::Result;
 use ptrace_control::*;
@@ -11,10 +12,6 @@ const INT: u64 = 0xCC;
 /// breakpoint implementations.
 #[derive(Debug)]
 pub struct Breakpoint { 
-    /// Current process id
-    pub pid: pid_t,
-    /// process or thread id to use at present time
-    uid: pid_t,
     /// Program counter
     pub pc: u64,
     /// Bottom byte of address data. 
@@ -24,7 +21,7 @@ pub struct Breakpoint {
     /// We therefore need to know the shift to place the breakpoint in the right place
     shift: u64,
     /// When execution pauses. 
-    is_running: bool
+    is_running: HashMap<pid_t, bool>
 }
 
 impl Breakpoint {
@@ -34,65 +31,63 @@ impl Breakpoint {
         let data = read_address(pid, aligned)?;
         let shift = 8 * (pc - aligned);
         let data = ((data >> shift) & 0xFF) as u8;
+        
         let mut b = Breakpoint{ 
-            pid: pid,
-            uid: pid,
             pc: pc,
             data: data,
             shift: shift,
-            is_running: true,
+            is_running: HashMap::new(),
         };
-        match b.enable() {
+        match b.enable(pid) {
             Ok(_) => Ok(b),
             Err(e) => Err(e)
         }
     }
 
     /// Attaches the current breakpoint.
-    pub fn enable(&mut self) -> Result<c_long> {
-        let data  = read_address(self.uid, self.aligned_address())?;
-        self.is_running = true;
+    pub fn enable(&mut self, pid: pid_t) -> Result<c_long> {
+        let data  = read_address(pid, self.aligned_address())?;
+        self.is_running.insert(pid, true);
         let mut intdata = data & (!(0xFFu64 << self.shift) as i64);
         intdata |= (INT << self.shift) as i64;
-        write_to_address(self.uid, self.aligned_address(), intdata)
+        write_to_address(pid, self.aligned_address(), intdata)
     }
     
-    fn disable(&self) -> Result<c_long> {
+    fn disable(&self, pid: pid_t) -> Result<c_long> {
         // I require the bit fiddlin this end.
-        let data = read_address(self.uid, self.aligned_address())?;
+        let data = read_address(pid, self.aligned_address())?;
         let mut orgdata = data & (!(0xFFu64 << self.shift) as i64);
         orgdata |= (self.data as i64) << self.shift;
-        write_to_address(self.uid, self.aligned_address(), orgdata)
+        write_to_address(pid, self.aligned_address(), orgdata)
     }
 
     /// Processes the breakpoint. This steps over the breakpoint
-    pub fn process(&mut self, tid: Option<pid_t>) -> Result<bool> {
-        if let Some(tid) = tid {
-            self.uid = tid;
-        }
-        if self.is_running {
-            self.step()?;
-            self.is_running = false;
-            self.uid = self.pid;
+    pub fn process(&mut self, pid: pid_t) -> Result<bool> {
+        let is_running = match self.is_running.get(&pid) {
+            Some(r) => *r,
+            None => true,
+        };
+        if is_running {
+            self.step(pid)?;
+            self.is_running.insert(pid, false);
             Ok(true)
         } else {
-            self.enable()?;
-            continue_exec(self.uid, None)?;
-            self.is_running = true;
-            self.uid = self.pid;
+            self.enable(pid)?;
+            continue_exec(pid, None)?;
+            self.is_running.insert(pid, true);
             Ok(false)
         }
     }
 
     /// Steps past the current breakpoint.
     /// For more advanced coverage may interrogate the variables of a branch.
-    fn step(&mut self) -> Result<c_long> {
+    fn step(&mut self, pid: pid_t) -> Result<c_long> {
         // Remove the breakpoint, reset the program counter to step before it
         // hit the breakpoint then step to execute the original instruction.
-        self.disable()?;
+        self.disable(pid)?;
         // Need to set the program counter back one.
-        set_instruction_pointer(self.uid, self.pc)?;
-        single_step(self.uid)
+        set_instruction_pointer(pid, self.pc)?;
+        single_step(pid)
     }
 
     fn aligned_address(&self) -> u64 {
