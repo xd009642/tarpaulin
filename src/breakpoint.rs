@@ -68,12 +68,14 @@ impl Breakpoint {
             None => true,
         };
         if is_running {
+            self.enable(pid)?;
             self.step(pid)?;
             self.is_running.insert(pid, false);
             Ok(true)
         } else {
+            self.disable(pid)?;
             self.enable(pid)?;
-            continue_exec(pid, None)?;
+            single_step(pid)?;
             self.is_running.insert(pid, true);
             Ok(false)
         }
