@@ -20,7 +20,7 @@ pub struct Breakpoint {
     /// Reading from memory with ptrace gives addresses aligned to bytes. 
     /// We therefore need to know the shift to place the breakpoint in the right place
     shift: u64,
-    /// When execution pauses. 
+    /// Map of the state of the breakpoint on each thread/process 
     is_running: HashMap<pid_t, bool>
 }
 
@@ -62,7 +62,7 @@ impl Breakpoint {
     }
 
     /// Processes the breakpoint. This steps over the breakpoint
-    pub fn process(&mut self, pid: pid_t) -> Result<bool> {
+    pub fn process(&mut self, pid: pid_t, reenable: bool) -> Result<bool> {
         let is_running = match self.is_running.get(&pid) {
             Some(r) => *r,
             None => true,
@@ -74,8 +74,10 @@ impl Breakpoint {
             Ok(true)
         } else {
             self.disable(pid)?;
-            self.enable(pid)?;
-            single_step(pid)?;
+            if reenable {
+                self.enable(pid)?;
+            }
+            continue_exec(pid, None)?;
             self.is_running.insert(pid, true);
             Ok(false)
         }
