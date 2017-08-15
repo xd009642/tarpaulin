@@ -1,6 +1,9 @@
 use std::fs::File;
+use std::ffi::OsStr;
+use std::path::Path;
 use std::io::prelude::*;
 use std::io::Cursor;
+use std::collections::HashSet;
 use quick_xml::writer::Writer;
 use quick_xml::events::{Event, BytesEnd, BytesStart};
 use quick_xml::errors::Result;
@@ -25,7 +28,7 @@ fn write_header<T:Write>(writer: &mut Writer<T>, config: &Config) -> Result<usiz
 }
 
 /// Input only from single source file
-fn write_class<T:Write>(writer: &mut Writer<T>, coverage: &[TracerData]) ->Result<usize> {
+fn write_class<T:Write>(writer: &mut Writer<T>, coverage: &[&TracerData]) ->Result<usize> {
     if !coverage.is_empty() {
         let covered = coverage.iter().filter(|&x| (x.hits > 0)).count();
         let covered = (covered as f32)/(coverage.len() as f32);
@@ -34,12 +37,13 @@ fn write_class<T:Write>(writer: &mut Writer<T>, coverage: &[TracerData]) ->Resul
         class.push_attribute(("filename", name));
         class.push_attribute(("line-rate", covered.to_string().as_ref()));
 
-        writer.write_event(Event::Start(class));
+        writer.write_event(Event::Start(class))?;
         writer.write_event(Event::Start(BytesStart::borrowed(b"lines", b"lines".len())))?;
         for trace in coverage {
             let mut line = BytesStart::owned(b"line".to_vec(), b"line".len());
-            line.push_attribute(("line", "n"));
-            line.push_attribute(("hits", "h"));
+            line.push_attribute(("line", trace.line.to_string().as_ref()));
+            line.push_attribute(("hits", trace.hits.to_string().as_ref()));
+            writer.write_event(Event::Empty(line))?;
         }
         writer.write_event(Event::End(BytesEnd::borrowed(b"lines")))?;
         writer.write_event(Event::End(BytesEnd::borrowed(b"class")))
@@ -49,10 +53,9 @@ fn write_class<T:Write>(writer: &mut Writer<T>, coverage: &[TracerData]) ->Resul
 }
 
 /// Input only tracer data from a single source folder
-fn write_package<T:Write>(writer: &mut Writer<T>, 
+fn write_package<T:Write>(mut writer: &mut Writer<T>, 
                           package: &str,
-                          coverage: &[TracerData], 
-                          config: &Config) -> Result<usize> {
+                          coverage: &[&TracerData]) -> Result<usize> {
     let covered = coverage.iter().filter(|&x| (x.hits > 0)).count();
     let covered = (covered as f32)/(coverage.len() as f32);
 
@@ -61,13 +64,27 @@ fn write_package<T:Write>(writer: &mut Writer<T>,
     pack.push_attribute(("line-rate", covered.to_string().as_ref()));
     writer.write_event(Event::Start(pack))?;
     writer.write_event(Event::Start(BytesStart::borrowed(b"classes", b"classes".len())))?;
-    
+    let mut file_set: HashSet<&OsStr> = HashSet::new();
+
+    for t in coverage.iter() {
+        let filename = t.path.file_name();
+        if !file_set.contains(filename.unwrap_or_default()) {
+            file_set.insert(filename.unwrap_or_default());
+            let class = coverage.iter()
+                                .filter(|x| x.path.file_name() == filename)
+                                .map(|x| *x)
+                                .collect::<Vec<_>>();
+
+            write_class(&mut writer, &class)?;
+        }
+    }
+
     writer.write_event(Event::End(BytesEnd::borrowed(b"classes")))?;
     writer.write_event(Event::End(BytesEnd::borrowed(b"package")))
 }
 
 pub fn export(coverage_data: &[TracerData], config: &Config) {
-    let mut file = File::create("Cobertura.xml").unwrap();
+    let mut file = File::create("cobertura.xml").unwrap();
     let mut writer = Writer::new(Cursor::new(Vec::new()));    
     // Construct cobertura xml 
     let covered = coverage_data.iter().filter(|&x| (x.hits > 0 )).count();
@@ -80,7 +97,22 @@ pub fn export(coverage_data: &[TracerData], config: &Config) {
     // other data
     writer.write_event(Event::Start(BytesStart::borrowed(b"packages", b"packages".len()))).unwrap();
     
-    
+    let mut folder_set: HashSet<&Path> = HashSet::new();
+    for t in coverage_data.iter() {
+        let parent = match t.path.parent() {
+            Some(x) => x,
+            None => continue,
+        };
+        if !folder_set.contains(&parent) {
+            folder_set.insert(parent);
+            let package_name = match parent.strip_prefix(config.manifest.as_path()) {
+                Ok(p) => p,
+                _ => parent,
+            };
+            let package = coverage_data.iter().filter(|x| x.path.parent() == Some(&parent)).collect::<Vec<_>>();
+            let _ = write_package(&mut writer, package_name.to_str().unwrap_or_default(), &package);
+        }
+    }
 
     writer.write_event(Event::End(BytesEnd::borrowed(b"packages"))).unwrap();
     writer.write_event(Event::End(BytesEnd::borrowed(b"coverage"))).unwrap();
