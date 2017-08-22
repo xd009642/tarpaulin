@@ -50,7 +50,7 @@ pie is disabled for your linker. If linking with gcc try adding -C link-args=-no
 to your rust flags";
 
 /// Launches tarpaulin with the given configuration.
-pub fn launch_tarpaulin(config: Config) {
+pub fn launch_tarpaulin(config: Config) -> Result<(), i32> {
     let cargo_config = CargoConfig::default().unwrap();
     let flag_quiet = if config.verbose {
         None
@@ -64,13 +64,7 @@ pub fn launch_tarpaulin(config: Config) {
                                    false,
                                    false);
     
-    let workspace = match Workspace::new(config.manifest.as_path(), &cargo_config) {
-        Ok(w) => w,
-        Err(_) => { 
-            println!("Invalid project directory specified");
-            return;
-        }
-    };
+    let workspace = Workspace::new(config.manifest.as_path(), &cargo_config).map_err(|_| 1i32)?;
     
     let rustflags = "RUSTFLAGS";
     let mut value = "-C relocation-model=dynamic-no-pic -C link-dead-code ".to_string();
@@ -158,6 +152,7 @@ pub fn launch_tarpaulin(config: Config) {
         },
     }
     report_coverage(&config, &result);
+    Ok(())
 }
 
 /// Test artefacts may have different lines visible to them therefore for 
