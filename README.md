@@ -24,7 +24,7 @@ your setup and an example project and I'll attempt to fix it (please link us to
 a repo and the commit containing your project and paste the verbose output).
 
 * Line coverage
-* Uploading coverage to https://coveralls.io
+* Uploading coverage to https://coveralls.io or https://codecov.io
 
 ## Usage
 
@@ -90,6 +90,7 @@ src/lib.rs: 7/8
 src/unused.rs: 0/4
 
 58.33% coverage, 7/12 lines covered
+Tarpaulin finished
 ```
 
 Hint: if using coveralls.io with travis-ci run with the options
@@ -99,13 +100,13 @@ coverage results submitted (although you can still see them on the coveralls
 web interface). For an example of a project using Tarpaulin, you can check out
 my crate [keygraph-rs](https://github.com/xd009642/keygraph-rs).
 
-### Travis-ci and Coveralls.io
+### Travis-ci and Coverage Sites
 
 The expected most common usecase is launching coverage via a CI service to
 upload to a site like codecov or coveralls. Given the built in support and
 ubiquity of travis-ci it seems prudent to document the required steps here for
-new users. To follow these steps you'll first need a travis-ci and coveralls
-project for your repo. 
+new users. To follow these steps you'll first need a travis-ci and a project setup
+for your coverage reporting site of choice. 
 
 We recommend taking the minimal rust .travis.yml, installing the libssl-dev
 dependency tarpaulin has and then running Tarpaulin with the version of 
@@ -116,6 +117,9 @@ on travis to your travis instance and significantly speeds up the travis
 builds. If you want an earlier version of tarpaulin, look at the script to
 see what you need to implement and adjust accordingly or use 
 `cargo install cargo-tarpaulin` and specify the version in the arguments.
+
+For codecov.io you'll need to export CODECOV_TOKEN are instructions on this in
+the settings of your codecov project.
 
 ```text
 language: rust
@@ -140,7 +144,12 @@ script:
 after_success: |
   if [[ "$TRAVIS_RUST_VERSION" == stable ]]; then
     bash <(curl https://raw.githubusercontent.com/xd009642/tarpaulin/master/travis-install.sh)
-    cargo tarpaulin --ciserver travis-ci --coveralls $TRAVIS_JOB_ID
+    # Uncomment the following line for coveralls.io
+    # cargo tarpaulin --ciserver travis-ci --coveralls $TRAVIS_JOB_ID
+
+    # Uncomment the following two lines create and upload a report for codecov.io
+    # cargo tarpaulin --out Xml
+    # bash <(curl -s https://codecov.io/bash)
   fi
 ```
 
@@ -156,7 +165,7 @@ CONTRIBUTING.md.
 - [ ] Branch coverage for tests
 - [ ] Condition coverage for tests
 - [ ] Annotated coverage reports
-- [ ] Coverage reports in the style of existing tools (i.e. kcov)
+- [x] Coverage reports in the style of existing tools (i.e. kcov)
 - [x] Integration with 3rd party tools like coveralls or codecov
 - [ ] Optional coverage statistics for doctests
 - [ ] MCDC coverage reports
