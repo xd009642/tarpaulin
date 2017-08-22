@@ -62,5 +62,11 @@ fn main() {
 
     let args = args.subcommand_matches("tarpaulin").unwrap_or(&args);
     let config = Config::from_args(args);
-    launch_tarpaulin(config);
+    match launch_tarpaulin(config) {
+        Ok(()) => println!("Tarpaulin finished"),
+        Err(e) => {
+            println!("Error during run");
+            std::process::exit(e);
+        },
+    }
 }
