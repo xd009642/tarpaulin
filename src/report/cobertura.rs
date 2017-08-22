@@ -1,3 +1,4 @@
+use std::time::{SystemTime, UNIX_EPOCH};
 use std::fs::File;
 use std::ffi::OsStr;
 use std::path::Path;
@@ -21,7 +22,6 @@ fn write_header<T:Write>(writer: &mut Writer<T>, config: &Config) -> Result<usiz
         Some(s) => s.to_str().unwrap_or_default(),
         None => "",
     };
-
     writer.write(parent_folder.as_bytes()).unwrap();
     writer.write_event(Event::End(BytesEnd::borrowed(b"source")))?;
     writer.write_event(Event::End(BytesEnd::borrowed(b"sources")))
@@ -107,7 +107,12 @@ pub fn export(coverage_data: &[TracerData], config: &Config) {
     cov.push_attribute(("line-rate", line_rate.to_string().as_ref()));
     cov.push_attribute(("branch-rate", "1.0"));
     cov.push_attribute(("version", "1.9"));
-    cov.push_attribute(("timestamp", "1502816840"));
+
+    if let Ok(s) = SystemTime::now().duration_since(UNIX_EPOCH) {
+        cov.push_attribute(("timestamp", s.as_secs().to_string().as_ref()));
+    } else {
+        cov.push_attribute(("timestamp", "0"));
+    }
 
     writer.write_event(Event::Start(cov)).unwrap();
     let _ = write_header(&mut writer, &config);
