@@ -2,7 +2,7 @@ use tracer::TracerData;
 use config::Config;
 use serde::Serialize;
 
-
+pub mod cobertura;
 pub mod coveralls;
 /// Trait for report formats to implement. 
 /// Currently reports must be serializable using serde

@@ -11,6 +11,7 @@ extern crate regex;
 extern crate clap;
 extern crate serde;
 extern crate serde_json;
+extern crate quick_xml;
 
 use std::env;
 use std::io;
@@ -218,7 +219,7 @@ pub fn report_coverage(config: &Config, result: &[TracerData]) {
             println!("{}: {}/{}", path.display(), v.0, v.1);
         }
         let covered = result.iter().filter(|&x| (x.hits > 0 )).count();
-        let total = result.iter().count();
+        let total = result.len();
         let percent = (covered as f64)/(total as f64) * 100.0f64;
         // Put file filtering here
         println!("\n{:.2}% coverage, {}/{} lines covered", percent, covered, total);
@@ -226,6 +227,15 @@ pub fn report_coverage(config: &Config, result: &[TracerData]) {
             println!("Sending coverage data to coveralls.io");
             report::coveralls::export(result, config);
             println!("Coverage data sent");
+        }
+
+        for g in &config.generate {
+            match g {
+                &OutputFile::Xml => {
+                    report::cobertura::export(result, config);
+                },
+                _ => { },
+            }
         }
     } else {
         println!("No coverage results collected.");
