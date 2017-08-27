@@ -83,6 +83,12 @@ impl Breakpoint {
         }
     }
 
+    /// Call this when a ptrace thread is killed. Won't reenable the breakpoint
+    /// so may lose the ability to instrument this line.
+    pub fn thread_killed(&mut self, pid: pid_t) {
+        self.is_running.remove(&pid);
+    }
+
     /// Steps past the current breakpoint.
     /// For more advanced coverage may interrogate the variables of a branch.
     fn step(&mut self, pid: pid_t) -> Result<c_long> {

@@ -20,7 +20,7 @@ use std::io::{Error, ErrorKind};
 use std::ffi::CString;
 use std::path::{Path, PathBuf};
 use std::process::Command;
-use std::collections::{BTreeMap, HashMap, HashSet};
+use std::collections::{BTreeMap, HashMap};
 use nix::Error as NixErr;
 use nix::unistd::*;
 use nix::libc::pid_t;
@@ -44,7 +44,6 @@ use tracer::*;
 use breakpoint::*;
 use ptrace_control::*;
 
-const BREAKPOINT_TIMEOUT: usize = 100;
 const PIE_ERROR: &'static str = "ERROR: Tarpaulin cannot find code addresses check that \
 pie is disabled for your linker. If linking with gcc try adding -C link-args=-no-pie \
 to your rust flags";
@@ -315,14 +314,17 @@ fn run_function(pid: pid_t,
                 mut traces: &mut Vec<TracerData>,
                 mut breakpoints: &mut HashMap<u64, Breakpoint>) -> Result<i8, Error> {
     let mut res = 0i8;
-    let mut seq_count = 0usize;
-    let mut prev_rip:i64 = 0;
-    let mut disabled_bps: HashSet<i64> = HashSet::new();
+    // Thread count, don't count initial thread of execution
+    let mut thread_count = 0isize;
+    let mut unwarned = true;
     // Start the function running. 
     continue_exec(pid, None)?;
     loop {
         match waitpid(-1, Some(__WALL)) {
             Ok(WaitStatus::Exited(child, sig)) => {
+                for (_, ref mut value) in breakpoints.iter_mut() {
+                    value.thread_killed(child); 
+                }
                 res = sig;
                 // If test executable exiting break, else continue the program
                 // to launch the next test function
@@ -335,22 +337,16 @@ fn run_function(pid: pid_t,
             },
             Ok(WaitStatus::Stopped(child, signal::SIGTRAP)) => {
                 if let Ok(rip) = current_instruction_pointer(child) {
-                    if prev_rip == rip {
-                        seq_count += 1;
-                    } else {
-                        seq_count = 0;
-                    }
-                    prev_rip = rip;
                     let rip = (rip - 1) as u64;
                     if  breakpoints.contains_key(&rip) {
                         let bp = &mut breakpoints.get_mut(&rip).unwrap();
-                        let timeout = seq_count < BREAKPOINT_TIMEOUT;
-                        if !timeout && !disabled_bps.contains(&prev_rip){
-                            disabled_bps.insert(prev_rip);
-                            println!("\nWarning breakpoint 0x{:x} has been hit too many \
-                                     times in a row, potential error. Disabling", rip);
+                        let enable = thread_count < 2;
+                        if !enable && unwarned {
+                            println!("Code is mulithreaded, disabling hit count");
+                            unwarned = false;
                         }
-                        let updated = if let Ok(x) = bp.process(child, timeout) {
+                        // Don't reenable if multithreaded as can't yet sort out segfault issue
+                        let updated = if let Ok(x) = bp.process(child, enable) {
                              x
                         } else {
                             rip == end
@@ -369,8 +365,7 @@ fn run_function(pid: pid_t,
             Ok(WaitStatus::Stopped(child, signal::SIGSTOP)) => {
                 continue_exec(child, None)?;
             },
-            Ok(WaitStatus::Stopped(child, signal::SIGSEGV)) => {
-                let _ = signal::kill(child, signal::SIGKILL);
+            Ok(WaitStatus::Stopped(_, signal::SIGSEGV)) => {
                 break;
             },
             Ok(WaitStatus::Stopped(child, sig)) => {
@@ -383,6 +378,7 @@ fn run_function(pid: pid_t,
             },
             Ok(WaitStatus::PtraceEvent(child, signal::SIGTRAP, PTRACE_EVENT_CLONE)) => {
                 if get_event_data(child).is_ok() {
+                    thread_count += 1;
                     continue_exec(child, None)?;
                 }
             },
@@ -396,10 +392,10 @@ fn run_function(pid: pid_t,
                 detach_child(child)?;
             },
             Ok(WaitStatus::PtraceEvent(child, signal::SIGTRAP, PTRACE_EVENT_EXIT)) => {
+                thread_count -= 1;
                 continue_exec(child, None)?;
             },
             Ok(WaitStatus::Signaled(child, signal::SIGTRAP, true)) => {
-                println!("unexpected SIGTRAP attempting to continue");
                 continue_exec(child, None)?;
             },
             Ok(s) => {
