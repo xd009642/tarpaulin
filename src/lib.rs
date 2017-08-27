@@ -44,7 +44,6 @@ use tracer::*;
 use breakpoint::*;
 use ptrace_control::*;
 
-
 const PIE_ERROR: &'static str = "ERROR: Tarpaulin cannot find code addresses check that \
 pie is disabled for your linker. If linking with gcc try adding -C link-args=-no-pie \
 to your rust flags";
@@ -315,11 +314,17 @@ fn run_function(pid: pid_t,
                 mut traces: &mut Vec<TracerData>,
                 mut breakpoints: &mut HashMap<u64, Breakpoint>) -> Result<i8, Error> {
     let mut res = 0i8;
+    // Thread count, don't count initial thread of execution
+    let mut thread_count = 0isize;
+    let mut unwarned = true;
     // Start the function running. 
     continue_exec(pid, None)?;
     loop {
         match waitpid(-1, Some(__WALL)) {
             Ok(WaitStatus::Exited(child, sig)) => {
+                for (_, ref mut value) in breakpoints.iter_mut() {
+                    value.thread_killed(child); 
+                }
                 res = sig;
                 // If test executable exiting break, else continue the program
                 // to launch the next test function
@@ -335,7 +340,13 @@ fn run_function(pid: pid_t,
                     let rip = (rip - 1) as u64;
                     if  breakpoints.contains_key(&rip) {
                         let bp = &mut breakpoints.get_mut(&rip).unwrap();
-                        let updated = if let Ok(x) = bp.process(Some(child)) {
+                        let enable = thread_count < 2;
+                        if !enable && unwarned {
+                            println!("Code is mulithreaded, disabling hit count");
+                            unwarned = false;
+                        }
+                        // Don't reenable if multithreaded as can't yet sort out segfault issue
+                        let updated = if let Ok(x) = bp.process(child, enable) {
                              x
                         } else {
                             rip == end
@@ -354,6 +365,9 @@ fn run_function(pid: pid_t,
             Ok(WaitStatus::Stopped(child, signal::SIGSTOP)) => {
                 continue_exec(child, None)?;
             },
+            Ok(WaitStatus::Stopped(_, signal::SIGSEGV)) => {
+                break;
+            },
             Ok(WaitStatus::Stopped(child, sig)) => {
                 let s = if forward_signals {
                     Some(sig)
@@ -364,20 +378,24 @@ fn run_function(pid: pid_t,
             },
             Ok(WaitStatus::PtraceEvent(child, signal::SIGTRAP, PTRACE_EVENT_CLONE)) => {
                 if get_event_data(child).is_ok() {
+                    thread_count += 1;
                     continue_exec(child, None)?;
                 }
             },
             Ok(WaitStatus::PtraceEvent(child, signal::SIGTRAP, PTRACE_EVENT_FORK)) => {
                 continue_exec(child, None)?;
             },
+            Ok(WaitStatus::PtraceEvent(child, signal::SIGTRAP, PTRACE_EVENT_VFORK)) => {
+                continue_exec(child, None)?;
+            },
             Ok(WaitStatus::PtraceEvent(child, signal::SIGTRAP, PTRACE_EVENT_EXEC)) => {
                 detach_child(child)?;
             },
             Ok(WaitStatus::PtraceEvent(child, signal::SIGTRAP, PTRACE_EVENT_EXIT)) => {
+                thread_count -= 1;
                 continue_exec(child, None)?;
             },
             Ok(WaitStatus::Signaled(child, signal::SIGTRAP, true)) => {
-                println!("unexpected SIGTRAP attempting to continue");
                 continue_exec(child, None)?;
             },
             Ok(s) => {

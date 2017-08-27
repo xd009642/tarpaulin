@@ -6,7 +6,6 @@ use nix::libc::{pid_t, c_void, c_long};
 use nix::Result;
 use std::mem;
 
-
 const RIP: u8 = 128;
 
 
@@ -66,5 +65,4 @@ pub fn get_event_data(pid: pid_t) -> Result<c_long> {
         err @ Err(..) => err,
     }
 }
-
 
