@@ -12,6 +12,8 @@ use gimli::*;
 use regex::Regex;
 use rustc_demangle::demangle;
 
+
+
 /// Describes a function as `low_pc`, `high_pc` and bool representing `is_test`.
 type FuncDesc = (u64, u64, FunctionType);
 
@@ -272,7 +274,6 @@ fn get_line_addresses<Endian: Endianity>(project: &Path, obj: &OFile) -> Result<
     Ok(result)
 }
 
-
 /// Generates a list of lines we want to trace the coverage of. Used to instrument the
 /// traces into the test executable
 pub fn generate_tracer_data(manifest: &Path, test: &Path) -> io::Result<Vec<TracerData>> {
@@ -290,3 +291,14 @@ pub fn generate_tracer_data(manifest: &Path, test: &Path) -> io::Result<Vec<Trac
         Err(io::Error::new(io::ErrorKind::InvalidData, "Unable to parse binary."))
     }
 }
+
+/*
+ * Lets think about structure.
+ * Get code map from manifest path.
+ * Get dwarf tables loaded.
+ * Find lines coverable in dwarf
+ * Check lines with codemap
+ * done
+ */
+
+

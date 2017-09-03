@@ -3,3 +3,4 @@
 target/
 *.swp
 **/*.rs.bk
+*.log

@@ -1,6 +1,7 @@
 extern crate nix;
 extern crate cargo;
 extern crate gimli;
+extern crate syntex_syntax;
 extern crate object;
 extern crate memmap;
 extern crate coveralls_api;
@@ -35,6 +36,8 @@ pub mod config;
 pub mod tracer;
 pub mod breakpoint;
 pub mod report;
+mod source_analysis;
+
 /// Should be unnecessary with a future nix crate release.
 mod personality;
 mod ptrace_control;
