@@ -121,7 +121,7 @@ see what you need to implement and adjust accordingly or use
 For codecov.io you'll need to export CODECOV_TOKEN are instructions on this in
 the settings of your codecov project.
 
-```text
+```yml
 language: rust
 dist: trusty
 addons:
