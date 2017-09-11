@@ -292,13 +292,4 @@ pub fn generate_tracer_data(manifest: &Path, test: &Path) -> io::Result<Vec<Trac
     }
 }
 
-/*
- * Lets think about structure.
- * Get code map from manifest path.
- * Get dwarf tables loaded.
- * Find lines coverable in dwarf
- * Check lines with codemap
- * done
- */
-
 
