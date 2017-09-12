@@ -53,6 +53,7 @@ pub struct Config {
     pub forward_signals: bool,
     pub features: Vec<String>,
     pub packages: Vec<String>,
+    pub varargs: Vec<String>
 }
 
 
@@ -97,6 +98,10 @@ impl Config {
             Some(v) => v,
             None => vec![],
         };
+        let varargs: Vec<String> = match args.values_of_lossy("args") {
+            Some(v) => v,
+            None => vec![],
+        };
         Config{
             manifest: root,
             run_ignored: ignored,
@@ -110,6 +115,7 @@ impl Config {
             forward_signals: forward,
             features: features,
             packages: packages,
+            varargs: varargs
         }
     }
 
