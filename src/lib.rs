@@ -133,12 +133,12 @@ pub fn launch_tarpaulin(config: Config) -> Result<(), i32> {
                     println!("Processing {}", c.1);
                 }
                 let res = get_test_coverage(workspace.root(), c.2.as_path(),
-                                            config.forward_signals, false)
+                                            &config, false)
                     .unwrap_or_default();
                 merge_test_results(&mut result, &res);
                 if config.run_ignored {
                     let res = get_test_coverage(workspace.root(), c.2.as_path(), 
-                                                config.forward_signals, true)
+                                                &config, true)
                         .unwrap_or_default();
                     merge_test_results(&mut result, &res);
                 }
@@ -238,13 +238,13 @@ pub fn report_coverage(config: &Config, result: &[TracerData]) {
 }
 
 /// Returns the coverage statistics for a test executable in the given workspace
-pub fn get_test_coverage(root: &Path, test: &Path, forward:bool, ignored: bool) -> Option<Vec<TracerData>> {
+pub fn get_test_coverage(root: &Path, test: &Path, config: &Config, ignored: bool) -> Option<Vec<TracerData>> {
     if !test.exists() {
         return None;
     } 
     match fork() {
         Ok(ForkResult::Parent{ child }) => {
-            match collect_coverage(root, test, child, forward) {
+            match collect_coverage(root, test, child, config.forward_signals) {
                 Ok(t) => {
                     Some(t)
                 },
@@ -256,7 +256,7 @@ pub fn get_test_coverage(root: &Path, test: &Path, forward:bool, ignored: bool) 
         }
         Ok(ForkResult::Child) => {
             println!("Launching test");
-            execute_test(test, ignored, true);
+            execute_test(test, ignored, config);
             None
         }
         Err(err) => { 
@@ -412,7 +412,7 @@ fn run_function(pid: pid_t,
 
 
 /// Launches the test executable
-fn execute_test(test: &Path, ignored: bool, backtrace_on: bool) {
+fn execute_test(test: &Path, ignored: bool, config: &Config) {
     let exec_path = CString::new(test.to_str().unwrap()).unwrap();
     match personality::disable_aslr() {
         Ok(_) => {},
@@ -428,14 +428,17 @@ fn execute_test(test: &Path, ignored: bool, backtrace_on: bool) {
         temp.push_str(value.as_str());
         envars.push(CString::new(temp).unwrap());
     }
-    if backtrace_on {
+    if config.verbose {
         envars.push(CString::new("RUST_BACKTRACE=1").unwrap());
     }
-    let argv = if ignored {
+    let mut argv = if ignored {
         vec![exec_path.clone(), CString::new("--ignored").unwrap()]
     } else {
         vec![exec_path.clone()]
     };
+    for s in &config.varargs {
+        argv.push(CString::new(s.as_bytes()).unwrap_or_default());
+    }
     execve(&exec_path, &argv, envars.as_slice())
         .unwrap();
 }

@@ -9,7 +9,7 @@ extern crate rustc_demangle;
 extern crate clap;
 
 use std::path::Path;
-use clap::{App, Arg, SubCommand};
+use clap::{App, Arg, SubCommand, ArgSettings};
 use cargo_tarpaulin::launch_tarpaulin;
 use cargo_tarpaulin::config::*;
 
@@ -39,7 +39,7 @@ fn main() {
             .about("Tool to analyse test coverage of cargo projects")
             .version(concat!("version: ", crate_version!()))
             .args_from_usage(
-                "--help -h    'Prints help information'
+                "--help       'Prints help information'
                  --verbose -v 'Show extra output'
                  --ignored -i 'Run ignored tests as well'
                  --line -l    'Line coverage'
@@ -57,6 +57,9 @@ fn main() {
                     .validator(is_dir),
                 Arg::from_usage("--ciserver [SERVICE] 'CI server being used'")
                     .help(CI_SERVER_HELP),
+                Arg::with_name("args")
+                    .set(ArgSettings::Last)
+                    .multiple(true)
             ]))
         .get_matches();
 
