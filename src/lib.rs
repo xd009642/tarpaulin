@@ -231,7 +231,9 @@ pub fn report_coverage(config: &Config, result: &[TracerData]) {
                 &OutputFile::Xml => {
                     report::cobertura::export(result, config);
                 },
-                _ => { },
+                _ => {
+                    println!("Format currently unsupported");
+                },
             }
         }
     } else {
