@@ -41,6 +41,7 @@ fn main() {
             .args_from_usage(
                 "--help       'Prints help information'
                  --verbose -v 'Show extra output'
+                 --no-count   'Disables counting line hits for a faster run'
                  --ignored -i 'Run ignored tests as well'
                  --line -l    'Line coverage'
                  --skip-clean 'Skips the clean stage to reduce build times, may affect coverage results'

@@ -244,7 +244,7 @@ pub fn get_test_coverage(root: &Path, test: &Path, config: &Config, ignored: boo
     } 
     match fork() {
         Ok(ForkResult::Parent{ child }) => {
-            match collect_coverage(root, test, child, config.forward_signals) {
+            match collect_coverage(root, test, child, config.forward_signals, config.no_count) {
                 Ok(t) => {
                     Some(t)
                 },
@@ -272,7 +272,8 @@ pub fn get_test_coverage(root: &Path, test: &Path, config: &Config, ignored: boo
 fn collect_coverage(project_path: &Path, 
                     test_path: &Path, 
                     test: pid_t,
-                    forward_signals: bool) -> io::Result<Vec<TracerData>> {
+                    forward_signals: bool,
+                    no_count: bool) -> io::Result<Vec<TracerData>> {
     let mut traces = generate_tracer_data(project_path, test_path)?;
     let mut bps: HashMap<u64, Breakpoint> = HashMap::new();
     match waitpid(test, None) {
@@ -299,7 +300,7 @@ fn collect_coverage(project_path: &Path,
     }
     // Now we start hitting lines!
     //run_coverage_on_all_tests(test, &mut traces, &mut bps);
-    if let Err(e) = run_function(test, u64::max_value(), forward_signals,
+    if let Err(e) = run_function(test, u64::max_value(), forward_signals, no_count,
                        &mut traces, &mut bps) {
         println!("Error while collecting coverage. {}", e);
     }
@@ -311,12 +312,13 @@ fn collect_coverage(project_path: &Path,
 fn run_function(pid: pid_t,
                 end: u64,
                 forward_signals: bool,
+                no_count: bool,
                 mut traces: &mut Vec<TracerData>,
                 mut breakpoints: &mut HashMap<u64, Breakpoint>) -> Result<i8, Error> {
     let mut res = 0i8;
     // Thread count, don't count initial thread of execution
     let mut thread_count = 0isize;
-    let mut unwarned = true;
+    let mut unwarned = !no_count;
     // Start the function running. 
     continue_exec(pid, None)?;
     loop {
@@ -340,7 +342,7 @@ fn run_function(pid: pid_t,
                     let rip = (rip - 1) as u64;
                     if  breakpoints.contains_key(&rip) {
                         let bp = &mut breakpoints.get_mut(&rip).unwrap();
-                        let enable = thread_count < 2;
+                        let enable = (!no_count) && (thread_count < 2);
                         if !enable && unwarned {
                             println!("Code is mulithreaded, disabling hit count");
                             unwarned = false;
