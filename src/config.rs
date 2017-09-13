@@ -41,6 +41,7 @@ pub struct Config {
     pub run_ignored: bool,
     pub skip_clean: bool,
     pub verbose: bool,
+    pub no_count: bool,
     pub line_coverage: bool,
     pub branch_coverage: bool,
     pub generate: Vec<OutputFile>,
@@ -66,6 +67,7 @@ impl Config {
         let ignored = args.is_present("ignored");
         let forward = args.is_present("forward");
         let skip_clean = args.is_present("skip-clean");
+        let no_count = args.is_present("no-count");
         // If no coverage selected do everything!
         if !branch && !line {
             branch = true;
@@ -106,6 +108,7 @@ impl Config {
             manifest: root,
             run_ignored: ignored,
             verbose: verbose,
+            no_count: no_count,
             line_coverage: line,
             skip_clean: skip_clean,
             branch_coverage: branch,
