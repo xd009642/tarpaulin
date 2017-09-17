@@ -32,6 +32,7 @@ use cargo::util::Config as CargoConfig;
 use cargo::core::Workspace;
 use cargo::ops;
 
+
 pub mod config;
 pub mod tracer;
 pub mod breakpoint;
@@ -135,12 +136,12 @@ pub fn launch_tarpaulin(config: Config) -> Result<(), i32> {
                 if config.verbose {
                     println!("Processing {}", c.1);
                 }
-                let res = get_test_coverage(workspace.root(), c.2.as_path(),
+                let res = get_test_coverage(&workspace, c.2.as_path(),
                                             &config, false)
                     .unwrap_or_default();
                 merge_test_results(&mut result, &res);
                 if config.run_ignored {
-                    let res = get_test_coverage(workspace.root(), c.2.as_path(), 
+                    let res = get_test_coverage(&workspace, c.2.as_path(), 
                                                 &config, true)
                         .unwrap_or_default();
                     merge_test_results(&mut result, &res);
@@ -243,13 +244,13 @@ pub fn report_coverage(config: &Config, result: &[TracerData]) {
 }
 
 /// Returns the coverage statistics for a test executable in the given workspace
-pub fn get_test_coverage(root: &Path, test: &Path, config: &Config, ignored: bool) -> Option<Vec<TracerData>> {
+pub fn get_test_coverage(project: &Workspace, test: &Path, config: &Config, ignored: bool) -> Option<Vec<TracerData>> {
     if !test.exists() {
         return None;
     } 
     match fork() {
         Ok(ForkResult::Parent{ child }) => {
-            match collect_coverage(root, test, child, config.forward_signals, config.no_count) {
+            match collect_coverage(project, test, child, config.forward_signals, config.no_count) {
                 Ok(t) => {
                     Some(t)
                 },
@@ -274,12 +275,12 @@ pub fn get_test_coverage(root: &Path, test: &Path, config: &Config, ignored: boo
 }
 
 /// Collects the coverage data from the launched test
-fn collect_coverage(project_path: &Path, 
+fn collect_coverage(project: &Workspace, 
                     test_path: &Path, 
                     test: pid_t,
                     forward_signals: bool,
                     no_count: bool) -> io::Result<Vec<TracerData>> {
-    let mut traces = generate_tracer_data(project_path, test_path)?;
+    let mut traces = generate_tracer_data(project, test_path)?;
     let mut bps: HashMap<u64, Breakpoint> = HashMap::new();
     match waitpid(test, None) {
         Ok(WaitStatus::Stopped(child, signal::SIGTRAP)) => {
