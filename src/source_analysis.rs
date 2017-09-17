@@ -1,17 +1,18 @@
 use cargo::core::{Workspace, Source};
 use cargo::sources::PathSource;
-use syntex_syntax::visit::Visitor;
+use syntex_syntax::visit::{Visitor, FnKind};
 use syntex_syntax::codemap::{CodeMap, Span, BytePos, FilePathMapping};
-use syntex_syntax::ast::{NodeId, Mac, Attribute, MetaItemKind, Stmt};
+use syntex_syntax::ast::{NodeId, Mac, Attribute, MetaItemKind, Stmt, FnDecl};
 use syntex_syntax::parse::{self, ParseSess};
 use syntex_syntax::errors::Handler;
 use syntex_syntax::errors::emitter::ColorConfig;
 use std::path::{PathBuf, Path};
+use std::ffi::OsStr;
 use std::rc::Rc;
 use config::Config;
 
-pub struct IgnoredLines<'a> {
-    pub lines: Vec<(PathBuf, usize)>,
+struct IgnoredLines<'a> {
+    lines: Vec<(PathBuf, usize)>,
     codemap: &'a CodeMap,
     parse_session: &'a ParseSess,
 }
@@ -22,6 +23,8 @@ pub struct IgnoredLines<'a> {
  */
 
 pub fn get_lines_to_ignore(project: &Workspace) -> Vec<(PathBuf, usize)> {
+    let mut result: Vec<(PathBuf, usize)> = Vec::new();
+    
     let pkg = project.current().unwrap();
     let mut src = PathSource::new(pkg.root(), pkg.package_id().source_id(), project.config());
     src.update();
@@ -29,19 +32,20 @@ pub fn get_lines_to_ignore(project: &Workspace) -> Vec<(PathBuf, usize)> {
     let codemap = Rc::new(CodeMap::new(FilePathMapping::empty()));
     let handler = Handler::with_tty_emitter(ColorConfig::Auto, false, false, Some(codemap.clone()));
     let mut parse_session = ParseSess::with_span_handler(handler, codemap.clone());
-
-    let lines = IgnoredLines::from_session(&parse_session);
-    for target in pkg.targets() {
-        println!("Analysing {} at {}", target.name(), target.src_path().display());
-        let mut parser = parse::new_parser_from_file(&parse_session, target.src_path());
+    
+    for file in src.list_files(&pkg).unwrap().iter() {
+        // Do I need to do this from the root? 
+        if file.extension() == Some(OsStr::new("rs")) {
+            // Rust source file
+            let mut parser = parse::new_parser_from_file(&parse_session, &file);
+            if let Ok(mut krate) = parser.parse_crate_mod() {
+                let mut visitor = IgnoredLines::from_session(&parse_session);
+                visitor.visit_mod(&krate.module, krate.span, &krate.attrs, NodeId::new(0));
+                result.append(&mut visitor.lines);
+            }
+        }
     }
-
-
-    // Add files to codemap
-    // Create AST
-    // Visit nodes
-    // lines.visit_mod()
-    lines.lines
+    result
 }
 
 impl<'a> IgnoredLines<'a> {
@@ -53,15 +57,15 @@ impl<'a> IgnoredLines<'a> {
             parse_session: &session
         }
     }
-
-    fn parse_project(&self) {
-        unimplemented!();
-    }
 }
 
 
 impl<'v, 'a> Visitor<'v> for IgnoredLines<'a> {
+   
+    fn visit_fn(&mut self, fk: FnKind<'v>, fd: &'v FnDecl, s: Span, _: NodeId) {
     
+    }
+
     fn visit_stmt(&mut self, s: &Stmt) {
         unimplemented!();
     }
