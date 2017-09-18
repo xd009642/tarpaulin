@@ -41,6 +41,7 @@ fn main() {
             .args_from_usage(
                 "--help       'Prints help information'
                  --verbose -v 'Show extra output'
+                 --ignore-tests 'ignore lines of test functions when collecting coverage'
                  --no-count   'Disables counting line hits for a faster run'
                  --ignored -i 'Run ignored tests as well'
                  --line -l    'Line coverage'

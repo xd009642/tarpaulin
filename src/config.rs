@@ -37,13 +37,23 @@ impl FromStr for Ci {
 /// Specifies the current configuration tarpaulin is using.
 #[derive(Debug)]
 pub struct Config {
+    /// Path to the projects cargo manifest
     pub manifest: PathBuf,
+    /// Flag to also run tests with the ignored attribute
     pub run_ignored: bool,
+    /// Flag to ignore test functions in coverage statistics
+    pub ignore_tests: bool,
+    /// Flag to skip the clean step when preparing the target project
     pub skip_clean: bool,
+    /// Verbose flag for printing information to the user
     pub verbose: bool,
+    /// Flag to disable counting line hits in line coverage mode
     pub no_count: bool,
+    /// Flag specifying to run line coverage (default)
     pub line_coverage: bool,
+    /// Flag specifying to run branch coverage
     pub branch_coverage: bool,
+    /// Output files to generate
     pub generate: Vec<OutputFile>,
     /// Key relating to coveralls service or repo
     pub coveralls: Option<String>,
@@ -52,9 +62,12 @@ pub struct Config {
     /// Forward unexpected signals back to the tracee. Used for tests which
     /// rely on signals to work. 
     pub forward_signals: bool,
+    /// Features to include in the target project build
     pub features: Vec<String>,
+    /// Packages to include when building the target project
     pub packages: Vec<String>,
-    pub varargs: Vec<String>
+    /// Varargs to be forwarded to the test executables.
+    pub varargs: Vec<String>,
 }
 
 
@@ -68,6 +81,7 @@ impl Config {
         let forward = args.is_present("forward");
         let skip_clean = args.is_present("skip-clean");
         let no_count = args.is_present("no-count");
+        let ignore_tests = args.is_present("ignore-tests");
         // If no coverage selected do everything!
         if !branch && !line {
             branch = true;
@@ -107,6 +121,7 @@ impl Config {
         Config{
             manifest: root,
             run_ignored: ignored,
+            ignore_tests: ignore_tests,
             verbose: verbose,
             no_count: no_count,
             line_coverage: line,

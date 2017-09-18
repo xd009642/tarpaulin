@@ -13,6 +13,7 @@ use regex::Regex;
 use rustc_demangle::demangle;
 use cargo::core::Workspace;
 
+use config::Config;
 use source_analysis::*;
 
 /// Describes a function as `low_pc`, `high_pc` and bool representing `is_test`.
@@ -277,12 +278,12 @@ fn get_line_addresses<Endian: Endianity>(project: &Path, obj: &OFile) -> Result<
 
 /// Generates a list of lines we want to trace the coverage of. Used to instrument the
 /// traces into the test executable
-pub fn generate_tracer_data(project: &Workspace, test: &Path) -> io::Result<Vec<TracerData>> {
+pub fn generate_tracer_data(project: &Workspace, test: &Path, config: &Config) -> io::Result<Vec<TracerData>> {
     let manifest = project.root();
     let file = File::open(test)?;
     let file = Mmap::open(&file, Protection::Read)?;
     if let Ok(obj) = OFile::parse(unsafe {file.as_slice() }) {
-        let ignored_lines = get_lines_to_ignore(project); 
+        let ignored_lines = get_lines_to_ignore(project, config); 
         let data = if obj.is_little_endian() {
             get_line_addresses::<LittleEndian>(manifest, &obj)
         } else {

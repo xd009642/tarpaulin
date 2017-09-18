@@ -250,7 +250,7 @@ pub fn get_test_coverage(project: &Workspace, test: &Path, config: &Config, igno
     } 
     match fork() {
         Ok(ForkResult::Parent{ child }) => {
-            match collect_coverage(project, test, child, config.forward_signals, config.no_count) {
+            match collect_coverage(project, test, child, config) {
                 Ok(t) => {
                     Some(t)
                 },
@@ -278,9 +278,8 @@ pub fn get_test_coverage(project: &Workspace, test: &Path, config: &Config, igno
 fn collect_coverage(project: &Workspace, 
                     test_path: &Path, 
                     test: pid_t,
-                    forward_signals: bool,
-                    no_count: bool) -> io::Result<Vec<TracerData>> {
-    let mut traces = generate_tracer_data(project, test_path)?;
+                    config: &Config) -> io::Result<Vec<TracerData>> {
+    let mut traces = generate_tracer_data(project, test_path, config)?;
     let mut bps: HashMap<u64, Breakpoint> = HashMap::new();
     match waitpid(test, None) {
         Ok(WaitStatus::Stopped(child, signal::SIGTRAP)) => {
@@ -306,7 +305,7 @@ fn collect_coverage(project: &Workspace,
     }
     // Now we start hitting lines!
     //run_coverage_on_all_tests(test, &mut traces, &mut bps);
-    if let Err(e) = run_function(test, u64::max_value(), forward_signals, no_count,
+    if let Err(e) = run_function(test, u64::max_value(), config.forward_signals, config.no_count,
                        &mut traces, &mut bps) {
         println!("Error while collecting coverage. {}", e);
     }
