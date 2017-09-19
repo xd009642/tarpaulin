@@ -2,7 +2,7 @@ use cargo::core::{Workspace, Source};
 use cargo::sources::PathSource;
 use syntex_syntax::visit::{self, Visitor, FnKind};
 use syntex_syntax::codemap::{CodeMap, Span, FilePathMapping};
-use syntex_syntax::ast::{NodeId, Mac, Attribute, Stmt, StmtKind, FnDecl, Mod};
+use syntex_syntax::ast::{NodeId, Mac, Attribute, Stmt, StmtKind, FnDecl, Mod, StructField};
 use syntex_syntax::parse::{self, ParseSess};
 use syntex_syntax::errors::Handler;
 use syntex_syntax::errors::emitter::ColorConfig;
@@ -14,7 +14,6 @@ use config::Config;
 struct IgnoredLines<'a> {
     lines: Vec<usize>,
     codemap: &'a CodeMap,
-    parse_session: &'a ParseSess,
     config: &'a Config, 
     started: bool,
 }
@@ -24,12 +23,14 @@ struct IgnoredLines<'a> {
  * Need to use walk to traverse DEEPER. is fn under attr?
  */
 
+/// Returns a list of files and line numbers to ignore (not indexes!)
 pub fn get_lines_to_ignore(project: &Workspace, config: &Config) -> Vec<(PathBuf, usize)> {
     let mut result: Vec<(PathBuf, usize)> = Vec::new();
     
     let pkg = project.current().unwrap();
     let mut src = PathSource::new(pkg.root(), pkg.package_id().source_id(), project.config());
-    src.update();
+    // If this fails we should just iterate over no files. No need to care.
+    let _ = src.update();
 
     let codemap = Rc::new(CodeMap::new(FilePathMapping::empty()));
     let handler = Handler::with_tty_emitter(ColorConfig::Auto, false, false, Some(codemap.clone()));
@@ -38,12 +39,13 @@ pub fn get_lines_to_ignore(project: &Workspace, config: &Config) -> Vec<(PathBuf
     for file in src.list_files(&pkg).unwrap().iter() {
         if file.extension() == Some(OsStr::new("rs")) {
             // Rust source file
-            println!("Parsing {}", file.display());
             let mut parser = parse::new_parser_from_file(&parse_session, &file);
             if let Ok(krate) = parser.parse_crate_mod() {
                 let mut visitor = IgnoredLines::from_session(&parse_session, config);
                 visitor.visit_mod(&krate.module, krate.span, &krate.attrs, NodeId::new(0));
-                //result.append(&mut visitor.lines.map(|x);
+                result.append(&mut visitor.lines.iter()
+                                                .map(|x| (file.to_path_buf(), *x))
+                                                .collect::<Vec<_>>());
             }
         }
     }
@@ -56,7 +58,6 @@ impl<'a> IgnoredLines<'a> {
         IgnoredLines {
             lines: vec![],
             codemap: session.codemap(),
-            parse_session: &session,
             config: config,
             started: false
         }
@@ -65,7 +66,8 @@ impl<'a> IgnoredLines<'a> {
     fn ignore_lines(&mut self, span: Span) {
         if let Ok(s) = self.codemap.span_to_lines(span) {
             for line in &s.lines {
-                self.lines.push(line.line_index);
+                // Line number is index+1
+                self.lines.push(line.line_index + 1);
             }
         }
     }    
@@ -96,6 +98,8 @@ impl<'v, 'a> Visitor<'v> for IgnoredLines<'a> {
 
     fn visit_mac(&mut self, mac: &Mac) {
         // Use this to ignore unreachable lines
+
+        visit::walk_mac(self, mac);
     }
 
     fn visit_attribute(&mut self, attr: &Attribute) {
@@ -104,6 +108,12 @@ impl<'v, 'a> Visitor<'v> for IgnoredLines<'a> {
         } else if attr.check_name("derive") {
             self.ignore_lines(attr.span);
         }
+    }
+    
+    /// Struct fields are mistakenly identified as instructions and uncoverable.
+    fn visit_struct_field(&mut self, s: &'v StructField) {
+        self.ignore_lines(s.span);
+        visit::walk_struct_field(self, s);
     }
 
 }
