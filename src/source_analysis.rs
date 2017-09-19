@@ -2,7 +2,7 @@ use cargo::core::{Workspace, Source};
 use cargo::sources::PathSource;
 use syntex_syntax::visit::{self, Visitor, FnKind};
 use syntex_syntax::codemap::{CodeMap, Span, FilePathMapping};
-use syntex_syntax::ast::{NodeId, Mac, Attribute, Stmt, StmtKind, FnDecl};
+use syntex_syntax::ast::{NodeId, Mac, Attribute, Stmt, StmtKind, FnDecl, Mod};
 use syntex_syntax::parse::{self, ParseSess};
 use syntex_syntax::errors::Handler;
 use syntex_syntax::errors::emitter::ColorConfig;
@@ -15,7 +15,8 @@ struct IgnoredLines<'a> {
     lines: Vec<usize>,
     codemap: &'a CodeMap,
     parse_session: &'a ParseSess,
-    config: &'a Config
+    config: &'a Config, 
+    started: bool,
 }
 /*
  *  MetaItem contains #[test] etc use it to filter those lines and test functions!
@@ -35,9 +36,9 @@ pub fn get_lines_to_ignore(project: &Workspace, config: &Config) -> Vec<(PathBuf
     let parse_session = ParseSess::with_span_handler(handler, codemap.clone());
     
     for file in src.list_files(&pkg).unwrap().iter() {
-        // Do I need to do this from the root? 
         if file.extension() == Some(OsStr::new("rs")) {
             // Rust source file
+            println!("Parsing {}", file.display());
             let mut parser = parse::new_parser_from_file(&parse_session, &file);
             if let Ok(krate) = parser.parse_crate_mod() {
                 let mut visitor = IgnoredLines::from_session(&parse_session, config);
@@ -57,6 +58,7 @@ impl<'a> IgnoredLines<'a> {
             codemap: session.codemap(),
             parse_session: &session,
             config: config,
+            started: false
         }
     }
     
@@ -71,7 +73,16 @@ impl<'a> IgnoredLines<'a> {
 }
 
 impl<'v, 'a> Visitor<'v> for IgnoredLines<'a> {
-   
+  
+    fn visit_mod(&mut self, m: &'v Mod, _s: Span, _attrs: &[Attribute], _n: NodeId) {
+        // We want to limit ourselves to only this source file.
+        // This avoids repeated hits and issues where there are multiple compilation targets
+        if self.started == false {
+            self.started = true;
+            visit::walk_mod(self, m);
+        }
+    }
+
     fn visit_fn(&mut self, fk: FnKind<'v>, fd: &'v FnDecl, s: Span, _: NodeId) {
         visit::walk_fn(self, fk, fd, s);
     }
