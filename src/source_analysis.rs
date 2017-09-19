@@ -2,7 +2,8 @@ use cargo::core::{Workspace, Source};
 use cargo::sources::PathSource;
 use syntex_syntax::visit::{self, Visitor, FnKind};
 use syntex_syntax::codemap::{CodeMap, Span, FilePathMapping};
-use syntex_syntax::ast::{NodeId, Mac, Attribute, Stmt, StmtKind, FnDecl, Mod, StructField};
+use syntex_syntax::ast::{NodeId, Mac, Attribute, Stmt, StmtKind, FnDecl, Mod, 
+    StructField, Block, Item, ItemKind};
 use syntex_syntax::parse::{self, ParseSess};
 use syntex_syntax::errors::Handler;
 use syntex_syntax::errors::emitter::ColorConfig;
@@ -75,13 +76,23 @@ impl<'a> IgnoredLines<'a> {
 }
 
 impl<'v, 'a> Visitor<'v> for IgnoredLines<'a> {
-  
-    fn visit_mod(&mut self, m: &'v Mod, _s: Span, _attrs: &[Attribute], _n: NodeId) {
+ 
+    fn visit_item(&mut self, i: &'v Item) {
+        match i.node {
+            ItemKind::ExternCrate(..) => self.ignore_lines(i.span),
+            _ => {},
+        }
+        visit::walk_item(self, i);
+    }
+
+    fn visit_mod(&mut self, m: &'v Mod, s: Span, _attrs: &[Attribute], _n: NodeId) {
         // We want to limit ourselves to only this source file.
         // This avoids repeated hits and issues where there are multiple compilation targets
         if self.started == false {
             self.started = true;
             visit::walk_mod(self, m);
+        } else {
+            self.ignore_lines(s); 
         }
     }
 
@@ -116,5 +127,9 @@ impl<'v, 'a> Visitor<'v> for IgnoredLines<'a> {
         visit::walk_struct_field(self, s);
     }
 
+    fn visit_block(&mut self, b: &'v Block) {
+         
+        visit::walk_block(self, b);
+    }
 }
 

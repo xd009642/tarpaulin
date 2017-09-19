@@ -7,7 +7,6 @@ extern crate memmap;
 extern crate coveralls_api;
 extern crate fallible_iterator;
 extern crate rustc_demangle;
-extern crate regex;
 #[macro_use]
 extern crate clap;
 extern crate serde;

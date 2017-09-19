@@ -1,5 +1,4 @@
 use std::io;
-use std::io::{BufRead, BufReader};
 use std::path::{PathBuf, Path};
 use std::ffi::CString;
 use std::ops::Deref;
@@ -9,7 +8,6 @@ use object::Object;
 use object::File as OFile;
 use memmap::{Mmap, Protection};
 use gimli::*;
-use regex::Regex;
 use rustc_demangle::demangle;
 use cargo::core::Workspace;
 
@@ -50,22 +48,6 @@ pub struct TracerData {
     pub address: u64,
     pub trace_type: LineType,
     pub hits: u64,
-}
-
-
-fn line_is_traceable(file: &PathBuf, line: u64) -> bool {
-    let mut result = false;
-    if line > 0 {
-        // Module imports are flagged as debuggable. But are always ran so meaningless!
-        let reg: Regex = Regex::new(r"(:?^|\s)(:?mod)|(:?crate)\s+\w+;").unwrap();
-        if let Ok(f) = File::open(file) {
-            let reader = BufReader::new(&f);
-            if let Some(Ok(l)) = reader.lines().nth((line - 1) as usize) {
-                result = !reg.is_match(l.as_ref());
-            }
-        }
-    }
-    result
 }
 
 fn generate_func_desc<T: Endianity>(die: &DebuggingInformationEntry<T>,
@@ -162,15 +144,15 @@ fn get_addresses_from_program<T:Endianity>(prog: IncompleteLineNumberProgram<T>,
                     let force_test = path.starts_with(project.join("tests"));
                     if let Some(file) = ln_row.file(header) {
                         // If we can't map to line, we can't trace it.
-                        let line = ln_row.line().unwrap_or(0);
+                        let line = match ln_row.line() {
+                            Some(l) => l,
+                            None => continue,
+                        };
+                  
                         let file = file.path_name();
-                        // We now need to filter out lines which are meaningless to trace.
                         
-                        if let Ok(file) = String::from_utf8(file.to_bytes().to_vec()) {
+                        if let Ok(file) = String::from_utf8(file.to_bytes().to_vec())  {
                             path.push(file);
-                            if !line_is_traceable(&path, line) {
-                                continue;
-                            }
                             let address = ln_row.address();
                             
                             let desc = entries.iter()
