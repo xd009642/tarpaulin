@@ -181,7 +181,10 @@ fn get_addresses_from_program<T:Endianity>(prog: IncompleteLineNumberProgram<T>,
     Ok(result)
 }
 
-fn get_line_addresses<Endian: Endianity>(project: &Path, obj: &OFile, ignore: &Vec<(PathBuf, usize)>) -> Result<Vec<TracerData>>  {
+fn get_line_addresses<Endian: Endianity>(project: &Path, 
+                                         obj: &OFile, 
+                                         ignore: &Vec<(PathBuf, usize)>,
+                                         ignore_tests: bool) -> Result<Vec<TracerData>>  {
     let mut result: Vec<TracerData> = Vec::new();
     let debug_info = obj.get_section(".debug_info").unwrap_or(&[]);
     let debug_info = DebugInfo::<Endian>::new(debug_info);
@@ -224,6 +227,7 @@ fn get_line_addresses<Endian: Endianity>(project: &Path, obj: &OFile, ignore: &V
     // to the same line. This prunes these to just the first instruction address
     let mut check: HashSet<(&Path, u64)> = HashSet::new();
     let mut result = result.iter()
+                           .filter(|x| !(ignore_tests && x.path.starts_with(project.join("tests"))))
                            .filter(|x| !ignore.contains(&(x.path.clone(), x.line as usize)))
                            .filter(|x| check.insert((x.path.as_path(), x.line)))
                            .filter(|x| x.trace_type != LineType::TestMain)
@@ -268,9 +272,15 @@ pub fn generate_tracer_data(project: &Workspace, test: &Path, config: &Config) -
     if let Ok(obj) = OFile::parse(unsafe {file.as_slice() }) {
         let ignored_lines = get_lines_to_ignore(project, config); 
         let data = if obj.is_little_endian() {
-            get_line_addresses::<LittleEndian>(manifest, &obj, &ignored_lines)
+            get_line_addresses::<LittleEndian>(manifest, 
+                                               &obj, 
+                                               &ignored_lines, 
+                                               config.ignore_tests)
         } else {
-            get_line_addresses::<BigEndian>(manifest, &obj, &ignored_lines)
+            get_line_addresses::<BigEndian>(manifest, 
+                                            &obj, 
+                                            &ignored_lines, 
+                                            config.ignore_tests)
         };
         data.map_err(|_| io::Error::new(io::ErrorKind::InvalidData, "Error while parsing"))
     } else {
