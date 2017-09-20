@@ -109,7 +109,12 @@ impl<'v, 'a> Visitor<'v> for IgnoredLines<'a> {
 
     fn visit_mac(&mut self, mac: &Mac) {
         // Use this to ignore unreachable lines
-
+        let mac_text = &format!("{}", mac.node.path)[..];
+        match mac_text {
+            "unimplemented" => self.ignore_lines(mac.span),
+            "unreachable" => self.ignore_lines(mac.span),
+            _ => {},
+        }
         visit::walk_mac(self, mac);
     }
 
