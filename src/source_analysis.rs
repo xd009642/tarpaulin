@@ -18,11 +18,7 @@ struct IgnoredLines<'a> {
     config: &'a Config, 
     started: bool,
 }
-/*
- *  MetaItem contains #[test] etc use it to filter those lines and test functions!
- *
- * Need to use walk to traverse DEEPER. is fn under attr?
- */
+
 
 /// Returns a list of files and line numbers to ignore (not indexes!)
 pub fn get_lines_to_ignore(project: &Workspace, config: &Config) -> Vec<(PathBuf, usize)> {
@@ -38,15 +34,17 @@ pub fn get_lines_to_ignore(project: &Workspace, config: &Config) -> Vec<(PathBuf
     let parse_session = ParseSess::with_span_handler(handler, codemap.clone());
     
     for file in src.list_files(&pkg).unwrap().iter() {
-        if file.extension() == Some(OsStr::new("rs")) {
-            // Rust source file
-            let mut parser = parse::new_parser_from_file(&parse_session, &file);
-            if let Ok(krate) = parser.parse_crate_mod() {
-                let mut visitor = IgnoredLines::from_session(&parse_session, config);
-                visitor.visit_mod(&krate.module, krate.span, &krate.attrs, NodeId::new(0));
-                result.append(&mut visitor.lines.iter()
-                                                .map(|x| (file.to_path_buf(), *x))
-                                                .collect::<Vec<_>>());
+        if !(config.ignore_tests && file.starts_with(project.root().join("tests"))) {
+            if file.extension() == Some(OsStr::new("rs")) {
+                // Rust source file
+                let mut parser = parse::new_parser_from_file(&parse_session, &file);
+                if let Ok(krate) = parser.parse_crate_mod() {
+                    let mut visitor = IgnoredLines::from_session(&parse_session, config);
+                    visitor.visit_mod(&krate.module, krate.span, &krate.attrs, NodeId::new(0));
+                    result.append(&mut visitor.lines.iter()
+                                                    .map(|x| (file.to_path_buf(), *x))
+                                                    .collect::<Vec<_>>());
+                }
             }
         }
     }
@@ -93,7 +91,17 @@ impl<'v, 'a> Visitor<'v> for IgnoredLines<'a> {
             self.started = true;
             visit::walk_mod(self, m);
         } else {
-            self.ignore_lines(s); 
+            // Needs to be more advanced - cope with mod { .. } in file.
+            // Also if mod is cfg(test) and --ignore-tests ignore contents!
+            if let Ok(fl) = self.codemap.span_to_lines(s) {
+                if fl.lines.len() > 1 {
+                    visit::walk_mod(self, m);
+                } else {
+                    // one line mod, so either referencing another file or something
+                    // not worth covering.
+                    self.ignore_lines(s);
+                }
+            }
         }
     }
 
