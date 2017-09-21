@@ -73,6 +73,25 @@ impl<'a> IgnoredLines<'a> {
         }
     }    
 
+    fn contains_cfg_test(&mut self, attrs: &[Attribute]) -> bool {
+        let mut result = false;
+        'outer: for attr in attrs.iter() {
+            if attr.path == "cfg" {
+                if let Some(items) = attr.meta_item_list() {
+                    for item in items {
+                        if let Some(word) = item.word() {
+                            if word.name().as_str() == "test" {
+                                result = true;
+                                break 'outer;
+                            }
+                        }
+                    }
+                }
+            }
+        }
+        result
+    }
+
 }
 
 
@@ -103,6 +122,9 @@ impl<'v, 'a> Visitor<'v> for IgnoredLines<'a> {
             // Also if mod is cfg(test) and --ignore-tests ignore contents!
             if let Ok(fl) = self.codemap.span_to_lines(s) {
                 if fl.lines.len() > 1 {
+                    if self.config.ignore_tests && self.contains_cfg_test(_attrs) {
+                        self.ignore_lines(s);
+                    }
                     visit::walk_mod(self, m);
                 } else {
                     // one line mod, so either referencing another file or something
