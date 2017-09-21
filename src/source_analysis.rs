@@ -1,5 +1,6 @@
 use cargo::core::{Workspace, Source};
 use cargo::sources::PathSource;
+use syntex_syntax::attr;
 use syntex_syntax::visit::{self, Visitor, FnKind};
 use syntex_syntax::codemap::{CodeMap, Span, FilePathMapping};
 use syntex_syntax::ast::{NodeId, Mac, Attribute, Stmt, StmtKind, FnDecl, Mod, 
@@ -10,6 +11,7 @@ use syntex_syntax::errors::emitter::ColorConfig;
 use std::path::PathBuf;
 use std::ffi::OsStr;
 use std::rc::Rc;
+use std::ops::Deref;
 use config::Config;
 
 struct IgnoredLines<'a> {
@@ -79,6 +81,12 @@ impl<'v, 'a> Visitor<'v> for IgnoredLines<'a> {
     fn visit_item(&mut self, i: &'v Item) {
         match i.node {
             ItemKind::ExternCrate(..) => self.ignore_lines(i.span),
+            ItemKind::Fn(_, _, _, _, _, ref block) => {
+                if attr::contains_name(&i.attrs, "test") && self.config.ignore_tests {
+                    self.ignore_lines(i.span);
+                    self.ignore_lines(block.deref().span);
+                }
+            },
             _ => {},
         }
         visit::walk_item(self, i);
@@ -129,10 +137,9 @@ impl<'v, 'a> Visitor<'v> for IgnoredLines<'a> {
         visit::walk_mac(self, mac);
     }
 
+    /// Ignores attributes which may get identified as coverable lines.
     fn visit_attribute(&mut self, attr: &Attribute) {
-        if attr.check_name("test") && self.config.ignore_tests {
-            self.ignore_lines(attr.span);
-        } else if attr.check_name("derive") {
+        if attr.check_name("derive") {
             self.ignore_lines(attr.span);
         }
     }
