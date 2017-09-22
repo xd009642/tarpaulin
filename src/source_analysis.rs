@@ -64,6 +64,7 @@ impl<'a> IgnoredLines<'a> {
         }
     }
     
+    /// Add lines to the line ignore list
     fn ignore_lines(&mut self, span: Span) {
         if let Ok(s) = self.codemap.span_to_lines(span) {
             for line in &s.lines {
@@ -73,6 +74,7 @@ impl<'a> IgnoredLines<'a> {
         }
     }    
 
+    /// Looks for #[cfg(test)] attribute.
     fn contains_cfg_test(&mut self, attrs: &[Attribute]) -> bool {
         attrs.iter()
              .filter(|x| x.path == "cfg")
@@ -85,8 +87,24 @@ impl<'a> IgnoredLines<'a> {
                      false
                  }
              })
-      }
+    }
 
+    /// This function finds ignorable lines within actual coverable code. 
+    /// As opposed to other functions which find isolated lines that aren't 
+    /// executed or lines filtered by the user. These lines are things like 
+    /// close braces that are within coverable code but not coverable.
+    fn find_ignorable_lines(&mut self, span: Span) {
+        if let Ok(l) = self.codemap.span_to_lines(span) {
+            for line in &l.lines {
+                if let Some(s) = l.file.get_line(line.line_index) {
+                    // Is this one of those pointless {, } or }; only lines?
+                    if !s.chars().any(|x| !"{}[];\t ".contains(x)) {
+                        self.lines.push(line.line_index + 1);
+                    }
+                }
+            }
+        }
+    }
 }
 
 
@@ -105,6 +123,7 @@ impl<'v, 'a> Visitor<'v> for IgnoredLines<'a> {
         }
         visit::walk_item(self, i);
     }
+
 
     fn visit_mod(&mut self, m: &'v Mod, s: Span, _attrs: &[Attribute], _n: NodeId) {
         // We want to limit ourselves to only this source file.
@@ -130,9 +149,11 @@ impl<'v, 'a> Visitor<'v> for IgnoredLines<'a> {
         }
     }
 
+
     fn visit_fn(&mut self, fk: FnKind<'v>, fd: &'v FnDecl, s: Span, _: NodeId) {
         visit::walk_fn(self, fk, fd, s);
     }
+
 
     fn visit_stmt(&mut self, s: &Stmt) {
         match s.node {
@@ -140,6 +161,7 @@ impl<'v, 'a> Visitor<'v> for IgnoredLines<'a> {
             _ => {},
         }
     }
+
 
     fn visit_mac(&mut self, mac: &Mac) {
         // Use this to ignore unreachable lines
@@ -154,12 +176,14 @@ impl<'v, 'a> Visitor<'v> for IgnoredLines<'a> {
         visit::walk_mac(self, mac);
     }
 
+
     /// Ignores attributes which may get identified as coverable lines.
     fn visit_attribute(&mut self, attr: &Attribute) {
         if attr.check_name("derive") {
             self.ignore_lines(attr.span);
         }
     }
+
     
     /// Struct fields are mistakenly identified as instructions and uncoverable.
     fn visit_struct_field(&mut self, s: &'v StructField) {
@@ -167,8 +191,9 @@ impl<'v, 'a> Visitor<'v> for IgnoredLines<'a> {
         visit::walk_struct_field(self, s);
     }
 
+
     fn visit_block(&mut self, b: &'v Block) {
-         
+        self.find_ignorable_lines(b.span);
         visit::walk_block(self, b);
     }
 }
