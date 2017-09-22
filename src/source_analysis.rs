@@ -74,23 +74,18 @@ impl<'a> IgnoredLines<'a> {
     }    
 
     fn contains_cfg_test(&mut self, attrs: &[Attribute]) -> bool {
-        let mut result = false;
-        'outer: for attr in attrs.iter() {
-            if attr.path == "cfg" {
-                if let Some(items) = attr.meta_item_list() {
-                    for item in items {
-                        if let Some(word) = item.word() {
-                            if word.name().as_str() == "test" {
-                                result = true;
-                                break 'outer;
-                            }
-                        }
-                    }
-                }
-            }
-        }
-        result
-    }
+        attrs.iter()
+             .filter(|x| x.path == "cfg")
+             .filter_map(|x| x.meta_item_list())
+             .flat_map(|x| x)
+             .any(|x| { 
+                 if let Some(w) = x.word() {
+                    w.name().as_str() == "test"
+                 } else {
+                     false
+                 }
+             })
+      }
 
 }
 
