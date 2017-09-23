@@ -1,5 +1,4 @@
 use std::io;
-use std::io::{BufRead, BufReader};
 use std::path::{PathBuf, Path};
 use std::ffi::CString;
 use std::ops::Deref;
@@ -9,8 +8,11 @@ use object::Object;
 use object::File as OFile;
 use memmap::{Mmap, Protection};
 use gimli::*;
-use regex::Regex;
 use rustc_demangle::demangle;
+use cargo::core::Workspace;
+
+use config::Config;
+use source_analysis::*;
 
 /// Describes a function as `low_pc`, `high_pc` and bool representing `is_test`.
 type FuncDesc = (u64, u64, FunctionType);
@@ -46,22 +48,6 @@ pub struct TracerData {
     pub address: u64,
     pub trace_type: LineType,
     pub hits: u64,
-}
-
-
-fn line_is_traceable(file: &PathBuf, line: u64) -> bool {
-    let mut result = false;
-    if line > 0 {
-        // Module imports are flagged as debuggable. But are always ran so meaningless!
-        let reg: Regex = Regex::new(r"(:?^|\s)(:?mod)|(:?crate)\s+\w+;").unwrap();
-        if let Ok(f) = File::open(file) {
-            let reader = BufReader::new(&f);
-            if let Some(Ok(l)) = reader.lines().nth((line - 1) as usize) {
-                result = !reg.is_match(l.as_ref());
-            }
-        }
-    }
-    result
 }
 
 fn generate_func_desc<T: Endianity>(die: &DebuggingInformationEntry<T>,
@@ -158,13 +144,17 @@ fn get_addresses_from_program<T:Endianity>(prog: IncompleteLineNumberProgram<T>,
                     let force_test = path.starts_with(project.join("tests"));
                     if let Some(file) = ln_row.file(header) {
                         // If we can't map to line, we can't trace it.
-                        let line = ln_row.line().unwrap_or(0);
+                        let line = match ln_row.line() {
+                            Some(l) => l,
+                            None => continue,
+                        };
+                  
                         let file = file.path_name();
-                        // We now need to filter out lines which are meaningless to trace.
                         
-                        if let Ok(file) = String::from_utf8(file.to_bytes().to_vec()) {
+                        if let Ok(file) = String::from_utf8(file.to_bytes().to_vec())  {
                             path.push(file);
-                            if !line_is_traceable(&path, line) {
+                            if !path.is_file() {
+                                // Not really a source file!
                                 continue;
                             }
                             let address = ln_row.address();
@@ -195,7 +185,10 @@ fn get_addresses_from_program<T:Endianity>(prog: IncompleteLineNumberProgram<T>,
     Ok(result)
 }
 
-fn get_line_addresses<Endian: Endianity>(project: &Path, obj: &OFile) -> Result<Vec<TracerData>>  {
+fn get_line_addresses<Endian: Endianity>(project: &Path, 
+                                         obj: &OFile, 
+                                         ignore: &Vec<(PathBuf, usize)>,
+                                         ignore_tests: bool) -> Result<Vec<TracerData>>  {
     let mut result: Vec<TracerData> = Vec::new();
     let debug_info = obj.get_section(".debug_info").unwrap_or(&[]);
     let debug_info = DebugInfo::<Endian>::new(debug_info);
@@ -238,6 +231,8 @@ fn get_line_addresses<Endian: Endianity>(project: &Path, obj: &OFile) -> Result<
     // to the same line. This prunes these to just the first instruction address
     let mut check: HashSet<(&Path, u64)> = HashSet::new();
     let mut result = result.iter()
+                           .filter(|x| !(ignore_tests && x.path.starts_with(project.join("tests"))))
+                           .filter(|x| !ignore.contains(&(x.path.clone(), x.line as usize)))
                            .filter(|x| check.insert((x.path.as_path(), x.line)))
                            .filter(|x| x.trace_type != LineType::TestMain)
                            .cloned()
@@ -272,21 +267,29 @@ fn get_line_addresses<Endian: Endianity>(project: &Path, obj: &OFile) -> Result<
     Ok(result)
 }
 
-
 /// Generates a list of lines we want to trace the coverage of. Used to instrument the
 /// traces into the test executable
-pub fn generate_tracer_data(manifest: &Path, test: &Path) -> io::Result<Vec<TracerData>> {
+pub fn generate_tracer_data(project: &Workspace, test: &Path, config: &Config) -> io::Result<Vec<TracerData>> {
+    let manifest = project.root();
     let file = File::open(test)?;
     let file = Mmap::open(&file, Protection::Read)?;
     if let Ok(obj) = OFile::parse(unsafe {file.as_slice() }) {
-        
+        let ignored_lines = get_lines_to_ignore(project, config); 
         let data = if obj.is_little_endian() {
-            get_line_addresses::<LittleEndian>(manifest, &obj)
+            get_line_addresses::<LittleEndian>(manifest, 
+                                               &obj, 
+                                               &ignored_lines, 
+                                               config.ignore_tests)
         } else {
-            get_line_addresses::<BigEndian>(manifest, &obj)
+            get_line_addresses::<BigEndian>(manifest, 
+                                            &obj, 
+                                            &ignored_lines, 
+                                            config.ignore_tests)
         };
         data.map_err(|_| io::Error::new(io::ErrorKind::InvalidData, "Error while parsing"))
     } else {
         Err(io::Error::new(io::ErrorKind::InvalidData, "Unable to parse binary."))
     }
 }
+
+

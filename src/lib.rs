@@ -1,12 +1,12 @@
 extern crate nix;
 extern crate cargo;
 extern crate gimli;
+extern crate syntex_syntax;
 extern crate object;
 extern crate memmap;
 extern crate coveralls_api;
 extern crate fallible_iterator;
 extern crate rustc_demangle;
-extern crate regex;
 #[macro_use]
 extern crate clap;
 extern crate serde;
@@ -31,10 +31,13 @@ use cargo::util::Config as CargoConfig;
 use cargo::core::Workspace;
 use cargo::ops;
 
+
 pub mod config;
 pub mod tracer;
 pub mod breakpoint;
 pub mod report;
+mod source_analysis;
+
 /// Should be unnecessary with a future nix crate release.
 mod personality;
 mod ptrace_control;
@@ -132,12 +135,12 @@ pub fn launch_tarpaulin(config: Config) -> Result<(), i32> {
                 if config.verbose {
                     println!("Processing {}", c.1);
                 }
-                let res = get_test_coverage(workspace.root(), c.2.as_path(),
+                let res = get_test_coverage(&workspace, c.2.as_path(),
                                             &config, false)
                     .unwrap_or_default();
                 merge_test_results(&mut result, &res);
                 if config.run_ignored {
-                    let res = get_test_coverage(workspace.root(), c.2.as_path(), 
+                    let res = get_test_coverage(&workspace, c.2.as_path(), 
                                                 &config, true)
                         .unwrap_or_default();
                     merge_test_results(&mut result, &res);
@@ -228,7 +231,9 @@ pub fn report_coverage(config: &Config, result: &[TracerData]) {
                 &OutputFile::Xml => {
                     report::cobertura::export(result, config);
                 },
-                _ => { },
+                _ => {
+                    println!("Format currently unsupported");
+                },
             }
         }
     } else {
@@ -238,13 +243,13 @@ pub fn report_coverage(config: &Config, result: &[TracerData]) {
 }
 
 /// Returns the coverage statistics for a test executable in the given workspace
-pub fn get_test_coverage(root: &Path, test: &Path, config: &Config, ignored: bool) -> Option<Vec<TracerData>> {
+pub fn get_test_coverage(project: &Workspace, test: &Path, config: &Config, ignored: bool) -> Option<Vec<TracerData>> {
     if !test.exists() {
         return None;
     } 
     match fork() {
         Ok(ForkResult::Parent{ child }) => {
-            match collect_coverage(root, test, child, config.forward_signals, config.no_count) {
+            match collect_coverage(project, test, child, config) {
                 Ok(t) => {
                     Some(t)
                 },
@@ -269,12 +274,11 @@ pub fn get_test_coverage(root: &Path, test: &Path, config: &Config, ignored: boo
 }
 
 /// Collects the coverage data from the launched test
-fn collect_coverage(project_path: &Path, 
+fn collect_coverage(project: &Workspace, 
                     test_path: &Path, 
                     test: pid_t,
-                    forward_signals: bool,
-                    no_count: bool) -> io::Result<Vec<TracerData>> {
-    let mut traces = generate_tracer_data(project_path, test_path)?;
+                    config: &Config) -> io::Result<Vec<TracerData>> {
+    let mut traces = generate_tracer_data(project, test_path, config)?;
     let mut bps: HashMap<u64, Breakpoint> = HashMap::new();
     match waitpid(test, None) {
         Ok(WaitStatus::Stopped(child, signal::SIGTRAP)) => {
@@ -300,7 +304,7 @@ fn collect_coverage(project_path: &Path,
     }
     // Now we start hitting lines!
     //run_coverage_on_all_tests(test, &mut traces, &mut bps);
-    if let Err(e) = run_function(test, u64::max_value(), forward_signals, no_count,
+    if let Err(e) = run_function(test, u64::max_value(), config.forward_signals, config.no_count,
                        &mut traces, &mut bps) {
         println!("Error while collecting coverage. {}", e);
     }
