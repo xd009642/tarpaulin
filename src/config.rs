@@ -35,7 +35,7 @@ impl FromStr for Ci {
 }
 
 /// Specifies the current configuration tarpaulin is using.
-#[derive(Debug)]
+#[derive(Debug, Default)]
 pub struct Config {
     /// Path to the projects cargo manifest
     pub manifest: PathBuf,

@@ -153,6 +153,10 @@ fn get_addresses_from_program<T:Endianity>(prog: IncompleteLineNumberProgram<T>,
                         
                         if let Ok(file) = String::from_utf8(file.to_bytes().to_vec())  {
                             path.push(file);
+                            if !path.is_file() {
+                                // Not really a source file!
+                                continue;
+                            }
                             let address = ln_row.address();
                             
                             let desc = entries.iter()
