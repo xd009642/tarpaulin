@@ -10,7 +10,7 @@ extern crate clap;
 
 use std::path::Path;
 use clap::{App, Arg, SubCommand, ArgSettings};
-use cargo_tarpaulin::launch_tarpaulin;
+use cargo_tarpaulin::run;
 use cargo_tarpaulin::config::*;
 
 
@@ -67,7 +67,7 @@ fn main() {
 
     let args = args.subcommand_matches("tarpaulin").unwrap_or(&args);
     let config = Config::from_args(args);
-    match launch_tarpaulin(config) {
+    match run(config) {
         Ok(()) => println!("Tarpaulin finished"),
         Err(e) => {
             println!("Error during run");

@@ -51,8 +51,14 @@ const PIE_ERROR: &'static str = "ERROR: Tarpaulin cannot find code addresses che
 pie is disabled for your linker. If linking with gcc try adding -C link-args=-no-pie \
 to your rust flags";
 
+pub fn run(config: Config) -> Result<(), i32> {
+    let result = launch_tarpaulin(&config)?;
+    report_coverage(&config, &result);
+    Ok(())
+}
+
 /// Launches tarpaulin with the given configuration.
-pub fn launch_tarpaulin(config: Config) -> Result<(), i32> {
+pub fn launch_tarpaulin(config: &Config) -> Result<Vec<TracerData>, i32> {
     let cargo_config = CargoConfig::default().unwrap();
     let flag_quiet = if config.verbose {
         None
@@ -68,46 +74,8 @@ pub fn launch_tarpaulin(config: Config) -> Result<(), i32> {
     
     let workspace = Workspace::new(config.manifest.as_path(), &cargo_config).map_err(|_| 1i32)?;
     
-    let rustflags = "RUSTFLAGS";
-    let mut value = "-C relocation-model=dynamic-no-pic -C link-dead-code ".to_string();
-    {
-        let env_linker = env::var(rustflags)
-                            .ok()
-                            .and_then(|flags| flags.split(' ')
-                                                   .map(str::trim)
-                                                   .filter(|s| !s.is_empty())
-                                                   .skip_while(|s| !s.contains("linker="))
-                                                   .next()
-                                                   .map(|s| s.trim_left_matches("linker="))
-                                                   .map(PathBuf::from));
-
-        let target_linker = env_linker.or_else(|| {
-            fn get_target_path(cargo_config: &CargoConfig, triple: &str) -> Option<PathBuf> {
-                cargo_config.get_path(&format!("target.{}.linker", triple)).unwrap().map(|v| v.val)
-            }
-
-            let host = get_target_path(&cargo_config, &cargo_config.rustc().unwrap().host);
-            match cargo_config.get_string("build.target").unwrap().map(|s| s.val) {
-                Some(triple) => get_target_path(&cargo_config, &triple),
-                None => host,
-            }
-        });
-
-        // For Linux (and most everything that isn't Windows) it is fair to
-        // assume the default linker is `cc` and that `cc` is GCC based.
-        let mut linker_cmd = Command::new(&target_linker.unwrap_or_else(|| PathBuf::from("cc")));
-        linker_cmd.arg("-v");
-        if let Ok(linker_output) = linker_cmd.output() {
-            if String::from_utf8_lossy(&linker_output.stderr).contains("--enable-default-pie") {
-                value.push_str("-C link-arg=-no-pie ");
-            }
-        }
-    }
-    if let Ok(vtemp) = env::var(rustflags) {
-        value.push_str(vtemp.as_ref());
-    }
-    env::set_var(rustflags, value);
-
+    setup_environment(&cargo_config);
+        
     let mut copt = ops::CompileOptions::default(&cargo_config, ops::CompileMode::Test); 
     copt.features = config.features.as_slice();
     copt.spec = ops::Packages::Packages(config.packages.as_slice());
@@ -153,8 +121,49 @@ pub fn launch_tarpaulin(config: Config) -> Result<(), i32> {
             }
         },
     }
-    report_coverage(&config, &result);
-    Ok(())
+    Ok(result)
+}
+
+
+fn setup_environment(cargo_config: &CargoConfig) {
+    let rustflags = "RUSTFLAGS";
+    let mut value = "-C relocation-model=dynamic-no-pic -C link-dead-code ".to_string();
+    let env_linker = env::var(rustflags)
+                        .ok()
+                        .and_then(|flags| flags.split(' ')
+                                               .map(str::trim)
+                                               .filter(|s| !s.is_empty())
+                                               .skip_while(|s| !s.contains("linker="))
+                                               .next()
+                                               .map(|s| s.trim_left_matches("linker="))
+                                               .map(PathBuf::from));
+
+    let target_linker = env_linker.or_else(|| {
+        fn get_target_path(cargo_config: &CargoConfig, triple: &str) -> Option<PathBuf> {
+            cargo_config.get_path(&format!("target.{}.linker", triple)).unwrap().map(|v| v.val)
+        }
+
+        let host = get_target_path(&cargo_config, &cargo_config.rustc().unwrap().host);
+        match cargo_config.get_string("build.target").unwrap().map(|s| s.val) {
+            Some(triple) => get_target_path(&cargo_config, &triple),
+            None => host,
+        }
+    });
+
+    // For Linux (and most everything that isn't Windows) it is fair to
+    // assume the default linker is `cc` and that `cc` is GCC based.
+    let mut linker_cmd = Command::new(&target_linker.unwrap_or_else(|| PathBuf::from("cc")));
+    linker_cmd.arg("-v");
+    if let Ok(linker_output) = linker_cmd.output() {
+        if String::from_utf8_lossy(&linker_output.stderr).contains("--enable-default-pie") {
+            value.push_str("-C link-arg=-no-pie ");
+        }
+    }
+    if let Ok(vtemp) = env::var(rustflags) {
+        value.push_str(vtemp.as_ref());
+    }
+    env::set_var(rustflags, value);
+
 }
 
 /// Test artefacts may have different lines visible to them therefore for 
@@ -303,8 +312,7 @@ fn collect_coverage(project: &Workspace,
         Err(err) => println!("Error on start: {}", err)
     }
     // Now we start hitting lines!
-    //run_coverage_on_all_tests(test, &mut traces, &mut bps);
-    if let Err(e) = run_function(test, u64::max_value(), config.forward_signals, config.no_count,
+    if let Err(e) = run_function(test, config.forward_signals, config.no_count,
                        &mut traces, &mut bps) {
         println!("Error while collecting coverage. {}", e);
     }
@@ -314,7 +322,6 @@ fn collect_coverage(project: &Workspace,
 /// Starts running a test. Child must have signalled STOP or SIGNALED to show 
 /// the parent it is not executing or it will be killed.
 fn run_function(pid: pid_t,
-                end: u64,
                 forward_signals: bool,
                 no_count: bool,
                 mut traces: &mut Vec<TracerData>,
@@ -355,7 +362,7 @@ fn run_function(pid: pid_t,
                         let updated = if let Ok(x) = bp.process(child, enable) {
                              x
                         } else {
-                            rip == end
+                            false
                         };
                         if updated {
                             for mut t in traces.iter_mut()
