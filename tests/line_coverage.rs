@@ -25,4 +25,22 @@ fn simple_project_coverage() {
                          .filter(|x| x.path.file_name().unwrap() == "unused.rs")
                          .fold(0, |acc, ref x| acc + x.hits);
     assert_eq!(unused_hits, 0);
+
+    let unused_hits = res.iter()
+                         .filter(|x| x.path.file_name().unwrap() == "unused.rs")
+                         .map(|x| x.line)
+                         .collect::<Vec<_>>();
+
+    assert_eq!(unused_hits.len(), 3);
+    assert!(unused_hits.contains(&4));
+    assert!(unused_hits.contains(&5));
+    assert!(unused_hits.contains(&6));
+
+    assert!(res.iter().any(|ref x| x.line == 6 && 
+                                   x.hits == 0 && 
+                                   x.path.file_name().unwrap() == "lib.rs")); 
+    
+    assert!(res.iter().any(|ref x| x.line == 8 && 
+                                   x.hits == 1 && 
+                                   x.path.file_name().unwrap() == "lib.rs")); 
 }
