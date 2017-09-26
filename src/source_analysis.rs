@@ -164,14 +164,6 @@ impl<'v, 'a> Visitor<'v> for IgnoredLines<'a> {
     }
 
 
-    fn visit_stmt(&mut self, s: &Stmt) {
-        match s.node {
-            StmtKind::Mac(_) => visit::walk_stmt(self, s),
-            _ => {},
-        }
-    }
-
-
     fn visit_mac(&mut self, mac: &Mac) {
         // Use this to ignore unreachable lines
         let mac_text = &format!("{}", mac.node.path)[..];
