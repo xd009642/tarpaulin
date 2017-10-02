@@ -5,14 +5,12 @@ use std::collections::HashSet;
 use cargo::core::Workspace;
 use cargo::sources::PathSource;
 use syntex_syntax::attr;
-use syntex_syntax::visit::{self, Visitor, FnKind};
+use syntex_syntax::visit::{self, Visitor};
 use syntex_syntax::codemap::{CodeMap, Span, FilePathMapping};
-use syntex_syntax::ast::{NodeId, Mac, Attribute, Stmt, StmtKind, FnDecl, Mod, 
-    StructField, Block, Item, ItemKind};
+use syntex_syntax::ast::{NodeId, Mac, Attribute, Mod, StructField, Block, Item, ItemKind};
 use syntex_syntax::parse::{self, ParseSess};
 use syntex_syntax::errors::Handler;
 use syntex_syntax::errors::emitter::ColorConfig;
-use syntex_syntax::ext::expand::MacroExpander;
 use config::Config;
 
 struct IgnoredLines<'a> {
@@ -40,6 +38,7 @@ pub fn get_lines_to_ignore(project: &Workspace, config: &Config) -> Vec<(PathBuf
             let file = target.src_path();
             if !(config.ignore_tests && file.starts_with(project.root().join("tests"))) {
                 let mut parser = parse::new_parser_from_file(&parse_session, file);
+                parser.cfg_mods = false;
                 if let Ok(krate) = parser.parse_crate_mod() {
                     
                     let mut lines = {
@@ -156,11 +155,6 @@ impl<'v, 'a> Visitor<'v> for IgnoredLines<'a> {
                 }
             }
         } 
-    }
-
-
-    fn visit_fn(&mut self, fk: FnKind<'v>, fd: &'v FnDecl, s: Span, _: NodeId) {
-        visit::walk_fn(self, fk, fd, s);
     }
 
 
