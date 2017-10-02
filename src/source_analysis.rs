@@ -1,24 +1,23 @@
-use cargo::core::{Workspace, Source};
+use std::rc::Rc;
+use std::ops::Deref;
+use std::path::PathBuf;
+use std::collections::HashSet;
+use cargo::core::Workspace;
 use cargo::sources::PathSource;
 use syntex_syntax::attr;
-use syntex_syntax::visit::{self, Visitor, FnKind};
+use syntex_syntax::visit::{self, Visitor};
 use syntex_syntax::codemap::{CodeMap, Span, FilePathMapping};
-use syntex_syntax::ast::{NodeId, Mac, Attribute, Stmt, StmtKind, FnDecl, Mod, 
-    StructField, Block, Item, ItemKind};
+use syntex_syntax::ast::{NodeId, Mac, Attribute, Mod, StructField, Block, Item, ItemKind};
 use syntex_syntax::parse::{self, ParseSess};
 use syntex_syntax::errors::Handler;
 use syntex_syntax::errors::emitter::ColorConfig;
-use std::path::PathBuf;
-use std::ffi::OsStr;
-use std::rc::Rc;
-use std::ops::Deref;
 use config::Config;
 
 struct IgnoredLines<'a> {
-    lines: Vec<usize>,
+    lines: Vec<(PathBuf, usize)>,
+    covered: &'a HashSet<PathBuf>,
     codemap: &'a CodeMap,
     config: &'a Config, 
-    started: bool,
 }
 
 
@@ -28,24 +27,30 @@ pub fn get_lines_to_ignore(project: &Workspace, config: &Config) -> Vec<(PathBuf
     
     let pkg = project.current().unwrap();
     let mut src = PathSource::new(pkg.root(), pkg.package_id().source_id(), project.config());
-    // If this fails we should just iterate over no files. No need to care.
-    let _ = src.update();
+    if let Ok(package) = src.root_package() {
 
-    let codemap = Rc::new(CodeMap::new(FilePathMapping::empty()));
-    let handler = Handler::with_tty_emitter(ColorConfig::Auto, false, false, Some(codemap.clone()));
-    let parse_session = ParseSess::with_span_handler(handler, codemap.clone());
-    
-    for file in src.list_files(&pkg).unwrap().iter() {
-        if !(config.ignore_tests && file.starts_with(project.root().join("tests"))) {
-            if file.extension() == Some(OsStr::new("rs")) {
-                // Rust source file
-                let mut parser = parse::new_parser_from_file(&parse_session, &file);
+        let codemap = Rc::new(CodeMap::new(FilePathMapping::empty()));
+        let handler = Handler::with_tty_emitter(ColorConfig::Auto, false, false, Some(codemap.clone()));
+        let parse_session = ParseSess::with_span_handler(handler, codemap.clone());
+        
+        let mut done_files: HashSet<PathBuf> = HashSet::new();
+        for target in package.targets() {
+            let file = target.src_path();
+            if !(config.ignore_tests && file.starts_with(project.root().join("tests"))) {
+                let mut parser = parse::new_parser_from_file(&parse_session, file);
+                parser.cfg_mods = false;
                 if let Ok(krate) = parser.parse_crate_mod() {
-                    let mut visitor = IgnoredLines::from_session(&parse_session, config);
-                    visitor.visit_mod(&krate.module, krate.span, &krate.attrs, NodeId::new(0));
-                    result.append(&mut visitor.lines.iter()
-                                                    .map(|x| (file.to_path_buf(), *x))
-                                                    .collect::<Vec<_>>());
+                    
+                    let mut lines = {
+                        let mut visitor = IgnoredLines::from_session(&parse_session, &done_files, config);
+                        visitor.visit_mod(&krate.module, krate.span, &krate.attrs, NodeId::new(0));
+                        visitor.lines
+                    };
+
+                    for l in &lines {
+                        done_files.insert(l.0.clone());
+                    }
+                    result.append(&mut lines);
                 }
             }
         }
@@ -55,12 +60,14 @@ pub fn get_lines_to_ignore(project: &Workspace, config: &Config) -> Vec<(PathBuf
 
 impl<'a> IgnoredLines<'a> {
     /// Construct a new ignored lines object for the given project
-    fn from_session(session: &'a ParseSess, config: &'a Config) -> IgnoredLines<'a> {
+    fn from_session(session: &'a ParseSess, 
+                    covered: &'a HashSet<PathBuf>, 
+                    config: &'a Config) -> IgnoredLines<'a> {
         IgnoredLines {
             lines: vec![],
+            covered: covered,
             codemap: session.codemap(),
             config: config,
-            started: false
         }
     }
     
@@ -68,8 +75,9 @@ impl<'a> IgnoredLines<'a> {
     fn ignore_lines(&mut self, span: Span) {
         if let Ok(s) = self.codemap.span_to_lines(span) {
             for line in &s.lines {
+                let pb = PathBuf::from(self.codemap.span_to_filename(span) as String);
                 // Line number is index+1
-                self.lines.push(line.line_index + 1);
+                self.lines.push((pb, line.line_index + 1));
             }
         }
     }    
@@ -96,10 +104,11 @@ impl<'a> IgnoredLines<'a> {
     fn find_ignorable_lines(&mut self, span: Span) {
         if let Ok(l) = self.codemap.span_to_lines(span) {
             for line in &l.lines {
+                let pb = PathBuf::from(self.codemap.span_to_filename(span) as String);
                 if let Some(s) = l.file.get_line(line.line_index) {
                     // Is this one of those pointless {, } or }; only lines?
                     if !s.chars().any(|x| !"{}[];\t ,".contains(x)) {
-                        self.lines.push(line.line_index + 1);
+                        self.lines.push((pb, line.line_index + 1));
                     }
                 }
             }
@@ -126,40 +135,26 @@ impl<'v, 'a> Visitor<'v> for IgnoredLines<'a> {
 
 
     fn visit_mod(&mut self, m: &'v Mod, s: Span, _attrs: &[Attribute], _n: NodeId) {
-        // We want to limit ourselves to only this source file.
-        // This avoids repeated hits and issues where there are multiple compilation targets
-        if self.started == false {
-            self.started = true;
-            visit::walk_mod(self, m);
-        } else {
-            // Needs to be more advanced - cope with mod { .. } in file.
-            // Also if mod is cfg(test) and --ignore-tests ignore contents!
-            if let Ok(fl) = self.codemap.span_to_lines(s) {
-                if fl.lines.len() > 1 {
-                    if self.config.ignore_tests && self.contains_cfg_test(_attrs) {
-                        self.ignore_lines(s);
-                    }
-                    visit::walk_mod(self, m);
-                } else {
-                    // one line mod, so either referencing another file or something
-                    // not worth covering.
-                    self.ignore_lines(s);
+        // If mod is cfg(test) and --ignore-tests ignore contents!
+        if let Ok(fl) = self.codemap.span_to_lines(s) {
+            if self.config.ignore_tests && self.contains_cfg_test(_attrs) {
+                self.ignore_lines(s);
+                if fl.lines.len() == 1 {
+                    // Ignore the file
+                    self.ignore_lines(m.inner);
                 }
             }
-        }
-    }
-
-
-    fn visit_fn(&mut self, fk: FnKind<'v>, fd: &'v FnDecl, s: Span, _: NodeId) {
-        visit::walk_fn(self, fk, fd, s);
-    }
-
-
-    fn visit_stmt(&mut self, s: &Stmt) {
-        match s.node {
-            StmtKind::Mac(_) => visit::walk_stmt(self, s),
-            _ => {},
-        }
+            else { 
+                if fl.lines.len() == 1 {
+                    // mod imports show up as coverable. Ignore
+                    self.ignore_lines(s);
+                }
+                let mod_path = PathBuf::from(self.codemap.span_to_filename(m.inner));
+                if !self.covered.contains(&mod_path) {
+                    visit::walk_mod(self, m);
+                }
+            }
+        } 
     }
 
 
@@ -237,9 +232,10 @@ mod tests {
         let krate = parser.parse_crate_mod();
         assert!(krate.is_ok());
         let krate = krate.unwrap();
-        let mut visitor = IgnoredLines::from_session(&ctx.parse_session, &ctx.conf);
+        let unused: HashSet<PathBuf> = HashSet::new();
+        let mut visitor = IgnoredLines::from_session(&ctx.parse_session, &unused, &ctx.conf);
         visitor.visit_mod(&krate.module, krate.span, &krate.attrs, NodeId::new(0));
-        visitor.lines
+        visitor.lines.iter().map(|x| x.1).collect::<Vec<_>>()
     }
 
     #[test]
