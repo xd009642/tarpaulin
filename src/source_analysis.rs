@@ -1,20 +1,42 @@
 use std::rc::Rc;
 use std::ops::Deref;
 use std::path::PathBuf;
-use std::collections::HashSet;
+use std::collections::{HashSet, HashMap};
 use cargo::core::Workspace;
 use cargo::sources::PathSource;
 use syntex_syntax::attr;
-use syntex_syntax::visit::{self, Visitor};
+use syntex_syntax::visit::{self, Visitor, FnKind};
 use syntex_syntax::codemap::{CodeMap, Span, FilePathMapping};
-use syntex_syntax::ast::{NodeId, Mac, Attribute, Mod, StructField, Block, Item, ItemKind};
+use syntex_syntax::ast::{NodeId, Mac, Attribute, Mod, StructField, Block, Item, ItemKind, FnDecl};
 use syntex_syntax::parse::{self, ParseSess};
 use syntex_syntax::errors::Handler;
 use syntex_syntax::errors::emitter::ColorConfig;
 use config::Config;
 
+/// Represents the results of analysis of a single file. Does not store the file
+/// in question as this is expected to be maintained by the user.
+struct LineAnalysis {
+    /// This represents lines that should be ignored in coverage 
+    /// but may be identifed as coverable in the DWARF tables
+    pub ignore: HashSet<usize>,
+    /// This represents lines that should be included in coverage
+    /// But may be ignored.
+    pub cover: HashSet<usize>,
+}
+
+impl LineAnalysis {
+    fn new() -> LineAnalysis {
+        LineAnalysis {
+            ignore: HashSet::new(),
+            cover: HashSet::new()
+        }
+    }
+}
+
+
 struct IgnoredLines<'a> {
     lines: Vec<(PathBuf, usize)>,
+    coverable: Vec<(PathBuf, usize)>,
     covered: &'a HashSet<PathBuf>,
     codemap: &'a CodeMap,
     config: &'a Config, 
@@ -24,7 +46,6 @@ struct IgnoredLines<'a> {
 /// Returns a list of files and line numbers to ignore (not indexes!)
 pub fn get_lines_to_ignore(project: &Workspace, config: &Config) -> Vec<(PathBuf, usize)> {
     let mut result: Vec<(PathBuf, usize)> = Vec::new();
-    
     let pkg = project.current().unwrap();
     let mut src = PathSource::new(pkg.root(), pkg.package_id().source_id(), project.config());
     if let Ok(package) = src.root_package() {
@@ -58,6 +79,16 @@ pub fn get_lines_to_ignore(project: &Workspace, config: &Config) -> Vec<(PathBuf
     result
 }
 
+fn add_lines(codemap: &CodeMap, lines: &mut Vec<(PathBuf, usize)>, s: Span) {
+    if let Ok(ls) = codemap.span_to_lines(s) {
+        for line in &ls.lines {
+            let pb = PathBuf::from(codemap.span_to_filename(s) as String);
+            // Line number is index+1
+            lines.push((pb, line.line_index + 1));
+        }
+    }
+}
+
 impl<'a> IgnoredLines<'a> {
     /// Construct a new ignored lines object for the given project
     fn from_session(session: &'a ParseSess, 
@@ -65,6 +96,7 @@ impl<'a> IgnoredLines<'a> {
                     config: &'a Config) -> IgnoredLines<'a> {
         IgnoredLines {
             lines: vec![],
+            coverable: vec![],
             covered: covered,
             codemap: session.codemap(),
             config: config,
@@ -73,15 +105,14 @@ impl<'a> IgnoredLines<'a> {
     
     /// Add lines to the line ignore list
     fn ignore_lines(&mut self, span: Span) {
-        if let Ok(s) = self.codemap.span_to_lines(span) {
-            for line in &s.lines {
-                let pb = PathBuf::from(self.codemap.span_to_filename(span) as String);
-                // Line number is index+1
-                self.lines.push((pb, line.line_index + 1));
-            }
-        }
+        add_lines(self.codemap, &mut self.lines, span);
     }    
 
+    fn cover_lines(&mut self, span: Span) {
+        add_lines(self.codemap, &mut self.coverable, span);
+    }
+
+   
     /// Looks for #[cfg(test)] attribute.
     fn contains_cfg_test(&mut self, attrs: &[Attribute]) -> bool {
         attrs.iter()
@@ -156,7 +187,23 @@ impl<'v, 'a> Visitor<'v> for IgnoredLines<'a> {
             }
         } 
     }
-
+    
+    fn visit_fn(&mut self, fk: FnKind, fd: &FnDecl, s: Span, _: NodeId) {
+        match fk {
+            FnKind::ItemFn(_, g, _,_,_,_,_) => {
+                if !g.ty_params.is_empty() {
+                    self.cover_lines(s);
+                }
+            },
+            FnKind::Method(_, sig, _, _) => {
+                if !sig.generics.ty_params.is_empty() {
+                    self.cover_lines(s);
+                }
+            },
+            _ => {},
+        }
+        visit::walk_fn(self, fk, fd, s);
+    }
 
     fn visit_mac(&mut self, mac: &Mac) {
         // Use this to ignore unreachable lines
