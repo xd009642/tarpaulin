@@ -34,7 +34,7 @@ impl LineAnalysis {
 }
 
 
-struct IgnoredLines<'a> {
+struct CoverageVisitor<'a> {
     lines: Vec<(PathBuf, usize)>,
     coverable: Vec<(PathBuf, usize)>,
     covered: &'a HashSet<PathBuf>,
@@ -63,7 +63,7 @@ pub fn get_lines_to_ignore(project: &Workspace, config: &Config) -> Vec<(PathBuf
                 if let Ok(krate) = parser.parse_crate_mod() {
                     
                     let mut lines = {
-                        let mut visitor = IgnoredLines::from_session(&parse_session, &done_files, config);
+                        let mut visitor = CoverageVisitor::from_session(&parse_session, &done_files, config);
                         visitor.visit_mod(&krate.module, krate.span, &krate.attrs, NodeId::new(0));
                         visitor.lines
                     };
@@ -89,12 +89,12 @@ fn add_lines(codemap: &CodeMap, lines: &mut Vec<(PathBuf, usize)>, s: Span) {
     }
 }
 
-impl<'a> IgnoredLines<'a> {
+impl<'a> CoverageVisitor<'a> {
     /// Construct a new ignored lines object for the given project
     fn from_session(session: &'a ParseSess, 
                     covered: &'a HashSet<PathBuf>, 
-                    config: &'a Config) -> IgnoredLines<'a> {
-        IgnoredLines {
+                    config: &'a Config) -> CoverageVisitor<'a> {
+        CoverageVisitor {
             lines: vec![],
             coverable: vec![],
             covered: covered,
@@ -148,7 +148,7 @@ impl<'a> IgnoredLines<'a> {
 }
 
 
-impl<'v, 'a> Visitor<'v> for IgnoredLines<'a> {
+impl<'v, 'a> Visitor<'v> for CoverageVisitor<'a> {
  
     fn visit_item(&mut self, i: &'v Item) {
         match i.node {
@@ -280,7 +280,7 @@ mod tests {
         assert!(krate.is_ok());
         let krate = krate.unwrap();
         let unused: HashSet<PathBuf> = HashSet::new();
-        let mut visitor = IgnoredLines::from_session(&ctx.parse_session, &unused, &ctx.conf);
+        let mut visitor = CoverageVisitor::from_session(&ctx.parse_session, &unused, &ctx.conf);
         visitor.visit_mod(&krate.module, krate.span, &krate.attrs, NodeId::new(0));
         visitor.lines.iter().map(|x| x.1).collect::<Vec<_>>()
     }
