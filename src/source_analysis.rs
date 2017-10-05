@@ -50,6 +50,10 @@ impl LineAnalysis {
             cover: HashSet::new()
         }
     }
+
+    pub fn should_ignore(&self, line: &usize) -> bool {
+        self.ignore.contains(line)
+    }
     
     fn add_to_ignore(&mut self, lines: &[usize]) {
         for l in lines {

@@ -38,6 +38,8 @@ pub enum LineType {
     Condition,
     /// Unknown type
     Unknown,
+    /// Unused meta-code
+    UnusedGeneric,
 }
 
 
@@ -264,6 +266,21 @@ fn get_line_addresses<Endian: Endianity>(project: &Path,
                                            }
                                        });
             test_entry.trace_type = LineType::TestEntry(max_address);
+        }
+    }
+    for (file, ref line_analysis) in analysis.iter() {
+        for line in &line_analysis.cover {
+            let line64 = *line as u64;
+            let contain = result.iter().any(|ref x| &x.path == file && line64 == x.line);
+            if !contain && !line_analysis.should_ignore(line) {
+                result.push(TracerData {
+                    line: line64,
+                    path: file.to_path_buf(),
+                    address: None,
+                    hits: 0,
+                    trace_type: LineType::UnusedGeneric,
+                });
+            }
         }
     }
     Ok(result)
