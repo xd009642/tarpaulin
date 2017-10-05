@@ -3,7 +3,7 @@ use std::path::{PathBuf, Path};
 use std::ffi::CString;
 use std::ops::Deref;
 use std::fs::File;
-use std::collections::HashSet;
+use std::collections::{HashSet, HashMap};
 use object::Object;
 use object::File as OFile;
 use memmap::{Mmap, Protection};
@@ -45,7 +45,7 @@ pub enum LineType {
 pub struct TracerData {
     pub path: PathBuf,
     pub line: u64,
-    pub address: u64,
+    pub address: Option<u64>,
     pub trace_type: LineType,
     pub hits: u64,
 }
@@ -172,7 +172,7 @@ fn get_addresses_from_program<T:Endianity>(prog: IncompleteLineNumberProgram<T>,
                             result.push( TracerData {
                                 path: path,
                                 line: line,
-                                address: address,
+                                address: Some(address),
                                 trace_type: desc,
                                 hits: 0u64
                             });
@@ -187,7 +187,7 @@ fn get_addresses_from_program<T:Endianity>(prog: IncompleteLineNumberProgram<T>,
 
 fn get_line_addresses<Endian: Endianity>(project: &Path, 
                                          obj: &OFile, 
-                                         ignore: &Vec<(PathBuf, usize)>,
+                                         analysis: &HashMap<PathBuf, LineAnalysis>,
                                          ignore_tests: bool) -> Result<Vec<TracerData>>  {
     let mut result: Vec<TracerData> = Vec::new();
     let debug_info = obj.get_section(".debug_info").unwrap_or(&[]);
@@ -232,13 +232,14 @@ fn get_line_addresses<Endian: Endianity>(project: &Path,
     let mut check: HashSet<(&Path, u64)> = HashSet::new();
     let mut result = result.iter()
                            .filter(|x| !(ignore_tests && x.path.starts_with(project.join("tests"))))
-                           .filter(|x| !ignore.contains(&(x.path.clone(), x.line as usize)))
+                           .filter(|x| !analysis.should_ignore(x.path.as_ref(), &(x.line as usize)))
                            .filter(|x| check.insert((x.path.as_path(), x.line)))
                            .filter(|x| x.trace_type != LineType::TestMain)
                            .cloned()
                            .collect::<Vec<TracerData>>();
+
     let addresses = result.iter()
-                          .map(|x| x.address)
+                          .map(|x| x.address.unwrap())
                           .collect::<Vec<_>>();
     // TODO Probably a more idiomatic way to do this.
     {
@@ -253,10 +254,11 @@ fn get_line_addresses<Endian: Endianity>(project: &Path,
                 LineType::TestEntry(x) => x,
                 _ => continue,
             };
+            let addr = test_entry.address.unwrap();
             let max_address = addresses.iter()
                                        .fold(0, |acc, x| {
-                                           if x > &(test_entry.address + acc) && (x-test_entry.address) <= endpoint {
-                                               *x - test_entry.address
+                                           if x > &(addr + acc) && (x-addr) <= endpoint {
+                                               *x - addr
                                            } else { 
                                                acc  
                                            }
@@ -274,16 +276,16 @@ pub fn generate_tracer_data(project: &Workspace, test: &Path, config: &Config) -
     let file = File::open(test)?;
     let file = Mmap::open(&file, Protection::Read)?;
     if let Ok(obj) = OFile::parse(unsafe {file.as_slice() }) {
-        let ignored_lines = get_lines_to_ignore(project, config); 
+        let analysis = get_line_analysis(project, config); 
         let data = if obj.is_little_endian() {
             get_line_addresses::<LittleEndian>(manifest, 
                                                &obj, 
-                                               &ignored_lines, 
+                                               &analysis, 
                                                config.ignore_tests)
         } else {
             get_line_addresses::<BigEndian>(manifest, 
                                             &obj, 
-                                            &ignored_lines, 
+                                            &analysis, 
                                             config.ignore_tests)
         };
         data.map_err(|_| io::Error::new(io::ErrorKind::InvalidData, "Error while parsing"))

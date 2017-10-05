@@ -1,6 +1,6 @@
 use std::rc::Rc;
 use std::ops::Deref;
-use std::path::PathBuf;
+use std::path::{PathBuf, Path};
 use std::collections::{HashSet, HashMap};
 use cargo::core::Workspace;
 use cargo::sources::PathSource;
@@ -15,13 +15,32 @@ use config::Config;
 
 /// Represents the results of analysis of a single file. Does not store the file
 /// in question as this is expected to be maintained by the user.
-struct LineAnalysis {
+pub struct LineAnalysis {
     /// This represents lines that should be ignored in coverage 
     /// but may be identifed as coverable in the DWARF tables
     pub ignore: HashSet<usize>,
     /// This represents lines that should be included in coverage
     /// But may be ignored.
     pub cover: HashSet<usize>,
+}
+
+/// When the LineAnalysis results are mapped to their files there needs to be
+/// an easy way to get the information back. For the container used implement
+/// this trait
+pub trait SourceAnalysisQuery {
+    fn should_ignore(&self, path: &Path, l:&usize) -> bool;
+}
+
+impl SourceAnalysisQuery for HashMap<PathBuf, LineAnalysis> {
+
+    fn should_ignore(&self, path: &Path, l:&usize) -> bool {
+        if self.contains_key(path) {
+            self.get(path).unwrap().ignore.contains(l)
+        } else {
+            false
+        }
+    }
+
 }
 
 impl LineAnalysis {
@@ -31,8 +50,24 @@ impl LineAnalysis {
             cover: HashSet::new()
         }
     }
-}
+    
+    fn add_to_ignore(&mut self, lines: &[usize]) {
+        for l in lines {
+            self.ignore.insert(*l);
+            if self.cover.contains(l) {
+                self.cover.remove(l);
+            }
+        }
+    }
 
+    fn add_to_cover(&mut self, lines: &[usize]) {
+        for l in lines {
+            if !self.ignore.contains(l) {
+                self.cover.insert(*l);
+            }
+        }
+    }
+}
 
 struct CoverageVisitor<'a> {
     lines: Vec<(PathBuf, usize)>,
@@ -44,8 +79,8 @@ struct CoverageVisitor<'a> {
 
 
 /// Returns a list of files and line numbers to ignore (not indexes!)
-pub fn get_lines_to_ignore(project: &Workspace, config: &Config) -> Vec<(PathBuf, usize)> {
-    let mut result: Vec<(PathBuf, usize)> = Vec::new();
+pub fn get_line_analysis(project: &Workspace, config: &Config) -> HashMap<PathBuf, LineAnalysis> {
+    let mut result: HashMap<PathBuf, LineAnalysis> = HashMap::new();
     let pkg = project.current().unwrap();
     let mut src = PathSource::new(pkg.root(), pkg.package_id().source_id(), project.config());
     if let Ok(package) = src.root_package() {
@@ -54,7 +89,6 @@ pub fn get_lines_to_ignore(project: &Workspace, config: &Config) -> Vec<(PathBuf
         let handler = Handler::with_tty_emitter(ColorConfig::Auto, false, false, Some(codemap.clone()));
         let parse_session = ParseSess::with_span_handler(handler, codemap.clone());
         
-        let mut done_files: HashSet<PathBuf> = HashSet::new();
         for target in package.targets() {
             let file = target.src_path();
             if !(config.ignore_tests && file.starts_with(project.root().join("tests"))) {
@@ -62,16 +96,37 @@ pub fn get_lines_to_ignore(project: &Workspace, config: &Config) -> Vec<(PathBuf
                 parser.cfg_mods = false;
                 if let Ok(krate) = parser.parse_crate_mod() {
                     
-                    let mut lines = {
+                    let done_files: HashSet<PathBuf> = result.keys()
+                                                             .map(|x| x.clone())
+                                                             .collect::<HashSet<_>>();
+                    let lines = {
                         let mut visitor = CoverageVisitor::from_session(&parse_session, &done_files, config);
                         visitor.visit_mod(&krate.module, krate.span, &krate.attrs, NodeId::new(0));
-                        visitor.lines
+                        visitor
                     };
 
-                    for l in &lines {
-                        done_files.insert(l.0.clone());
+                    for ignore in &lines.lines {
+                        if result.contains_key(&ignore.0) {
+                            let l = result.get_mut(&ignore.0).unwrap();
+                            l.add_to_ignore(&[ignore.1]);
+                        }
+                        else {
+                            let mut l = LineAnalysis::new();
+                            l.add_to_ignore(&[ignore.1]);
+                            result.insert(ignore.0.clone(), l);                         
+                        }
                     }
-                    result.append(&mut lines);
+                    for cover in &lines.coverable {
+                        if result.contains_key(&cover.0) {
+                            let l = result.get_mut(&cover.0).unwrap();
+                            l.add_to_cover(&[cover.1]);
+                        }
+                        else {
+                            let mut l = LineAnalysis::new();
+                            l.add_to_cover(&[cover.1]);
+                            result.insert(cover.0.clone(), l);                         
+                        }
+                    }
                 }
             }
         }

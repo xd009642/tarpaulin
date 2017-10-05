@@ -296,15 +296,17 @@ fn collect_coverage(project: &Workspace,
                 println!("Failed to trace child threads: {}", c);
             }
             for trace in &traces {
-                match Breakpoint::new(child, trace.address) {
-                    Ok(bp) => { 
-                        let _ = bps.insert(trace.address, bp);
-                    },
-                    Err(e) if e == NixErr::Sys(nix::Errno::EIO) => {
-                        println!("{}", PIE_ERROR);
-                        process::exit(1);
-                    },
-                    Err(e) => println!("Failed to instrument {}", e),
+                if let Some(addr) = trace.address {
+                    match Breakpoint::new(child, addr) {
+                        Ok(bp) => { 
+                            let _ = bps.insert(addr, bp);
+                        },
+                        Err(e) if e == NixErr::Sys(nix::Errno::EIO) => {
+                            println!("{}", PIE_ERROR);
+                            process::exit(1);
+                        },
+                        Err(e) => println!("Failed to instrument {}", e),
+                    }
                 }
             }  
         },
@@ -366,7 +368,7 @@ fn run_function(pid: pid_t,
                         };
                         if updated {
                             for mut t in traces.iter_mut()
-                                               .filter(|x| x.address == rip) {
+                                               .filter(|x| x.address == Some(rip)) {
                                 (*t).hits += 1;
                             }
                         } 
@@ -469,21 +471,21 @@ mod tests {
         master.push(TracerData { 
             path: PathBuf::from("testing/test.rs"),
             line: 2,
-            address: 0,
+            address: Some(0),
             trace_type: LineType::Unknown,
             hits: 1
         });
         master.push(TracerData { 
             path: PathBuf::from("testing/test.rs"),
             line: 3,
-            address: 1,
+            address: Some(1),
             trace_type: LineType::Unknown,
             hits: 1
         });
         master.push(TracerData {
             path: PathBuf::from("testing/not.rs"),
             line: 2,
-            address: 0,
+            address: Some(0),
             trace_type: LineType::Unknown,
             hits: 7
         });
@@ -492,7 +494,7 @@ mod tests {
             TracerData {
                 path:PathBuf::from("testing/test.rs"),
                 line: 2,
-                address: 0,
+                address: Some(0),
                 trace_type: LineType::Unknown,
                 hits: 2
             }];
