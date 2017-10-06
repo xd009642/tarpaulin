@@ -79,7 +79,6 @@ pub fn launch_tarpaulin(config: &Config) -> Result<Vec<TracerData>, i32> {
     let mut copt = ops::CompileOptions::default(&cargo_config, ops::CompileMode::Test); 
     copt.features = config.features.as_slice();
     copt.spec = ops::Packages::Packages(config.packages.as_slice());
-    let mut result:Vec<TracerData> = Vec::new();
     if config.verbose {
         println!("Running Tarpaulin");
     }
@@ -96,6 +95,7 @@ pub fn launch_tarpaulin(config: &Config) -> Result<Vec<TracerData>, i32> {
         };
         let _ = ops::clean(&workspace, &clean_opt);
     }
+    let mut result:Vec<TracerData> = Vec::new();
     let compilation = ops::compile(&workspace, &copt);
     match compilation {
         Ok(comp) => {
@@ -121,7 +121,7 @@ pub fn launch_tarpaulin(config: &Config) -> Result<Vec<TracerData>, i32> {
             }
         },
     }
-    Ok(result)
+    Ok(resolve_results(result))
 }
 
 
@@ -166,6 +166,23 @@ fn setup_environment(cargo_config: &CargoConfig) {
 
 }
 
+fn resolve_results(raw_results: Vec<TracerData>) -> Vec<TracerData> {
+    let mut result = Vec::new();
+    let mut map = HashMap::new();
+    for r in raw_results.iter() {
+        map.entry((r.path.as_path(), r.line)).or_insert(vec![]).push(r);
+    }
+    for (_, v) in map.iter() {
+        // Guaranteed to have at least one element
+        let hits = v.iter().fold(0, |acc, &x| acc + x.hits);
+        let mut temp = v[0].clone();
+        temp.hits = hits;
+        result.push(temp);
+    }
+    result.sort();
+    result
+}
+
 /// Test artefacts may have different lines visible to them therefore for 
 /// each test artefact covered we need to merge the `TracerData` entries to get
 /// the overall coverage.
@@ -178,8 +195,8 @@ pub fn merge_test_results(master: &mut Vec<TracerData>, new: &[TracerData]) {
         for u in &mut update {
             u.hits += t.hits;
         }
-
-        if update.iter().count() == 0 {
+        
+        if update.is_empty() {
             unmerged.push(t.clone());
         }
     }
