@@ -3,7 +3,8 @@ use std::path::{PathBuf, Path};
 use std::ffi::CString;
 use std::ops::Deref;
 use std::fs::File;
-use std::collections::{HashSet, HashMap};
+use std::cmp::{Ordering, PartialEq, Ord};
+use std::collections::HashMap;
 use object::Object;
 use object::File as OFile;
 use memmap::{Mmap, Protection};
@@ -24,7 +25,7 @@ enum FunctionType {
     Standard
 }
 
-#[derive(Debug, Clone, Copy, PartialEq)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd)]
 pub enum LineType {
     /// Generated test main. Shouldn't be traced.
     TestMain,
@@ -43,7 +44,7 @@ pub enum LineType {
 }
 
 
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, Eq, PartialOrd)]
 pub struct TracerData {
     pub path: PathBuf,
     pub line: u64,
@@ -51,6 +52,32 @@ pub struct TracerData {
     pub trace_type: LineType,
     pub hits: u64,
 }
+
+impl PartialEq for TracerData {
+    fn eq(&self, other: &TracerData) -> bool {
+        (self.path == other.path) && (self.line == other.line)
+    }
+}
+
+impl Ord for TracerData {
+    
+    fn cmp(&self, other: &TracerData) -> Ordering {
+        if self == other {
+            Ordering::Equal
+        } else if self.path == other.path {
+            if self.line > other.line {
+                Ordering::Greater
+            } else {
+                Ordering::Less
+            }
+        } else if self.path > other.path {
+            Ordering::Greater
+        } else {
+            Ordering::Less
+        }
+    }
+}
+
 
 fn generate_func_desc<T: Endianity>(die: &DebuggingInformationEntry<T>,
                                     debug_str: &DebugStr<T>) -> Result<FuncDesc> {
@@ -117,6 +144,7 @@ fn get_addresses_from_program<T:Endianity>(prog: IncompleteLineNumberProgram<T>,
     let mut result: Vec<TracerData> = Vec::new();
     let ( cprog, seq) = prog.sequences()?;
     for s in seq {
+        let mut temp_store : Vec<TracerData> = Vec::new();
         let mut sm = cprog.resume_from(&s);   
          while let Ok(Some((header, &ln_row))) = sm.next_row() {
             if let Some(file) = ln_row.file(header) {
@@ -171,7 +199,7 @@ fn get_addresses_from_program<T:Endianity>(prog: IncompleteLineNumberProgram<T>,
                                 LineType::FunctionEntry(e) if force_test => LineType::TestEntry(e),
                                 x => x
                             };
-                            result.push( TracerData {
+                            temp_store.push( TracerData {
                                 path: path,
                                 line: line,
                                 address: Some(address),
@@ -182,6 +210,11 @@ fn get_addresses_from_program<T:Endianity>(prog: IncompleteLineNumberProgram<T>,
                     }
                 }
             }
+        }
+        if !temp_store.is_empty() {
+            temp_store.sort();
+            temp_store.dedup();
+            result.append(&mut temp_store);
         }
     }
     Ok(result)
@@ -231,11 +264,9 @@ fn get_line_addresses<Endian: Endianity>(project: &Path,
     }
     // Due to rust being a higher level language multiple instructions may map
     // to the same line. This prunes these to just the first instruction address
-    let mut check: HashSet<(&Path, u64)> = HashSet::new();
     let mut result = result.iter()
                            .filter(|x| !(ignore_tests && x.path.starts_with(project.join("tests"))))
                            .filter(|x| !analysis.should_ignore(x.path.as_ref(), &(x.line as usize)))
-                           .filter(|x| check.insert((x.path.as_path(), x.line)))
                            .filter(|x| x.trace_type != LineType::TestMain)
                            .cloned()
                            .collect::<Vec<TracerData>>();
