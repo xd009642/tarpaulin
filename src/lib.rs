@@ -114,14 +114,15 @@ pub fn launch_tarpaulin(config: &Config) -> Result<Vec<TracerData>, i32> {
                     merge_test_results(&mut result, &res);
                 }
             }
+            Ok(resolve_results(result))
         },
         Err(e) => {
             if config.verbose{
                 println!("Error: failed to compile: {}", e);
             }
+            Err(-1)
         },
     }
-    Ok(resolve_results(result))
 }
 
 
