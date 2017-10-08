@@ -2,8 +2,9 @@ use std::rc::Rc;
 use std::ops::Deref;
 use std::path::{PathBuf, Path};
 use std::collections::{HashSet, HashMap};
-use cargo::core::Workspace;
+use cargo::core::{Workspace, Package};
 use cargo::sources::PathSource;
+use cargo::util::Config as CargoConfig;
 use syntex_syntax::attr;
 use syntex_syntax::visit::{self, Visitor, FnKind};
 use syntex_syntax::codemap::{CodeMap, Span, FilePathMapping};
@@ -15,6 +16,7 @@ use config::Config;
 
 /// Represents the results of analysis of a single file. Does not store the file
 /// in question as this is expected to be maintained by the user.
+#[derive(Clone)]
 pub struct LineAnalysis {
     /// This represents lines that should be ignored in coverage 
     /// but may be identifed as coverable in the DWARF tables
@@ -85,8 +87,21 @@ struct CoverageVisitor<'a> {
 /// Returns a list of files and line numbers to ignore (not indexes!)
 pub fn get_line_analysis(project: &Workspace, config: &Config) -> HashMap<PathBuf, LineAnalysis> {
     let mut result: HashMap<PathBuf, LineAnalysis> = HashMap::new();
-    let pkg = project.current().unwrap();
-    let mut src = PathSource::new(pkg.root(), pkg.package_id().source_id(), project.config());
+    // Members iterates over all non-virtual packages in the workspace
+    for pkg in project.members() {
+        if config.packages.is_empty() || config.packages.contains(&pkg.name().to_string()) {
+            analyse_package(pkg, &config, project.config(), &mut result); 
+        }
+    }
+    result
+}
+
+fn analyse_package(pkg: &Package, 
+                   config:&Config, 
+                   cargo_conf: &CargoConfig, 
+                   result: &mut HashMap<PathBuf, LineAnalysis>) {
+
+    let mut src = PathSource::new(pkg.root(), pkg.package_id().source_id(), cargo_conf);
     if let Ok(package) = src.root_package() {
 
         let codemap = Rc::new(CodeMap::new(FilePathMapping::empty()));
@@ -95,7 +110,7 @@ pub fn get_line_analysis(project: &Workspace, config: &Config) -> HashMap<PathBu
         
         for target in package.targets() {
             let file = target.src_path();
-            if !(config.ignore_tests && file.starts_with(project.root().join("tests"))) {
+            if !(config.ignore_tests && file.starts_with(pkg.root().join("tests"))) {
                 let mut parser = parse::new_parser_from_file(&parse_session, file);
                 parser.cfg_mods = false;
                 if let Ok(krate) = parser.parse_crate_mod() {
@@ -135,7 +150,6 @@ pub fn get_line_analysis(project: &Workspace, config: &Config) -> HashMap<PathBu
             }
         }
     }
-    result
 }
 
 fn add_lines(codemap: &CodeMap, lines: &mut Vec<(PathBuf, usize)>, s: Span) {
