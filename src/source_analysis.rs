@@ -9,8 +9,6 @@ use syntex_syntax::attr;
 use syntex_syntax::visit::{self, Visitor, FnKind};
 use syntex_syntax::codemap::{CodeMap, Span, FilePathMapping};
 use syntex_syntax::ast::*;
-/*use syntex_syntax::ast::{NodeId, Mac, Attribute, Mod, StructField, Block, Item, 
-    ItemKind, FnDecl, TraitItem, TraitItemKind, ImplItemKind, WherePredicate};*/
 use syntex_syntax::parse::{self, ParseSess};
 use syntex_syntax::errors::Handler;
 use syntex_syntax::errors::emitter::ColorConfig;
@@ -335,6 +333,59 @@ impl<'v, 'a> Visitor<'v> for CoverageVisitor<'a> {
             _ => {},
         }
         visit::walk_fn(self, fk, fd, s);
+    }
+
+    fn visit_expr(&mut self, ex: &Expr) {
+        if let Ok(s) = self.codemap.span_to_lines(ex.span) {
+            // If expression is multiple lines we might have to remove some of 
+            // said lines.
+            if s.lines.len() > 1 {
+                let mut cover: HashSet<usize>  = HashSet::new();
+                match ex.node {
+                    ExprKind::Call(_, ref args) => {
+                        cover.insert(s.lines[0].line_index);
+                        for a in args {
+                            match a.node {
+                                ExprKind::Lit(..) => {},
+                                _ => {
+                                    if let Ok(ts) = self.codemap.span_to_lines(a.span){
+                                        for l in &ts.lines {
+                                            cover.insert(l.line_index);
+                                        }
+                                    }
+                                },
+                            }
+                        }
+                    },
+                    ExprKind::MethodCall(_, _, ref args) => {
+                        let mut it = args.iter();
+                        it.next(); // First is function call
+                        for i in it {
+                            match i.node {
+                                ExprKind::Lit(..) => {},
+                                _ => {
+                                    if let Ok(ts) = self.codemap.span_to_lines(i.span) {
+                                        for l in &ts.lines {
+                                            cover.insert(l.line_index);
+                                        }
+                                    }
+                                },
+                            }
+                        }
+                    },
+                    _ => {},
+                }
+                if !cover.is_empty() {
+                    let pb = PathBuf::from(self.codemap.span_to_filename(ex.span) as String);
+                    for l in &s.lines {
+                        if !cover.contains(&l.line_index) {
+                            self.lines.push((pb.clone(), l.line_index + 1));
+                        }
+                    }
+                }
+            }
+        }
+        visit::walk_expr(self, ex);
     }
 
     fn visit_mac(&mut self, mac: &Mac) {
