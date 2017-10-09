@@ -461,14 +461,16 @@ fn execute_test(test: &Path, ignored: bool, config: &Config) {
         temp.push_str(value.as_str());
         envars.push(CString::new(temp).unwrap());
     }
-    if config.verbose {
-        envars.push(CString::new("RUST_BACKTRACE=1").unwrap());
-    }
     let mut argv = if ignored {
         vec![exec_path.clone(), CString::new("--ignored").unwrap()]
     } else {
         vec![exec_path.clone()]
     };
+    if config.verbose {
+        envars.push(CString::new("RUST_BACKTRACE=1").unwrap());
+    } else {
+        argv.push(CString::new("--quiet").unwrap());
+    }
     for s in &config.varargs {
         argv.push(CString::new(s.as_bytes()).unwrap_or_default());
     }
