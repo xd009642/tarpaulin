@@ -5,7 +5,6 @@ use std::ops::Deref;
 use std::fs::File;
 use std::cmp::{Ordering, PartialEq, Ord};
 use std::collections::HashMap;
-use object::Object;
 use object::File as OFile;
 use memmap::{Mmap, Protection};
 use gimli::*;
