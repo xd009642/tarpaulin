@@ -1,5 +1,6 @@
 use std::collections::HashMap;
-use nix::libc::{pid_t, c_long};
+use nix::libc::c_long;
+use nix::unistd::Pid;
 use nix::Result;
 use ptrace_control::*;
 
@@ -21,12 +22,12 @@ pub struct Breakpoint {
     /// We therefore need to know the shift to place the breakpoint in the right place
     shift: u64,
     /// Map of the state of the breakpoint on each thread/process 
-    is_running: HashMap<pid_t, bool>
+    is_running: HashMap<Pid, bool>
 }
 
 impl Breakpoint {
     /// Creates a new breakpoint for the given process and program counter. 
-    pub fn new(pid:pid_t, pc:u64) ->Result<Breakpoint> {
+    pub fn new(pid:Pid, pc:u64) ->Result<Breakpoint> {
         let aligned = pc & !0x7u64;
         let data = read_address(pid, aligned)?;
         let shift = 8 * (pc - aligned);
@@ -45,7 +46,7 @@ impl Breakpoint {
     }
 
     /// Attaches the current breakpoint.
-    pub fn enable(&mut self, pid: pid_t) -> Result<c_long> {
+    pub fn enable(&mut self, pid: Pid) -> Result<c_long> {
         let data  = read_address(pid, self.aligned_address())?;
         self.is_running.insert(pid, true);
         let mut intdata = data & (!(0xFFu64 << self.shift) as i64);
@@ -53,7 +54,7 @@ impl Breakpoint {
         write_to_address(pid, self.aligned_address(), intdata)
     }
     
-    fn disable(&self, pid: pid_t) -> Result<c_long> {
+    fn disable(&self, pid: Pid) -> Result<c_long> {
         // I require the bit fiddlin this end.
         let data = read_address(pid, self.aligned_address())?;
         let mut orgdata = data & (!(0xFFu64 << self.shift) as i64);
@@ -62,7 +63,7 @@ impl Breakpoint {
     }
 
     /// Processes the breakpoint. This steps over the breakpoint
-    pub fn process(&mut self, pid: pid_t, reenable: bool) -> Result<bool> {
+    pub fn process(&mut self, pid: Pid, reenable: bool) -> Result<bool> {
         let is_running = match self.is_running.get(&pid) {
             Some(r) => *r,
             None => true,
@@ -85,13 +86,13 @@ impl Breakpoint {
 
     /// Call this when a ptrace thread is killed. Won't reenable the breakpoint
     /// so may lose the ability to instrument this line.
-    pub fn thread_killed(&mut self, pid: pid_t) {
+    pub fn thread_killed(&mut self, pid: Pid) {
         self.is_running.remove(&pid);
     }
 
     /// Steps past the current breakpoint.
     /// For more advanced coverage may interrogate the variables of a branch.
-    fn step(&mut self, pid: pid_t) -> Result<c_long> {
+    fn step(&mut self, pid: Pid) -> Result<c_long> {
         // Remove the breakpoint, reset the program counter to step before it
         // hit the breakpoint then step to execute the original instruction.
         self.disable(pid)?;
