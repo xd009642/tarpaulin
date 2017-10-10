@@ -97,16 +97,16 @@ pub fn launch_tarpaulin(config: &Config) -> Result<Vec<TracerData>, i32> {
     let compilation = ops::compile(&workspace, &copt);
     match compilation {
         Ok(comp) => {
-            for c in &comp.tests {
+            for &(ref _package, ref _target_kind, ref name, ref path) in &comp.tests {
                 if config.verbose {
-                    println!("Processing {}", c.1);
+                    println!("Processing {}", name);
                 }
-                let res = get_test_coverage(&workspace, c.2.as_path(),
+                let res = get_test_coverage(&workspace, path.as_path(),
                                             &config, false)
                     .unwrap_or_default();
                 merge_test_results(&mut result, &res);
                 if config.run_ignored {
-                    let res = get_test_coverage(&workspace, c.2.as_path(), 
+                    let res = get_test_coverage(&workspace, path.as_path(),
                                                 &config, true)
                         .unwrap_or_default();
                     merge_test_results(&mut result, &res);
