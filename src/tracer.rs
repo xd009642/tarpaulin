@@ -1,7 +1,5 @@
 use std::io;
 use std::path::{PathBuf, Path};
-use std::ffi::CString;
-use std::ops::Deref;
 use std::fs::File;
 use std::cmp::{Ordering, PartialEq, Ord};
 use std::collections::HashMap;
@@ -78,8 +76,11 @@ impl Ord for TracerData {
 }
 
 
-fn generate_func_desc<T: Endianity>(die: &DebuggingInformationEntry<T>,
-                                    debug_str: &DebugStr<T>) -> Result<FuncDesc> {
+fn generate_func_desc<R, Offset>(die: &DebuggingInformationEntry<R, Offset>,
+                                 debug_str: &DebugStr<R>) -> Result<FuncDesc>
+    where R: Reader<Offset = Offset>,
+          Offset: ReaderOffset
+{
     let mut func_type = FunctionType::Standard;
     let low = die.attr_value(DW_AT_low_pc)?;
     let high = die.attr_value(DW_AT_high_pc)?;
@@ -96,11 +97,10 @@ fn generate_func_desc<T: Endianity>(die: &DebuggingInformationEntry<T>,
         _ => 0u64,
     };
     if let Some(AttributeValue::DebugStrRef(offset)) = linkage {
-        let empty = CString::new("").unwrap();
-        let name = debug_str.get_str(offset).unwrap_or_else(|_| empty.deref());
-        // go from CStr to Owned String
-        let name = name.to_str().unwrap_or("");
-        let name = demangle(name).to_string();
+        let name = debug_str.get_str(offset)
+            .and_then(|r| r.to_string().map(|s| s.to_string()))
+            .unwrap_or("".into());
+        let name = demangle(name.as_ref()).to_string();
         // Simplest test is whether it's in tests namespace.
         // Rust guidelines recommend all tests are in a tests module.
         func_type = if name.contains("tests::") {
@@ -118,9 +118,12 @@ fn generate_func_desc<T: Endianity>(die: &DebuggingInformationEntry<T>,
 /// Finds all function entry points and returns a vector
 /// This will identify definite tests, but may be prone to false negatives.
 /// TODO Potential to trace all function calls from `__test::main` and find addresses of interest
-fn get_entry_points<T: Endianity>(debug_info: &CompilationUnitHeader<T>,
-                                  debug_abbrev: &Abbreviations,
-                                  debug_str: &DebugStr<T>) -> Vec<FuncDesc> {
+fn get_entry_points<R, Offset>(debug_info: &CompilationUnitHeader<R, Offset>,
+                               debug_abbrev: &Abbreviations,
+                               debug_str: &DebugStr<R>) -> Vec<FuncDesc>
+    where R: Reader<Offset = Offset>,
+          Offset: ReaderOffset
+{
     let mut result:Vec<FuncDesc> = Vec::new();
     let mut cursor = debug_info.entries(debug_abbrev);
     // skip compilation unit root.
@@ -137,9 +140,12 @@ fn get_entry_points<T: Endianity>(debug_info: &CompilationUnitHeader<T>,
     result
 }
 
-fn get_addresses_from_program<T:Endianity>(prog: IncompleteLineNumberProgram<T>,
-                                           entries: &[(u64, LineType)],
-                                           project: &Path) -> Result<Vec<TracerData>> {
+fn get_addresses_from_program<R, Offset>(prog: IncompleteLineNumberProgram<R>,
+                                         entries: &[(u64, LineType)],
+                                         project: &Path) -> Result<Vec<TracerData>>
+    where R: Reader<Offset = Offset>,
+          Offset: ReaderOffset
+{
     let mut result: Vec<TracerData> = Vec::new();
     let ( cprog, seq) = prog.sequences()?;
     for s in seq {
@@ -150,8 +156,8 @@ fn get_addresses_from_program<T:Endianity>(prog: IncompleteLineNumberProgram<T>,
                 let mut path = PathBuf::new();
                 
                 if let Some(dir) = file.directory(header) {
-                    if let Ok(temp) = String::from_utf8(dir.to_bytes().to_vec()) {
-                        path.push(temp);
+                    if let Ok(temp) = dir.to_string() {
+                        path.push(temp.as_ref());
                     }
                 }
                 // Fix relative paths and determine if in target directory
@@ -180,8 +186,8 @@ fn get_addresses_from_program<T:Endianity>(prog: IncompleteLineNumberProgram<T>,
                   
                         let file = file.path_name();
                         
-                        if let Ok(file) = String::from_utf8(file.to_bytes().to_vec())  {
-                            path.push(file);
+                        if let Ok(file) = file.to_string() {
+                            path.push(file.as_ref());
                             if !path.is_file() {
                                 // Not really a source file!
                                 continue;
@@ -219,22 +225,23 @@ fn get_addresses_from_program<T:Endianity>(prog: IncompleteLineNumberProgram<T>,
     Ok(result)
 }
 
-fn get_line_addresses<Endian: Endianity>(project: &Path, 
-                                         obj: &OFile, 
+fn get_line_addresses<Endian: Endianity>(endian: Endian,
+                                         project: &Path,
+                                         obj: &OFile,
                                          analysis: &HashMap<PathBuf, LineAnalysis>,
                                          ignore_tests: bool) -> Result<Vec<TracerData>>  {
     let mut result: Vec<TracerData> = Vec::new();
     let debug_info = obj.get_section(".debug_info").unwrap_or(&[]);
-    let debug_info = DebugInfo::<Endian>::new(debug_info);
+    let debug_info = DebugInfo::new(debug_info, endian);
     let debug_abbrev = obj.get_section(".debug_abbrev").unwrap_or(&[]);
-    let debug_abbrev = DebugAbbrev::<Endian>::new(debug_abbrev);
+    let debug_abbrev = DebugAbbrev::new(debug_abbrev, endian);
     let debug_strings = obj.get_section(".debug_str").unwrap_or(&[]);
-    let debug_strings = DebugStr::<Endian>::new(debug_strings);
+    let debug_strings = DebugStr::new(debug_strings, endian);
 
     let mut iter = debug_info.units();
     while let Ok(Some(cu)) = iter.next() {
         let addr_size = cu.address_size();
-        let abbr = match cu.abbreviations(debug_abbrev) {
+        let abbr = match cu.abbreviations(&debug_abbrev) {
             Ok(a) => a,
             _ => continue,
         };
@@ -253,7 +260,7 @@ fn get_line_addresses<Endian: Endianity>(project: &Path,
                 _ => continue,
             };
             let debug_line = obj.get_section(".debug_line").unwrap_or(&[]);
-            let debug_line = DebugLine::<Endian>::new(debug_line);
+            let debug_line = DebugLine::new(debug_line, endian);
             
             let prog = debug_line.program(offset, addr_size, None, None)?; 
             if let Ok(mut addresses) = get_addresses_from_program(prog, &entries, project) {
@@ -325,15 +332,17 @@ pub fn generate_tracer_data(project: &Workspace, test: &Path, config: &Config) -
     if let Ok(obj) = OFile::parse(unsafe {file.as_slice() }) {
         let analysis = get_line_analysis(project, config); 
         let data = if obj.is_little_endian() {
-            get_line_addresses::<LittleEndian>(manifest, 
-                                               &obj, 
-                                               &analysis, 
-                                               config.ignore_tests)
+            get_line_addresses(LittleEndian,
+                               manifest,
+                               &obj,
+                               &analysis,
+                               config.ignore_tests)
         } else {
-            get_line_addresses::<BigEndian>(manifest, 
-                                            &obj, 
-                                            &analysis, 
-                                            config.ignore_tests)
+            get_line_addresses(BigEndian,
+                               manifest,
+                               &obj,
+                               &analysis,
+                               config.ignore_tests)
         };
         data.map_err(|_| io::Error::new(io::ErrorKind::InvalidData, "Error while parsing"))
     } else {
