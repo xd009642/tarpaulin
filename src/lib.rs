@@ -16,14 +16,12 @@ extern crate quick_xml;
 use std::env;
 use std::io;
 use std::process;
-use std::io::{Error, ErrorKind};
 use std::ffi::CString;
 use std::path::{Path, PathBuf};
 use std::process::Command;
 use std::collections::{BTreeMap, HashMap};
 use nix::Error as NixErr;
 use nix::unistd::*;
-use nix::libc::pid_t;
 use nix::sys::ptrace::ptrace::*;
 use nix::sys::signal;
 use nix::sys::wait::*;
@@ -303,7 +301,7 @@ pub fn get_test_coverage(project: &Workspace, test: &Path, config: &Config, igno
 /// Collects the coverage data from the launched test
 fn collect_coverage(project: &Workspace, 
                     test_path: &Path, 
-                    test: pid_t,
+                    test: Pid,
                     config: &Config) -> io::Result<Vec<TracerData>> {
     let mut traces = generate_tracer_data(project, test_path, config)?;
     let mut bps: HashMap<u64, Breakpoint> = HashMap::new();
@@ -341,11 +339,11 @@ fn collect_coverage(project: &Workspace,
 
 /// Starts running a test. Child must have signalled STOP or SIGNALED to show 
 /// the parent it is not executing or it will be killed.
-fn run_function(pid: pid_t,
+fn run_function(pid: Pid,
                 forward_signals: bool,
                 no_count: bool,
                 mut traces: &mut Vec<TracerData>,
-                mut breakpoints: &mut HashMap<u64, Breakpoint>) -> Result<i8, Error> {
+                mut breakpoints: &mut HashMap<u64, Breakpoint>) -> Result<i8, NixErr> {
     let mut res = 0i8;
     // Thread count, don't count initial thread of execution
     let mut thread_count = 0isize;
@@ -353,7 +351,7 @@ fn run_function(pid: pid_t,
     // Start the function running. 
     continue_exec(pid, None)?;
     loop {
-        match waitpid(-1, Some(__WALL)) {
+        match waitpid(Pid::from_raw(-1), Some(__WALL)) {
             Ok(WaitStatus::Exited(child, sig)) => {
                 for (_, ref mut value) in breakpoints.iter_mut() {
                     value.thread_killed(child); 
@@ -436,7 +434,7 @@ fn run_function(pid: pid_t,
                 break;
             },
             Err(e) => {
-                return Err(Error::new(ErrorKind::Other, e))
+                return Err(e)
             },
         }
     }
