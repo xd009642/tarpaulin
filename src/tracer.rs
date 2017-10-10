@@ -225,11 +225,11 @@ fn get_addresses_from_program<R, Offset>(prog: IncompleteLineNumberProgram<R>,
     Ok(result)
 }
 
-fn get_line_addresses<Endian: Endianity>(endian: Endian,
-                                         project: &Path,
-                                         obj: &OFile,
-                                         analysis: &HashMap<PathBuf, LineAnalysis>,
-                                         ignore_tests: bool) -> Result<Vec<TracerData>>  {
+fn get_line_addresses(endian: RunTimeEndian,
+                      project: &Path,
+                      obj: &OFile,
+                      analysis: &HashMap<PathBuf, LineAnalysis>,
+                      ignore_tests: bool) -> Result<Vec<TracerData>>  {
     let mut result: Vec<TracerData> = Vec::new();
     let debug_info = obj.get_section(".debug_info").unwrap_or(&[]);
     let debug_info = DebugInfo::new(debug_info, endian);
@@ -331,20 +331,17 @@ pub fn generate_tracer_data(project: &Workspace, test: &Path, config: &Config) -
     let file = Mmap::open(&file, Protection::Read)?;
     if let Ok(obj) = OFile::parse(unsafe {file.as_slice() }) {
         let analysis = get_line_analysis(project, config); 
-        let data = if obj.is_little_endian() {
-            get_line_addresses(LittleEndian,
-                               manifest,
-                               &obj,
-                               &analysis,
-                               config.ignore_tests)
+        let endian = if obj.is_little_endian() {
+            RunTimeEndian::Little
         } else {
-            get_line_addresses(BigEndian,
-                               manifest,
-                               &obj,
-                               &analysis,
-                               config.ignore_tests)
+            RunTimeEndian::Big
         };
-        data.map_err(|_| io::Error::new(io::ErrorKind::InvalidData, "Error while parsing"))
+        get_line_addresses(endian,
+                           manifest,
+                           &obj,
+                           &analysis,
+                           config.ignore_tests)
+            .map_err(|_| io::Error::new(io::ErrorKind::InvalidData, "Error while parsing"))
     } else {
         Err(io::Error::new(io::ErrorKind::InvalidData, "Unable to parse binary."))
     }
