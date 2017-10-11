@@ -8,7 +8,8 @@ use cargo::util::Config as CargoConfig;
 use syntex_syntax::attr;
 use syntex_syntax::visit::{self, Visitor, FnKind};
 use syntex_syntax::codemap::{CodeMap, Span, FilePathMapping};
-use syntex_syntax::ast::{NodeId, Mac, Attribute, Mod, StructField, Block, Item, ItemKind, FnDecl};
+use syntex_syntax::ast::{NodeId, Mac, Attribute, Mod, StructField, Block, Item, 
+    ItemKind, FnDecl, TraitItem, TraitItemKind, ImplItemKind};
 use syntex_syntax::parse::{self, ParseSess};
 use syntex_syntax::errors::Handler;
 use syntex_syntax::errors::emitter::ColorConfig;
@@ -234,6 +235,16 @@ impl<'v, 'a> Visitor<'v> for CoverageVisitor<'a> {
                     self.cover_lines(block.deref().span);
                 }
             },
+            ItemKind::Impl(_, _, _, _, _, _, ref items) => {
+                for i in items {
+                    match i.node {
+                        ImplItemKind::Method(_,_) => {
+                            self.cover_lines(i.span);
+                        }
+                        _ => {},
+                    }
+                }
+            },
             _ => {},
         }
         visit::walk_item(self, i);
@@ -262,7 +273,18 @@ impl<'v, 'a> Visitor<'v> for CoverageVisitor<'a> {
             }
         } 
     }
-    
+   
+
+    fn visit_trait_item(&mut self, ti: &TraitItem) {
+        match ti.node {
+            TraitItemKind::Method(_, Some(ref b)) => {
+                self.cover_lines(b.span);
+            },
+            _ => {},
+        }
+        visit::walk_trait_item(self, ti);
+    }
+
     fn visit_fn(&mut self, fk: FnKind, fd: &FnDecl, s: Span, _: NodeId) {
         match fk {
             FnKind::ItemFn(_, g, _,_,_,_,_) => {
