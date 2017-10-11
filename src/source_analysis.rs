@@ -8,7 +8,9 @@ use cargo::util::Config as CargoConfig;
 use syntex_syntax::attr;
 use syntex_syntax::visit::{self, Visitor, FnKind};
 use syntex_syntax::codemap::{CodeMap, Span, FilePathMapping};
-use syntex_syntax::ast::{NodeId, Mac, Attribute, Mod, StructField, Block, Item, ItemKind, FnDecl};
+use syntex_syntax::ast::*;
+/*use syntex_syntax::ast::{NodeId, Mac, Attribute, Mod, StructField, Block, Item, 
+    ItemKind, FnDecl, TraitItem, TraitItemKind, ImplItemKind, WherePredicate};*/
 use syntex_syntax::parse::{self, ParseSess};
 use syntex_syntax::errors::Handler;
 use syntex_syntax::errors::emitter::ColorConfig;
@@ -218,6 +220,38 @@ impl<'a> CoverageVisitor<'a> {
             }
         }
     }
+    
+    /// Ignores where statements given the generics struct and the span this where
+    /// is contained within. In every instance tested the first line of the containing
+    /// span is coverable therefore shouldn't be added to ignore list.
+    fn ignore_where_statements(&mut self, gen: &Generics, container: Span) {
+        let pb = PathBuf::from(self.codemap.span_to_filename(gen.span) as String);
+        let first_line = {
+            let mut line = None;
+            if let Ok(fl) = self.codemap.span_to_lines(container) {
+                if let Some(s) = fl.lines.get(0) {
+                    line = Some(s.line_index);
+                }
+            } 
+            line
+        };
+        if let Some(first_line) = first_line {
+            for w in &gen.where_clause.predicates {
+                let span = match w {
+                    &WherePredicate::BoundPredicate(ref b) => b.span,
+                    &WherePredicate::RegionPredicate(ref r) => r.span,
+                    &WherePredicate::EqPredicate(ref e) => e.span,
+                };
+                if let Ok(fl) = self.codemap.span_to_lines(span) {
+                    for l in fl.lines {
+                        if l.line_index != first_line {
+                            self.lines.push((pb.clone(), l.line_index+1));
+                        }
+                    }
+                }
+            }
+        }
+    }
 }
 
 
@@ -226,10 +260,24 @@ impl<'v, 'a> Visitor<'v> for CoverageVisitor<'a> {
     fn visit_item(&mut self, i: &'v Item) {
         match i.node {
             ItemKind::ExternCrate(..) => self.ignore_lines(i.span),
-            ItemKind::Fn(_, _, _, _, _, ref block) => {
+            ItemKind::Fn(_, _, _, _, ref gen, ref block) => {
                 if attr::contains_name(&i.attrs, "test") && self.config.ignore_tests {
                     self.ignore_lines(i.span);
                     self.ignore_lines(block.deref().span);
+                } else if attr::contains_name(&i.attrs, "inline") {
+                    self.cover_lines(block.deref().span);
+                }
+                self.ignore_where_statements(gen, i.span);
+            },
+            ItemKind::Impl(_, _, _, _, _, _, ref items) => {
+                for i in items {
+                    match i.node {
+                        ImplItemKind::Method(ref sig,_) => {
+                            self.cover_lines(i.span);
+                            self.ignore_where_statements(&sig.generics, i.span);
+                        }
+                        _ => {},
+                    }
                 }
             },
             _ => {},
@@ -260,7 +308,18 @@ impl<'v, 'a> Visitor<'v> for CoverageVisitor<'a> {
             }
         } 
     }
-    
+   
+
+    fn visit_trait_item(&mut self, ti: &TraitItem) {
+        match ti.node {
+            TraitItemKind::Method(_, Some(ref b)) => {
+                self.cover_lines(b.span);
+            },
+            _ => {},
+        }
+        visit::walk_trait_item(self, ti);
+    }
+
     fn visit_fn(&mut self, fk: FnKind, fd: &FnDecl, s: Span, _: NodeId) {
         match fk {
             FnKind::ItemFn(_, g, _,_,_,_,_) => {
