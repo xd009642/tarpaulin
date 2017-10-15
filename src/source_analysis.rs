@@ -10,6 +10,8 @@ use syntex_syntax::visit::{self, Visitor, FnKind};
 use syntex_syntax::codemap::{CodeMap, Span, FilePathMapping};
 use syntex_syntax::ast::*;
 use syntex_syntax::parse::{self, ParseSess};
+use syntex_syntax::parse::token::*;
+use syntex_syntax::tokenstream::TokenTree;
 use syntex_syntax::errors::Handler;
 use syntex_syntax::errors::emitter::ColorConfig;
 use config::Config;
@@ -176,6 +178,16 @@ impl<'a> CoverageVisitor<'a> {
         }
     }
     
+    fn get_line_indexes(&mut self, span: Span) -> Vec<usize> {
+        if let Ok(ts) = self.codemap.span_to_lines(span) {
+            ts.lines.iter()
+                    .map(|x| x.line_index)
+                    .collect::<Vec<_>>()
+        } else {
+            Vec::new()
+        }
+    }
+
     /// Add lines to the line ignore list
     fn ignore_lines(&mut self, span: Span) {
         add_lines(self.codemap, &mut self.lines, span);
@@ -211,7 +223,7 @@ impl<'a> CoverageVisitor<'a> {
                 let pb = PathBuf::from(self.codemap.span_to_filename(span) as String);
                 if let Some(s) = l.file.get_line(line.line_index) {
                     // Is this one of those pointless {, } or }; only lines?
-                    if !s.chars().any(|x| !"{}[];\t ,".contains(x)) {
+                    if !s.chars().any(|x| !"{}[]?;\t ,".contains(x)) {
                         self.lines.push((pb, line.line_index + 1));
                     }
                 }
@@ -240,11 +252,9 @@ impl<'a> CoverageVisitor<'a> {
                     &WherePredicate::RegionPredicate(ref r) => r.span,
                     &WherePredicate::EqPredicate(ref e) => e.span,
                 };
-                if let Ok(fl) = self.codemap.span_to_lines(span) {
-                    for l in fl.lines {
-                        if l.line_index != first_line {
-                            self.lines.push((pb.clone(), l.line_index+1));
-                        }
+                for l in self.get_line_indexes(span) {
+                    if l != first_line {
+                        self.lines.push((pb.clone(), l+1));
                     }
                 }
             }
@@ -348,10 +358,8 @@ impl<'v, 'a> Visitor<'v> for CoverageVisitor<'a> {
                             match a.node {
                                 ExprKind::Lit(..) => {},
                                 _ => {
-                                    if let Ok(ts) = self.codemap.span_to_lines(a.span){
-                                        for l in &ts.lines {
-                                            cover.insert(l.line_index);
-                                        }
+                                    for l in self.get_line_indexes(a.span) {
+                                        cover.insert(l);
                                     }
                                 },
                             }
@@ -364,10 +372,8 @@ impl<'v, 'a> Visitor<'v> for CoverageVisitor<'a> {
                             match i.node {
                                 ExprKind::Lit(..) => {},
                                 _ => {
-                                    if let Ok(ts) = self.codemap.span_to_lines(i.span) {
-                                        for l in &ts.lines {
-                                            cover.insert(l.line_index);
-                                        }
+                                    for l in self.get_line_indexes(i.span) {
+                                        cover.insert(l);
                                     }
                                 },
                             }
@@ -421,6 +427,39 @@ impl<'v, 'a> Visitor<'v> for CoverageVisitor<'a> {
         self.find_ignorable_lines(b.span);
         visit::walk_block(self, b);
     }
+
+
+    fn visit_stmt(&mut self, s: &Stmt) {
+        match s.node {
+            StmtKind::Mac(ref p) => {
+                let mut cover: HashSet<usize>  = HashSet::new();
+                let ref mac = p.0.node;
+                for token in mac.stream().into_trees() {
+                    match token {
+                        TokenTree::Token(ref s, ref t) => {
+                            match t {
+                                &Token::Literal(_,_) | &Token::Pound => {},
+                                _ => {
+                                    for l in self.get_line_indexes(*s) {
+                                        cover.insert(l);
+                                    }
+                                },
+                            }
+                        },
+                        _ => {},
+                    }
+                }
+                let pb = PathBuf::from(self.codemap.span_to_filename(s.span) as String);
+                for l in self.get_line_indexes(s.span).iter().skip(1) {
+                    if !cover.contains(&l) {
+                        self.lines.push((pb.clone(), l+1));     
+                    }
+                }
+            },
+            _ => {}
+        }
+        visit::walk_stmt(self, s);
+    }
 }
 
 
@@ -466,6 +505,22 @@ mod tests {
         let mut visitor = CoverageVisitor::from_session(&ctx.parse_session, &unused, &ctx.conf);
         visitor.visit_mod(&krate.module, krate.span, &krate.attrs, NodeId::new(0));
         visitor.lines.iter().map(|x| x.1).collect::<Vec<_>>()
+    }
+    
+    #[test] 
+    fn filter_str_literals() {
+        let ctx = TestContext::default();
+        let mut parser = ctx.generate_parser("literals.rs", "fn test() {\nwriteln!(#\"test\ntest\ntest\"#);\n}\n");
+        let lines = parse_crate(&ctx, &mut parser);
+        assert!(lines.len() > 1);
+        assert!(lines.contains(&3));
+        assert!(lines.contains(&4));
+        
+        let mut parser = ctx.generate_parser("literals.rs", "fn test() {\nwrite(\"test\ntest\ntest\");\n}\nfn write(s:&str){}");
+        let lines = parse_crate(&ctx, &mut parser);
+        assert!(lines.len() > 1);
+        assert!(lines.contains(&3));
+        assert!(lines.contains(&4));
     }
 
     #[test]
