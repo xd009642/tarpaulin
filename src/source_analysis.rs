@@ -516,11 +516,17 @@ mod tests {
         assert!(lines.contains(&3));
         assert!(lines.contains(&4));
         
+        let ctx = TestContext::default();
         let mut parser = ctx.generate_parser("literals.rs", "fn test() {\nwrite(\"test\ntest\ntest\");\n}\nfn write(s:&str){}");
         let lines = parse_crate(&ctx, &mut parser);
         assert!(lines.len() > 1);
         assert!(lines.contains(&3));
         assert!(lines.contains(&4));
+        
+        let ctx = TestContext::default();
+        let mut parser = ctx.generate_parser("literals.rs", "\n\nfn test() {\nwriteln!(\n#\"test\"#\n);\n}\n");
+        let lines = parse_crate(&ctx, &mut parser);
+        assert!(lines.contains(&5));
     }
 
     #[test]
