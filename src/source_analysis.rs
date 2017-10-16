@@ -88,7 +88,6 @@ struct CoverageVisitor<'a> {
 
 /// Returns a list of files and line numbers to ignore (not indexes!)
 pub fn get_line_analysis(project: &Workspace, config: &Config) -> HashMap<PathBuf, LineAnalysis> {
-    println!("Special macro release");
     let mut result: HashMap<PathBuf, LineAnalysis> = HashMap::new();
     // Members iterates over all non-virtual packages in the workspace
     for pkg in project.members() {
@@ -238,7 +237,7 @@ impl<'a> CoverageVisitor<'a> {
             match token {
                 TokenTree::Token(ref s, ref t) => {
                     match t {
-                        &Token::Literal(_,_) | &Token::Pound => {},
+                        &Token::Literal(_,_) | &Token::Pound | &Token::Comma => {},
                         _ => {
                             for l in self.get_line_indexes(*s) {
                                 cover.insert(l);
@@ -250,9 +249,16 @@ impl<'a> CoverageVisitor<'a> {
             }
         }
         let pb = PathBuf::from(self.codemap.span_to_filename(s) as String);
-        for l in self.get_line_indexes(s).iter().skip(1) {
-            if !cover.contains(&l) {
-                self.lines.push((pb.clone(), l+1));     
+        if let Ok(ts) = self.codemap.span_to_lines(s) {
+            for l in ts.lines.iter().skip(1) {
+                let linestr = if let Some(linestr) = ts.file.get_line(l.line_index) {
+                    linestr
+                } else {
+                    ""
+                };
+                if !cover.contains(&l.line_index) && (linestr.len() <= (l.end_col.0 - l.start_col.0)) {
+                    self.lines.push((pb.clone(), l.line_index+1));     
+                }
             }
         }
     }
@@ -459,7 +465,6 @@ impl<'v, 'a> Visitor<'v> for CoverageVisitor<'a> {
 
 
     fn visit_stmt(&mut self, s: &Stmt) {
-        //println!("{:?}", s);
         match s.node {
             StmtKind::Mac(ref p) => {
                 let ref mac = p.0.node;
