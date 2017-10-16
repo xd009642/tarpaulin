@@ -88,6 +88,7 @@ struct CoverageVisitor<'a> {
 
 /// Returns a list of files and line numbers to ignore (not indexes!)
 pub fn get_line_analysis(project: &Workspace, config: &Config) -> HashMap<PathBuf, LineAnalysis> {
+    println!("Special macro release");
     let mut result: HashMap<PathBuf, LineAnalysis> = HashMap::new();
     // Members iterates over all non-virtual packages in the workspace
     for pkg in project.members() {
@@ -430,7 +431,7 @@ impl<'v, 'a> Visitor<'v> for CoverageVisitor<'a> {
         match mac_text {
             "unimplemented" => self.ignore_lines(mac.span),
             "unreachable" => self.ignore_lines(mac.span),
-            _ => {},
+            _ => self.ignore_mac_args(&mac.node, mac.span),
         }
         visit::walk_mac(self, mac);
     }
