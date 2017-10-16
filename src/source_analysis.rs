@@ -9,9 +9,9 @@ use syntex_syntax::attr;
 use syntex_syntax::visit::{self, Visitor, FnKind};
 use syntex_syntax::codemap::{CodeMap, Span, FilePathMapping};
 use syntex_syntax::ast::*;
-/*use syntex_syntax::ast::{NodeId, Mac, Attribute, Mod, StructField, Block, Item, 
-    ItemKind, FnDecl, TraitItem, TraitItemKind, ImplItemKind, WherePredicate};*/
 use syntex_syntax::parse::{self, ParseSess};
+use syntex_syntax::parse::token::*;
+use syntex_syntax::tokenstream::TokenTree;
 use syntex_syntax::errors::Handler;
 use syntex_syntax::errors::emitter::ColorConfig;
 use config::Config;
@@ -178,6 +178,16 @@ impl<'a> CoverageVisitor<'a> {
         }
     }
     
+    fn get_line_indexes(&mut self, span: Span) -> Vec<usize> {
+        if let Ok(ts) = self.codemap.span_to_lines(span) {
+            ts.lines.iter()
+                    .map(|x| x.line_index)
+                    .collect::<Vec<_>>()
+        } else {
+            Vec::new()
+        }
+    }
+
     /// Add lines to the line ignore list
     fn ignore_lines(&mut self, span: Span) {
         add_lines(self.codemap, &mut self.lines, span);
@@ -213,9 +223,41 @@ impl<'a> CoverageVisitor<'a> {
                 let pb = PathBuf::from(self.codemap.span_to_filename(span) as String);
                 if let Some(s) = l.file.get_line(line.line_index) {
                     // Is this one of those pointless {, } or }; only lines?
-                    if !s.chars().any(|x| !"{}[];\t ,".contains(x)) {
+                    if !s.chars().any(|x| !"{}[]?;\t ,".contains(x)) {
                         self.lines.push((pb, line.line_index + 1));
                     }
+                }
+            }
+        }
+    }
+
+    fn ignore_mac_args(&mut self, mac: &Mac_, s:Span) {
+        let mut cover: HashSet<usize>  = HashSet::new();
+        for token in mac.stream().into_trees() {
+            match token {
+                TokenTree::Token(ref s, ref t) => {
+                    match t {
+                        &Token::Literal(_,_) | &Token::Pound | &Token::Comma => {},
+                        _ => {
+                            for l in self.get_line_indexes(*s) {
+                                cover.insert(l);
+                            }
+                        },
+                    }
+                },
+                _ => {},
+            }
+        }
+        let pb = PathBuf::from(self.codemap.span_to_filename(s) as String);
+        if let Ok(ts) = self.codemap.span_to_lines(s) {
+            for l in ts.lines.iter().skip(1) {
+                let linestr = if let Some(linestr) = ts.file.get_line(l.line_index) {
+                    linestr
+                } else {
+                    ""
+                };
+                if !cover.contains(&l.line_index) && (linestr.len() <= (l.end_col.0 - l.start_col.0)) {
+                    self.lines.push((pb.clone(), l.line_index+1));     
                 }
             }
         }
@@ -242,11 +284,9 @@ impl<'a> CoverageVisitor<'a> {
                     &WherePredicate::RegionPredicate(ref r) => r.span,
                     &WherePredicate::EqPredicate(ref e) => e.span,
                 };
-                if let Ok(fl) = self.codemap.span_to_lines(span) {
-                    for l in fl.lines {
-                        if l.line_index != first_line {
-                            self.lines.push((pb.clone(), l.line_index+1));
-                        }
+                for l in self.get_line_indexes(span) {
+                    if l != first_line {
+                        self.lines.push((pb.clone(), l+1));
                     }
                 }
             }
@@ -337,6 +377,58 @@ impl<'v, 'a> Visitor<'v> for CoverageVisitor<'a> {
         visit::walk_fn(self, fk, fd, s);
     }
 
+    fn visit_expr(&mut self, ex: &Expr) {
+        if let Ok(s) = self.codemap.span_to_lines(ex.span) {
+            // If expression is multiple lines we might have to remove some of 
+            // said lines.
+            if s.lines.len() > 1 {
+                let mut cover: HashSet<usize>  = HashSet::new();
+                match ex.node {
+                    ExprKind::Call(_, ref args) => {
+                        cover.insert(s.lines[0].line_index);
+                        for a in args {
+                            match a.node {
+                                ExprKind::Lit(..) => {},
+                                _ => {
+                                    for l in self.get_line_indexes(a.span) {
+                                        cover.insert(l);
+                                    }
+                                },
+                            }
+                        }
+                    },
+                    ExprKind::MethodCall(_, _, ref args) => {
+                        let mut it = args.iter();
+                        it.next(); // First is function call
+                        for i in it {
+                            match i.node {
+                                ExprKind::Lit(..) => {},
+                                _ => {
+                                    for l in self.get_line_indexes(i.span) {
+                                        cover.insert(l);
+                                    }
+                                },
+                            }
+                        }
+                    },
+                    ExprKind::Mac(ref mac) => {
+                        self.ignore_mac_args(&mac.node, ex.span);
+                    },
+                    _ => {},
+                }
+                if !cover.is_empty() {
+                    let pb = PathBuf::from(self.codemap.span_to_filename(ex.span) as String);
+                    for l in &s.lines {
+                        if !cover.contains(&l.line_index) {
+                            self.lines.push((pb.clone(), l.line_index + 1));
+                        }
+                    }
+                }
+            }
+        }
+        visit::walk_expr(self, ex);
+    }
+
     fn visit_mac(&mut self, mac: &Mac) {
         // Use this to ignore unreachable lines
         let mac_text = &format!("{}", mac.node.path)[..];
@@ -345,7 +437,7 @@ impl<'v, 'a> Visitor<'v> for CoverageVisitor<'a> {
         match mac_text {
             "unimplemented" => self.ignore_lines(mac.span),
             "unreachable" => self.ignore_lines(mac.span),
-            _ => {},
+            _ => self.ignore_mac_args(&mac.node, mac.span),
         }
         visit::walk_mac(self, mac);
     }
@@ -369,6 +461,18 @@ impl<'v, 'a> Visitor<'v> for CoverageVisitor<'a> {
     fn visit_block(&mut self, b: &'v Block) {
         self.find_ignorable_lines(b.span);
         visit::walk_block(self, b);
+    }
+
+
+    fn visit_stmt(&mut self, s: &Stmt) {
+        match s.node {
+            StmtKind::Mac(ref p) => {
+                let ref mac = p.0.node;
+                self.ignore_mac_args(mac, s.span);
+            },
+            _ => {}
+        }
+        visit::walk_stmt(self, s);
     }
 }
 
@@ -415,6 +519,28 @@ mod tests {
         let mut visitor = CoverageVisitor::from_session(&ctx.parse_session, &unused, &ctx.conf);
         visitor.visit_mod(&krate.module, krate.span, &krate.attrs, NodeId::new(0));
         visitor.lines.iter().map(|x| x.1).collect::<Vec<_>>()
+    }
+    
+    #[test] 
+    fn filter_str_literals() {
+        let ctx = TestContext::default();
+        let mut parser = ctx.generate_parser("literals.rs", "fn test() {\nwriteln!(#\"test\n\ttest\n\ttest\"#);\n}\n");
+        let lines = parse_crate(&ctx, &mut parser);
+        assert!(lines.len() > 1);
+        assert!(lines.contains(&3));
+        assert!(lines.contains(&4));
+        
+        let ctx = TestContext::default();
+        let mut parser = ctx.generate_parser("literals.rs", "fn test() {\nwrite(\"test\ntest\ntest\");\n}\nfn write(s:&str){}");
+        let lines = parse_crate(&ctx, &mut parser);
+        assert!(lines.len() > 1);
+        assert!(lines.contains(&3));
+        assert!(lines.contains(&4));
+        
+        let ctx = TestContext::default();
+        let mut parser = ctx.generate_parser("literals.rs", "\n\nfn test() {\nwriteln!(\n#\"test\"#\n);\n}\n");
+        let lines = parse_crate(&ctx, &mut parser);
+        assert!(lines.contains(&5));
     }
 
     #[test]
