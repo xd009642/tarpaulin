@@ -230,6 +230,31 @@ impl<'a> CoverageVisitor<'a> {
             }
         }
     }
+
+    fn ignore_mac_args(&mut self, mac: &Mac_, s:Span) {
+        let mut cover: HashSet<usize>  = HashSet::new();
+        for token in mac.stream().into_trees() {
+            match token {
+                TokenTree::Token(ref s, ref t) => {
+                    match t {
+                        &Token::Literal(_,_) | &Token::Pound => {},
+                        _ => {
+                            for l in self.get_line_indexes(*s) {
+                                cover.insert(l);
+                            }
+                        },
+                    }
+                },
+                _ => {},
+            }
+        }
+        let pb = PathBuf::from(self.codemap.span_to_filename(s) as String);
+        for l in self.get_line_indexes(s).iter().skip(1) {
+            if !cover.contains(&l) {
+                self.lines.push((pb.clone(), l+1));     
+            }
+        }
+    }
     
     /// Ignores where statements given the generics struct and the span this where
     /// is contained within. In every instance tested the first line of the containing
@@ -379,6 +404,9 @@ impl<'v, 'a> Visitor<'v> for CoverageVisitor<'a> {
                             }
                         }
                     },
+                    ExprKind::Mac(ref mac) => {
+                        self.ignore_mac_args(&mac.node, ex.span);
+                    },
                     _ => {},
                 }
                 if !cover.is_empty() {
@@ -430,31 +458,11 @@ impl<'v, 'a> Visitor<'v> for CoverageVisitor<'a> {
 
 
     fn visit_stmt(&mut self, s: &Stmt) {
+        //println!("{:?}", s);
         match s.node {
             StmtKind::Mac(ref p) => {
-                let mut cover: HashSet<usize>  = HashSet::new();
                 let ref mac = p.0.node;
-                for token in mac.stream().into_trees() {
-                    match token {
-                        TokenTree::Token(ref s, ref t) => {
-                            match t {
-                                &Token::Literal(_,_) | &Token::Pound => {},
-                                _ => {
-                                    for l in self.get_line_indexes(*s) {
-                                        cover.insert(l);
-                                    }
-                                },
-                            }
-                        },
-                        _ => {},
-                    }
-                }
-                let pb = PathBuf::from(self.codemap.span_to_filename(s.span) as String);
-                for l in self.get_line_indexes(s.span).iter().skip(1) {
-                    if !cover.contains(&l) {
-                        self.lines.push((pb.clone(), l+1));     
-                    }
-                }
+                self.ignore_mac_args(mac, s.span);
             },
             _ => {}
         }
@@ -510,7 +518,7 @@ mod tests {
     #[test] 
     fn filter_str_literals() {
         let ctx = TestContext::default();
-        let mut parser = ctx.generate_parser("literals.rs", "fn test() {\nwriteln!(#\"test\ntest\ntest\"#);\n}\n");
+        let mut parser = ctx.generate_parser("literals.rs", "fn test() {\nwriteln!(#\"test\n\ttest\n\ttest\"#);\n}\n");
         let lines = parse_crate(&ctx, &mut parser);
         assert!(lines.len() > 1);
         assert!(lines.contains(&3));
