@@ -50,7 +50,8 @@ fn main() {
                  --forward -f 'Forwards unexpected signals to test. Tarpaulin will still take signals it is expecting.'
                  --coveralls [KEY]  'Coveralls key, either the repo token, or if you're using travis use $TRAVIS_JOB_ID and specify travis-{ci|pro} in --ciserver'
                  --features [FEATURE]... 'Features to be included in the target project'
-                 --packages -p [PACKAGE]... 'Package id specifications for which package should be build. See cargo help pkgid for more info'")
+                 --packages -p [PACKAGE]... 'Package id specifications for which package should be build. See cargo help pkgid for more info'
+                 --exclude -e [PACKAGE]... 'Package id specifications to exclude from coverage. See cargo help pkgid for more info'")
             .args(&[
                 Arg::from_usage("--out -o [FMT]   'Output path'")
                     .possible_values(&OutputFile::variants())
