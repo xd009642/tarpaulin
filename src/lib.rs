@@ -26,7 +26,7 @@ use nix::sys::ptrace::ptrace::*;
 use nix::sys::signal;
 use nix::sys::wait::*;
 use cargo::util::Config as CargoConfig;
-use cargo::core::Workspace;
+use cargo::core::{Workspace, Package};
 use cargo::ops;
 
 
@@ -104,16 +104,16 @@ pub fn launch_tarpaulin(config: &Config) -> Result<Vec<TracerData>, i32> {
     let compilation = ops::compile(&workspace, &copt);
     match compilation {
         Ok(comp) => {
-            for &(ref _package, ref _target_kind, ref name, ref path) in &comp.tests {
+            for &(ref package, ref _target_kind, ref name, ref path) in &comp.tests {
                 if config.verbose {
                     println!("Processing {}", name);
                 }
-                let res = get_test_coverage(&workspace, path.as_path(),
+                let res = get_test_coverage(&workspace, package, path.as_path(),
                                             &config, false)
                     .unwrap_or_default();
                 merge_test_results(&mut result, &res);
                 if config.run_ignored {
-                    let res = get_test_coverage(&workspace, path.as_path(),
+                    let res = get_test_coverage(&workspace, package, path.as_path(),
                                                 &config, true)
                         .unwrap_or_default();
                     merge_test_results(&mut result, &res);
@@ -275,7 +275,11 @@ pub fn report_coverage(config: &Config, result: &[TracerData]) {
 }
 
 /// Returns the coverage statistics for a test executable in the given workspace
-pub fn get_test_coverage(project: &Workspace, test: &Path, config: &Config, ignored: bool) -> Option<Vec<TracerData>> {
+pub fn get_test_coverage(project: &Workspace, 
+                         package: &Package,
+                         test: &Path, 
+                         config: &Config, 
+                         ignored: bool) -> Option<Vec<TracerData>> {
     if !test.exists() {
         return None;
     } 
@@ -293,7 +297,7 @@ pub fn get_test_coverage(project: &Workspace, test: &Path, config: &Config, igno
         }
         Ok(ForkResult::Child) => {
             println!("Launching test");
-            execute_test(test, ignored, config);
+            execute_test(test, package, ignored, config);
             None
         }
         Err(err) => { 
@@ -450,7 +454,7 @@ fn run_function(pid: Pid,
 
 
 /// Launches the test executable
-fn execute_test(test: &Path, ignored: bool, config: &Config) {
+fn execute_test(test: &Path, package: &Package, ignored: bool, config: &Config) {
     let exec_path = CString::new(test.to_str().unwrap()).unwrap();
     match personality::disable_aslr() {
         Ok(_) => {},
@@ -458,7 +462,8 @@ fn execute_test(test: &Path, ignored: bool, config: &Config) {
     }
     request_trace().expect("Failed to trace");
     println!("running {}", test.display());
-    if let Some(parent) = config.manifest.parent() {
+    println!("Working dir {}", package.manifest_path().display());
+    if let Some(parent) = package.manifest_path().parent() {
         let _ = env::set_current_dir(parent);
     }
     
