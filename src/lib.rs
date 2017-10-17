@@ -68,7 +68,8 @@ pub fn launch_tarpaulin(config: &Config) -> Result<Vec<TracerData>, i32> {
                                    flag_quiet,
                                    &None,
                                    false,
-                                   false);
+                                   false,
+                                   &[]);
     
     let workspace = Workspace::new(config.manifest.as_path(), &cargo_config).map_err(|_| 1i32)?;
     
@@ -76,7 +77,13 @@ pub fn launch_tarpaulin(config: &Config) -> Result<Vec<TracerData>, i32> {
         
     let mut copt = ops::CompileOptions::default(&cargo_config, ops::CompileMode::Test); 
     copt.features = config.features.as_slice();
-    copt.spec = ops::Packages::Packages(config.packages.as_slice());
+    copt.spec = match ops::Packages::from_flags(workspace.is_virtual(), true, &config.exclude, &config.packages) {
+        Ok(spec) => spec,
+        Err(e) => { 
+            println!("Error getting Packages from workspace {}", e);
+            return Err(-1)
+        }
+    };
     if config.verbose {
         println!("Running Tarpaulin");
     }
@@ -450,6 +457,10 @@ fn execute_test(test: &Path, ignored: bool, config: &Config) {
         Err(e) => println!("ASLR disable failed: {}", e),
     }
     request_trace().expect("Failed to trace");
+    println!("running {}", test.display());
+    if let Some(parent) = config.manifest.parent() {
+        let _ = env::set_current_dir(parent);
+    }
     
     let mut envars: Vec<CString> = vec![CString::new("RUST_TEST_THREADS=1").unwrap()];
     for (key, value) in env::vars() {

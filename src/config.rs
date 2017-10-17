@@ -66,6 +66,8 @@ pub struct Config {
     pub features: Vec<String>,
     /// Packages to include when building the target project
     pub packages: Vec<String>,
+    /// Packages to exclude from testing
+    pub exclude: Vec<String>,
     /// Varargs to be forwarded to the test executables.
     pub varargs: Vec<String>,
 }
@@ -114,6 +116,10 @@ impl Config {
             Some(v) => v,
             None => vec![],
         };
+        let exclude: Vec<String> = match args.values_of_lossy("exclude") {
+            Some(v) => v,
+            None => vec![],
+        };
         let varargs: Vec<String> = match args.values_of_lossy("args") {
             Some(v) => v,
             None => vec![],
@@ -133,6 +139,7 @@ impl Config {
             forward_signals: forward,
             features: features,
             packages: packages,
+            exclude: exclude,
             varargs: varargs
         }
     }
