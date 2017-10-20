@@ -77,7 +77,7 @@ pub fn launch_tarpaulin(config: &Config) -> Result<Vec<TracerData>, i32> {
         
     let mut copt = ops::CompileOptions::default(&cargo_config, ops::CompileMode::Test); 
     copt.features = config.features.as_slice();
-    copt.spec = match ops::Packages::from_flags(workspace.is_virtual(), true, &config.exclude, &config.packages) {
+    copt.spec = match ops::Packages::from_flags(workspace.is_virtual(), config.all, &config.exclude, &config.packages) {
         Ok(spec) => spec,
         Err(e) => { 
             println!("Error getting Packages from workspace {}", e);

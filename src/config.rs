@@ -64,6 +64,8 @@ pub struct Config {
     pub forward_signals: bool,
     /// Features to include in the target project build
     pub features: Vec<String>,
+    /// Build all packages in the workspace
+    pub all: bool,
     /// Packages to include when building the target project
     pub packages: Vec<String>,
     /// Packages to exclude from testing
@@ -112,6 +114,7 @@ impl Config {
             Some(v) => v,
             None => vec![],
         };
+        let all = args.is_present("all");
         let packages: Vec<String> = match args.values_of_lossy("packages") {
             Some(v) => v,
             None => vec![],
@@ -138,6 +141,7 @@ impl Config {
             ci_tool: ci_tool,
             forward_signals: forward,
             features: features,
+            all: all,
             packages: packages,
             exclude: exclude,
             varargs: varargs
