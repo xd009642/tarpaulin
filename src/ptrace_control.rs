@@ -1,11 +1,10 @@
 use std::ptr;
 use nix::sys::signal::Signal;
-use nix::sys::ptrace::{ptrace, ptrace_setoptions};
+use nix::sys::ptrace::{ptrace, ptrace_getevent, ptrace_setoptions};
 use nix::sys::ptrace::ptrace::*;
 use nix::libc::{c_void, c_long};
 use nix::unistd::Pid;
 use nix::Result;
-use std::mem;
 
 const RIP: u8 = 128;
 
@@ -55,15 +54,6 @@ pub fn request_trace() -> Result<c_long> {
 }
 
 pub fn get_event_data(pid: Pid) -> Result<c_long> {
-    let data = Box::new(0u64 as c_long);
-    let temp: *mut c_void = unsafe { mem::transmute(data) };
-    let res = ptrace(PTRACE_GETEVENTMSG, pid, ptr::null_mut(), temp);
-    match res {
-        Ok(_) => { 
-            let data: Box<c_long> = unsafe { mem::transmute(temp) };
-            Ok(*data)
-        },
-        err @ Err(..) => err,
-    }
+    ptrace_getevent(pid)
 }
 
