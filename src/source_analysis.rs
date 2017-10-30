@@ -222,8 +222,8 @@ impl<'a> CoverageVisitor<'a> {
             for line in &l.lines {
                 let pb = PathBuf::from(self.codemap.span_to_filename(span) as String);
                 if let Some(s) = l.file.get_line(line.line_index) {
-                    // Is this one of those pointless {, } or }; only lines?
-                    if !s.chars().any(|x| !"{}[]?;\t ,".contains(x)) {
+                    // Is this one of those pointless {, } or }; or )?; only lines?
+                    if !s.chars().any(|x| !"(){}[]?;\t ,".contains(x)) {
                         self.lines.push((pb, line.line_index + 1));
                     }
                 }
