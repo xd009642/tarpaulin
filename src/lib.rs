@@ -75,7 +75,13 @@ pub fn launch_tarpaulin(config: &Config) -> Result<Vec<TracerData>, i32> {
     
     setup_environment(&cargo_config);
         
-    let mut copt = ops::CompileOptions::default(&cargo_config, ops::CompileMode::Test); 
+    let mut copt = ops::CompileOptions::default(&cargo_config, ops::CompileMode::Test);
+    match copt.filter {
+        ops::CompileFilter::Default{ref mut required_features_filterable} => {
+            *required_features_filterable = true;
+        },
+        _ => {},
+    }
     copt.features = config.features.as_slice();
     copt.spec = match ops::Packages::from_flags(workspace.is_virtual(), config.all, &config.exclude, &config.packages) {
         Ok(spec) => spec,
@@ -462,7 +468,6 @@ fn execute_test(test: &Path, package: &Package, ignored: bool, config: &Config) 
     }
     request_trace().expect("Failed to trace");
     println!("running {}", test.display());
-    println!("Working dir {}", package.manifest_path().display());
     if let Some(parent) = package.manifest_path().parent() {
         let _ = env::set_current_dir(parent);
     }
