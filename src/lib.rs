@@ -359,8 +359,8 @@ fn collect_coverage(project: &Workspace,
 fn run_function(pid: Pid,
                 forward_signals: bool,
                 no_count: bool,
-                mut traces: &mut Vec<TracerData>,
-                mut breakpoints: &mut HashMap<u64, Breakpoint>) -> Result<i8, NixErr> {
+                traces: &mut Vec<TracerData>,
+                breakpoints: &mut HashMap<u64, Breakpoint>) -> Result<i8, NixErr> {
     let mut res = 0i8;
     // Thread count, don't count initial thread of execution
     let mut thread_count = 0isize;
@@ -400,7 +400,7 @@ fn run_function(pid: Pid,
                             false
                         };
                         if updated {
-                            for mut t in traces.iter_mut()
+                            for t in traces.iter_mut()
                                                .filter(|x| x.address == Some(rip)) {
                                 (*t).hits += 1;
                             }
