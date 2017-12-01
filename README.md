@@ -1,6 +1,6 @@
 # Tarpaulin
 
-![Build Status](https://travis-ci.org/xd009642/tarpaulin.svg?branch=master) [![Latest Version](https://img.shields.io/crates/v/cargo-tarpaulin.svg)](https://crates.io/crates/cargo-tarpaulin)  [![License:MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
+[![Build Status](https://travis-ci.org/xd009642/tarpaulin.svg?branch=master)](https://travis-ci.org/xd009642/tarpaulin) [![Latest Version](https://img.shields.io/crates/v/cargo-tarpaulin.svg)](https://crates.io/crates/cargo-tarpaulin)  [![License:MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
 
 Tarpaulin is designed to be a code coverage reporting tool for the Cargo build
 system, named for a waterproof cloth used to cover cargo on a ship. Currently,
