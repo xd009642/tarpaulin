@@ -7,8 +7,7 @@ COPY . /opt/tarpaulin/
 RUN cd /opt/tarpaulin/ && \
     cargo install && \
     rm -rf /opt/tarpaulin/ && \
-    rm -rf /usr/local/cargo/registry/cache/ && \
-    rm -rf /usr/local/cargo/registry/src/
+    rm -rf /usr/local/cargo/registry/
 
 WORKDIR /volume
 
