@@ -9,11 +9,14 @@ stage and therefore may contain some bugs. A lot of work has been done to get it
 working on some example projects and smaller crates so please report anything
 you find that's wrong. Also, check out our roadmap for planned features.
 
-Tarpaulin only supports x86_64 processors running linux. This is because
+Tarpaulin only supports x86_64 processors running Linux. This is because
 instrumenting breakpoints into executables and tracing their execution requires
 processor and OS specific code. It is a goal when greater stability is reached
 to add wider system support, however this is sufficient to run Tarpaulin on
-popular CI tools like Travis. 
+popular CI tools like Travis.
+
+It can also be run in Docker, which is useful for when you don't use Linux but
+want to run it locally, e.g. during development. See below for how to do that.
 
 ## Features
 
@@ -31,7 +34,7 @@ a repo and the commit containing your project and paste the verbose output).
 ### Installation
 
 Tarpaulin depends on cargo which depends on SSL. Make sure you've installed
-your distros ssl development libraries and they are on your path before
+your distros SSL development libraries and they are on your path before
 attempting to install tarpaulin. For example for Debian/Ubuntu:
 
 ```text
@@ -152,6 +155,40 @@ after_success: |
     # bash <(curl -s https://codecov.io/bash)
   fi
 ```
+
+### Docker
+
+To run Tarpaulin on any system that has Docker, run this in your project
+directory:
+
+```text
+docker run --security-opt seccomp=unconfined -v "$PWD:/volume" xd009642/tarpaulin
+```
+
+This builds your project inside Docker and runs Tarpaulin without any arguments.
+
+Note that the build might fail if the Docker image doesn't contain any necessary
+dependencies. In that case, you can install dependencies before, like this:
+
+```text
+docker run --security-opt seccomp=unconfined -v "$PWD:/volume" xd009642/tarpaulin sh -c "apt-get install xxx && cargo tarpaulin"
+```
+
+If you want to have an HTML report with the results, first generate XML:
+
+```text
+docker run --security-opt seccomp=unconfined -v "$PWD:/volume" xd009642/tarpaulin cargo tarpaulin --out Xml
+```
+
+You'll get a `cobertura.xml` file in your directory. To turn that into an HTML
+report, you can use [pycobertura](https://pypi.python.org/pypi/pycobertura):
+
+```text
+pip install pycobertura
+pycobertura show --format html --output coverage.html cobertura.xml
+```
+
+Then open `coverage.html` in your browser.
 
 ## Issues and Contributing
 
