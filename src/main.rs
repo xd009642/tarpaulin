@@ -39,8 +39,7 @@ fn main() {
             .about("Tool to analyse test coverage of cargo projects")
             .version(concat!("version: ", crate_version!()))
             .args_from_usage(
-                "--help       'Prints help information'
-                 --verbose -v 'Show extra output'
+                 "--verbose -v 'Show extra output'
                  --ignore-tests 'ignore lines of test functions when collecting coverage'
                  --no-count   'Disables counting line hits for a faster run'
                  --ignored -i 'Run ignored tests as well'
