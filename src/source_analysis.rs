@@ -125,7 +125,6 @@ fn analyse_package(pkg: &Package,
                         visitor.visit_mod(&krate.module, krate.span, &krate.attrs, NodeId::new(0));
                         visitor
                     };
-
                     for ignore in &lines.lines {
                         if result.contains_key(&ignore.0) {
                             let l = result.get_mut(&ignore.0).unwrap();
@@ -265,7 +264,8 @@ impl<'a> CoverageVisitor<'a> {
     
     /// Ignores where statements given the generics struct and the span this where
     /// is contained within. In every instance tested the first line of the containing
-    /// span is coverable therefore shouldn't be added to ignore list.
+    /// span is coverable (as it is function definition) therefore shouldn't be 
+    /// added to ignore list.
     fn ignore_where_statements(&mut self, gen: &Generics, container: Span) {
         let pb = PathBuf::from(self.codemap.span_to_filename(gen.span) as String);
         let first_line = {
@@ -284,8 +284,9 @@ impl<'a> CoverageVisitor<'a> {
                     &WherePredicate::RegionPredicate(ref r) => r.span,
                     &WherePredicate::EqPredicate(ref e) => e.span,
                 };
-                for l in self.get_line_indexes(span) {
-                    if l != first_line {
+                let end = self.get_line_indexes(span.end_point());
+                if let Some(&end) = end.last() {
+                    for l in (first_line+1)..(end+1) {
                         self.lines.push((pb.clone(), l+1));
                     }
                 }
