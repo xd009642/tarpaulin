@@ -107,6 +107,7 @@ pub fn launch_tarpaulin(config: &Config) -> Result<Vec<TracerData>, i32> {
         let _ = ops::clean(&workspace, &clean_opt);
     }
     let mut result:Vec<TracerData> = Vec::new();
+    println!("Building project");
     let compilation = ops::compile(&workspace, &copt);
     match compilation {
         Ok(comp) => {
