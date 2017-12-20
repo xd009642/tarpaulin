@@ -308,6 +308,10 @@ impl<'v, 'a> Visitor<'v> for CoverageVisitor<'a> {
                 } else if attr::contains_name(&i.attrs, "inline") {
                     self.cover_lines(block.deref().span);
                 }
+                if attr::contains_name(&i.attrs, "ignore") && !self.config.run_ignored {
+                    self.ignore_lines(i.span);
+                    self.ignore_lines(block.deref().span);
+                }
                 self.ignore_where_statements(gen, i.span);
             },
             ItemKind::Impl(_, _, _, _, _, _, ref items) => {
