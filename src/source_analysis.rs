@@ -321,6 +321,9 @@ impl<'v, 'a> Visitor<'v> for CoverageVisitor<'a> {
                     }
                 }
             },
+            ItemKind::Use(_) => {
+                self.ignore_lines(i.span);
+            }
             _ => {},
         }
         visit::walk_item(self, i);
