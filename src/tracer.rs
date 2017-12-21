@@ -272,6 +272,7 @@ fn get_line_addresses(endian: RunTimeEndian,
     // to the same line. This prunes these to just the first instruction address
     let mut result = result.iter()
                            .filter(|x| !(config.ignore_tests && x.path.starts_with(project.join("tests"))))
+                           .filter(|x| !(config.excluded_files.iter().any(|y| x.path.ends_with(y))))
                            .filter(|x| !analysis.should_ignore(x.path.as_ref(), &(x.line as usize)))
                            .filter(|x| x.trace_type != LineType::TestMain)
                            .cloned()
@@ -340,7 +341,7 @@ pub fn generate_tracer_data(project: &Workspace, test: &Path, config: &Config) -
                            manifest,
                            &obj,
                            &analysis,
-                           config.ignore_tests)
+                           config)
             .map_err(|_| io::Error::new(io::ErrorKind::InvalidData, "Error while parsing"))
     } else {
         Err(io::Error::new(io::ErrorKind::InvalidData, "Unable to parse binary."))
