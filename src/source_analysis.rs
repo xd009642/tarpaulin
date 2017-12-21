@@ -14,6 +14,7 @@ use syntex_syntax::parse::token::*;
 use syntex_syntax::tokenstream::TokenTree;
 use syntex_syntax::errors::Handler;
 use syntex_syntax::errors::emitter::ColorConfig;
+use regex::Regex;
 use config::Config;
 
 /// Represents the results of analysis of a single file. Does not store the file
@@ -125,7 +126,6 @@ fn analyse_package(pkg: &Package,
                         visitor.visit_mod(&krate.module, krate.span, &krate.attrs, NodeId::new(0));
                         visitor
                     };
-
                     for ignore in &lines.lines {
                         if result.contains_key(&ignore.0) {
                             let l = result.get_mut(&ignore.0).unwrap();
@@ -154,15 +154,6 @@ fn analyse_package(pkg: &Package,
     }
 }
 
-fn add_lines(codemap: &CodeMap, lines: &mut Vec<(PathBuf, usize)>, s: Span) {
-    if let Ok(ls) = codemap.span_to_lines(s) {
-        for line in &ls.lines {
-            let pb = PathBuf::from(codemap.span_to_filename(s) as String);
-            // Line number is index+1
-            lines.push((pb, line.line_index + 1));
-        }
-    }
-}
 
 impl<'a> CoverageVisitor<'a> {
     /// Construct a new ignored lines object for the given project
@@ -190,11 +181,45 @@ impl<'a> CoverageVisitor<'a> {
 
     /// Add lines to the line ignore list
     fn ignore_lines(&mut self, span: Span) {
-        add_lines(self.codemap, &mut self.lines, span);
+        if let Ok(ls) = self.codemap.span_to_lines(span) {
+            for line in &ls.lines {
+                let pb = PathBuf::from(self.codemap.span_to_filename(span) as String);
+                // Line number is index+1
+                self.lines.push((pb, line.line_index + 1));
+            }
+        }
     }    
 
+
     fn cover_lines(&mut self, span: Span) {
-        add_lines(self.codemap, &mut self.coverable, span);
+        if let Ok(ls) = self.codemap.span_to_lines(span) {
+            let temp_string = self.codemap.span_to_string(span);
+            let txt = temp_string.lines();
+            let mut is_comment = false;
+            let single_line = Regex::new(r"\s*//\n").unwrap();
+            let multi_start = Regex::new(r"/\*").unwrap();
+            let multi_end = Regex::new(r"\*/").unwrap();
+            for (&line, text) in ls.lines.iter().zip(txt) {
+                let is_code = if multi_start.is_match(text) {
+                    if !multi_end.is_match(text) {
+                        is_comment = true;
+                    } 
+                    false
+                } else if is_comment {
+                    if multi_end.is_match(text) {
+                        is_comment = false;
+                    }
+                    false
+                } else {
+                    true
+                };
+                if is_code && !single_line.is_match(text) {
+                    let pb = PathBuf::from(self.codemap.span_to_filename(span) as String);
+                    // Line number is index+1
+                    self.coverable.push((pb, line.line_index + 1));
+                }
+            }
+        }
     }
 
    
@@ -265,7 +290,8 @@ impl<'a> CoverageVisitor<'a> {
     
     /// Ignores where statements given the generics struct and the span this where
     /// is contained within. In every instance tested the first line of the containing
-    /// span is coverable therefore shouldn't be added to ignore list.
+    /// span is coverable (as it is function definition) therefore shouldn't be 
+    /// added to ignore list.
     fn ignore_where_statements(&mut self, gen: &Generics, container: Span) {
         let pb = PathBuf::from(self.codemap.span_to_filename(gen.span) as String);
         let first_line = {
@@ -284,8 +310,9 @@ impl<'a> CoverageVisitor<'a> {
                     &WherePredicate::RegionPredicate(ref r) => r.span,
                     &WherePredicate::EqPredicate(ref e) => e.span,
                 };
-                for l in self.get_line_indexes(span) {
-                    if l != first_line {
+                let end = self.get_line_indexes(span.end_point());
+                if let Some(&end) = end.last() {
+                    for l in (first_line+1)..(end+1) {
                         self.lines.push((pb.clone(), l+1));
                     }
                 }
@@ -307,6 +334,10 @@ impl<'v, 'a> Visitor<'v> for CoverageVisitor<'a> {
                 } else if attr::contains_name(&i.attrs, "inline") {
                     self.cover_lines(block.deref().span);
                 }
+                if attr::contains_name(&i.attrs, "ignore") && !self.config.run_ignored {
+                    self.ignore_lines(i.span);
+                    self.ignore_lines(block.deref().span);
+                }
                 self.ignore_where_statements(gen, i.span);
             },
             ItemKind::Impl(_, _, _, _, _, _, ref items) => {
@@ -320,6 +351,9 @@ impl<'v, 'a> Visitor<'v> for CoverageVisitor<'a> {
                     }
                 }
             },
+            ItemKind::Use(_) => {
+                self.ignore_lines(i.span);
+            }
             _ => {},
         }
         visit::walk_item(self, i);
