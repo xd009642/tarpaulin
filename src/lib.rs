@@ -12,6 +12,8 @@ extern crate clap;
 extern crate serde;
 extern crate serde_json;
 extern crate quick_xml;
+extern crate regex;
+
 
 use std::env;
 use std::io;

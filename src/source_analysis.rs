@@ -14,6 +14,7 @@ use syntex_syntax::parse::token::*;
 use syntex_syntax::tokenstream::TokenTree;
 use syntex_syntax::errors::Handler;
 use syntex_syntax::errors::emitter::ColorConfig;
+use regex::Regex;
 use config::Config;
 
 /// Represents the results of analysis of a single file. Does not store the file
@@ -153,15 +154,6 @@ fn analyse_package(pkg: &Package,
     }
 }
 
-fn add_lines(codemap: &CodeMap, lines: &mut Vec<(PathBuf, usize)>, s: Span) {
-    if let Ok(ls) = codemap.span_to_lines(s) {
-        for line in &ls.lines {
-            let pb = PathBuf::from(codemap.span_to_filename(s) as String);
-            // Line number is index+1
-            lines.push((pb, line.line_index + 1));
-        }
-    }
-}
 
 impl<'a> CoverageVisitor<'a> {
     /// Construct a new ignored lines object for the given project
@@ -189,11 +181,45 @@ impl<'a> CoverageVisitor<'a> {
 
     /// Add lines to the line ignore list
     fn ignore_lines(&mut self, span: Span) {
-        add_lines(self.codemap, &mut self.lines, span);
+        if let Ok(ls) = self.codemap.span_to_lines(span) {
+            for line in &ls.lines {
+                let pb = PathBuf::from(self.codemap.span_to_filename(span) as String);
+                // Line number is index+1
+                self.lines.push((pb, line.line_index + 1));
+            }
+        }
     }    
 
+
     fn cover_lines(&mut self, span: Span) {
-        add_lines(self.codemap, &mut self.coverable, span);
+        if let Ok(ls) = self.codemap.span_to_lines(span) {
+            let temp_string = self.codemap.span_to_string(span);
+            let txt = temp_string.lines();
+            let mut is_comment = false;
+            let single_line = Regex::new(r"\s*//\n").unwrap();
+            let multi_start = Regex::new(r"/\*").unwrap();
+            let multi_end = Regex::new(r"\*/").unwrap();
+            for (&line, text) in ls.lines.iter().zip(txt) {
+                let is_code = if multi_start.is_match(text) {
+                    if !multi_end.is_match(text) {
+                        is_comment = true;
+                    } 
+                    false
+                } else if is_comment {
+                    if multi_end.is_match(text) {
+                        is_comment = false;
+                    }
+                    false
+                } else {
+                    true
+                };
+                if is_code && !single_line.is_match(text) {
+                    let pb = PathBuf::from(self.codemap.span_to_filename(span) as String);
+                    // Line number is index+1
+                    self.coverable.push((pb, line.line_index + 1));
+                }
+            }
+        }
     }
 
    
