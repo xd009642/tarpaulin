@@ -229,7 +229,7 @@ fn get_line_addresses(endian: RunTimeEndian,
                       project: &Path,
                       obj: &OFile,
                       analysis: &HashMap<PathBuf, LineAnalysis>,
-                      ignore_tests: bool) -> Result<Vec<TracerData>>  {
+                      config: &Config) -> Result<Vec<TracerData>>  {
     let mut result: Vec<TracerData> = Vec::new();
     let debug_info = obj.get_section(".debug_info").unwrap_or(&[]);
     let debug_info = DebugInfo::new(debug_info, endian);
@@ -271,7 +271,7 @@ fn get_line_addresses(endian: RunTimeEndian,
     // Due to rust being a higher level language multiple instructions may map
     // to the same line. This prunes these to just the first instruction address
     let mut result = result.iter()
-                           .filter(|x| !(ignore_tests && x.path.starts_with(project.join("tests"))))
+                           .filter(|x| !(config.ignore_tests && x.path.starts_with(project.join("tests"))))
                            .filter(|x| !analysis.should_ignore(x.path.as_ref(), &(x.line as usize)))
                            .filter(|x| x.trace_type != LineType::TestMain)
                            .cloned()

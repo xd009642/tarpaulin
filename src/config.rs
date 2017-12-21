@@ -70,12 +70,21 @@ pub struct Config {
     pub packages: Vec<String>,
     /// Packages to exclude from testing
     pub exclude: Vec<String>,
+    /// Files to exclude from testing
+    pub excluded_files: Vec<String>,
     /// Varargs to be forwarded to the test executables.
     pub varargs: Vec<String>,
 }
 
 
 impl Config {
+    fn get_list_from_args(args: &ArgMatches, key: &str) -> Vec<String> {
+        match args.values_of_lossy(key) {
+            Some(v) => v,
+            None => vec![],
+        }
+    }
+
     /// Create configuration from clap ArgMatches.
     pub fn from_args(args: &ArgMatches) -> Config {
         let mut line = args.is_present("line");
@@ -110,23 +119,12 @@ impl Config {
         };
         let out:Vec<OutputFile> = values_t!(args.values_of("out"), OutputFile)
             .unwrap_or_default();
-        let features: Vec<String> = match args.values_of_lossy("features") {
-            Some(v) => v,
-            None => vec![],
-        };
+        let features: Vec<String> = Config::get_list_from_args(args, "features");
         let all = args.is_present("all");
-        let packages: Vec<String> = match args.values_of_lossy("packages") {
-            Some(v) => v,
-            None => vec![],
-        };
-        let exclude: Vec<String> = match args.values_of_lossy("exclude") {
-            Some(v) => v,
-            None => vec![],
-        };
-        let varargs: Vec<String> = match args.values_of_lossy("args") {
-            Some(v) => v,
-            None => vec![],
-        };
+        let packages: Vec<String> = Config::get_list_from_args(args, "packages");
+        let exclude: Vec<String> = Config::get_list_from_args(args, "exclude");
+        let varargs: Vec<String> = Config::get_list_from_args(args, "args");
+        let ex_files:Vec<String> = Config::get_list_from_args(args, "exclude-files");
         Config{
             manifest: root,
             run_ignored: ignored,
@@ -144,6 +142,7 @@ impl Config {
             all: all,
             packages: packages,
             exclude: exclude,
+            excluded_files: ex_files,
             varargs: varargs
         }
     }
