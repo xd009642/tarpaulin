@@ -127,7 +127,6 @@ impl Config {
         let mut ex_files:Vec<Regex> = vec![]; 
         for temp_str in &Config::get_list_from_args(args, "exclude-files") {
             let s =  &temp_str.replace(".", r"\.").replace("*", ".*");
-            println!("Wildcard: {}", s);
             if let Ok(re) = Regex::new(s) {
                 ex_files.push(re);
             } else if verbose {
@@ -176,5 +175,53 @@ impl Config {
         } else {
             path
         }
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use clap::App;
+
+
+    #[test]
+    fn exclude_paths() {
+        let matches = App::new("tarpaulin")
+            .args_from_usage("--exclude-files [FILE]... 'Exclude given files from coverage results has * wildcard'")
+            .get_matches_from_safe(vec!["tarpaulin", "--exclude-files", "*module*"])
+            .unwrap();
+        let conf = Config::from_args(&matches);
+        assert!(conf.exclude_path(Path::new("src/module/file.rs")));
+        assert!(!conf.exclude_path(Path::new("src/mod.rs")));
+        assert!(!conf.exclude_path(Path::new("unrelated.rs")));
+        assert!(conf.exclude_path(Path::new("module.rs")));
+    }
+    
+    
+    #[test]
+    fn no_exclusions() {
+        let matches = App::new("tarpaulin")
+            .args_from_usage("--exclude-files [FILE]... 'Exclude given files from coverage results has * wildcard'")
+            .get_matches_from_safe(vec!["tarpaulin"])
+            .unwrap();
+        let conf = Config::from_args(&matches);
+        assert!(!conf.exclude_path(Path::new("src/module/file.rs")));
+        assert!(!conf.exclude_path(Path::new("src/mod.rs")));
+        assert!(!conf.exclude_path(Path::new("unrelated.rs")));
+        assert!(!conf.exclude_path(Path::new("module.rs")));
+    }
+
+    
+    #[test]
+    fn exclude_exact_file() {
+        let matches = App::new("tarpaulin")
+            .args_from_usage("--exclude-files [FILE]... 'Exclude given files from coverage results has * wildcard'")
+            .get_matches_from_safe(vec!["tarpaulin", "--exclude-files", "*/lib.rs"])
+            .unwrap();
+        let conf = Config::from_args(&matches);
+        assert!(conf.exclude_path(Path::new("src/lib.rs")));
+        assert!(!conf.exclude_path(Path::new("src/mod.rs")));
+        assert!(!conf.exclude_path(Path::new("src/notlib.rs")));
+        assert!(!conf.exclude_path(Path::new("lib.rs")));
     }
 }
