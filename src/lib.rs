@@ -9,6 +9,8 @@ extern crate fallible_iterator;
 extern crate rustc_demangle;
 #[macro_use]
 extern crate clap;
+#[macro_use]
+extern crate lazy_static;
 extern crate serde;
 extern crate serde_json;
 extern crate quick_xml;

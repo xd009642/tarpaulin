@@ -196,24 +196,26 @@ impl<'a> CoverageVisitor<'a> {
             let temp_string = self.codemap.span_to_string(span);
             let txt = temp_string.lines();
             let mut is_comment = false;
-            let single_line = Regex::new(r"\s*//\n").unwrap();
-            let multi_start = Regex::new(r"/\*").unwrap();
-            let multi_end = Regex::new(r"\*/").unwrap();
+            lazy_static! {
+                static ref SINGLE_LINE: Regex = Regex::new(r"\s*//\n").unwrap();
+                static ref MULTI_START: Regex = Regex::new(r"/\*").unwrap();
+                static ref MULTI_END: Regex = Regex::new(r"\*/").unwrap();
+            }
             for (&line, text) in ls.lines.iter().zip(txt) {
-                let is_code = if multi_start.is_match(text) {
-                    if !multi_end.is_match(text) {
+                let is_code = if MULTI_START.is_match(text) {
+                    if !MULTI_END.is_match(text) {
                         is_comment = true;
                     } 
                     false
                 } else if is_comment {
-                    if multi_end.is_match(text) {
+                    if MULTI_END.is_match(text) {
                         is_comment = false;
                     }
                     false
                 } else {
                     true
                 };
-                if is_code && !single_line.is_match(text) {
+                if is_code && !SINGLE_LINE.is_match(text) {
                     let pb = PathBuf::from(self.codemap.span_to_filename(span) as String);
                     // Line number is index+1
                     self.coverable.push((pb, line.line_index + 1));
