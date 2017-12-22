@@ -272,7 +272,7 @@ fn get_line_addresses(endian: RunTimeEndian,
     // to the same line. This prunes these to just the first instruction address
     let mut result = result.iter()
                            .filter(|x| !(config.ignore_tests && x.path.starts_with(project.join("tests"))))
-                           .filter(|x| !(config.excluded_files.iter().any(|y| x.path.ends_with(y))))
+                           .filter(|x| !(config.exclude_path(&x.path)))
                            .filter(|x| !analysis.should_ignore(x.path.as_ref(), &(x.line as usize)))
                            .filter(|x| x.trace_type != LineType::TestMain)
                            .cloned()
@@ -307,6 +307,9 @@ fn get_line_addresses(endian: RunTimeEndian,
         }
     }
     for (file, ref line_analysis) in analysis.iter() {
+        if config.exclude_path(file) {
+            continue;
+        }
         for line in &line_analysis.cover {
             let line64 = *line as u64;
             let contain = result.iter().any(|ref x| &x.path == file && line64 == x.line);

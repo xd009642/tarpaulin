@@ -1,9 +1,9 @@
-use std::path::PathBuf;
+use std::path::{PathBuf, Path};
 use std::env;
 use std::str::FromStr;
 use clap::ArgMatches;
 use coveralls_api::CiService;
-
+use regex::Regex;
 
 arg_enum!{
     /// Enum to represent possible output formats.
@@ -71,7 +71,7 @@ pub struct Config {
     /// Packages to exclude from testing
     pub exclude: Vec<String>,
     /// Files to exclude from testing
-    pub excluded_files: Vec<String>,
+    excluded_files: Vec<Regex>,
     /// Varargs to be forwarded to the test executables.
     pub varargs: Vec<String>,
 }
@@ -124,7 +124,16 @@ impl Config {
         let packages: Vec<String> = Config::get_list_from_args(args, "packages");
         let exclude: Vec<String> = Config::get_list_from_args(args, "exclude");
         let varargs: Vec<String> = Config::get_list_from_args(args, "args");
-        let ex_files:Vec<String> = Config::get_list_from_args(args, "exclude-files");
+        let mut ex_files:Vec<Regex> = vec![]; 
+        for temp_str in &Config::get_list_from_args(args, "exclude-files") {
+            let s =  &temp_str.replace(".", r"\.").replace("*", ".*");
+            println!("Wildcard: {}", s);
+            if let Ok(re) = Regex::new(s) {
+                ex_files.push(re);
+            } else if verbose {
+                println!("Error in wildcard expression: {}", temp_str);
+            }
+        }
         Config{
             manifest: root,
             run_ignored: ignored,
@@ -150,5 +159,22 @@ impl Config {
     /// Determine whether to send data to coveralls 
     pub fn is_coveralls(&self) -> bool {
         self.coveralls.is_some()
+    }
+
+
+    pub fn exclude_path(&self, path: &Path) -> bool {
+        let path = self.strip_project_path(path);
+        self.excluded_files.iter()
+                           .any(|x| x.is_match(path.to_str().unwrap_or("")))
+    }
+    
+    /// Strips the directory the project manifest is in from the path. Provides a
+    /// nicer path for printing to the user.
+    pub fn strip_project_path<'a>(&'a self, path: &'a Path) -> &'a Path {
+        if let Some(root) = self.manifest.parent() {
+            path.strip_prefix(root).unwrap_or(path)
+        } else {
+            path
+        }
     }
 }

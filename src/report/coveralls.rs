@@ -22,11 +22,7 @@ pub fn export(coverage_data: &[TracerData], config: &Config) {
                                  });
         
         for file in &files {
-            let rel_path = if let Some(root) = config.manifest.parent() {
-                file.strip_prefix(root).unwrap_or(file)
-            } else {
-                file
-            };
+            let rel_path = config.strip_project_path(file);
             let mut lines: HashMap<usize, usize> = HashMap::new();
             let fcov = coverage_data.iter()
                                     .filter(|x| x.path == *file)

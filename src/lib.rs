@@ -220,15 +220,6 @@ pub fn merge_test_results(master: &mut Vec<TracerData>, new: &[TracerData]) {
     master.append(&mut unmerged);
 }
 
-/// Strips the directory the project manifest is in from the path. Provides a
-/// nicer path for printing to the user.
-fn strip_project_path<'a>(config: &'a Config, path: &'a Path) -> &'a Path {
-    if let Some(root) = config.manifest.parent() {
-        path.strip_prefix(root).unwrap_or(path)
-    } else {
-        path
-    }
-}
 
 /// Reports the test coverage using the users preferred method. See config.rs 
 /// or help text for details.
@@ -237,7 +228,7 @@ pub fn report_coverage(config: &Config, result: &[TracerData]) {
         println!("Coverage Results");
         if config.verbose {
             for r in result.iter() {
-                let path = strip_project_path(config, r.path.as_path());
+                let path = config.strip_project_path(r.path.as_path());
                 println!("{}:{} - hits: {}", path.display(), r.line, r.hits);
             }
             println!("");
@@ -255,7 +246,7 @@ pub fn report_coverage(config: &Config, result: &[TracerData]) {
             }
         }
         for (k, v) in &file_map {
-            let path = strip_project_path(config, k);
+            let path = config.strip_project_path(k);
             println!("{}: {}/{}", path.display(), v.0, v.1);
         }
         let covered = result.iter().filter(|&x| (x.hits > 0 )).count();
