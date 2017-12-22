@@ -52,7 +52,7 @@ fn main() {
                  --all        'Build all packages in the workspace'
                  --packages -p [PACKAGE]... 'Package id specifications for which package should be build. See cargo help pkgid for more info'
                  --exclude -e [PACKAGE]... 'Package id specifications to exclude from coverage. See cargo help pkgid for more info'
-                 --exclude-files [FILE]... 'Exclude given files from coverage results (must include .rs extension)'")
+                 --exclude-files [FILE]... 'Exclude given files from coverage results has * wildcard'")
             .args(&[
                 Arg::from_usage("--out -o [FMT]   'Output path'")
                     .possible_values(&OutputFile::variants())
