@@ -38,7 +38,7 @@ your distros SSL development libraries and they are on your path before
 attempting to install tarpaulin. For example for Debian/Ubuntu:
 
 ```text
-apt-get update && apt-get install libssl-dev
+apt-get update && apt-get install libssl-dev pkg-config cmake zlib1g-dev
 ```
 
 Tarpaulin is a command-line program, you install it into your linux development
