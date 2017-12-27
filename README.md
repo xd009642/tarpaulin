@@ -194,7 +194,7 @@ Then open `coverage.html` in your browser.
 
 Issues, feature requests and pull requests are always welcome! For a guide on
 how to approach bugs found in Tarpaulin and adding features please check 
-CONTRIBUTING.md.
+[CONTRIBUTING](CONTRIBUTING.md).
 
 ## Roadmap
 

@@ -33,7 +33,10 @@ see if they work.
 
 Pull requests are welcome, after you've implemented your feature test it on your
 own system and submit a PR. Make sure to explain what the feature adds to 
-Tarpaulin and any information you feel will make the review go easier.
+Tarpaulin and any information you feel will make the review go easier. 
+
+Tarpaulin uses the gitflow model so for new features branch off of the develop
+branch and add your changes.
 
 Any changes which break existing functionality won't be merged, but you'll
 receive feedback and help to resolve those issues and close the PR.
