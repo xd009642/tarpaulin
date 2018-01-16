@@ -129,6 +129,7 @@ the settings of your codecov project.
 
 ```yml
 language: rust
+sudo: required
 dist: trusty
 addons:
     apt:
