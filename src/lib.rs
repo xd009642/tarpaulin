@@ -38,6 +38,7 @@ pub mod config;
 pub mod tracer;
 pub mod breakpoint;
 pub mod report;
+mod inferior_state;
 mod source_analysis;
 
 /// Should be unnecessary with a future nix crate release.
