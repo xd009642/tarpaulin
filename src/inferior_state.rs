@@ -1,3 +1,4 @@
+use std::collections::HashMap;
 use nix::sys::wait::*;
 use nix::sys::signal;
 use nix::unistd::Pid;
@@ -29,26 +30,21 @@ use config::Config;
 /// implementations for other operating systems and provides the implementation
 /// of the test running state machine
 /// T is data used to store the necessary process information to enable tracing
-enum State<T> {
+pub enum TestState {
     /// Start state. Wait for test to appear and track time to enable timeout
     Start { 
-        hnd: T,
         start_time: u64, 
     },
     /// Initialise: once test process appears instrument 
-    Initialise {
-        hnd: T,
-    },
+    Initialise ,
     /// Waiting for breakpoint to be hit or test to end
     Waiting { 
-        hnd: T,
         start_time: u64, 
     },
     /// Test process stopped, check coverage
-    Stopped { 
-        hnd: T,
-        stop_state:T,
-    },
+    Stopped,
+    /// Process timed out
+    Timeout,
     /// Unrecoverable error occurred
     Unrecoverable,
     /// Test exited normally
@@ -58,53 +54,92 @@ enum State<T> {
 /// Trait for state machines to implement
 trait StateMachine<T> {
     /// Update the states
-    fn step(self, traces: &mut TracerData, config: &Config) -> State<T>;
+    fn step(self, data: &mut T, config: &Config) -> TestState;
 }
 
 /// Handle to linux process state
-#[derive(Debug, Clone, Copy)]
-struct LinuxHnd {
-    wait: Option<WaitStatus>,
+#[derive(Debug)]
+struct LinuxData<'a> {
+    wait: WaitStatus,
+    current: Pid,
     parent: Pid,
+    breakpoints: HashMap<u64, Breakpoint>,
+    traces: &'a mut Vec<TracerData>,
 }
 
-
-impl StateMachine<LinuxHnd> for State<LinuxHnd> {
-    
-    fn step(self, traces: &mut TracerData, config: &Config) -> State<LinuxHnd> {
-        match self {
-            State::Start{hnd, start_time} => {
-                if let Some(res) = self.start(hnd) {
-                    res
-                } else if start_time > 1000 {
-                    State::Unrecoverable::<_>
-                } else {
-                    State::Start{hnd: hnd, start_time:start_time+1}
-                }
-            },
-            _ => State::Unrecoverable::<_>
+impl <'a>LinuxData<'a> {
+    fn new(traces: &'a mut Vec<TracerData>) -> LinuxData {
+        LinuxData {
+            wait: WaitStatus::StillAlive,
+            current: Pid::from_raw(0),
+            parent: Pid::from_raw(0),
+            breakpoints: HashMap::new(),
+            traces: traces
         }
     }
-}
 
-impl State<LinuxHnd> {
-    
-    fn start(self, hnd: LinuxHnd) -> Option<State<LinuxHnd>> {
-        match waitpid(hnd.parent, Some(WNOHANG)) {
-            Ok(WaitStatus::Stopped(_, signal::SIGTRAP)) => {
-                Some(State::Initialise::<LinuxHnd>{hnd})
+    fn check_for_tracee(&mut self) -> Option<TestState> {
+        match waitpid(self.current, Some(WNOHANG)) {
+            Ok(WaitStatus::StillAlive) => None,
+            Ok(sig @ WaitStatus::Stopped(_, signal::SIGTRAP)) => {
+                if let WaitStatus::Stopped(child, _) = sig {
+                    self.current = child;
+                }
+                self.wait = sig;
+                Some(TestState::Initialise)
             },
-            Ok(_) => {
-                println!("Unexpected signal from test");
+            Ok(s) => {
+                println!("Unexpected signal when starting test");
                 None
             },
             Err(e) => {
-                println!("Error on start: {}", e);
-                Some(State::Unrecoverable::<_>)
+                println!("Error when starting test: {}", e);
+                Some(TestState::Unrecoverable)
             },
         }
     }
-    
 }
+
+
+impl <'a> StateMachine<LinuxData<'a>> for TestState {
+    
+    fn step(self, data: &mut LinuxData<'a>, config: &Config) -> TestState {
+        match self {
+            TestState::Start{start_time} => {
+                if let Some(state) = data.check_for_tracee() {
+                    state
+                } else if start_time < 1000 {
+                    TestState::Start{start_time: start_time + 1}
+                } else {
+                    TestState::Timeout
+                }
+            },
+            TestState::Initialise => { 
+                if let Err(c) = trace_children(data.current) {
+                    println!("Failed to trace child threads");
+                }
+                for trace in data.traces.iter() {
+                    if let Some(addr) = trace.address {
+                        match Breakpoint::new(data.current, addr) {
+                            Ok(bp) => {
+                                let _ = data.breakpoints.insert(addr, bp);
+                            },
+                            Err(e) => {
+                                println!("Failed to instrument");
+                            },
+                        }
+                    }
+                }
+                if let Ok(_) = continue_exec(data.parent, None) {
+                    TestState::Waiting{start_time:0}
+                } else {
+                    TestState::Unrecoverable
+                }
+            },
+            _ => TestState::Unrecoverable
+        }
+    }
+}
+
 
 
