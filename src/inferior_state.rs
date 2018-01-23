@@ -52,14 +52,14 @@ pub enum TestState {
 }
 
 /// Trait for state machines to implement
-trait StateMachine<T> {
+pub trait StateMachine<T> {
     /// Update the states
     fn step(self, data: &mut T, config: &Config) -> TestState;
 }
 
 /// Handle to linux process state
 #[derive(Debug)]
-struct LinuxData<'a> {
+pub struct LinuxData<'a> {
     wait: WaitStatus,
     current: Pid,
     parent: Pid,
@@ -68,7 +68,7 @@ struct LinuxData<'a> {
 }
 
 impl <'a>LinuxData<'a> {
-    fn new(traces: &'a mut Vec<TracerData>) -> LinuxData {
+    pub fn new(traces: &'a mut Vec<TracerData>) -> LinuxData {
         LinuxData {
             wait: WaitStatus::StillAlive,
             current: Pid::from_raw(0),
@@ -77,6 +77,7 @@ impl <'a>LinuxData<'a> {
             traces: traces
         }
     }
+
 
     fn check_for_tracee(&mut self) -> Option<TestState> {
         match waitpid(self.current, Some(WNOHANG)) {
@@ -134,6 +135,27 @@ impl <'a> StateMachine<LinuxData<'a>> for TestState {
                     TestState::Waiting{start_time:0}
                 } else {
                     TestState::Unrecoverable
+                }
+            },
+            TestState::Waiting{start_time} => {
+                if start_time > 100_000 {
+                    TestState::Timeout
+                } else {
+                    let wait = waitpid(Pid::from_raw(-1), Some(WNOHANG | __WALL));
+                    match wait {
+                        Ok(WaitStatus::StillAlive) => {
+                            data.wait = WaitStatus::StillAlive;
+                            TestState::Waiting{start_time: start_time + 1}
+                        },
+                        Ok(s) => {
+                            data.wait = s;
+                            TestState::Stopped
+                        },
+                        Err(e) => {
+                            println!("An error occurred");
+                            TestState::Unrecoverable
+                        },
+                    }
                 }
             },
             _ => TestState::Unrecoverable
