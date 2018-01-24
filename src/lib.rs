@@ -49,6 +49,8 @@ use config::*;
 use tracer::*;
 use breakpoint::*;
 use ptrace_control::*;
+use inferior_state::*;
+
 
 const PIE_ERROR: &'static str = "ERROR: Tarpaulin cannot find code addresses check that \
 pie is disabled for your linker. If linking with gcc try adding -C link-args=-no-pie \
@@ -318,35 +320,14 @@ fn collect_coverage(project: &Workspace,
                     test: Pid,
                     config: &Config) -> io::Result<Vec<TracerData>> {
     let mut traces = generate_tracer_data(project, test_path, config)?;
-    let mut bps: HashMap<u64, Breakpoint> = HashMap::new();
-    match waitpid(test, None) {
-        Ok(WaitStatus::Stopped(child, signal::SIGTRAP)) => {
-            let child_trace = trace_children(child);
-            if let Err(c) = child_trace {
-                println!("Failed to trace child threads: {}", c);
+    {
+        let (mut state, mut data) = create_state_machine(test, &mut traces);
+        loop {
+            state = state.step(&mut data, config);
+            if state.is_finished() {
+                break;
             }
-            for trace in &traces {
-                if let Some(addr) = trace.address {
-                    match Breakpoint::new(child, addr) {
-                        Ok(bp) => { 
-                            let _ = bps.insert(addr, bp);
-                        },
-                        Err(e) if e == NixErr::Sys(nix::Errno::EIO) => {
-                            println!("{}", PIE_ERROR);
-                            process::exit(1);
-                        },
-                        Err(e) => println!("Failed to instrument {}", e),
-                    }
-                }
-            }  
-        },
-        Ok(_) => println!("Unexpected grab"),   
-        Err(err) => println!("Error on start: {}", err)
-    }
-    // Now we start hitting lines!
-    if let Err(e) = run_function(test, config.forward_signals, config.no_count,
-                       &mut traces, &mut bps) {
-        println!("Error while collecting coverage. {}", e);
+        }
     }
     Ok(traces)
 }

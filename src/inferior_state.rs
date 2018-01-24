@@ -30,6 +30,7 @@ use config::Config;
 /// implementations for other operating systems and provides the implementation
 /// of the test running state machine
 /// T is data used to store the necessary process information to enable tracing
+#[derive(Debug, Copy, Clone, Eq, PartialEq)]
 pub enum TestState {
     /// Start state. Wait for test to appear and track time to enable timeout
     Start { 
@@ -49,6 +50,15 @@ pub enum TestState {
     Unrecoverable,
     /// Test exited normally
     End,
+}
+
+impl TestState {
+    pub fn is_finished(self) -> bool {
+        match self {
+            TestState::End | TestState::Unrecoverable => true,
+            _ => false,
+        }
+    }
 }
 
 /// Trait for state machines to implement
@@ -163,5 +173,8 @@ impl <'a> StateMachine<LinuxData<'a>> for TestState {
     }
 }
 
-
-
+pub fn create_state_machine(test: Pid, traces: &mut Vec<TracerData>) -> (TestState, LinuxData) {
+    let mut data = LinuxData::new(traces);
+    data.parent = test;
+    (TestState::Start{start_time:0}, data)
+}
