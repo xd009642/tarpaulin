@@ -310,6 +310,15 @@ impl <'a>LinuxData<'a> {
 
     fn handle_ptrace_event(&mut self) -> Result<TestState> {
         match self.wait {
+            WaitStatus::PtraceEvent(child, signal::SIGTRAP, PTRACE_EVENT_CLONE) => {
+                if get_event_data(child).is_ok() {
+                    continue_exec(child, None)?;
+                    Ok(TestState::Waiting{start_time:0})
+                } else {
+                    self.error_message = Some("Error occurred upon test executable thread creation".to_string());
+                    Ok(TestState::Unrecoverable)
+                }
+            },
             WaitStatus::PtraceEvent(child, signal::SIGTRAP, PTRACE_EVENT_FORK) => {
                 continue_exec(child, None)?;
                 Ok(TestState::Waiting{start_time:0})
