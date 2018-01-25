@@ -1,11 +1,12 @@
 use std::collections::HashMap;
+use nix::sys::ptrace::ptrace::*;
 use nix::sys::wait::*;
 use nix::sys::signal;
+use nix::Result;
 use nix::unistd::Pid;
 use tracer::*;
 use breakpoint::*;
 use ptrace_control::*;
-use nix::sys::ptrace::ptrace::*;
 use config::Config;
 /// 
 /// So we are either:
@@ -195,7 +196,7 @@ impl <'a> StateData for LinuxData<'a> {
                         let _ = self.breakpoints.insert(addr, bp);
                     },
                     Err(e) => {
-                        println!("Failed to instrument");
+                        self.error_message = Some("Failed to instrument test executable".to_string());
                     },
                 }
             }
@@ -220,7 +221,7 @@ impl <'a> StateData for LinuxData<'a> {
                 Some(TestState::Stopped)
             },
             Err(e) => {
-                println!("An error occurred");
+                self.error_message = Some("An error occurred while waiting for response from test".to_string());
                 Some(TestState::Unrecoverable)
             },
         }
@@ -230,15 +231,32 @@ impl <'a> StateData for LinuxData<'a> {
     fn stop(&mut self) -> TestState {
         match self.wait {
             WaitStatus::PtraceEvent(_,_,_) => {
-                self.handle_ptrace_event()
+                match self.handle_ptrace_event() {
+                    Ok(s) => s,
+                    Err(e) => {
+                        let msg = format!("Error occurred when handling ptrace event: {}", e);
+                        self.error_message = Some(msg);
+                        TestState::Unrecoverable
+                    },
+                }
             },
             WaitStatus::Stopped(c,signal::SIGTRAP) => {
                 self.current = c;
-                self.collect_coverage_data()
+                match self.collect_coverage_data() {
+                    Ok(s) => s,
+                    Err(e) => {
+                        self.error_message = Some(format!("Error when collecting coverage: {}", e));
+                        TestState::Unrecoverable
+                    }
+                }
             },
             WaitStatus::Stopped(child, signal::SIGSTOP) => {
-                let _ =continue_exec(child, None);
-                TestState::Waiting{start_time:0}
+                if continue_exec(child, None).is_ok() {
+                    TestState::Waiting{start_time:0}
+                } else {
+                    self.error_message = Some("Error processing SIGSTOP".to_string());
+                    TestState::Unrecoverable
+                }
             },
             WaitStatus::Stopped(_, signal::SIGSEGV) => TestState::Unrecoverable,
             WaitStatus::Stopped(c, s) => {
@@ -251,7 +269,12 @@ impl <'a> StateData for LinuxData<'a> {
                 TestState::Waiting{start_time:0}
             },
             WaitStatus::Signaled(_,_,_) => {
-                self.handle_signaled()
+                if let Ok(s) = self.handle_signaled() {
+                    s
+                } else {
+                    self.error_message = Some("Error attempting to handle tarpaulin being signaled".to_string());
+                    TestState::Unrecoverable
+                }
             },
             WaitStatus::Exited(child, sig) => {
                 if child == self.parent {
@@ -285,29 +308,29 @@ impl <'a>LinuxData<'a> {
         }
     }
 
-    fn handle_ptrace_event(&mut self) -> TestState {
+    fn handle_ptrace_event(&mut self) -> Result<TestState> {
         match self.wait {
             WaitStatus::PtraceEvent(child, signal::SIGTRAP, PTRACE_EVENT_FORK) => {
-                continue_exec(child, None);
-                TestState::Waiting{start_time:0}
+                continue_exec(child, None)?;
+                Ok(TestState::Waiting{start_time:0})
             },
             WaitStatus::PtraceEvent(child, signal::SIGTRAP, PTRACE_EVENT_VFORK) => {
-                continue_exec(child, None);
-                TestState::Waiting{start_time:0}
+                continue_exec(child, None)?;
+                Ok(TestState::Waiting{start_time:0})
             },
             WaitStatus::PtraceEvent(child, signal::SIGTRAP, PTRACE_EVENT_EXEC) => {
-                detach_child(child);
-                TestState::Waiting{start_time:0}
+                detach_child(child)?;
+                Ok(TestState::Waiting{start_time:0})
             },
             WaitStatus::PtraceEvent(child, signal::SIGTRAP, PTRACE_EVENT_EXIT) => {
-                continue_exec(child, None);
-                TestState::Waiting{start_time:0}
+                continue_exec(child, None)?;
+                Ok(TestState::Waiting{start_time:0})
             },
-            _ => TestState::Unrecoverable,
+            _ => Ok(TestState::Unrecoverable),
         }
     }
 
-    fn collect_coverage_data(&mut self) -> TestState {
+    fn collect_coverage_data(&mut self) -> Result<TestState> {
         let thread_count = 1;
         let mut unwarned = true;
         if let Ok(rip) = current_instruction_pointer(self.current) {
@@ -332,23 +355,23 @@ impl <'a>LinuxData<'a> {
                     }
                 } 
             } else {
-                continue_exec(self.current, None);
+                continue_exec(self.current, None)?;
             }
         } else {
-            continue_exec(self.current, None);
+            continue_exec(self.current, None)?;
         }
-        TestState::Waiting{start_time:0}
+        Ok(TestState::Waiting{start_time:0})
     }
 
-    fn handle_signaled(&mut self) -> TestState {
+    fn handle_signaled(&mut self) -> Result<TestState> {
         match self.wait {
             WaitStatus::Signaled(child, signal::SIGTRAP, true) => {
-                continue_exec(child, None); 
-                TestState::Waiting{start_time:0}
+                continue_exec(child, None)?; 
+                Ok(TestState::Waiting{start_time:0})
             },
             _ => {
-                println!("Unexpected stop");
-                TestState::Unrecoverable
+                self.error_message = Some("Unexpected stop".to_string());
+                Ok(TestState::Unrecoverable)
             },
         }
     }
