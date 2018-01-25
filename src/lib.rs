@@ -19,7 +19,6 @@ extern crate regex;
 
 use std::env;
 use std::io;
-use std::process;
 use std::ffi::CString;
 use std::path::{Path, PathBuf};
 use std::process::Command;
@@ -321,7 +320,7 @@ fn collect_coverage(project: &Workspace,
                     config: &Config) -> io::Result<Vec<TracerData>> {
     let mut traces = generate_tracer_data(project, test_path, config)?;
     {
-        let (mut state, mut data) = create_state_machine(test, &mut traces);
+        let (mut state, mut data) = create_state_machine(test, &mut traces, config);
         println!("{:?}", state);
         loop {
             state = state.step(&mut data, config);
