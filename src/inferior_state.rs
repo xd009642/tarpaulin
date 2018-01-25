@@ -1,4 +1,5 @@
 use std::collections::HashMap;
+use std::time::Instant;
 use nix::sys::ptrace::ptrace::*;
 use nix::sys::wait::*;
 use nix::sys::signal;
@@ -36,13 +37,13 @@ use config::Config;
 pub enum TestState {
     /// Start state. Wait for test to appear and track time to enable timeout
     Start { 
-        start_time: u64, 
+        start_time: Instant, 
     },
     /// Initialise: once test process appears instrument 
     Initialise ,
     /// Waiting for breakpoint to be hit or test to end
     Waiting { 
-        start_time: u64, 
+        start_time: Instant, 
     },
     /// Test process stopped, check coverage
     Stopped,
@@ -61,6 +62,16 @@ impl TestState {
             TestState::End | TestState::Unrecoverable => true,
             _ => false,
         }
+    }
+
+    /// Convenience function for creating start states
+    fn start_state() -> TestState {
+        TestState::Start{start_time: Instant::now()}
+    }
+
+    /// Convenience function for creating wait states
+    fn wait_state() -> TestState {
+        TestState::Waiting{start_time: Instant::now()}
     }
 }
 
@@ -96,21 +107,27 @@ impl <T> StateMachine<T> for TestState where T:StateData {
 
     fn step(self, data: &mut T, config: &Config) -> TestState {
         match self {
-            org @ TestState::Start{..} => {
+            TestState::Start{start_time} => {
                 if let Some(s) = data.start() {
                     s
+                } else if start_time.elapsed() >= config.test_timeout {
+                    println!("Error: Timed out when starting test");
+                    TestState::Timeout
                 } else {
-                    org
+                    TestState::Start{start_time:start_time}
                 }
             },
             TestState::Initialise => {
                 data.init()
             },  
-            org @ TestState::Waiting{..} => {
+            TestState::Waiting{start_time} => {
                 if let Some(s) =data.wait() {
                     s
+                } else if start_time.elapsed() >= config.test_timeout {
+                    println!("Error: Timed out waiting for test response");
+                    TestState::Timeout
                 } else {
-                    org
+                    TestState::Waiting{start_time}
                 }
             },
             TestState::Stopped => {
@@ -137,7 +154,7 @@ pub fn create_state_machine<'a>(test: Pid,
                                 config: &'a Config) -> (TestState, LinuxData<'a>) {
     let mut data = LinuxData::new(traces, config);
     data.parent = test;
-    (TestState::Start{start_time:0}, data)
+    (TestState::start_state(), data)
 }
 
 
@@ -202,7 +219,7 @@ impl <'a> StateData for LinuxData<'a> {
             }
         }
         if let Ok(_) = continue_exec(self.parent, None) {
-            TestState::Waiting{start_time:0}
+            TestState::wait_state()
         } else {
             TestState::Unrecoverable
         }
@@ -252,7 +269,7 @@ impl <'a> StateData for LinuxData<'a> {
             },
             WaitStatus::Stopped(child, signal::SIGSTOP) => {
                 if continue_exec(child, None).is_ok() {
-                    TestState::Waiting{start_time:0}
+                    TestState::wait_state()
                 } else {
                     self.error_message = Some("Error processing SIGSTOP".to_string());
                     TestState::Unrecoverable
@@ -266,7 +283,7 @@ impl <'a> StateData for LinuxData<'a> {
                     None
                 };
                 let _ = continue_exec(c, sig);
-                TestState::Waiting{start_time:0}
+                TestState::wait_state()
             },
             WaitStatus::Signaled(_,_,_) => {
                 if let Ok(s) = self.handle_signaled() {
@@ -281,7 +298,7 @@ impl <'a> StateData for LinuxData<'a> {
                     TestState::End
                 } else {
                     let _ = continue_exec(self.parent, None);
-                    TestState::Waiting{start_time:0}
+                    TestState::wait_state()
                 }
             },
             _ => TestState::Unrecoverable,
@@ -313,7 +330,7 @@ impl <'a>LinuxData<'a> {
             WaitStatus::PtraceEvent(child, signal::SIGTRAP, PTRACE_EVENT_CLONE) => {
                 if get_event_data(child).is_ok() {
                     continue_exec(child, None)?;
-                    Ok(TestState::Waiting{start_time:0})
+                    Ok(TestState::wait_state())
                 } else {
                     self.error_message = Some("Error occurred upon test executable thread creation".to_string());
                     Ok(TestState::Unrecoverable)
@@ -321,19 +338,19 @@ impl <'a>LinuxData<'a> {
             },
             WaitStatus::PtraceEvent(child, signal::SIGTRAP, PTRACE_EVENT_FORK) => {
                 continue_exec(child, None)?;
-                Ok(TestState::Waiting{start_time:0})
+                Ok(TestState::wait_state())
             },
             WaitStatus::PtraceEvent(child, signal::SIGTRAP, PTRACE_EVENT_VFORK) => {
                 continue_exec(child, None)?;
-                Ok(TestState::Waiting{start_time:0})
+                Ok(TestState::wait_state())
             },
             WaitStatus::PtraceEvent(child, signal::SIGTRAP, PTRACE_EVENT_EXEC) => {
                 detach_child(child)?;
-                Ok(TestState::Waiting{start_time:0})
+                Ok(TestState::wait_state())
             },
             WaitStatus::PtraceEvent(child, signal::SIGTRAP, PTRACE_EVENT_EXIT) => {
                 continue_exec(child, None)?;
-                Ok(TestState::Waiting{start_time:0})
+                Ok(TestState::wait_state())
             },
             _ => Ok(TestState::Unrecoverable),
         }
@@ -369,14 +386,14 @@ impl <'a>LinuxData<'a> {
         } else {
             continue_exec(self.current, None)?;
         }
-        Ok(TestState::Waiting{start_time:0})
+        Ok(TestState::wait_state())
     }
 
     fn handle_signaled(&mut self) -> Result<TestState> {
         match self.wait {
             WaitStatus::Signaled(child, signal::SIGTRAP, true) => {
                 continue_exec(child, None)?; 
-                Ok(TestState::Waiting{start_time:0})
+                Ok(TestState::wait_state())
             },
             _ => {
                 self.error_message = Some("Unexpected stop".to_string());

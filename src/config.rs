@@ -1,5 +1,6 @@
 use std::path::{PathBuf, Path};
 use std::env;
+use std::time::Duration;
 use std::str::FromStr;
 use clap::ArgMatches;
 use coveralls_api::CiService;
@@ -74,6 +75,8 @@ pub struct Config {
     excluded_files: Vec<Regex>,
     /// Varargs to be forwarded to the test executables.
     pub varargs: Vec<String>,
+    /// Duration to wait before a timeout occurs
+    pub test_timeout: Duration,
 }
 
 
@@ -151,7 +154,8 @@ impl Config {
             packages: packages,
             exclude: exclude,
             excluded_files: ex_files,
-            varargs: varargs
+            varargs: varargs,
+            test_timeout: Duration::from_secs(60),
         }
     }
 
