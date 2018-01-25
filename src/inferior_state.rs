@@ -5,6 +5,7 @@ use nix::unistd::Pid;
 use tracer::*;
 use breakpoint::*;
 use ptrace_control::*;
+use nix::sys::ptrace::ptrace::*;
 use config::Config;
 /// 
 /// So we are either:
@@ -142,12 +143,20 @@ pub fn create_state_machine<'a>(test: Pid,
 /// Handle to linux process state
 #[derive(Debug)]
 pub struct LinuxData<'a> {
+    /// Recent result from waitpid to be handled by statemachine
     wait: WaitStatus,
+    /// Current Pid to process
     current: Pid,
+    /// Parent PID of test process
     parent: Pid,
+    /// Map of addresses to breakpoints
     breakpoints: HashMap<u64, Breakpoint>,
+    /// Instrumentation points in code with associated coverage data
     traces: &'a mut Vec<TracerData>,
-    config: &'a Config
+    /// Program config
+    config: &'a Config,
+    /// Used to store error for user in the event something goes wrong
+    error_message: Option<String>,
 }
 
 
@@ -233,7 +242,12 @@ impl <'a> StateData for LinuxData<'a> {
             },
             WaitStatus::Stopped(_, signal::SIGSEGV) => TestState::Unrecoverable,
             WaitStatus::Stopped(c, s) => {
-                let _ = continue_exec(c, Some(s));
+                let sig = if self.config.forward_signals {
+                    Some(s)
+                } else {
+                    None
+                };
+                let _ = continue_exec(c, sig);
                 TestState::Waiting{start_time:0}
             },
             WaitStatus::Signaled(_,_,_) => {
@@ -267,11 +281,30 @@ impl <'a>LinuxData<'a> {
             breakpoints: HashMap::new(),
             traces: traces,
             config: config,
+            error_message:None
         }
     }
 
     fn handle_ptrace_event(&mut self) -> TestState {
-        TestState::Unrecoverable
+        match self.wait {
+            WaitStatus::PtraceEvent(child, signal::SIGTRAP, PTRACE_EVENT_FORK) => {
+                continue_exec(child, None);
+                TestState::Waiting{start_time:0}
+            },
+            WaitStatus::PtraceEvent(child, signal::SIGTRAP, PTRACE_EVENT_VFORK) => {
+                continue_exec(child, None);
+                TestState::Waiting{start_time:0}
+            },
+            WaitStatus::PtraceEvent(child, signal::SIGTRAP, PTRACE_EVENT_EXEC) => {
+                detach_child(child);
+                TestState::Waiting{start_time:0}
+            },
+            WaitStatus::PtraceEvent(child, signal::SIGTRAP, PTRACE_EVENT_EXIT) => {
+                continue_exec(child, None);
+                TestState::Waiting{start_time:0}
+            },
+            _ => TestState::Unrecoverable,
+        }
     }
 
     fn collect_coverage_data(&mut self) -> TestState {
