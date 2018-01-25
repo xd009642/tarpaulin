@@ -322,8 +322,10 @@ fn collect_coverage(project: &Workspace,
     let mut traces = generate_tracer_data(project, test_path, config)?;
     {
         let (mut state, mut data) = create_state_machine(test, &mut traces);
+        println!("{:?}", state);
         loop {
             state = state.step(&mut data, config);
+            println!("{:?}", state);
             if state.is_finished() {
                 break;
             }

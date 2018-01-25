@@ -53,6 +53,7 @@ pub enum TestState {
 }
 
 impl TestState {
+    /// Convenience function used to check if the test has finished or errored
     pub fn is_finished(self) -> bool {
         match self {
             TestState::End | TestState::Unrecoverable => true,
@@ -62,9 +63,18 @@ impl TestState {
 }
 
 /// Trait for state machines to implement
-pub trait StateMachine<T> {
+pub trait StateMachine<T> where T:StateData {
     /// Update the states
     fn step(self, data: &mut T, config: &Config) -> TestState;
+}
+
+pub trait StateData {
+    fn start(&mut self) -> Option<TestState>;
+    fn init(&mut self) -> TestState;
+    fn wait(&mut self) -> Option<TestState>;
+    fn stop(&mut self) -> TestState;
+    fn cleanup(&mut self);
+    fn end(&mut self);
 }
 
 /// Handle to linux process state
@@ -77,19 +87,8 @@ pub struct LinuxData<'a> {
     traces: &'a mut Vec<TracerData>,
 }
 
-impl <'a>LinuxData<'a> {
-    pub fn new(traces: &'a mut Vec<TracerData>) -> LinuxData {
-        LinuxData {
-            wait: WaitStatus::StillAlive,
-            current: Pid::from_raw(0),
-            parent: Pid::from_raw(0),
-            breakpoints: HashMap::new(),
-            traces: traces
-        }
-    }
-
-
-    fn check_for_tracee(&mut self) -> Option<TestState> {
+impl <'a> StateData for LinuxData<'a> {
+    fn start(&mut self) -> Option<TestState> {
         match waitpid(self.current, Some(WNOHANG)) {
             Ok(WaitStatus::StillAlive) => None,
             Ok(sig @ WaitStatus::Stopped(_, signal::SIGTRAP)) => {
@@ -109,66 +108,138 @@ impl <'a>LinuxData<'a> {
             },
         }
     }
+
+    fn init(&mut self) -> TestState {
+        if let Err(c) = trace_children(self.current) {
+            println!("Failed to trace child threads");
+        }
+        for trace in self.traces.iter() {
+            if let Some(addr) = trace.address {
+                match Breakpoint::new(self.current, addr) {
+                    Ok(bp) => {
+                        let _ = self.breakpoints.insert(addr, bp);
+                    },
+                    Err(e) => {
+                        println!("Failed to instrument");
+                    },
+                }
+            }
+        }
+        if let Ok(_) = continue_exec(self.parent, None) {
+            TestState::Waiting{start_time:0}
+        } else {
+            TestState::Unrecoverable
+        }
+    }
+
+    fn wait(&mut self) -> Option<TestState> {
+        let wait = waitpid(Pid::from_raw(-1), Some(WNOHANG | __WALL));
+        match wait {
+            Ok(WaitStatus::StillAlive) => {
+                self.wait = WaitStatus::StillAlive;
+                None
+            },
+            Ok(s) => {
+                self.wait = s;
+                Some(TestState::Stopped)
+            },
+            Err(e) => {
+                println!("An error occurred");
+                Some(TestState::Unrecoverable)
+            },
+        }
+    }
+
+    fn stop(&mut self) -> TestState {
+        match self.wait {
+            WaitStatus::PtraceEvent(_,_,_) => {
+                self.handle_ptrace_event()
+            },
+            WaitStatus::Stopped(_,_) => {
+                self.handle_stop()
+            },
+            WaitStatus::Signaled(_,_,_) => {
+                self.handle_signaled()
+            },
+            WaitStatus::Exited(child, sig) => {
+                if child == self.parent {
+                    TestState::End
+                } else {
+                    let _ = continue_exec(self.parent, None);
+                    TestState::Waiting{start_time:0}
+                }
+            },
+            _ => TestState::Unrecoverable,
+        }
+    }
+
+    fn cleanup(&mut self)  {
+
+    }
+
+    fn end(&mut self) {
+
+    }
 }
 
+impl <'a>LinuxData<'a> {
+    pub fn new(traces: &'a mut Vec<TracerData>) -> LinuxData {
+        LinuxData {
+            wait: WaitStatus::StillAlive,
+            current: Pid::from_raw(0),
+            parent: Pid::from_raw(0),
+            breakpoints: HashMap::new(),
+            traces: traces
+        }
+    }
 
-impl <'a> StateMachine<LinuxData<'a>> for TestState {
-    
-    fn step(self, data: &mut LinuxData<'a>, config: &Config) -> TestState {
+    fn handle_ptrace_event(&mut self) -> TestState {
+        TestState::Unrecoverable
+    }
+
+    fn handle_stop(&mut self) -> TestState {
+        TestState::Unrecoverable
+    }
+
+    fn handle_signaled(&mut self) -> TestState {
+        TestState::Unrecoverable
+    }
+}
+
+impl <T> StateMachine<T> for TestState where T:StateData {
+    fn step(self, data: &mut T, config: &Config) -> TestState {
         match self {
-            TestState::Start{start_time} => {
-                if let Some(state) = data.check_for_tracee() {
-                    state
-                } else if start_time < 1000 {
-                    TestState::Start{start_time: start_time + 1}
+            org @ TestState::Start{..} => {
+                if let Some(s) = data.start() {
+                    s
                 } else {
-                    TestState::Timeout
+                    org
                 }
             },
-            TestState::Initialise => { 
-                if let Err(c) = trace_children(data.current) {
-                    println!("Failed to trace child threads");
-                }
-                for trace in data.traces.iter() {
-                    if let Some(addr) = trace.address {
-                        match Breakpoint::new(data.current, addr) {
-                            Ok(bp) => {
-                                let _ = data.breakpoints.insert(addr, bp);
-                            },
-                            Err(e) => {
-                                println!("Failed to instrument");
-                            },
-                        }
-                    }
-                }
-                if let Ok(_) = continue_exec(data.parent, None) {
-                    TestState::Waiting{start_time:0}
+            TestState::Initialise => {
+                data.init()
+            },  
+            org @ TestState::Waiting{..} => {
+                if let Some(s) =data.wait() {
+                    s
                 } else {
-                    TestState::Unrecoverable
+                    org
                 }
             },
-            TestState::Waiting{start_time} => {
-                if start_time > 100_000 {
-                    TestState::Timeout
-                } else {
-                    let wait = waitpid(Pid::from_raw(-1), Some(WNOHANG | __WALL));
-                    match wait {
-                        Ok(WaitStatus::StillAlive) => {
-                            data.wait = WaitStatus::StillAlive;
-                            TestState::Waiting{start_time: start_time + 1}
-                        },
-                        Ok(s) => {
-                            data.wait = s;
-                            TestState::Stopped
-                        },
-                        Err(e) => {
-                            println!("An error occurred");
-                            TestState::Unrecoverable
-                        },
-                    }
-                }
+            TestState::Stopped => {
+                data.stop()
             },
-            _ => TestState::Unrecoverable
+            TestState::Timeout => {
+                data.cleanup();
+                TestState::End
+            },
+            TestState::Unrecoverable => {
+                data.cleanup();
+                TestState::End
+            },
+            _ => {
+                TestState::End
+            }
         }
     }
 }
