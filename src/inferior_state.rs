@@ -174,7 +174,7 @@ pub struct LinuxData<'a> {
     /// Program config
     config: &'a Config,
     /// Used to store error for user in the event something goes wrong
-    error_message: Option<String>,
+    pub error_message: Option<String>,
 }
 
 
@@ -307,7 +307,10 @@ impl <'a> StateData for LinuxData<'a> {
 
 
     fn cleanup(&mut self)  {
-
+        if let Some(ref e) = self.error_message {
+            println!("An error occurred during run. Coverage results may be inaccurate.");
+            println!("{}", e);
+        }
     }
 }
 
