@@ -33,7 +33,7 @@ pub mod config;
 pub mod tracer;
 pub mod breakpoint;
 pub mod report;
-mod inferior_state;
+mod statemachine;
 mod source_analysis;
 
 /// Should be unnecessary with a future nix crate release.
@@ -43,7 +43,7 @@ mod ptrace_control;
 use config::*;
 use tracer::*;
 use ptrace_control::*;
-use inferior_state::*;
+use statemachine::*;
 
 
 

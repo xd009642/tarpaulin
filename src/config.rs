@@ -79,7 +79,6 @@ pub struct Config {
     pub test_timeout: Duration,
 }
 
-
 impl Config {
     fn get_list_from_args(args: &ArgMatches, key: &str) -> Vec<String> {
         match args.values_of_lossy(key) {
