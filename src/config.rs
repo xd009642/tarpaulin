@@ -140,7 +140,7 @@ impl Config {
         let timeout = if args.is_present("timeout") {
             match value_t!(args.value_of("timeout"), u64) {
                 Ok(s) => s,
-                Err(e) => {
+                Err(_) => {
                     println!("Invalid value for timeout. Setting to 1 minute");
                     60u64
                 }

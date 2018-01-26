@@ -1,8 +1,10 @@
 use std::collections::HashMap;
 use std::time::Instant;
+use nix::Error as NixErr;
 use nix::sys::ptrace::ptrace::*;
 use nix::sys::wait::*;
 use nix::sys::signal;
+use nix::Errno;
 use nix::Result;
 use nix::unistd::Pid;
 use tracer::*;
@@ -53,13 +55,16 @@ pub enum TestState {
     Unrecoverable,
     /// Test exited normally
     End,
+    /// An error occurred that indicates no future runs will succeed such as
+    /// PIE issues in OS. 
+    Abort,
 }
 
 impl TestState {
     /// Convenience function used to check if the test has finished or errored
     pub fn is_finished(self) -> bool {
         match self {
-            TestState::End | TestState::Unrecoverable => true,
+            TestState::End | TestState::Unrecoverable | TestState::Abort => true,
             _ => false,
         }
     }
@@ -175,6 +180,10 @@ pub struct LinuxData<'a> {
     config: &'a Config,
     /// Used to store error for user in the event something goes wrong
     pub error_message: Option<String>,
+    /// Thread count. Hopefully getting rid of in future
+    thread_count: isize,
+    /// Used to show anomalies noticed so hit counts disabled
+    force_disable_hit_count: bool
 }
 
 
@@ -190,7 +199,7 @@ impl <'a> StateData for LinuxData<'a> {
                 self.wait = sig;
                 Some(TestState::Initialise)
             },
-            Ok(s) => {
+            Ok(_) => {
                 println!("Unexpected signal when starting test");
                 None
             },
@@ -203,22 +212,34 @@ impl <'a> StateData for LinuxData<'a> {
 
 
     fn init(&mut self) -> TestState {
-        if let Err(c) = trace_children(self.current) {
+        if trace_children(self.current).is_err() {
             println!("Failed to trace child threads");
         }
+        let mut instrumented = true;
         for trace in self.traces.iter() {
             if let Some(addr) = trace.address {
                 match Breakpoint::new(self.current, addr) {
                     Ok(bp) => {
                         let _ = self.breakpoints.insert(addr, bp);
                     },
-                    Err(e) => {
+                    Err(e) if e==NixErr::Sys(Errno::EIO) => {
+                        println!("ERROR: Tarpaulin cannot find code addresses \
+                                  check that pie is disabled for your linker. \
+                                  If linking with gcc try adding -C link-args=-no-pie \
+                                  to your rust flags");
+                        instrumented = false;
+                        break;
+                    }
+                    Err(_) => {
                         self.error_message = Some("Failed to instrument test executable".to_string());
                     },
                 }
             }
         }
-        if let Ok(_) = continue_exec(self.parent, None) {
+        if !instrumented {
+            TestState::Abort
+        }
+        else if let Ok(_) = continue_exec(self.parent, None) {
             TestState::wait_state()
         } else {
             TestState::Unrecoverable
@@ -237,7 +258,7 @@ impl <'a> StateData for LinuxData<'a> {
                 self.wait = s;
                 Some(TestState::Stopped)
             },
-            Err(e) => {
+            Err(_) => {
                 self.error_message = Some("An error occurred while waiting for response from test".to_string());
                 Some(TestState::Unrecoverable)
             },
@@ -293,10 +314,14 @@ impl <'a> StateData for LinuxData<'a> {
                     TestState::Unrecoverable
                 }
             },
-            WaitStatus::Exited(child, sig) => {
+            WaitStatus::Exited(child, _) => {
+                for (_, ref mut value) in self.breakpoints.iter_mut() {
+                    value.thread_killed(child); 
+                }
                 if child == self.parent {
                     TestState::End
                 } else {
+                    // Process may have already been destroyed. This is just incase 
                     let _ = continue_exec(self.parent, None);
                     TestState::wait_state()
                 }
@@ -324,7 +349,9 @@ impl <'a>LinuxData<'a> {
             breakpoints: HashMap::new(),
             traces: traces,
             config: config,
-            error_message:None
+            error_message:None,
+            thread_count: 0,
+            force_disable_hit_count: !config.no_count
         }
     }
 
@@ -332,6 +359,7 @@ impl <'a>LinuxData<'a> {
         match self.wait {
             WaitStatus::PtraceEvent(child, signal::SIGTRAP, PTRACE_EVENT_CLONE) => {
                 if get_event_data(child).is_ok() {
+                    self.thread_count += 1;
                     continue_exec(child, None)?;
                     Ok(TestState::wait_state())
                 } else {
@@ -352,6 +380,7 @@ impl <'a>LinuxData<'a> {
                 Ok(TestState::wait_state())
             },
             WaitStatus::PtraceEvent(child, signal::SIGTRAP, PTRACE_EVENT_EXIT) => {
+                self.thread_count -= 1;
                 continue_exec(child, None)?;
                 Ok(TestState::wait_state())
             },
@@ -360,16 +389,15 @@ impl <'a>LinuxData<'a> {
     }
 
     fn collect_coverage_data(&mut self) -> Result<TestState> {
-        let thread_count = 1;
-        let mut unwarned = true;
         if let Ok(rip) = current_instruction_pointer(self.current) {
             let rip = (rip - 1) as u64;
             if  self.breakpoints.contains_key(&rip) {
                 let bp = &mut self.breakpoints.get_mut(&rip).unwrap();
-                let enable = (!self.config.no_count) && (thread_count < 2);
-                if !enable && unwarned {
+                let enable = (!self.config.no_count) && (self.thread_count < 2);
+                if !enable && self.force_disable_hit_count {
                     println!("Code is mulithreaded, disabling hit count");
-                    unwarned = false;
+                    println!("Results may be improved by using the '--no-count' option when running tarpaulin");
+                    self.force_disable_hit_count = false;
                 }
                 // Don't reenable if multithreaded as can't yet sort out segfault issue
                 let updated = if let Ok(x) = bp.process(self.current, enable) {
@@ -391,6 +419,7 @@ impl <'a>LinuxData<'a> {
         }
         Ok(TestState::wait_state())
     }
+
 
     fn handle_signaled(&mut self) -> Result<TestState> {
         match self.wait {
