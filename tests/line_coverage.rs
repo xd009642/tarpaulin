@@ -3,6 +3,8 @@ extern crate cargo_tarpaulin;
 use cargo_tarpaulin::launch_tarpaulin;
 use cargo_tarpaulin::config::Config;
 use std::env;
+use std::time::Duration;
+
 
 #[test]
 fn incorrect_manifest_path() {
@@ -14,6 +16,7 @@ fn incorrect_manifest_path() {
 #[test]
 fn simple_project_coverage() {
     let mut config = Config::default();
+    config.test_timeout = Duration::from_secs(60);
     config.manifest = env::current_dir().unwrap();
     config.manifest.push("tests");
     config.manifest.push("data");

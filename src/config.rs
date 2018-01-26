@@ -1,5 +1,6 @@
 use std::path::{PathBuf, Path};
 use std::env;
+use std::time::Duration;
 use std::str::FromStr;
 use clap::ArgMatches;
 use coveralls_api::CiService;
@@ -74,8 +75,9 @@ pub struct Config {
     excluded_files: Vec<Regex>,
     /// Varargs to be forwarded to the test executables.
     pub varargs: Vec<String>,
+    /// Duration to wait before a timeout occurs
+    pub test_timeout: Duration,
 }
-
 
 impl Config {
     fn get_list_from_args(args: &ArgMatches, key: &str) -> Vec<String> {
@@ -133,6 +135,18 @@ impl Config {
                 println!("Error in wildcard expression: {}", temp_str);
             }
         }
+
+        let timeout = if args.is_present("timeout") {
+            match value_t!(args.value_of("timeout"), u64) {
+                Ok(s) => s,
+                Err(_) => {
+                    println!("Invalid value for timeout. Setting to 1 minute");
+                    60u64
+                }
+            }
+        } else {
+            60u64
+        };
         Config{
             manifest: root,
             run_ignored: ignored,
@@ -151,7 +165,8 @@ impl Config {
             packages: packages,
             exclude: exclude,
             excluded_files: ex_files,
-            varargs: varargs
+            varargs: varargs,
+            test_timeout: Duration::from_secs(timeout),
         }
     }
 

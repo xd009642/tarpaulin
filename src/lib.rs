@@ -19,16 +19,11 @@ extern crate regex;
 
 use std::env;
 use std::io;
-use std::process;
 use std::ffi::CString;
 use std::path::{Path, PathBuf};
 use std::process::Command;
 use std::collections::{BTreeMap, HashMap};
-use nix::Error as NixErr;
 use nix::unistd::*;
-use nix::sys::ptrace::ptrace::*;
-use nix::sys::signal;
-use nix::sys::wait::*;
 use cargo::util::Config as CargoConfig;
 use cargo::core::{Workspace, Package};
 use cargo::ops;
@@ -38,6 +33,7 @@ pub mod config;
 pub mod tracer;
 pub mod breakpoint;
 pub mod report;
+mod statemachine;
 mod source_analysis;
 
 /// Should be unnecessary with a future nix crate release.
@@ -46,12 +42,10 @@ mod ptrace_control;
 
 use config::*;
 use tracer::*;
-use breakpoint::*;
 use ptrace_control::*;
+use statemachine::*;
 
-const PIE_ERROR: &'static str = "ERROR: Tarpaulin cannot find code addresses check that \
-pie is disabled for your linker. If linking with gcc try adding -C link-args=-no-pie \
-to your rust flags";
+
 
 pub fn run(config: Config) -> Result<(), i32> {
     let result = launch_tarpaulin(&config)?;
@@ -317,143 +311,21 @@ fn collect_coverage(project: &Workspace,
                     test: Pid,
                     config: &Config) -> io::Result<Vec<TracerData>> {
     let mut traces = generate_tracer_data(project, test_path, config)?;
-    let mut bps: HashMap<u64, Breakpoint> = HashMap::new();
-    match waitpid(test, None) {
-        Ok(WaitStatus::Stopped(child, signal::SIGTRAP)) => {
-            let child_trace = trace_children(child);
-            if let Err(c) = child_trace {
-                println!("Failed to trace child threads: {}", c);
+    {
+        let (mut state, mut data) = create_state_machine(test, &mut traces, config);
+        loop {
+            state = state.step(&mut data, config);
+            if state.is_finished() {
+                break;
             }
-            for trace in &traces {
-                if let Some(addr) = trace.address {
-                    match Breakpoint::new(child, addr) {
-                        Ok(bp) => { 
-                            let _ = bps.insert(addr, bp);
-                        },
-                        Err(e) if e == NixErr::Sys(nix::Errno::EIO) => {
-                            println!("{}", PIE_ERROR);
-                            process::exit(1);
-                        },
-                        Err(e) => println!("Failed to instrument {}", e),
-                    }
-                }
-            }  
-        },
-        Ok(_) => println!("Unexpected grab"),   
-        Err(err) => println!("Error on start: {}", err)
-    }
-    // Now we start hitting lines!
-    if let Err(e) = run_function(test, config.forward_signals, config.no_count,
-                       &mut traces, &mut bps) {
-        println!("Error while collecting coverage. {}", e);
+        }
+        if state == TestState::Abort  {
+            println!("Can't collect coverage data. Exiting");
+            std::process::exit(1);
+        }
     }
     Ok(traces)
 }
-
-/// Starts running a test. Child must have signalled STOP or SIGNALED to show 
-/// the parent it is not executing or it will be killed.
-fn run_function(pid: Pid,
-                forward_signals: bool,
-                no_count: bool,
-                traces: &mut Vec<TracerData>,
-                breakpoints: &mut HashMap<u64, Breakpoint>) -> Result<i8, NixErr> {
-    let mut res = 0i8;
-    // Thread count, don't count initial thread of execution
-    let mut thread_count = 0isize;
-    let mut unwarned = !no_count;
-    // Start the function running. 
-    continue_exec(pid, None)?;
-    loop {
-        match waitpid(Pid::from_raw(-1), Some(__WALL)) {
-            Ok(WaitStatus::Exited(child, sig)) => {
-                for (_, ref mut value) in breakpoints.iter_mut() {
-                    value.thread_killed(child); 
-                }
-                res = sig;
-                // If test executable exiting break, else continue the program
-                // to launch the next test function
-                if child == pid {
-                    break;
-                } else {
-                    // The err will be no child process and means test is over.
-                    let _ =continue_exec(pid, None);
-                }
-            },
-            Ok(WaitStatus::Stopped(child, signal::SIGTRAP)) => {
-                if let Ok(rip) = current_instruction_pointer(child) {
-                    let rip = (rip - 1) as u64;
-                    if  breakpoints.contains_key(&rip) {
-                        let bp = &mut breakpoints.get_mut(&rip).unwrap();
-                        let enable = (!no_count) && (thread_count < 2);
-                        if !enable && unwarned {
-                            println!("Code is mulithreaded, disabling hit count");
-                            unwarned = false;
-                        }
-                        // Don't reenable if multithreaded as can't yet sort out segfault issue
-                        let updated = if let Ok(x) = bp.process(child, enable) {
-                             x
-                        } else {
-                            false
-                        };
-                        if updated {
-                            for t in traces.iter_mut()
-                                               .filter(|x| x.address == Some(rip)) {
-                                (*t).hits += 1;
-                            }
-                        } 
-                    } else {
-                        continue_exec(child, None)?;
-                    }
-                } 
-            },
-            Ok(WaitStatus::Stopped(child, signal::SIGSTOP)) => {
-                continue_exec(child, None)?;
-            },
-            Ok(WaitStatus::Stopped(_, signal::SIGSEGV)) => {
-                break;
-            },
-            Ok(WaitStatus::Stopped(child, sig)) => {
-                let s = if forward_signals {
-                    Some(sig)
-                } else {
-                    None
-                };
-                continue_exec(child, s)?;
-            },
-            Ok(WaitStatus::PtraceEvent(child, signal::SIGTRAP, PTRACE_EVENT_CLONE)) => {
-                if get_event_data(child).is_ok() {
-                    thread_count += 1;
-                    continue_exec(child, None)?;
-                }
-            },
-            Ok(WaitStatus::PtraceEvent(child, signal::SIGTRAP, PTRACE_EVENT_FORK)) => {
-                continue_exec(child, None)?;
-            },
-            Ok(WaitStatus::PtraceEvent(child, signal::SIGTRAP, PTRACE_EVENT_VFORK)) => {
-                continue_exec(child, None)?;
-            },
-            Ok(WaitStatus::PtraceEvent(child, signal::SIGTRAP, PTRACE_EVENT_EXEC)) => {
-                detach_child(child)?;
-            },
-            Ok(WaitStatus::PtraceEvent(child, signal::SIGTRAP, PTRACE_EVENT_EXIT)) => {
-                thread_count -= 1;
-                continue_exec(child, None)?;
-            },
-            Ok(WaitStatus::Signaled(child, signal::SIGTRAP, true)) => {
-                continue_exec(child, None)?;
-            },
-            Ok(s) => {
-                println!("Unexpected stop {:?}", s);
-                break;
-            },
-            Err(e) => {
-                return Err(e)
-            },
-        }
-    }
-    Ok(res)
-}
-
 
 /// Launches the test executable
 fn execute_test(test: &Path, package: &Package, ignored: bool, config: &Config) {
