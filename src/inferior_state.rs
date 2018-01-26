@@ -11,30 +11,9 @@ use tracer::*;
 use breakpoint::*;
 use ptrace_control::*;
 use config::Config;
-/// 
-/// So we are either:
-///     Waiting for an signal
-///     Handling a stop
-///     Handling an exit
-///     Handling being signalled
-///     Handling ptrace events
-///     Handling an error
-///     Continuing execution
-///     Handling ptrace error
-/// 
-/// So we wait -> other thing -> continuing
-///
-/// Cannot do wait -> wait (unless non-polling, timeout?)
-///
-/// Or wait -> other thing -> other thing -> continue
-///
-/// Or wait -> other thing -> continue -> continue
 
-/// Possible states when executing an inferior process. This is an attempt at
-/// a platform agnostic abstracting to provide the potential of future
-/// implementations for other operating systems and provides the implementation
-/// of the test running state machine
-/// T is data used to store the necessary process information to enable tracing
+
+
 #[derive(Debug, Copy, Clone, Eq, PartialEq)]
 pub enum TestState {
     /// Start state. Wait for test to appear and track time to enable timeout
@@ -60,32 +39,6 @@ pub enum TestState {
     Abort,
 }
 
-impl TestState {
-    /// Convenience function used to check if the test has finished or errored
-    pub fn is_finished(self) -> bool {
-        match self {
-            TestState::End | TestState::Unrecoverable | TestState::Abort => true,
-            _ => false,
-        }
-    }
-
-    /// Convenience function for creating start states
-    fn start_state() -> TestState {
-        TestState::Start{start_time: Instant::now()}
-    }
-
-    /// Convenience function for creating wait states
-    fn wait_state() -> TestState {
-        TestState::Waiting{start_time: Instant::now()}
-    }
-}
-
-/// Trait for state machines to implement
-pub trait StateMachine<T> where T:StateData {
-    /// Update the states
-    fn step(self, data: &mut T, config: &Config) -> TestState;
-}
-
 /// Tracing a process on an OS will have platform specific code. 
 /// Structs containing the platform specific datastructures should
 /// provide this trait with an implementation of the handling of 
@@ -108,9 +61,27 @@ pub trait StateData {
 }
 
 
-impl <T> StateMachine<T> for TestState where T:StateData {
+impl TestState {
+    /// Convenience function used to check if the test has finished or errored
+    pub fn is_finished(self) -> bool {
+        match self {
+            TestState::End | TestState::Unrecoverable | TestState::Abort => true,
+            _ => false,
+        }
+    }
 
-    fn step(self, data: &mut T, config: &Config) -> TestState {
+    /// Convenience function for creating start states
+    fn start_state() -> TestState {
+        TestState::Start{start_time: Instant::now()}
+    }
+
+    /// Convenience function for creating wait states
+    fn wait_state() -> TestState {
+        TestState::Waiting{start_time: Instant::now()}
+    }
+    
+    /// Updates the state machine state
+    pub fn step<T:StateData>(self, data: &mut T, config: &Config) -> TestState {
         match self {
             TestState::Start{start_time} => {
                 if let Some(s) = data.start() {
