@@ -136,6 +136,18 @@ impl Config {
                 println!("Error in wildcard expression: {}", temp_str);
             }
         }
+
+        let timeout = if args.is_present("timeout") {
+            match value_t!(args.value_of("timeout"), u64) {
+                Ok(s) => s,
+                Err(e) => {
+                    println!("Invalid value for timeout. Setting to 1 minute");
+                    60u64
+                }
+            }
+        } else {
+            60u64
+        };
         Config{
             manifest: root,
             run_ignored: ignored,
@@ -155,7 +167,7 @@ impl Config {
             exclude: exclude,
             excluded_files: ex_files,
             varargs: varargs,
-            test_timeout: Duration::from_secs(60),
+            test_timeout: Duration::from_secs(timeout),
         }
     }
 
