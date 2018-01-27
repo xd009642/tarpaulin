@@ -4,9 +4,11 @@ use nix::Error as NixErr;
 use nix::sys::ptrace::ptrace::*;
 use nix::sys::wait::*;
 use nix::sys::signal;
+use nix::sys::signal::Signal;
 use nix::Errno;
 use nix::Result;
 use nix::unistd::Pid;
+use nix::libc::c_int;
 use tracer::*;
 use breakpoint::*;
 use ptrace_control::*;
@@ -239,8 +241,8 @@ impl <'a> StateData for LinuxData<'a> {
 
     fn stop(&mut self) -> TestState {
         match self.wait {
-            WaitStatus::PtraceEvent(_,_,_) => {
-                match self.handle_ptrace_event() {
+            WaitStatus::PtraceEvent(c,s,e) => {
+                match self.handle_ptrace_event(c, s, e) {
                     Ok(s) => s,
                     Err(e) => {
                         let msg = format!("Error occurred when handling ptrace event: {}", e);
@@ -326,36 +328,38 @@ impl <'a>LinuxData<'a> {
         }
     }
 
-    fn handle_ptrace_event(&mut self) -> Result<TestState> {
-        match self.wait {
-            WaitStatus::PtraceEvent(child, signal::SIGTRAP, PTRACE_EVENT_CLONE) => {
-                if get_event_data(child).is_ok() {
-                    self.thread_count += 1;
+    fn handle_ptrace_event(&mut self, child: Pid, signal: Signal, event: c_int) -> Result<TestState> {
+        use nix::sys::signal::*;
+        if signal == SIGTRAP {
+            match event {
+                PTRACE_EVENT_CLONE => {
+                    if get_event_data(child).is_ok() {
+                        self.thread_count += 1;
+                        continue_exec(child, None)?;
+                        Ok(TestState::wait_state())
+                    } else {
+                        self.error_message = Some("Error occurred upon test executable thread creation".to_string());
+                        Ok(TestState::Unrecoverable)
+                    }
+                },
+                PTRACE_EVENT_FORK | PTRACE_EVENT_VFORK => {
                     continue_exec(child, None)?;
                     Ok(TestState::wait_state())
-                } else {
-                    self.error_message = Some("Error occurred upon test executable thread creation".to_string());
-                    Ok(TestState::Unrecoverable)
-                }
-            },
-            WaitStatus::PtraceEvent(child, signal::SIGTRAP, PTRACE_EVENT_FORK) => {
-                continue_exec(child, None)?;
-                Ok(TestState::wait_state())
-            },
-            WaitStatus::PtraceEvent(child, signal::SIGTRAP, PTRACE_EVENT_VFORK) => {
-                continue_exec(child, None)?;
-                Ok(TestState::wait_state())
-            },
-            WaitStatus::PtraceEvent(child, signal::SIGTRAP, PTRACE_EVENT_EXEC) => {
-                detach_child(child)?;
-                Ok(TestState::wait_state())
-            },
-            WaitStatus::PtraceEvent(child, signal::SIGTRAP, PTRACE_EVENT_EXIT) => {
-                self.thread_count -= 1;
-                continue_exec(child, None)?;
-                Ok(TestState::wait_state())
-            },
-            _ => Ok(TestState::Unrecoverable),
+                },
+                PTRACE_EVENT_EXEC => {
+                    detach_child(child)?;
+                    Ok(TestState::wait_state())
+                },
+                PTRACE_EVENT_EXIT => {
+                    self.thread_count -= 1;
+                    continue_exec(child, None)?;
+                    Ok(TestState::wait_state())
+                },
+                _ => Ok(TestState::Unrecoverable)
+            }
+        } else {
+            self.error_message = Some("Unexpected ptrace event".to_string());
+            Ok(TestState::Unrecoverable)
         }
     }
 
