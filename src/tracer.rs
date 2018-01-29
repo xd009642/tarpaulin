@@ -3,7 +3,7 @@ use std::path::{PathBuf, Path};
 use std::fs::File;
 use std::cmp::{Ordering, PartialEq, Ord};
 use std::collections::HashMap;
-use object::File as OFile;
+use object::{Object, File as OFile};
 use memmap::{Mmap, Protection};
 use gimli::*;
 use rustc_demangle::demangle;
@@ -11,6 +11,8 @@ use cargo::core::Workspace;
 
 use config::Config;
 use source_analysis::*;
+
+
 
 /// Describes a function as `low_pc`, `high_pc` and bool representing `is_test`.
 type FuncDesc = (u64, u64, FunctionType);
@@ -225,17 +227,18 @@ fn get_addresses_from_program<R, Offset>(prog: IncompleteLineNumberProgram<R>,
     Ok(result)
 }
 
+
 fn get_line_addresses(endian: RunTimeEndian,
                       project: &Path,
                       obj: &OFile,
                       analysis: &HashMap<PathBuf, LineAnalysis>,
                       config: &Config) -> Result<Vec<TracerData>>  {
     let mut result: Vec<TracerData> = Vec::new();
-    let debug_info = obj.get_section(".debug_info").unwrap_or(&[]);
+    let debug_info = obj.section_data_by_name(".debug_info").unwrap_or(&[]);
     let debug_info = DebugInfo::new(debug_info, endian);
-    let debug_abbrev = obj.get_section(".debug_abbrev").unwrap_or(&[]);
+    let debug_abbrev = obj.section_data_by_name(".debug_abbrev").unwrap_or(&[]);
     let debug_abbrev = DebugAbbrev::new(debug_abbrev, endian);
-    let debug_strings = obj.get_section(".debug_str").unwrap_or(&[]);
+    let debug_strings = obj.section_data_by_name(".debug_str").unwrap_or(&[]);
     let debug_strings = DebugStr::new(debug_strings, endian);
 
     let mut iter = debug_info.units();
@@ -259,7 +262,7 @@ fn get_line_addresses(endian: RunTimeEndian,
                 Ok(Some(AttributeValue::DebugLineRef(o))) => o,
                 _ => continue,
             };
-            let debug_line = obj.get_section(".debug_line").unwrap_or(&[]);
+            let debug_line = obj.section_data_by_name(".debug_line").unwrap_or(&[]);
             let debug_line = DebugLine::new(debug_line, endian);
             
             let prog = debug_line.program(offset, addr_size, None, None)?; 
