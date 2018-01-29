@@ -4,7 +4,7 @@ use std::fs::File;
 use std::cmp::{Ordering, PartialEq, Ord};
 use std::collections::HashMap;
 use object::{Object, File as OFile};
-use memmap::{Mmap, Protection};
+use memmap::MmapOptions;
 use gimli::*;
 use rustc_demangle::demangle;
 use cargo::core::Workspace;
@@ -335,8 +335,10 @@ fn get_line_addresses(endian: RunTimeEndian,
 pub fn generate_tracer_data(project: &Workspace, test: &Path, config: &Config) -> io::Result<Vec<TracerData>> {
     let manifest = project.root();
     let file = File::open(test)?;
-    let file = Mmap::open(&file, Protection::Read)?;
-    if let Ok(obj) = OFile::parse(unsafe {file.as_slice() }) {
+    let file = unsafe { 
+        MmapOptions::new().map(&file)?
+    };
+    if let Ok(obj) = OFile::parse(&*file) {
         let analysis = get_line_analysis(project, config); 
         let endian = if obj.is_little_endian() {
             RunTimeEndian::Little
