@@ -55,7 +55,7 @@ pub fn run(config: Config) -> Result<(), i32> {
 
 /// Launches tarpaulin with the given configuration.
 pub fn launch_tarpaulin(config: &Config) -> Result<Vec<TracerData>, i32> {
-    let cargo_config = CargoConfig::default().unwrap();
+    let mut cargo_config = CargoConfig::default().unwrap();
     let flag_quiet = if config.verbose {
         None
     } else {
