@@ -1,5 +1,6 @@
-use nix::{Errno, Error, Result};
+use nix::{Error, Result};
 use nix::libc::{c_int, c_long};
+use nix::errno::Errno;
 
 #[cfg(all(target_os = "linux",
           any(target_arch = "x86",
