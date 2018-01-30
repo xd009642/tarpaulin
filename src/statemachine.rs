@@ -1,14 +1,11 @@
 use std::collections::HashMap;
 use std::time::Instant;
 use nix::Error as NixErr;
-use nix::sys::ptrace::ptrace::*;
 use nix::sys::wait::*;
-use nix::sys::signal;
 use nix::sys::signal::Signal;
-use nix::Errno;
+use nix::errno::Errno;
 use nix::Result;
 use nix::unistd::Pid;
-use nix::libc::c_int;
 use tracer::*;
 use breakpoint::*;
 use ptrace_control::*;
@@ -163,9 +160,9 @@ pub struct LinuxData<'a> {
 impl <'a> StateData for LinuxData<'a> {
     
     fn start(&mut self) -> Option<TestState> {
-        match waitpid(self.current, Some(WNOHANG)) {
+        match waitpid(self.current, Some(WaitPidFlag::WNOHANG)) {
             Ok(WaitStatus::StillAlive) => None,
-            Ok(sig @ WaitStatus::Stopped(_, signal::SIGTRAP)) => {
+            Ok(sig @ WaitStatus::Stopped(_, Signal::SIGTRAP)) => {
                 if let WaitStatus::Stopped(child, _) = sig {
                     self.current = child;
                 }
@@ -221,7 +218,7 @@ impl <'a> StateData for LinuxData<'a> {
 
 
     fn wait(&mut self) -> Option<TestState> {
-        let wait = waitpid(Pid::from_raw(-1), Some(WNOHANG | __WALL));
+        let wait = waitpid(Pid::from_raw(-1), Some(WaitPidFlag::WNOHANG | WaitPidFlag::__WALL));
         match wait {
             Ok(WaitStatus::StillAlive) => {
                 self.wait = WaitStatus::StillAlive;
@@ -251,7 +248,7 @@ impl <'a> StateData for LinuxData<'a> {
                     },
                 }
             },
-            WaitStatus::Stopped(c,signal::SIGTRAP) => {
+            WaitStatus::Stopped(c, Signal::SIGTRAP) => {
                 self.current = c;
                 match self.collect_coverage_data() {
                     Ok(s) => s,
@@ -261,7 +258,7 @@ impl <'a> StateData for LinuxData<'a> {
                     }
                 }
             },
-            WaitStatus::Stopped(child, signal::SIGSTOP) => {
+            WaitStatus::Stopped(child, Signal::SIGSTOP) => {
                 if continue_exec(child, None).is_ok() {
                     TestState::wait_state()
                 } else {
@@ -269,7 +266,7 @@ impl <'a> StateData for LinuxData<'a> {
                     TestState::Unrecoverable
                 }
             },
-            WaitStatus::Stopped(_, signal::SIGSEGV) => TestState::Unrecoverable,
+            WaitStatus::Stopped(_, Signal::SIGSEGV) => TestState::Unrecoverable,
             WaitStatus::Stopped(c, s) => {
                 let sig = if self.config.forward_signals {
                     Some(s)
@@ -328,9 +325,10 @@ impl <'a>LinuxData<'a> {
         }
     }
 
-    fn handle_ptrace_event(&mut self, child: Pid, signal: Signal, event: c_int) -> Result<TestState> {
-        use nix::sys::signal::*;
-        if signal == SIGTRAP {
+    fn handle_ptrace_event(&mut self, child: Pid, sig: Signal, event: i32) -> Result<TestState> {
+        use nix::libc::*;
+        
+        if sig == Signal::SIGTRAP {
             match event {
                 PTRACE_EVENT_CLONE => {
                     if get_event_data(child).is_ok() {
@@ -398,7 +396,7 @@ impl <'a>LinuxData<'a> {
 
     fn handle_signaled(&mut self) -> Result<TestState> {
         match self.wait {
-            WaitStatus::Signaled(child, signal::SIGTRAP, true) => {
+            WaitStatus::Signaled(child, Signal::SIGTRAP, true) => {
                 continue_exec(child, None)?; 
                 Ok(TestState::wait_state())
             },
