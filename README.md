@@ -2,8 +2,9 @@
 
 [![Build Status](https://travis-ci.org/xd009642/tarpaulin.svg?branch=master)](https://travis-ci.org/xd009642/tarpaulin) [![Latest Version](https://img.shields.io/crates/v/cargo-tarpaulin.svg)](https://crates.io/crates/cargo-tarpaulin)  [![License:MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
 
-**Tarpaulin is currently not working on rustc 1.23 stable or beta due to an issue
-in rustc, use nightly 1.23 in the interim**
+**Tarpaulin is currently not working on rustc 1.23 stable
+in rustc, this was fixed in nightly-2018-01-05 so use an appropriate release in
+the interim**
 
 Tarpaulin is designed to be a code coverage reporting tool for the Cargo build
 system, named for a waterproof cloth used to cover cargo on a ship. Currently,
