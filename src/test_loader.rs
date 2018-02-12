@@ -11,7 +11,7 @@ use cargo::core::Workspace;
 
 use config::Config;
 use source_analysis::*;
-
+use traces::*;
 
 
 /// Describes a function as `low_pc`, `high_pc` and bool representing `is_test`.

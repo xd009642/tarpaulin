@@ -33,6 +33,7 @@ pub mod config;
 pub mod test_loader;
 pub mod breakpoint;
 pub mod report;
+pub mod traces;
 mod statemachine;
 mod source_analysis;
 
