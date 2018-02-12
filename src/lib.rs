@@ -30,7 +30,7 @@ use cargo::ops;
 
 
 pub mod config;
-pub mod tracer;
+pub mod test_loader;
 pub mod breakpoint;
 pub mod report;
 mod statemachine;
@@ -41,7 +41,7 @@ mod personality;
 mod ptrace_control;
 
 use config::*;
-use tracer::*;
+use test_loader::*;
 use ptrace_control::*;
 use statemachine::*;
 

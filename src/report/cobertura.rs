@@ -8,7 +8,7 @@ use std::collections::HashSet;
 use quick_xml::writer::Writer;
 use quick_xml::events::{Event, BytesEnd, BytesStart, BytesDecl};
 use quick_xml::errors::Result;
-use tracer::TracerData;
+use test_loader::TracerData;
 use config::Config;
 
 

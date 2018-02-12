@@ -1,6 +1,6 @@
 use std::collections::HashMap;
 use coveralls_api::*;
-use tracer::TracerData;
+use test_loader::TracerData;
 use config::Config;
 
 pub fn export(coverage_data: &[TracerData], config: &Config) {

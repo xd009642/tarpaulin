@@ -6,7 +6,7 @@ use nix::sys::signal::Signal;
 use nix::errno::Errno;
 use nix::Result;
 use nix::unistd::Pid;
-use tracer::*;
+use test_loader::*;
 use breakpoint::*;
 use ptrace_control::*;
 use config::Config;
