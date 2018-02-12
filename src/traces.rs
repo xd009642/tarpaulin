@@ -1,4 +1,4 @@
-use std::collections::HashMap;
+use std::collections::BTreeMap;
 use std::path::{PathBuf, Path};
 use config::Config;
 
@@ -11,7 +11,7 @@ pub struct Trace {
 
 
 pub struct TraceMap<'a> {
-    traces: HashMap<PathBuf, Vec<Trace>>,
+    traces: BTreeMap<PathBuf, Vec<Trace>>,
     config: &'a Config
 }
 
@@ -20,7 +20,7 @@ impl<'a> TraceMap<'a> {
     pub fn new(config: &'a Config) -> TraceMap<'a> {
         TraceMap {
             config: config,
-            traces: HashMap::new(),
+            traces: BTreeMap::new(),
         }
     }
     
