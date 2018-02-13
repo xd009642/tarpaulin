@@ -63,6 +63,8 @@ pub struct Config {
     /// Forward unexpected signals back to the tracee. Used for tests which
     /// rely on signals to work. 
     pub forward_signals: bool,
+    /// Include all available features in target build
+    pub all_features: bool,
     /// Features to include in the target project build
     pub features: Vec<String>,
     /// Build all packages in the workspace
@@ -97,6 +99,7 @@ impl Config {
         let skip_clean = args.is_present("skip-clean");
         let no_count = args.is_present("no-count");
         let ignore_tests = args.is_present("ignore-tests");
+        let all_features = args.is_present("all-features");
         // If no coverage selected do everything!
         if !branch && !line {
             branch = true;
@@ -160,6 +163,7 @@ impl Config {
             coveralls: coveralls,
             ci_tool: ci_tool,
             forward_signals: forward,
+            all_features: all_features,
             features: features,
             all: all,
             packages: packages,

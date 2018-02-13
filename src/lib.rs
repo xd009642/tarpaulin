@@ -81,6 +81,7 @@ pub fn launch_tarpaulin(config: &Config) -> Result<Vec<TracerData>, i32> {
         _ => {},
     }
     copt.features = config.features.as_slice();
+    copt.all_features = config.all_features;
     copt.spec = match ops::Packages::from_flags(workspace.is_virtual(), config.all, &config.exclude, &config.packages) {
         Ok(spec) => spec,
         Err(e) => { 
