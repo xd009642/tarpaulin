@@ -113,7 +113,11 @@ fn analyse_package(pkg: &Package,
         
         for target in package.targets() {
             let file = target.src_path();
-            if !(config.ignore_tests && file.starts_with(pkg.root().join("tests"))) {
+            
+            let skip_cause_test = config.ignore_tests && 
+                                  file.starts_with(pkg.root().join("tests"));
+            let skip_cause_example = file.starts_with(pkg.root().join("examples"));
+            if !(skip_cause_test || skip_cause_example) {
                 let mut parser = parse::new_parser_from_file(&parse_session, file);
                 parser.cfg_mods = false;
                 if let Ok(krate) = parser.parse_crate_mod() {
