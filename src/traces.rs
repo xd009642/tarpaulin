@@ -84,7 +84,7 @@ impl<'a> TraceMap<'a> {
         None
     }
 
-    pub fn contains_trace(&self, file: &Path, line: u64) -> bool {
+    pub fn contains_location(&self, file: &Path, line: u64) -> bool {
         match self.traces.get(file) {
             Some(traces) => traces.iter().any(|x| x.line == line),
             None => false,
@@ -107,6 +107,10 @@ impl<'a> TraceMap<'a> {
     /// Gets a vector of all the traces to mutate
     fn all_traces_mut(&mut self) -> Vec<&mut Trace> {
         self.traces.values_mut().flat_map(|x| x.iter_mut()).collect()
+    }
+
+    pub fn get_files(&self) -> Vec<&PathBuf> {
+        self.traces.keys().collect()
     }
 
 }
