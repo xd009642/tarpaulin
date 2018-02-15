@@ -12,7 +12,7 @@ pub struct LogicState {
 }
 
 /// Shows what type of coverage data is being collected by a given trace
-#[derive(Debug, Clone, Default, Hash, PartialEq, Eq, PartialOrd)]
+#[derive(Debug, Clone, Hash, PartialEq, Eq, PartialOrd)]
 pub enum CoverageStat {
     /// Line coverage data (whether line has been hit)
     Line(u64),
@@ -23,7 +23,7 @@ pub enum CoverageStat {
 }
 
 
-#[derive(Debug, Clone, Default, Hash, PartialEq, Eq, PartialOrd)]
+#[derive(Debug, Clone, Hash, PartialEq, Eq, PartialOrd)]
 pub struct Trace {
     /// Line the trace is on in the file
     pub line: u64,
@@ -76,6 +76,11 @@ impl<'a> TraceMap<'a> {
     /// Gets a mutable reference to a trace at a given address
     /// Returns None if there is no trace at that address
     pub fn get_trace_mut(&mut self, address: u64) -> Option<&mut Trace> {
+        for val in self.all_traces_mut() {
+            if val.address == Some(address) {
+                return Some(val);
+            }
+        }
         None
     }
     
@@ -90,6 +95,10 @@ impl<'a> TraceMap<'a> {
     /// Gets all traces
     fn all_traces(&self) -> Vec<&Trace> {
         self.traces.values().flat_map(|ref x| x.iter()).collect()
+    }
+
+    fn all_traces_mut(&mut self) -> Vec<&mut Trace> {
+        self.traces.values_mut().flat_map(|x| x.iter_mut()).collect()
     }
 
 }
