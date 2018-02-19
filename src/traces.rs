@@ -6,9 +6,9 @@ use config::Config;
 #[derive(Debug, Clone, Default, Hash, PartialEq, Eq, PartialOrd)]
 pub struct LogicState {
     /// Whether the condition has been observed as true
-    pub beenTrue: bool,
+    pub been_true: bool,
     /// Whether the condition has been observed as false
-    pub beenFalse: bool,
+    pub been_false: bool,
 }
 
 /// Shows what type of coverage data is being collected by a given trace
