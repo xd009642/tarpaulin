@@ -188,12 +188,55 @@ impl Config {
     
     /// Strips the directory the project manifest is in from the path. Provides a
     /// nicer path for printing to the user.
-    pub fn strip_project_path<'a>(&'a self, path: &'a Path) -> &'a Path {
+    pub fn strip_project_path<'a>(&'a self, path: &'a Path) -> PathBuf {
         if let Some(root) = self.manifest.parent() {
-            path.strip_prefix(root).unwrap_or(path)
+            path_relative_from(path, root).unwrap_or(path.to_path_buf())
         } else {
-            path
+            path.to_path_buf()
         }
+    }
+}
+
+/// Gets the relative path from one directory to another, if it exists.
+/// Credit to brson from this commit from 2015
+/// https://github.com/rust-lang/rust/pull/23283/files
+pub(crate) fn path_relative_from(path: &Path, base: &Path) -> Option<PathBuf> {
+    use std::path::Component;
+
+    if path.is_absolute() != base.is_absolute() {
+        if path.is_absolute() {
+            Some(path.to_path_buf())
+        } else {
+            None
+        }
+    } else {
+        let mut ita = path.components();
+        let mut itb = base.components();
+        let mut comps: Vec<Component> = vec![];
+        loop {
+            match (ita.next(), itb.next()) {
+                (None, None) => break,
+                (Some(a), None) => {
+                    comps.push(a);
+                    comps.extend(ita.by_ref());
+                    break;
+                }
+                (None, _) => comps.push(Component::ParentDir),
+                (Some(a), Some(b)) if comps.is_empty() && a == b => (),
+                (Some(a), Some(b)) if b == Component::CurDir => comps.push(a),
+                (Some(_), Some(b)) if b == Component::ParentDir => return None,
+                (Some(a), Some(_)) => {
+                    comps.push(Component::ParentDir);
+                    for _ in itb {
+                        comps.push(Component::ParentDir);
+                    }
+                    comps.push(a);
+                    comps.extend(ita.by_ref());
+                    break;
+                }
+            }
+        }
+        Some(comps.iter().map(|c| c.as_os_str()).collect())
     }
 }
 
@@ -242,5 +285,29 @@ mod tests {
         assert!(!conf.exclude_path(Path::new("src/mod.rs")));
         assert!(!conf.exclude_path(Path::new("src/notlib.rs")));
         assert!(!conf.exclude_path(Path::new("lib.rs")));
+    }
+
+    #[test]
+    fn relative_path_test() {
+        let path_a = Path::new("/this/should/form/a/rel/path/");
+        let path_b = Path::new("/this/should/form/b/rel/path/");
+
+        let rel_path = path_relative_from(path_b, path_a);
+        assert!(rel_path.is_some());
+        assert_eq!(rel_path.unwrap().to_str().unwrap(), "../../../b/rel/path", "Wrong relative path");
+
+        let path_a = Path::new("/this/should/not/form/a/rel/path/");
+        let path_b = Path::new("./this/should/not/form/a/rel/path/");
+
+        let rel_path = path_relative_from(path_b, path_a);
+        assert_eq!(rel_path, None, "Did not expect relative path");
+        
+
+        let path_a = Path::new("./this/should/form/a/rel/path/");
+        let path_b = Path::new("./this/should/form/b/rel/path/");
+
+        let rel_path = path_relative_from(path_b, path_a);
+        assert!(rel_path.is_some());
+        assert_eq!(rel_path.unwrap().to_str().unwrap(), "../../../b/rel/path", "Wrong relative path");
     }
 }
