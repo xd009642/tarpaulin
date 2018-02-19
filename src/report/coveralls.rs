@@ -31,7 +31,7 @@ pub fn export(coverage_data: &[TracerData], config: &Config) {
             for c in &fcov {
                 lines.insert(c.line as usize, c.hits as usize);
             }
-            if let Ok(source) = Source::new(rel_path, file, &lines, &None, false) {
+            if let Ok(source) = Source::new(&rel_path, file, &lines, &None, false) {
                 report.add_source(source);
             }
         }
