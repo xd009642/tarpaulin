@@ -42,6 +42,11 @@ pub enum LineType {
     UnusedGeneric,
 }
 
+#[derive(Clone, PartialEq, Eq, Hash)]
+struct SourceLocation {
+    pub path: PathBuf,
+    pub line: u64,
+}
 
 #[derive(Debug, Clone, Eq, PartialOrd)]
 pub struct TracerData {
@@ -232,6 +237,8 @@ fn get_line_addresses(endian: RunTimeEndian,
     let debug_abbrev = DebugAbbrev::new(debug_abbrev, endian);
     let debug_strings = obj.section_data_by_name(".debug_str").unwrap_or(&[]);
     let debug_strings = DebugStr::new(debug_strings, endian);
+    let debug_line = obj.section_data_by_name(".debug_line").unwrap_or(&[]);
+    let debug_line = DebugLine::new(debug_line, endian);
 
     let mut iter = debug_info.units();
     while let Ok(Some(cu)) = iter.next() {
@@ -254,9 +261,6 @@ fn get_line_addresses(endian: RunTimeEndian,
                 Ok(Some(AttributeValue::DebugLineRef(o))) => o,
                 _ => continue,
             };
-            let debug_line = obj.section_data_by_name(".debug_line").unwrap_or(&[]);
-            let debug_line = DebugLine::new(debug_line, endian);
-            
             let prog = debug_line.program(offset, addr_size, None, None)?; 
             if let Ok(mut addresses) = get_addresses_from_program(prog, &entries, project) {
                 result.append(&mut addresses);
@@ -329,6 +333,7 @@ pub fn generate_tracemap<'a>(project: &Workspace, test: &Path, config: &'a Confi
         MmapOptions::new().map(&file)?
     };
     if let Ok(obj) = OFile::parse(&*file) {
+        let h: HashMap<SourceLocation, TracerData> = HashMap::new();
         let analysis = get_line_analysis(project, config); 
         let endian = if obj.is_little_endian() {
             RunTimeEndian::Little
