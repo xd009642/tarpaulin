@@ -1,7 +1,7 @@
 use std::io;
 use std::path::{PathBuf, Path};
 use std::fs::File;
-use std::cmp::{Ordering, PartialEq, Ord};
+use std::cmp::{min, Ordering, PartialEq, Ord};
 use std::collections::HashMap;
 use object::{Object, File as OFile};
 use memmap::MmapOptions;
@@ -148,14 +148,13 @@ fn get_entry_points<R, Offset>(debug_info: &CompilationUnitHeader<R, Offset>,
 
 fn get_addresses_from_program<R, Offset>(prog: IncompleteLineNumberProgram<R>,
                                          entries: &[(u64, LineType)],
-                                         project: &Path) -> Result<Vec<TracerData>>
+                                         project: &Path) -> Result<HashMap<SourceLocation, TracerData>>
     where R: Reader<Offset = Offset>,
           Offset: ReaderOffset
 {
-    let mut result: Vec<TracerData> = Vec::new();
+    let mut result: HashMap<SourceLocation, TracerData> = HashMap::new();
     let ( cprog, seq) = prog.sequences()?;
     for s in seq {
-        let mut temp_store : Vec<TracerData> = Vec::new();
         let mut sm = cprog.resume_from(&s);   
          while let Ok(Some((header, &ln_row))) = sm.next_row() {
             if let Some(file) = ln_row.file(header) {
@@ -203,22 +202,28 @@ fn get_addresses_from_program<R, Offset>(prog: IncompleteLineNumberProgram<R>,
                                               .map(|&(_, t)| t)
                                               .nth(0)
                                               .unwrap_or(LineType::Unknown);
-                            temp_store.push( TracerData {
-                                path: path,
+                            let loc = SourceLocation {
+                                path: path.clone(),
                                 line: line,
-                                address: Some(address),
-                                trace_type: desc,
-                                hits: 0u64
-                            });
+                            };
+                            if result.contains_key(&loc) {
+                                let mut x = result.get_mut(&loc).unwrap();
+                                if let Some(mut addr) = x.address {
+                                    addr = min(address, addr);
+                                }
+                            } else {
+                                result.insert(loc, TracerData {
+                                    path: path.clone(),
+                                    line: line,
+                                    address: Some(address),
+                                    trace_type: desc,
+                                    hits: 0u64
+                                });
+                            }
                         }
                     }
                 }
             }
-        }
-        if !temp_store.is_empty() {
-            temp_store.sort();
-            temp_store.dedup();
-            result.append(&mut temp_store);
         }
     }
     Ok(result)
@@ -230,6 +235,7 @@ fn get_line_addresses(endian: RunTimeEndian,
                       obj: &OFile,
                       analysis: &HashMap<PathBuf, LineAnalysis>,
                       config: &Config) -> Result<Vec<TracerData>>  {
+
     let mut result: Vec<TracerData> = Vec::new();
     let debug_info = obj.section_data_by_name(".debug_info").unwrap_or(&[]);
     let debug_info = DebugInfo::new(debug_info, endian);
@@ -263,7 +269,9 @@ fn get_line_addresses(endian: RunTimeEndian,
             };
             let prog = debug_line.program(offset, addr_size, None, None)?; 
             if let Ok(mut addresses) = get_addresses_from_program(prog, &entries, project) {
-                result.append(&mut addresses);
+                for val in addresses.values() {
+                    result.push(val.clone());
+                }
             }
         }
     }
@@ -333,14 +341,23 @@ pub fn generate_tracemap<'a>(project: &Workspace, test: &Path, config: &'a Confi
         MmapOptions::new().map(&file)?
     };
     if let Ok(obj) = OFile::parse(&*file) {
-        let h: HashMap<SourceLocation, TracerData> = HashMap::new();
+        let mut result = TraceMap::new(config);
+        let mut h: HashMap<SourceLocation, TracerData> = HashMap::new();
         let analysis = get_line_analysis(project, config); 
         let endian = if obj.is_little_endian() {
             RunTimeEndian::Little
         } else {
             RunTimeEndian::Big
         };
-        Err(io::Error::new(io::ErrorKind::InvalidData, "Unable to parse binary."))
+        for (k, v) in &h {
+            result.add_trace(&k.path, Trace {
+                line: k.line,
+                address: v.address,
+                length: 1,
+                stats: CoverageStat::Line(0)
+            });
+        }
+        Ok(result)
     } else {
         Err(io::Error::new(io::ErrorKind::InvalidData, "Unable to parse binary."))
     }
