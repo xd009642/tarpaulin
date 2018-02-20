@@ -148,11 +148,11 @@ fn get_entry_points<R, Offset>(debug_info: &CompilationUnitHeader<R, Offset>,
 
 fn get_addresses_from_program<R, Offset>(prog: IncompleteLineNumberProgram<R>,
                                          entries: &[(u64, LineType)],
-                                         project: &Path) -> Result<HashMap<SourceLocation, TracerData>>
+                                         project: &Path,
+                                         result: &mut HashMap<SourceLocation, TracerData>) -> Result<()>
     where R: Reader<Offset = Offset>,
           Offset: ReaderOffset
 {
-    let mut result: HashMap<SourceLocation, TracerData> = HashMap::new();
     let ( cprog, seq) = prog.sequences()?;
     for s in seq {
         let mut sm = cprog.resume_from(&s);   
@@ -224,7 +224,7 @@ fn get_addresses_from_program<R, Offset>(prog: IncompleteLineNumberProgram<R>,
             }
         }
     }
-    Ok(result)
+    Ok(())
 }
 
 
@@ -232,9 +232,9 @@ fn get_line_addresses(endian: RunTimeEndian,
                       project: &Path,
                       obj: &OFile,
                       analysis: &HashMap<PathBuf, LineAnalysis>,
-                      config: &Config) -> Result<Vec<TracerData>>  {
+                      config: &Config) -> Result<HashMap<SourceLocation, TracerData>>  {
 
-    let mut result: Vec<TracerData> = Vec::new();
+    let mut result: HashMap<SourceLocation, TracerData> = HashMap::new();
     let debug_info = obj.section_data_by_name(".debug_info").unwrap_or(&[]);
     let debug_info = DebugInfo::new(debug_info, endian);
     let debug_abbrev = obj.section_data_by_name(".debug_abbrev").unwrap_or(&[]);
@@ -266,33 +266,35 @@ fn get_line_addresses(endian: RunTimeEndian,
                 _ => continue,
             };
             let prog = debug_line.program(offset, addr_size, None, None)?; 
-            if let Ok(mut addresses) = get_addresses_from_program(prog, &entries, project) {
-                for val in addresses.values() {
-                    result.push(val.clone());
+            if let Err(e) = get_addresses_from_program(prog, &entries, project, &mut result) {
+                if config.verbose {
+                    println!("Potential issue reading test addresses {}", e);
                 }
             }
         }
     }
     // Due to rust being a higher level language multiple instructions may map
     // to the same line. This prunes these to just the first instruction address
-    let mut result = result.iter()
-                           .filter(|x| !(config.ignore_tests && x.path.starts_with(project.join("tests"))))
-                           .filter(|x| !(config.exclude_path(&x.path)))
-                           .filter(|x| !analysis.should_ignore(x.path.as_ref(), &(x.line as usize)))
-                           .filter(|x| x.trace_type != LineType::TestMain)
-                           .cloned()
-                           .collect::<Vec<TracerData>>();
+    let mut result = result.into_iter()
+                           .filter(|&(ref k, _)| !(config.ignore_tests && k.path.starts_with(project.join("tests"))))
+                           .filter(|&(ref k, _)| !(config.exclude_path(&k.path)))
+                           .filter(|&(ref k, _)| !analysis.should_ignore(k.path.as_ref(), &(k.line as usize)))
+                           .filter(|&(_, ref v)| v.trace_type != LineType::TestMain)
+                           .collect::<HashMap<SourceLocation, TracerData>>();
 
     for (file, ref line_analysis) in analysis.iter() {
         if config.exclude_path(file) {
             continue;
         }
         for line in &line_analysis.cover {
-            let line64 = *line as u64;
-            let contain = result.iter().any(|ref x| &x.path == file && line64 == x.line);
-            if !contain && !line_analysis.should_ignore(line) {
-                result.push(TracerData {
-                    line: line64,
+            let line = *line as u64;
+            let loc = SourceLocation {
+                path: file.to_path_buf(),
+                line: line
+            };
+            if !result.contains_key(&loc) && !line_analysis.should_ignore(&(line as usize)) {
+                result.insert(loc, TracerData {
+                    line: line,
                     path: file.to_path_buf(),
                     address: None,
                     hits: 0,
@@ -312,22 +314,25 @@ pub fn generate_tracemap<'a>(project: &Workspace, test: &Path, config: &'a Confi
     };
     if let Ok(obj) = OFile::parse(&*file) {
         let mut result = TraceMap::new(config);
-        let mut h: HashMap<SourceLocation, TracerData> = HashMap::new();
         let analysis = get_line_analysis(project, config); 
         let endian = if obj.is_little_endian() {
             RunTimeEndian::Little
         } else {
             RunTimeEndian::Big
         };
-        for (k, v) in &h {
-            result.add_trace(&k.path, Trace {
-                line: k.line,
-                address: v.address,
-                length: 1,
-                stats: CoverageStat::Line(0)
-            });
+        if let Ok(h) = get_line_addresses(endian, manifest, &obj, &analysis, config) {
+            for (k, v) in &h {
+                result.add_trace(&k.path, Trace {
+                    line: k.line,
+                    address: v.address,
+                    length: 1,
+                    stats: CoverageStat::Line(0)
+                });
+            }
+            Ok(result)
+        } else {
+            Err(io::Error::new(io::ErrorKind::InvalidData, "Error while parsing"))
         }
-        Ok(result)
     } else {
         Err(io::Error::new(io::ErrorKind::InvalidData, "Unable to parse binary."))
     }
@@ -348,12 +353,15 @@ pub fn generate_tracer_data(project: &Workspace, test: &Path, config: &Config) -
         } else {
             RunTimeEndian::Big
         };
-        get_line_addresses(endian,
-                           manifest,
-                           &obj,
-                           &analysis,
-                           config)
-            .map_err(|_| io::Error::new(io::ErrorKind::InvalidData, "Error while parsing"))
+        if let Ok(map) = get_line_addresses(endian, manifest, &obj, &analysis, config) {
+            let mut result:Vec<TracerData> = Vec::new();
+            for val in map.values() {
+                result.push(val.clone());
+            }
+            Ok(result)
+        } else {
+            Err(io::Error::new(io::ErrorKind::InvalidData, "Error while parsing"))
+        }
     } else {
         Err(io::Error::new(io::ErrorKind::InvalidData, "Unable to parse binary."))
     }
