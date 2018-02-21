@@ -1,6 +1,7 @@
 use std::collections::BTreeMap;
 use std::collections::btree_map::Iter;
 use std::path::{PathBuf, Path};
+use std::fmt::{Display, Formatter, Result};
 use config::Config;
 
 /// Used to track the state of logical conditions
@@ -21,6 +22,17 @@ pub enum CoverageStat {
     Branch(LogicState),
     /// Condition coverage data (each boolean subcondition true and false)
     Condition(Vec<LogicState>),
+}
+
+impl Display for CoverageStat {
+    fn fmt(&self, f: &mut Formatter) -> Result {
+        match self {
+            &CoverageStat::Line(x) => {
+                write!(f, "Hits: {}", x)
+            },
+            _ => write!(f, ""),
+        }
+    }
 }
 
 
@@ -122,8 +134,43 @@ impl<'a> TraceMap<'a> {
         self.traces.values_mut().flat_map(|x| x.iter_mut()).collect()
     }
 
-    pub fn get_files(&self) -> Vec<&PathBuf> {
+    pub fn files(&self) -> Vec<&PathBuf> {
         self.traces.keys().collect()
+    }
+
+    pub fn coverable_in_path(&self, path: &Path) -> usize {
+        let mut result = 0usize;
+        for t in self.get_child_traces(path) {
+            result += match t.stats {
+                CoverageStat::Branch(x) => {
+                    2usize
+                },
+                CoverageStat::Condition(x) => {
+                    x.len() * 2usize
+                }
+                _ => 1usize
+            };
+        }
+        result
+    }
+
+    pub fn covered_in_path(&self, path: &Path) -> usize {
+        let mut result = 0usize;
+        for t in self.get_child_traces(path) {
+            result += match t.stats {
+                CoverageStat::Branch(x) => {
+                    (x.been_true as usize) + (x.been_false as usize)
+                },
+                CoverageStat::Condition(x) => {
+                    x.iter()
+                     .fold(0, |acc, &x| acc + (x.been_true as usize) + (x.been_false as usize))
+                }
+                CoverageStat::Line(x) => {
+                    (x > 0) as usize
+                }
+            };
+        }
+        result
     }
 
     /// Give the total amount of coverable points in the code. This will vary

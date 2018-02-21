@@ -22,7 +22,7 @@ use std::io;
 use std::ffi::CString;
 use std::path::{Path, PathBuf};
 use std::process::Command;
-use std::collections::{BTreeMap, HashMap};
+use std::collections::HashMap;
 use nix::unistd::*;
 use cargo::util::Config as CargoConfig;
 use cargo::core::{Workspace, Package};
@@ -224,28 +224,22 @@ pub fn report_coverage<'a>(config: &'a Config, result: &'a TraceMap) {
     if !result.is_empty() {
         println!("Coverage Results");
         if config.verbose {
-            for r in result.iter() {
-                let path = config.strip_project_path(r.path.as_path());
-                println!("{}:{} - hits: {}", path.display(), r.line, r.hits);
+            for (ref key, ref value) in result.iter() {
+                let path = config.strip_project_path(key);
+                for v in value.iter() {
+                    println!("{}:{} - hits: {}", path.display(), v.line, v.stats);
+                }
             }
             println!("");
         }
-        // Hash map of files with the value (lines covered, total lines)
-        let mut file_map: BTreeMap<&Path, (u64, u64)> = BTreeMap::new();
-        for r in result.iter() {
-            if file_map.contains_key(r.path.as_path()) {
-                if let Some(v) = file_map.get_mut(r.path.as_path()) {
-                    (*v).0 += (r.hits > 0) as u64;
-                    (*v).1 += 1u64;
-                } 
-            } else {
-                file_map.insert(r.path.as_path(), ((r.hits > 0) as u64, 1));
-            }
+        for file in result.files() {
+            let path = config.strip_project_path(file);
+            println!("{}: {}/{}", path.display(), result.covered_in_path(&file), result.coverable_in_path(&file));
         }
-        for (k, v) in &file_map {
+       /* for (ref path, ref v) in &file_map {
             let path = config.strip_project_path(k);
             println!("{}: {}/{}", path.display(), v.0, v.1);
-        }
+        }*/
         let covered = result.total_covered();
         let total = result.total_coverable();
         let percent = (covered as f64)/(total as f64) * 100.0f64;
