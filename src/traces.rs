@@ -51,6 +51,10 @@ impl<'a> TraceMap<'a> {
             config: config,
             traces: BTreeMap::new(),
         }
+    } 
+
+    pub fn merge(&mut self, other: &'a TraceMap) {
+        
     }
 
     /// Add a trace to the tracemap for the given file
@@ -100,7 +104,7 @@ impl<'a> TraceMap<'a> {
     }
 
     /// Gets all traces
-    fn all_traces(&self) -> Vec<&Trace> {
+    pub fn all_traces(&self) -> Vec<&Trace> {
         self.traces.values().flat_map(|ref x| x.iter()).collect()
     }
 

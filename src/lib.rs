@@ -45,6 +45,7 @@ use config::*;
 use test_loader::*;
 use ptrace_control::*;
 use statemachine::*;
+use traces::*;
 
 
 
@@ -105,7 +106,7 @@ pub fn launch_tarpaulin(config: &Config) -> Result<Vec<TracerData>, i32> {
         };
         let _ = ops::clean(&workspace, &clean_opt);
     }
-    let mut result:Vec<TracerData> = Vec::new();
+    let mut result = TraceMap::new(&config);
     println!("Building project");
     let compilation = ops::compile(&workspace, &copt);
     match compilation {
@@ -114,15 +115,16 @@ pub fn launch_tarpaulin(config: &Config) -> Result<Vec<TracerData>, i32> {
                 if config.verbose {
                     println!("Processing {}", name);
                 }
-                let res = get_test_coverage(&workspace, package, path.as_path(),
-                                            &config, false)
-                    .unwrap_or_default();
-                merge_test_results(&mut result, &res);
+                if let Some(res) = get_test_coverage(&workspace, package, path.as_path(), &config, false) {
+                    result.merge(&res);
+                    //merge_test_results(&mut result, &res);
+                }
                 if config.run_ignored {
-                    let res = get_test_coverage(&workspace, package, path.as_path(),
-                                                &config, true)
-                        .unwrap_or_default();
-                    merge_test_results(&mut result, &res);
+                    if let Some(res) = get_test_coverage(&workspace, package, path.as_path(),
+                                                         &config, true) {
+                        result.merge(&res);
+                        //merge_test_results(&mut result, &res);
+                    }
                 }
             }
             Ok(resolve_results(result))
@@ -272,11 +274,11 @@ pub fn report_coverage(config: &Config, result: &[TracerData]) {
 }
 
 /// Returns the coverage statistics for a test executable in the given workspace
-pub fn get_test_coverage(project: &Workspace, 
+pub fn get_test_coverage<'a>(project: &Workspace, 
                          package: &Package,
                          test: &Path, 
-                         config: &Config, 
-                         ignored: bool) -> Option<Vec<TracerData>> {
+                         config: &'a Config, 
+                         ignored: bool) -> Option<TraceMap<'a>> {
     if !test.exists() {
         return None;
     } 
@@ -307,11 +309,11 @@ pub fn get_test_coverage(project: &Workspace,
 }
 
 /// Collects the coverage data from the launched test
-fn collect_coverage(project: &Workspace, 
+fn collect_coverage<'a>(project: &Workspace, 
                     test_path: &Path, 
                     test: Pid,
-                    config: &Config) -> io::Result<Vec<TracerData>> {
-    let mut traces = generate_tracer_data(project, test_path, config)?;
+                    config: &'a Config) -> io::Result<TraceMap<'a>> {
+    let mut traces = generate_tracemap(project, test_path, config)?;
     {
         let (mut state, mut data) = create_state_machine(test, &mut traces, config);
         loop {
