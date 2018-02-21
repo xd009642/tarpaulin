@@ -22,7 +22,6 @@ use std::io;
 use std::ffi::CString;
 use std::path::{Path, PathBuf};
 use std::process::Command;
-use std::collections::HashMap;
 use nix::unistd::*;
 use cargo::util::Config as CargoConfig;
 use cargo::core::{Workspace, Package};
@@ -180,43 +179,6 @@ fn setup_environment(cargo_config: &CargoConfig) {
 
 }
 
-fn resolve_results(raw_results: Vec<TracerData>) -> Vec<TracerData> {
-    let mut result = Vec::new();
-    let mut map = HashMap::new();
-    for r in raw_results.iter() {
-        map.entry((r.path.as_path(), r.line)).or_insert(vec![]).push(r);
-    }
-    for (_, v) in map.iter() {
-        // Guaranteed to have at least one element
-        let hits = v.iter().fold(0, |acc, &x| acc + x.hits);
-        let mut temp = v[0].clone();
-        temp.hits = hits;
-        result.push(temp);
-    }
-    result.sort();
-    result
-}
-
-/// Test artefacts may have different lines visible to them therefore for 
-/// each test artefact covered we need to merge the `TracerData` entries to get
-/// the overall coverage.
-pub fn merge_test_results(master: &mut Vec<TracerData>, new: &[TracerData]) {
-    let mut unmerged:Vec<TracerData> = Vec::new();
-    for t in new.iter() {
-        let mut update = master.iter_mut()
-                               .filter(|x| x.path== t.path && x.line == t.line)
-                               .collect::<Vec<_>>();
-        for u in &mut update {
-            u.hits += t.hits;
-        }
-        
-        if update.is_empty() {
-            unmerged.push(t.clone());
-        }
-    }
-    master.append(&mut unmerged);
-}
-
 
 /// Reports the test coverage using the users preferred method. See config.rs 
 /// or help text for details.
@@ -362,52 +324,3 @@ fn execute_test(test: &Path, package: &Package, ignored: bool, config: &Config) 
         .unwrap();
 }
 
-
-#[cfg(test)]
-mod tests {
-    use std::path::PathBuf;
-    use ::*;
-    
-    #[test]
-    fn result_merge_test() {
-        let mut master:Vec<TracerData> = vec![];
-
-        master.push(TracerData { 
-            path: PathBuf::from("testing/test.rs"),
-            line: 2,
-            address: Some(0),
-            trace_type: LineType::Unknown,
-            hits: 1
-        });
-        master.push(TracerData { 
-            path: PathBuf::from("testing/test.rs"),
-            line: 3,
-            address: Some(1),
-            trace_type: LineType::Unknown,
-            hits: 1
-        });
-        master.push(TracerData {
-            path: PathBuf::from("testing/not.rs"),
-            line: 2,
-            address: Some(0),
-            trace_type: LineType::Unknown,
-            hits: 7
-        });
-
-        let other:Vec<TracerData> = vec![
-            TracerData {
-                path:PathBuf::from("testing/test.rs"),
-                line: 2,
-                address: Some(0),
-                trace_type: LineType::Unknown,
-                hits: 2
-            }];
-
-        merge_test_results(&mut master, &other);
-        let expected = vec![3, 1, 7];
-        for (act, exp) in master.iter().zip(expected) {
-            assert_eq!(act.hits, exp);
-        }
-    }
-
-}

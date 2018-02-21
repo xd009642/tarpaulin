@@ -2,6 +2,7 @@ use std::collections::BTreeMap;
 use std::collections::btree_map::Iter;
 use std::path::{PathBuf, Path};
 use std::fmt::{Display, Formatter, Result};
+use std::ops::Add;
 
 /// Used to track the state of logical conditions
 #[derive(Debug, Clone, Default, Hash, PartialEq, Eq, PartialOrd)]
@@ -10,6 +11,17 @@ pub struct LogicState {
     pub been_true: bool,
     /// Whether the condition has been observed as false
     pub been_false: bool,
+}
+
+impl<'a> Add for &'a LogicState {
+    type Output = LogicState;
+
+    fn add(self, other: &'a LogicState) -> LogicState {
+        LogicState {
+            been_true: self.been_true | other.been_true,
+            been_false: self.been_false | other.been_false,
+        }
+    }
 }
 
 /// Shows what type of coverage data is being collected by a given trace
@@ -21,6 +33,22 @@ pub enum CoverageStat {
     Branch(LogicState),
     /// Condition coverage data (each boolean subcondition true and false)
     Condition(Vec<LogicState>),
+}
+
+impl Add for CoverageStat {
+    type Output = CoverageStat;
+
+    fn add(self, other: CoverageStat) -> CoverageStat {
+        match (self, other) {
+            (CoverageStat::Line(ref l), CoverageStat::Line(ref r)) => {
+                CoverageStat::Line(l+r)
+            },
+            (CoverageStat::Branch(ref l), CoverageStat::Branch(ref r)) => {
+                CoverageStat::Branch(l + r)
+            },
+            t @ _ => t.0,
+        }
+    }
 }
 
 impl Display for CoverageStat {
@@ -71,11 +99,21 @@ impl TraceMap {
     }
 
     pub fn merge(&mut self, other: &TraceMap) {
-        for ( k,  v) in other.iter() {
+        for ( k,  values) in other.iter() {
             if !self.traces.contains_key(k) {
-                self.traces.insert(k.to_path_buf(), v.to_vec());
+                self.traces.insert(k.to_path_buf(), values.to_vec());
             } else {
-
+                let mut existing = self.traces.get_mut(k).unwrap();
+                for ref v in values.iter() {
+                    let mut added = false;
+                    if let Some(ref mut t) = existing.iter_mut().find(|ref x| x.line == v.line) {
+                        t.stats = t.stats.clone() + v.stats.clone();
+                        added = true;
+                    }
+                    if !added {
+                        existing.push((*v).clone());
+                    }
+                }
             }
         }
     }
