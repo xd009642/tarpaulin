@@ -1,7 +1,7 @@
 use std::io;
 use std::path::{PathBuf, Path};
 use std::fs::File;
-use std::cmp::{min, Ordering, PartialEq, Ord};
+use std::cmp::min;
 use std::collections::HashMap;
 use object::{Object, File as OFile};
 use memmap::MmapOptions;
@@ -48,38 +48,10 @@ struct SourceLocation {
     pub line: u64,
 }
 
-#[derive(Debug, Clone, Eq, PartialOrd)]
+#[derive(Debug, Clone)]
 pub struct TracerData {
-    pub path: PathBuf,
-    pub line: u64,
     pub address: Option<u64>,
     pub trace_type: LineType,
-    pub hits: u64,
-}
-
-impl PartialEq for TracerData {
-    fn eq(&self, other: &TracerData) -> bool {
-        (self.path == other.path) && (self.line == other.line)
-    }
-}
-
-impl Ord for TracerData {
-    
-    fn cmp(&self, other: &TracerData) -> Ordering {
-        if self == other {
-            Ordering::Equal
-        } else if self.path == other.path {
-            if self.line > other.line {
-                Ordering::Greater
-            } else {
-                Ordering::Less
-            }
-        } else if self.path > other.path {
-            Ordering::Greater
-        } else {
-            Ordering::Less
-        }
-    }
 }
 
 
@@ -201,7 +173,7 @@ fn get_addresses_from_program<R, Offset>(prog: IncompleteLineNumberProgram<R>,
                                               .nth(0)
                                               .unwrap_or(LineType::Unknown);
                             let loc = SourceLocation {
-                                path: path.clone(),
+                                path: path,
                                 line: line,
                             };
                             if result.contains_key(&loc) {
@@ -211,11 +183,8 @@ fn get_addresses_from_program<R, Offset>(prog: IncompleteLineNumberProgram<R>,
                                 }
                             } else {
                                 result.insert(loc, TracerData {
-                                    path: path.clone(),
-                                    line: line,
                                     address: Some(address),
                                     trace_type: desc,
-                                    hits: 0u64
                                 });
                             }
                         }
@@ -294,10 +263,7 @@ fn get_line_addresses(endian: RunTimeEndian,
             };
             if !result.contains_key(&loc) && !line_analysis.should_ignore(&(line as usize)) {
                 result.insert(loc, TracerData {
-                    line: line,
-                    path: file.to_path_buf(),
                     address: None,
-                    hits: 0,
                     trace_type: LineType::UnusedGeneric,
                 });
             }
