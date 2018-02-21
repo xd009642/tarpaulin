@@ -306,14 +306,14 @@ fn get_line_addresses(endian: RunTimeEndian,
     Ok(result)
 }
 
-pub fn generate_tracemap<'a>(project: &Workspace, test: &Path, config: &'a Config) -> io::Result<TraceMap<'a>> {
+pub fn generate_tracemap(project: &Workspace, test: &Path, config: &Config) -> io::Result<TraceMap> {
     let manifest = project.root();
     let file = File::open(test)?;
     let file = unsafe { 
         MmapOptions::new().map(&file)?
     };
     if let Ok(obj) = OFile::parse(&*file) {
-        let mut result = TraceMap::new(config);
+        let mut result = TraceMap::new();
         let analysis = get_line_analysis(project, config); 
         let endian = if obj.is_little_endian() {
             RunTimeEndian::Little

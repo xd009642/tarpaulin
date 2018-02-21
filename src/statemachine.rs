@@ -125,7 +125,7 @@ impl TestState {
 
 
 pub fn create_state_machine<'a>(test: Pid, 
-                                traces: &'a mut TraceMap<'a>, 
+                                traces: &'a mut TraceMap, 
                                 config: &'a Config) -> (TestState, LinuxData<'a>) {
     let mut data = LinuxData::new(traces, config);
     data.parent = test;
@@ -144,7 +144,7 @@ pub struct LinuxData<'a> {
     /// Map of addresses to breakpoints
     breakpoints: HashMap<u64, Breakpoint>,
     /// Instrumentation points in code with associated coverage data
-    traces: &'a mut TraceMap<'a>,
+    traces: &'a mut TraceMap,
     /// Program config
     config: &'a Config,
     /// Used to store error for user in the event something goes wrong
@@ -310,7 +310,7 @@ impl <'a> StateData for LinuxData<'a> {
 
 
 impl <'a>LinuxData<'a> {
-    pub fn new(traces: &'a mut TraceMap<'a>, config: &'a Config) -> LinuxData<'a> {
+    pub fn new(traces: &'a mut TraceMap, config: &'a Config) -> LinuxData<'a> {
         LinuxData {
             wait: WaitStatus::StillAlive,
             current: Pid::from_raw(0),
@@ -379,21 +379,13 @@ impl <'a>LinuxData<'a> {
                 };
                 if updated {
                     if let Some(ref mut t) = self.traces.get_trace_mut(rip) {
-                        let new_stat = match t.stats {
-                            CoverageStat::Line(x) => {
-                                CoverageStat::Line(x+1)
+                        match t.stats {
+                            CoverageStat::Line(ref mut x) => {
+                                *x += 1;
                             },
-                            t @ _ => {
-                                println!("Internal error unsupported stat");
-                                t
-                            }
-                        };
-                        t.stats = new_stat;
+                             _ => {}
+                        }
                     }
-                    /*for t in self.traces.iter_mut()
-                                        .filter(|x| x.address == Some(rip)) {
-                        (*t).hits += 1;
-                    }*/
                 } 
             } else {
                 continue_exec(self.current, None)?;

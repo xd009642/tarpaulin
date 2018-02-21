@@ -56,7 +56,7 @@ pub fn run(config: Config) -> Result<(), i32> {
 }
 
 /// Launches tarpaulin with the given configuration.
-pub fn launch_tarpaulin<'a>(config: &'a Config) -> Result<TraceMap<'a>, i32> {
+pub fn launch_tarpaulin(config: &Config) -> Result<TraceMap, i32> {
     let mut cargo_config = CargoConfig::default().unwrap();
     let flag_quiet = if config.verbose {
         None
@@ -106,7 +106,7 @@ pub fn launch_tarpaulin<'a>(config: &'a Config) -> Result<TraceMap<'a>, i32> {
         };
         let _ = ops::clean(&workspace, &clean_opt);
     }
-    let mut result = TraceMap::new(&config);
+    let mut result = TraceMap::new();
     println!("Building project");
     let compilation = ops::compile(&workspace, &copt);
     match compilation {
@@ -127,7 +127,7 @@ pub fn launch_tarpaulin<'a>(config: &'a Config) -> Result<TraceMap<'a>, i32> {
                     }
                 }
             }
-            Ok(resolve_results(result))
+            Ok(result)
         },
         Err(e) => {
             if config.verbose{
@@ -220,7 +220,7 @@ pub fn merge_test_results(master: &mut Vec<TracerData>, new: &[TracerData]) {
 
 /// Reports the test coverage using the users preferred method. See config.rs 
 /// or help text for details.
-pub fn report_coverage<'a>(config: &'a Config, result: &'a TraceMap) {
+pub fn report_coverage(config: &Config, result: &TraceMap) {
     if !result.is_empty() {
         println!("Coverage Results");
         if config.verbose {
@@ -247,14 +247,14 @@ pub fn report_coverage<'a>(config: &'a Config, result: &'a TraceMap) {
         println!("\n{:.2}% coverage, {}/{} lines covered", percent, covered, total);
         if config.is_coveralls() {
             println!("Sending coverage data to coveralls.io");
-            report::coveralls::export(result, config);
+         //   report::coveralls::export(result, config);
             println!("Coverage data sent");
         }
 
         for g in &config.generate {
             match g {
                 &OutputFile::Xml => {
-                    report::cobertura::export(result, config);
+      //              report::cobertura::export(result, config);
                 },
                 _ => {
                     println!("Format currently unsupported");
@@ -268,11 +268,11 @@ pub fn report_coverage<'a>(config: &'a Config, result: &'a TraceMap) {
 }
 
 /// Returns the coverage statistics for a test executable in the given workspace
-pub fn get_test_coverage<'a>(project: &Workspace, 
+pub fn get_test_coverage(project: &Workspace, 
                          package: &Package,
                          test: &Path, 
-                         config: &'a Config, 
-                         ignored: bool) -> Option<TraceMap<'a>> {
+                         config: &Config, 
+                         ignored: bool) -> Option<TraceMap> {
     if !test.exists() {
         return None;
     } 
@@ -303,10 +303,10 @@ pub fn get_test_coverage<'a>(project: &Workspace,
 }
 
 /// Collects the coverage data from the launched test
-fn collect_coverage<'a>(project: &Workspace, 
+fn collect_coverage(project: &Workspace, 
                     test_path: &Path, 
                     test: Pid,
-                    config: &'a Config) -> io::Result<TraceMap<'a>> {
+                    config: &Config) -> io::Result<TraceMap> {
     let mut traces = generate_tracemap(project, test_path, config)?;
     {
         let (mut state, mut data) = create_state_machine(test, &mut traces, config);

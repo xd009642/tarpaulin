@@ -2,7 +2,6 @@ use std::collections::BTreeMap;
 use std::collections::btree_map::Iter;
 use std::path::{PathBuf, Path};
 use std::fmt::{Display, Formatter, Result};
-use config::Config;
 
 /// Used to track the state of logical conditions
 #[derive(Debug, Clone, Default, Hash, PartialEq, Eq, PartialOrd)]
@@ -50,18 +49,15 @@ pub struct Trace {
 
 /// Stores all the program traces mapped to files and provides an interface to
 /// add, query and change traces.
-pub struct TraceMap<'a> {
+pub struct TraceMap {
     /// Traces in the program mapped to the given file
     traces: BTreeMap<PathBuf, Vec<Trace>>,
-    /// Tarpaulin config - is this needed?
-    config: &'a Config
 }
 
-impl<'a> TraceMap<'a> {
+impl TraceMap {
     /// Create a new TraceMap 
-    pub fn new(config: &'a Config) -> TraceMap<'a> {
+    pub fn new() -> TraceMap {
         TraceMap {
-            config: config,
             traces: BTreeMap::new(),
         }
     } 
@@ -74,8 +70,14 @@ impl<'a> TraceMap<'a> {
         self.traces.iter()
     }
 
-    pub fn merge(&mut self, other: &'a TraceMap) {
-        
+    pub fn merge(&mut self, other: &TraceMap) {
+        for ( k,  v) in other.iter() {
+            if !self.traces.contains_key(k) {
+                self.traces.insert(k.to_path_buf(), v.to_vec());
+            } else {
+
+            }
+        }
     }
 
     /// Add a trace to the tracemap for the given file
@@ -138,14 +140,15 @@ impl<'a> TraceMap<'a> {
         self.traces.keys().collect()
     }
 
+
     pub fn coverable_in_path(&self, path: &Path) -> usize {
         let mut result = 0usize;
         for t in self.get_child_traces(path) {
             result += match t.stats {
-                CoverageStat::Branch(x) => {
+                CoverageStat::Branch(_) => {
                     2usize
                 },
-                CoverageStat::Condition(x) => {
+                CoverageStat::Condition(ref x) => {
                     x.len() * 2usize
                 }
                 _ => 1usize
@@ -158,15 +161,15 @@ impl<'a> TraceMap<'a> {
         let mut result = 0usize;
         for t in self.get_child_traces(path) {
             result += match t.stats {
-                CoverageStat::Branch(x) => {
+                CoverageStat::Branch(ref x) => {
                     (x.been_true as usize) + (x.been_false as usize)
                 },
-                CoverageStat::Condition(x) => {
+                CoverageStat::Condition(ref x) => {
                     x.iter()
-                     .fold(0, |acc, &x| acc + (x.been_true as usize) + (x.been_false as usize))
+                     .fold(0, |acc, ref x| acc + (x.been_true as usize) + (x.been_false as usize))
                 }
-                CoverageStat::Line(x) => {
-                    (x > 0) as usize
+                CoverageStat::Line(ref x) => {
+                    (x > &0) as usize
                 }
             };
         }
@@ -181,10 +184,10 @@ impl<'a> TraceMap<'a> {
         let mut result = 0usize;
         for t in self.all_traces() {
             result += match t.stats {
-                CoverageStat::Branch(x) => {
+                CoverageStat::Branch(_) => {
                     2usize
                 },
-                CoverageStat::Condition(x) => {
+                CoverageStat::Condition(ref x) => {
                     x.len() * 2usize
                 }
                 _ => 1usize
@@ -197,15 +200,15 @@ impl<'a> TraceMap<'a> {
         let mut result = 0usize;
         for t in self.all_traces() {
             result += match t.stats {
-                CoverageStat::Branch(x) => {
+                CoverageStat::Branch(ref x) => {
                     (x.been_true as usize) + (x.been_false as usize)
                 },
-                CoverageStat::Condition(x) => {
+                CoverageStat::Condition(ref x) => {
                     x.iter()
-                     .fold(0, |acc, &x| acc + (x.been_true as usize) + (x.been_false as usize))
+                     .fold(0, |acc, ref x| acc + (x.been_true as usize) + (x.been_false as usize))
                 }
-                CoverageStat::Line(x) => {
-                    (x > 0) as usize
+                CoverageStat::Line(ref x) => {
+                    (x > &0) as usize
                 }
             };
         }
