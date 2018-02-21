@@ -1,4 +1,5 @@
 use std::collections::BTreeMap;
+use std::collections::btree_map::Iter;
 use std::path::{PathBuf, Path};
 use config::Config;
 
@@ -52,6 +53,14 @@ impl<'a> TraceMap<'a> {
             traces: BTreeMap::new(),
         }
     } 
+
+    pub fn is_empty(&self) -> bool {
+        self.traces.is_empty()
+    }
+
+    pub fn iter(&self) -> Iter<PathBuf, Vec<Trace>> {
+        self.traces.iter()
+    }
 
     pub fn merge(&mut self, other: &'a TraceMap) {
         
@@ -115,6 +124,45 @@ impl<'a> TraceMap<'a> {
 
     pub fn get_files(&self) -> Vec<&PathBuf> {
         self.traces.keys().collect()
+    }
+
+    /// Give the total amount of coverable points in the code. This will vary
+    /// based on the statistics available for line coverage it will be total
+    /// line whereas for condition or decision it will count the number of 
+    /// conditions available
+    pub fn total_coverable(&self) -> usize {
+        let mut result = 0usize;
+        for t in self.all_traces() {
+            result += match t.stats {
+                CoverageStat::Branch(x) => {
+                    2usize
+                },
+                CoverageStat::Condition(x) => {
+                    x.len() * 2usize
+                }
+                _ => 1usize
+            };
+        }
+        result
+    }
+
+    pub fn total_covered(&self) -> usize {
+        let mut result = 0usize;
+        for t in self.all_traces() {
+            result += match t.stats {
+                CoverageStat::Branch(x) => {
+                    (x.been_true as usize) + (x.been_false as usize)
+                },
+                CoverageStat::Condition(x) => {
+                    x.iter()
+                     .fold(0, |acc, &x| acc + (x.been_true as usize) + (x.been_false as usize))
+                }
+                CoverageStat::Line(x) => {
+                    (x > 0) as usize
+                }
+            };
+        }
+        result
     }
 
 }

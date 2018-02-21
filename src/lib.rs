@@ -56,7 +56,7 @@ pub fn run(config: Config) -> Result<(), i32> {
 }
 
 /// Launches tarpaulin with the given configuration.
-pub fn launch_tarpaulin(config: &Config) -> Result<Vec<TracerData>, i32> {
+pub fn launch_tarpaulin<'a>(config: &'a Config) -> Result<TraceMap<'a>, i32> {
     let mut cargo_config = CargoConfig::default().unwrap();
     let flag_quiet = if config.verbose {
         None
@@ -220,7 +220,7 @@ pub fn merge_test_results(master: &mut Vec<TracerData>, new: &[TracerData]) {
 
 /// Reports the test coverage using the users preferred method. See config.rs 
 /// or help text for details.
-pub fn report_coverage(config: &Config, result: &[TracerData]) {
+pub fn report_coverage<'a>(config: &'a Config, result: &'a TraceMap) {
     if !result.is_empty() {
         println!("Coverage Results");
         if config.verbose {
@@ -246,8 +246,8 @@ pub fn report_coverage(config: &Config, result: &[TracerData]) {
             let path = config.strip_project_path(k);
             println!("{}: {}/{}", path.display(), v.0, v.1);
         }
-        let covered = result.iter().filter(|&x| (x.hits > 0 )).count();
-        let total = result.len();
+        let covered = result.total_covered();
+        let total = result.total_coverable();
         let percent = (covered as f64)/(total as f64) * 100.0f64;
         // Put file filtering here
         println!("\n{:.2}% coverage, {}/{} lines covered", percent, covered, total);
