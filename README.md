@@ -1,6 +1,6 @@
 # Tarpaulin
 
-[![Build Status](https://travis-ci.org/xd009642/tarpaulin.svg?branch=master)](https://travis-ci.org/xd009642/tarpaulin) [![Latest Version](https://img.shields.io/crates/v/cargo-tarpaulin.svg)](https://crates.io/crates/cargo-tarpaulin)  [![License:MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
+[![Build Status](https://travis-ci.org/xd009642/tarpaulin.svg?branch=master)](https://travis-ci.org/xd009642/tarpaulin) [![Latest Version](https://img.shields.io/crates/v/cargo-tarpaulin.svg)](https://crates.io/crates/cargo-tarpaulin)  [![License:MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT) ![](https://img.shields.io/docker/automated/xd009642/tarpaulin.svg)
 
 Tarpaulin is designed to be a code coverage reporting tool for the Cargo build
 system, named for a waterproof cloth used to cover cargo on a ship. Currently,
@@ -159,14 +159,21 @@ after_success: |
 
 ### Docker
 
-To run Tarpaulin on any system that has Docker, run this in your project
-directory:
+Tarpaulin has builds deployed to [docker-hub](https://hub.docker.com/r/xd009642/tarpaulin/), 
+to run Tarpaulin on any system that has Docker, run this in your project directory:
 
 ```text
 docker run --security-opt seccomp=unconfined -v "$PWD:/volume" xd009642/tarpaulin
 ```
 
-This builds your project inside Docker and runs Tarpaulin without any arguments.
+This builds your project inside Docker and runs Tarpaulin without any arguments. There are
+also tags available for the latest version on the develop branch in stable or nightly. And 
+versions after 0.5.6 will have the latest release built with the rust stable and nightly 
+compilers. To get the latest development version built with rustc-nightly run the following:
+
+```text
+docker run --security-opt seccomp=unconfined -v "$PWD:/volume" xd009642/tarpaulin:develop-nightly
+```
 
 Note that the build might fail if the Docker image doesn't contain any necessary
 dependencies. In that case, you can install dependencies before, like this:
