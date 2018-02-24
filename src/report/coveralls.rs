@@ -1,9 +1,9 @@
 use std::collections::HashMap;
 use coveralls_api::*;
-use test_loader::TracerData;
+use traces::{TraceMap, CoverageStat};
 use config::Config;
 
-pub fn export(coverage_data: &[TracerData], config: &Config) {
+pub fn export(coverage_data: &TraceMap, config: &Config) {
     if let Some(ref key) = config.coveralls {
         let id = match config.ci_tool {
             Some(ref service) => Identity::ServiceToken(Service {
@@ -13,23 +13,21 @@ pub fn export(coverage_data: &[TracerData], config: &Config) {
             _ => Identity::RepoToken(key.clone()),
         };
         let mut report = CoverallsReport::new(id);
-        let files = coverage_data.iter()
-                                 .fold(vec![], |mut acc, x| {
-                                     if !acc.contains(&x.path.as_path()) {
-                                         acc.push(x.path.as_path());
-                                     }
-                                     acc    
-                                 });
         
-        for file in &files {
+        for file in &coverage_data.files() {
             let rel_path = config.strip_project_path(file);
             let mut lines: HashMap<usize, usize> = HashMap::new();
-            let fcov = coverage_data.iter()
-                                    .filter(|x| x.path == *file)
-                                    .collect::<Vec<&TracerData>>();
-
+            let fcov = coverage_data.get_child_traces(file);
+            
             for c in &fcov {
-                lines.insert(c.line as usize, c.hits as usize);
+                match c.stats {
+                    CoverageStat::Line(hits) => {
+                        lines.insert(c.line as usize, hits as usize);
+                    },
+                    _ => { 
+                        println!("Support for coverage statistic not implemented or supported for coveralls.io");
+                    },
+                }
             }
             if let Ok(source) = Source::new(rel_path, file, &lines, &None, false) {
                 report.add_source(source);

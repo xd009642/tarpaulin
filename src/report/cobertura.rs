@@ -1,6 +1,5 @@
 use std::time::{SystemTime, UNIX_EPOCH};
 use std::fs::File;
-use std::ffi::OsStr;
 use std::path::Path;
 use std::io::prelude::*;
 use std::io::Cursor;
@@ -8,7 +7,7 @@ use std::collections::HashSet;
 use quick_xml::writer::Writer;
 use quick_xml::events::{Event, BytesEnd, BytesStart, BytesDecl};
 use quick_xml::errors::Result;
-use traces::{TraceMap, Trace, CoverageStat};
+use traces::{TraceMap, CoverageStat};
 use config::Config;
 
 
@@ -86,10 +85,11 @@ fn write_package<T:Write>(mut writer: &mut Writer<T>,
     pack.push_attribute(("complexity", "0.0"));
     writer.write_event(Event::Start(pack))?;
     writer.write_event(Event::Start(BytesStart::borrowed(b"classes", b"classes".len())))?;
-    let mut file_set: HashSet<&OsStr> = HashSet::new();
 
     for file in &coverage.files() {
-        write_class(&mut writer, package, file, coverage);
+        if file.starts_with(package) {
+            write_class(&mut writer, package, file, coverage)?;
+        }
     }
 
     writer.write_event(Event::End(BytesEnd::borrowed(b"classes")))?;
