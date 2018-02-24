@@ -3,6 +3,7 @@ use std::collections::btree_map::Iter;
 use std::path::{PathBuf, Path};
 use std::fmt::{Display, Formatter, Result};
 use std::ops::Add;
+use std::cmp::{Ord, Ordering};
 
 /// Used to track the state of logical conditions
 #[derive(Debug, Clone, Default, Hash, PartialEq, Eq, PartialOrd)]
@@ -75,6 +76,27 @@ pub struct Trace {
     pub stats: CoverageStat,
 }
 
+/// Implemented to allow Traces to be sorted by line number
+impl Ord for Trace {
+    fn cmp(&self, other: &Trace) -> Ordering {
+        self.line.cmp(&other.line)
+    }
+    fn max(self, other: Trace) -> Trace {
+        if self.line > other.line {
+            self
+        } else {
+            other
+        }
+    }
+    fn min(self, other: Trace) -> Trace {
+        if self.line < other.line {
+            self
+        } else {
+            other
+        }
+    }
+}
+
 /// Stores all the program traces mapped to files and provides an interface to
 /// add, query and change traces.
 pub struct TraceMap {
@@ -112,6 +134,7 @@ impl TraceMap {
                     }
                     if !added {
                         existing.push((*v).clone());
+                        existing.sort_unstable();
                     }
                 }
             }
@@ -123,6 +146,7 @@ impl TraceMap {
         if self.traces.contains_key(file) {
             if let Some(trace_vec) = self.traces.get_mut(file) {
                 trace_vec.push(trace);
+                trace_vec.sort_unstable();
             }
         } else {
             self.traces.insert(file.to_path_buf(), vec![trace]);
