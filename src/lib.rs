@@ -182,7 +182,7 @@ pub fn report_coverage(config: &Config, result: &TraceMap) {
             for (ref key, ref value) in result.iter() {
                 let path = config.strip_project_path(key);
                 for v in value.iter() {
-                    println!("{}:{} - hits: {}", path.display(), v.line, v.stats);
+                    println!("{}:{} - {}", path.display(), v.line, v.stats);
                 }
             }
             println!("");

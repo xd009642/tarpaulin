@@ -55,7 +55,7 @@ impl Display for CoverageStat {
     fn fmt(&self, f: &mut Formatter) -> Result {
         match self {
             &CoverageStat::Line(x) => {
-                write!(f, "Hits: {}", x)
+                write!(f, "hits: {}", x)
             },
             _ => write!(f, ""),
         }
