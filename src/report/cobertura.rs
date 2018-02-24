@@ -8,7 +8,7 @@ use std::collections::HashSet;
 use quick_xml::writer::Writer;
 use quick_xml::events::{Event, BytesEnd, BytesStart, BytesDecl};
 use quick_xml::errors::Result;
-use test_loader::TracerData;
+use traces::{TraceMap, Trace};
 use config::Config;
 
 
@@ -28,14 +28,17 @@ fn write_header<T:Write>(writer: &mut Writer<T>, config: &Config) -> Result<usiz
 }
 
 /// Input only from single source file
-fn write_class<T:Write>(writer: &mut Writer<T>, manifest_path: &Path, coverage: &[&TracerData]) ->Result<usize> {
+fn write_class<T:Write>(writer: &mut Writer<T>, 
+                        manifest_path: &Path, 
+                        filename: &Path,
+                        coverage: &TraceMap) ->Result<usize> {
     if !coverage.is_empty() {
-        let covered = coverage.iter().filter(|&x| (x.hits > 0)).count();
-        let covered = (covered as f32)/(coverage.len() as f32);
-        //let filename = coverage[0].path.file_name().unwrap_or_default().to_str().unwrap_or_default();
-        let filename = match coverage[0].path.strip_prefix(manifest_path) {
+        let covered = coverage.covered_in_path(filename);
+        let covered = (covered as f64)/(coverage.coverable_in_path(filename) as f64);
+        
+        let filename = match filename.strip_prefix(manifest_path) {
             Ok(p) => p,
-            _ => coverage[0].path.as_path()
+            _ => filename,
         };
         let name = coverage[0].path.file_stem().unwrap_or_default().to_str().unwrap_or_default();
         
@@ -65,9 +68,9 @@ fn write_class<T:Write>(writer: &mut Writer<T>, manifest_path: &Path, coverage: 
 fn write_package<T:Write>(mut writer: &mut Writer<T>, 
                           package: &Path,
                           package_name: &str,
-                          coverage: &[&TracerData]) -> Result<usize> {
-    let covered = coverage.iter().filter(|&x| (x.hits > 0)).count();
-    let covered = (covered as f32)/(coverage.len() as f32);
+                          coverage: &TraceMap) -> Result<usize> {
+    let covered = coverage.covered_in_path(package);
+    let covered = (covered as f64)/(coverage.coverable_in_path(package) as f64);
 
     let mut pack = BytesStart::owned(b"package".to_vec(), b"package".len());
     pack.push_attribute(("name", package_name));
@@ -78,31 +81,20 @@ fn write_package<T:Write>(mut writer: &mut Writer<T>,
     writer.write_event(Event::Start(BytesStart::borrowed(b"classes", b"classes".len())))?;
     let mut file_set: HashSet<&OsStr> = HashSet::new();
 
-    for t in coverage.iter() {
-        let filename = t.path.file_name();
-        if !file_set.contains(filename.unwrap_or_default()) {
-            file_set.insert(filename.unwrap_or_default());
-            let class = coverage.iter()
-                                .filter(|x| x.path.file_name() == filename)
-                                .map(|x| *x)
-                                .collect::<Vec<_>>();
-
-            write_class(&mut writer, package, &class)?;
-        }
+    for file in &coverage.files() {
+        write_class(&mut writer, package, file, coverage.get_child_traces(file));
     }
 
     writer.write_event(Event::End(BytesEnd::borrowed(b"classes")))?;
     writer.write_event(Event::End(BytesEnd::borrowed(b"package")))
 }
 
-pub fn export(coverage_data: &[TracerData], config: &Config) {
+pub fn export(coverage_data: &TraceMap, config: &Config) {
     let mut file = File::create("cobertura.xml").unwrap();
     let mut writer = Writer::new(Cursor::new(Vec::new()));    
     writer.write_event(Event::Decl(BytesDecl::new(b"1.0", None, None))).unwrap();
     // Construct cobertura xml 
-    let covered = coverage_data.iter().filter(|&x| (x.hits > 0 )).count();
-    let total = coverage_data.len();
-    let line_rate = (covered as f32)/(total as f32);
+    let line_rate = coverage_data.coverage_percentage();
     let mut cov = BytesStart::owned(b"coverage".to_vec(), b"coverage".len());
     cov.push_attribute(("line-rate", line_rate.to_string().as_ref()));
     cov.push_attribute(("branch-rate", "1.0"));

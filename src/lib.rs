@@ -63,12 +63,7 @@ pub fn launch_tarpaulin(config: &Config) -> Result<TraceMap, i32> {
         Some(true)
     };
     // This shouldn't fail so no checking the error.
-    let _ = cargo_config.configure(0u32,
-                                   flag_quiet,
-                                   &None,
-                                   false,
-                                   false,
-                                   &[]);
+    let _ = cargo_config.configure(0u32, flag_quiet, &None, false, false, &[]);
     
     let workspace = Workspace::new(config.manifest.as_path(), &cargo_config).map_err(|_| 1i32)?;
     
@@ -116,13 +111,11 @@ pub fn launch_tarpaulin(config: &Config) -> Result<TraceMap, i32> {
                 }
                 if let Some(res) = get_test_coverage(&workspace, package, path.as_path(), &config, false) {
                     result.merge(&res);
-                    //merge_test_results(&mut result, &res);
                 }
                 if config.run_ignored {
                     if let Some(res) = get_test_coverage(&workspace, package, path.as_path(),
                                                          &config, true) {
                         result.merge(&res);
-                        //merge_test_results(&mut result, &res);
                     }
                 }
             }
@@ -198,25 +191,20 @@ pub fn report_coverage(config: &Config, result: &TraceMap) {
             let path = config.strip_project_path(file);
             println!("{}: {}/{}", path.display(), result.covered_in_path(&file), result.coverable_in_path(&file));
         }
-       /* for (ref path, ref v) in &file_map {
-            let path = config.strip_project_path(k);
-            println!("{}: {}/{}", path.display(), v.0, v.1);
-        }*/
-        let covered = result.total_covered();
-        let total = result.total_coverable();
-        let percent = (covered as f64)/(total as f64) * 100.0f64;
+        let percent = result.coverage_percent() * 100.0f64;
         // Put file filtering here
-        println!("\n{:.2}% coverage, {}/{} lines covered", percent, covered, total);
+        println!("\n{:.2}% coverage, {}/{} lines covered", percent, 
+                 result.total_covered(), result.total_coverable());
         if config.is_coveralls() {
             println!("Sending coverage data to coveralls.io");
-         //   report::coveralls::export(result, config);
+            report::coveralls::export(result, config);
             println!("Coverage data sent");
         }
 
         for g in &config.generate {
             match g {
                 &OutputFile::Xml => {
-      //              report::cobertura::export(result, config);
+                    report::cobertura::export(result, config);
                 },
                 _ => {
                     println!("Format currently unsupported");

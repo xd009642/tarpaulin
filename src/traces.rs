@@ -148,7 +148,9 @@ impl TraceMap {
         }
         None
     }
-
+    
+    /// Returns true if the location described by file and line number is present
+    /// in the tracemap
     pub fn contains_location(&self, file: &Path, line: u64) -> bool {
         match self.traces.get(file) {
             Some(traces) => traces.iter().any(|x| x.line == line),
@@ -233,7 +235,8 @@ impl TraceMap {
         }
         result
     }
-
+    
+    /// From all the coverable data return the amount covered
     pub fn total_covered(&self) -> usize {
         let mut result = 0usize;
         for t in self.all_traces() {
@@ -251,6 +254,11 @@ impl TraceMap {
             };
         }
         result
+    }
+
+    /// Returns coverage percentage ranging from 0.0-1.0
+    pub fn coverage_percentage(&self) -> f64 {
+        (self.total_covered() as f64) / (self.total_coverable() as f64)
     }
 
 }
