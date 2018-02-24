@@ -191,7 +191,7 @@ pub fn report_coverage(config: &Config, result: &TraceMap) {
             let path = config.strip_project_path(file);
             println!("{}: {}/{}", path.display(), result.covered_in_path(&file), result.coverable_in_path(&file));
         }
-        let percent = result.coverage_percent() * 100.0f64;
+        let percent = result.coverage_percentage() * 100.0f64;
         // Put file filtering here
         println!("\n{:.2}% coverage, {}/{} lines covered", percent, 
                  result.total_covered(), result.total_coverable());
