@@ -50,8 +50,13 @@ struct SourceLocation {
 
 #[derive(Debug, Clone)]
 pub struct TracerData {
-    pub address: Option<u64>,
+    /// Currently used to find generated __test::main and remove from coverage,
+    /// may have uses in future for finding conditions etc
     pub trace_type: LineType,
+    /// Start address of the line
+    pub address: Option<u64>,
+    /// Length of the instruction
+    pub length: u64,
 }
 
 
@@ -180,13 +185,17 @@ fn get_addresses_from_program<R, Offset>(prog: IncompleteLineNumberProgram<R>,
                                 let mut x = result.get_mut(&loc).unwrap();
                                 if let Some(mut addr) = x.address {
                                     x.address = Some(min(address, addr));
+                                    x.length += 1;
+                                } else {
+                                    x.address = Some(address);
                                 }
                             } else {
                                 result.insert(loc, TracerData {
                                     address: Some(address),
                                     trace_type: desc,
+                                    length: 1,
                                 });
-                            }
+                            } 
                         }
                     }
                 }
@@ -242,8 +251,6 @@ fn get_line_addresses(endian: RunTimeEndian,
             }
         }
     }
-    // Due to rust being a higher level language multiple instructions may map
-    // to the same line. This prunes these to just the first instruction address
     let mut result = result.into_iter()
                            .filter(|&(ref k, _)| !(config.ignore_tests && k.path.starts_with(project.join("tests"))))
                            .filter(|&(ref k, _)| !(config.exclude_path(&k.path)))
@@ -265,6 +272,7 @@ fn get_line_addresses(endian: RunTimeEndian,
                 result.insert(loc, TracerData {
                     address: None,
                     trace_type: LineType::UnusedGeneric,
+                    length: 0,
                 });
             }
         }
@@ -303,34 +311,4 @@ pub fn generate_tracemap(project: &Workspace, test: &Path, config: &Config) -> i
         Err(io::Error::new(io::ErrorKind::InvalidData, "Unable to parse binary."))
     }
 }
-
-/// Generates a list of lines we want to trace the coverage of. Used to instrument the
-/// traces into the test executable
-pub fn generate_tracer_data(project: &Workspace, test: &Path, config: &Config) -> io::Result<Vec<TracerData>> {
-    let manifest = project.root();
-    let file = File::open(test)?;
-    let file = unsafe { 
-        MmapOptions::new().map(&file)?
-    };
-    if let Ok(obj) = OFile::parse(&*file) {
-        let analysis = get_line_analysis(project, config); 
-        let endian = if obj.is_little_endian() {
-            RunTimeEndian::Little
-        } else {
-            RunTimeEndian::Big
-        };
-        if let Ok(map) = get_line_addresses(endian, manifest, &obj, &analysis, config) {
-            let mut result:Vec<TracerData> = Vec::new();
-            for val in map.values() {
-                result.push(val.clone());
-            }
-            Ok(result)
-        } else {
-            Err(io::Error::new(io::ErrorKind::InvalidData, "Error while parsing"))
-        }
-    } else {
-        Err(io::Error::new(io::ErrorKind::InvalidData, "Unable to parse binary."))
-    }
-}
-
 
