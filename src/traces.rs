@@ -6,7 +6,7 @@ use std::ops::Add;
 use std::cmp::{Ord, Ordering};
 
 /// Used to track the state of logical conditions
-#[derive(Debug, Clone, Default, Hash, PartialEq, Eq, PartialOrd)]
+#[derive(Debug, Clone, Copy, Default, Hash, PartialEq, Eq, PartialOrd)]
 pub struct LogicState {
     /// Whether the condition has been observed as true
     pub been_true: bool,
@@ -99,6 +99,7 @@ impl Ord for Trace {
 
 /// Stores all the program traces mapped to files and provides an interface to
 /// add, query and change traces.
+#[derive(Debug)]
 pub struct TraceMap {
     /// Traces in the program mapped to the given file
     traces: BTreeMap<PathBuf, Vec<Trace>>,
@@ -285,4 +286,37 @@ impl TraceMap {
         (self.total_covered() as f64) / (self.total_coverable() as f64)
     }
 
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn stat_addition() {
+        let x = CoverageStat::Line(0);
+        let y = CoverageStat::Line(5);
+        let z = CoverageStat::Line(7);
+        let xy = x.clone() + y.clone();
+        let yx = y.clone() + x.clone();
+        let yy = y.clone() + y.clone();
+        let zy = z.clone() + y.clone();
+        assert_eq!(&xy, &CoverageStat::Line(5));
+        assert_eq!(&yx, &xy);
+        assert_eq!(&yy, &CoverageStat::Line(10));
+        assert_eq!(&zy, &CoverageStat::Line(12));
+
+        let tf = LogicState{been_true:true, been_false:true};
+        let t = LogicState{been_true:true, been_false:false};
+        let f = LogicState{been_true:false, been_false:true};
+        let n = LogicState{been_true:false, been_false:false};
+
+        assert_eq!(&t+&f, tf);
+        assert_eq!(&t+&t, t);
+        assert_eq!(&tf+&f, tf);
+        assert_eq!(&tf+&t, tf);
+        assert_eq!(&t+&n, t);
+        assert_eq!(&n+&f, f);
+        assert_eq!(&n+&n,n);
+    }
 }
