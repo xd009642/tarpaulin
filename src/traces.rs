@@ -1,4 +1,4 @@
-use std::collections::BTreeMap;
+use std::collections::{BTreeMap, HashMap};
 use std::collections::btree_map::Iter;
 use std::path::{PathBuf, Path};
 use std::fmt::{Display, Formatter, Result};
@@ -113,16 +113,21 @@ impl TraceMap {
         }
     } 
 
+    /// Returns true if there are no traces
     pub fn is_empty(&self) -> bool {
         self.traces.is_empty()
     }
 
+    /// Provides an interator to the underlying map of PathBufs to Vec<Trace>
     pub fn iter(&self) -> Iter<PathBuf, Vec<Trace>> {
         self.traces.iter()
     }
 
+    /// Merges the results of one tracemap into the current one. 
+    /// This adds records which are missing and adds the statistics gathered to
+    /// existing records
     pub fn merge(&mut self, other: &TraceMap) {
-        for ( k,  values) in other.iter() {
+        for (k,  values) in other.iter() {
             if !self.traces.contains_key(k) {
                 self.traces.insert(k.to_path_buf(), values.to_vec());
             } else {
@@ -137,6 +142,24 @@ impl TraceMap {
                         existing.push((*v).clone());
                         existing.sort_unstable();
                     }
+                }
+            }
+        }
+    }
+
+    /// This will collapse duplicate Traces into a single trace. Warning this
+    /// will lose the addresses of the duplicate traces but increment the results
+    /// should be called only if you don't need those addresses from then on
+    /// TODO possibly not the cleanest solution
+    pub fn dedup(&mut self) {
+        for (_, values) in self.traces.iter_mut() {
+            let mut lines: HashMap<u64, CoverageStat> = HashMap::new();
+            for v in values.iter() {
+                if lines.contains_key(&v.line) {
+                    let s = lines.get(&v.line).unwrap().clone() + v.stats.clone();
+                    lines.insert(v.line, s);
+                } else {
+                    lines.insert(v.line, v.stats.clone());
                 }
             }
         }
