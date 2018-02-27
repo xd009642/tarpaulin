@@ -134,7 +134,8 @@ impl TraceMap {
                 let mut existing = self.traces.get_mut(k).unwrap();
                 for ref v in values.iter() {
                     let mut added = false;
-                    if let Some(ref mut t) = existing.iter_mut().find(|ref x| x.line == v.line) {
+                    if let Some(ref mut t) = existing.iter_mut()
+                                                     .find(|ref x| x.line == v.line && x.address == v.address) {
                         t.stats = t.stats.clone() + v.stats.clone();
                         added = true;
                     }
@@ -153,13 +154,34 @@ impl TraceMap {
     /// TODO possibly not the cleanest solution
     pub fn dedup(&mut self) {
         for (_, values) in self.traces.iter_mut() {
+            // Map of lines and stats, merge duplicated stats here
             let mut lines: HashMap<u64, CoverageStat> = HashMap::new();
+            // Duplicated traces need cleaning up. Maintain a list of them!
+            let mut dirty: Vec<u64> = Vec::new();
             for v in values.iter() {
                 if lines.contains_key(&v.line) {
+                    dirty.push(v.line);
                     let s = lines.get(&v.line).unwrap().clone() + v.stats.clone();
                     lines.insert(v.line, s);
                 } else {
                     lines.insert(v.line, v.stats.clone());
+                }
+            }
+            for d in dirty.iter() {
+                let mut first = true;
+                values.retain(|x| {
+                    let res = x.line != *d;
+                    if !res { 
+                        first = false;
+                        true
+                    } else {
+                        res
+                    }
+                });
+                if let Some(new_stat) = lines.remove(&d) {
+                    if let Some(ref mut t) = values.iter_mut().find(|x| x.line==*d) {
+                        t.stats = new_stat;
+                    }
                 }
             }
         }
