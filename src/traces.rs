@@ -424,4 +424,40 @@ mod tests {
         let all = t1.all_traces();
         assert_eq!(all.len(), 2);
     }
+
+    #[test]
+    fn merge_needed() {
+        let mut t1 = TraceMap::new();
+        let mut t2 = TraceMap::new();
+
+        t1.add_trace(Path::new("file.rs"), Trace {
+            line: 2, 
+            address: Some(1), 
+            length: 0, 
+            stats: CoverageStat::Line(5)
+        });
+        t2.add_trace(Path::new("file.rs"), Trace {
+            line: 2, 
+            address: Some(1), 
+            length: 0, 
+            stats: CoverageStat::Line(2)
+        });
+        t1.merge(&t2);
+        assert_eq!(t1.all_traces().len(), 1);
+        assert_eq!(t1.get_trace(1), Some(&Trace {
+            line: 2,
+            address: Some(1),
+            length: 0,
+            stats: CoverageStat::Line(7)
+        }));
+        // Deduplicating should have no effect.
+        t1.dedup();
+        assert_eq!(t1.all_traces().len(), 1);
+        assert_eq!(t1.get_trace(1), Some(&Trace {
+            line: 2,
+            address: Some(1),
+            length: 0,
+            stats: CoverageStat::Line(7)
+        }));
+    }
 }
