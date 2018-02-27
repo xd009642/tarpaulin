@@ -210,9 +210,9 @@ fn get_line_addresses(endian: RunTimeEndian,
                       project: &Path,
                       obj: &OFile,
                       analysis: &HashMap<PathBuf, LineAnalysis>,
-                      config: &Config) -> Result<HashMap<SourceLocation, TracerData>>  {
+                      config: &Config) -> Result<TraceMap>  {
 
-    let mut result: HashMap<SourceLocation, TracerData> = HashMap::new();
+    let mut result = TraceMap::new();
     let debug_info = obj.section_data_by_name(".debug_info").unwrap_or(&[]);
     let debug_info = DebugInfo::new(debug_info, endian);
     let debug_abbrev = obj.section_data_by_name(".debug_abbrev").unwrap_or(&[]);
@@ -243,20 +243,34 @@ fn get_line_addresses(endian: RunTimeEndian,
                 Ok(Some(AttributeValue::DebugLineRef(o))) => o,
                 _ => continue,
             };
-            let prog = debug_line.program(offset, addr_size, None, None)?; 
-            if let Err(e) = get_addresses_from_program(prog, &entries, project, &mut result) {
+            let prog = debug_line.program(offset, addr_size, None, None)?;
+            let mut temp_map:HashMap<SourceLocation, TracerData> = HashMap::new();
+            if let Err(e) = get_addresses_from_program(prog, &entries, project, &mut temp_map) {
                 if config.verbose {
                     println!("Potential issue reading test addresses {}", e);
                 }
             }
+            else {
+                
+                let temp_map = temp_map.into_iter()
+                                       .filter(|&(ref k, _)| !(config.ignore_tests && k.path.starts_with(project.join("tests"))))
+                                       .filter(|&(ref k, _)| !(config.exclude_path(&k.path)))
+                                       .filter(|&(ref k, _)| !analysis.should_ignore(k.path.as_ref(), &(k.line as usize)))
+                                       .filter(|&(_, ref v)| v.trace_type != LineType::TestMain)
+                                       .collect::<HashMap<SourceLocation, TracerData>>();
+                let mut tracemap = TraceMap::new();
+                for (k, v) in &temp_map {
+                    tracemap.add_trace(&k.path, Trace {
+                        line: k.line,
+                        address: v.address,
+                        length: 1,
+                        stats: CoverageStat::Line(0)
+                    });
+                }
+                result.merge(&tracemap);
+            }
         }
     }
-    let mut result = result.into_iter()
-                           .filter(|&(ref k, _)| !(config.ignore_tests && k.path.starts_with(project.join("tests"))))
-                           .filter(|&(ref k, _)| !(config.exclude_path(&k.path)))
-                           .filter(|&(ref k, _)| !analysis.should_ignore(k.path.as_ref(), &(k.line as usize)))
-                           .filter(|&(_, ref v)| v.trace_type != LineType::TestMain)
-                           .collect::<HashMap<SourceLocation, TracerData>>();
 
     for (file, ref line_analysis) in analysis.iter() {
         if config.exclude_path(file) {
@@ -264,15 +278,12 @@ fn get_line_addresses(endian: RunTimeEndian,
         }
         for line in &line_analysis.cover {
             let line = *line as u64;
-            let loc = SourceLocation {
-                path: file.to_path_buf(),
-                line: line
-            };
-            if !result.contains_key(&loc) && !line_analysis.should_ignore(&(line as usize)) {
-                result.insert(loc, TracerData {
+            if !result.contains_location(file, line) && !line_analysis.should_ignore(&(line as usize)) {
+                result.add_trace(file, Trace {
+                    line: line,
                     address: None,
-                    trace_type: LineType::UnusedGeneric,
                     length: 0,
+                    stats: CoverageStat::Line(0),
                 });
             }
         }
@@ -287,22 +298,13 @@ pub fn generate_tracemap(project: &Workspace, test: &Path, config: &Config) -> i
         MmapOptions::new().map(&file)?
     };
     if let Ok(obj) = OFile::parse(&*file) {
-        let mut result = TraceMap::new();
         let analysis = get_line_analysis(project, config); 
         let endian = if obj.is_little_endian() {
             RunTimeEndian::Little
         } else {
             RunTimeEndian::Big
         };
-        if let Ok(h) = get_line_addresses(endian, manifest, &obj, &analysis, config) {
-            for (k, v) in &h {
-                result.add_trace(&k.path, Trace {
-                    line: k.line,
-                    address: v.address,
-                    length: 1,
-                    stats: CoverageStat::Line(0)
-                });
-            }
+        if let Ok(result) = get_line_addresses(endian, manifest, &obj, &analysis, config) {
             Ok(result)
         } else {
             Err(io::Error::new(io::ErrorKind::InvalidData, "Error while parsing"))

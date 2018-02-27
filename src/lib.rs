@@ -119,6 +119,7 @@ pub fn launch_tarpaulin(config: &Config) -> Result<TraceMap, i32> {
                     }
                 }
             }
+            result.dedup();
             Ok(result)
         },
         Err(e) => {
