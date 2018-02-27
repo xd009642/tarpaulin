@@ -172,8 +172,12 @@ impl TraceMap {
                 values.retain(|x| {
                     let res = x.line != *d;
                     if !res { 
-                        first = false;
-                        true
+                        if first {
+                            first = false;
+                            true 
+                        }else {
+                            false
+                        }
                     } else {
                         res
                     }
@@ -336,6 +340,7 @@ impl TraceMap {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use std::path::Path;
 
     #[test]
     fn stat_addition() {
@@ -363,5 +368,60 @@ mod tests {
         assert_eq!(&t+&n, t);
         assert_eq!(&n+&f, f);
         assert_eq!(&n+&n,n);
+    }
+
+    #[test]
+    fn merge_address_mismatch_and_dedup() {
+        let mut t1 = TraceMap::new();
+        let mut t2 = TraceMap::new();
+
+        let a_trace = Trace {
+            line: 1, 
+            address: Some(5), 
+            length: 0, 
+            stats: CoverageStat::Line(1)
+        };
+        t1.add_trace(Path::new("file.rs"), a_trace.clone());
+        t2.add_trace(Path::new("file.rs"), Trace {
+            line: 1, 
+            address: None, 
+            length: 0, 
+            stats: CoverageStat::Line(2)
+        });
+
+        t1.merge(&t2);
+        assert_eq!(t1.all_traces().len(), 2);
+        assert_eq!(t1.get_trace(5), Some(&a_trace));
+        t1.dedup();
+        let all = t1.all_traces();
+        assert_eq!(all.len(), 1);
+        assert_eq!(all[0].stats, CoverageStat::Line(3));
+    }
+
+    #[test]
+    fn no_merge_dedup_needed() {
+        let mut t1 = TraceMap::new();
+        let mut t2 = TraceMap::new();
+
+        let a_trace = Trace {
+            line: 1, 
+            address: Some(5), 
+            length: 0, 
+            stats: CoverageStat::Line(1)
+        };
+        t1.add_trace(Path::new("file.rs"), a_trace.clone());
+        t2.add_trace(Path::new("file.rs"), Trace {
+            line: 2, 
+            address: None, 
+            length: 0, 
+            stats: CoverageStat::Line(2)
+        });
+
+        t1.merge(&t2);
+        assert_eq!(t1.all_traces().len(), 2);
+        assert_eq!(t1.get_trace(5), Some(&a_trace));
+        t1.dedup();
+        let all = t1.all_traces();
+        assert_eq!(all.len(), 2);
     }
 }
