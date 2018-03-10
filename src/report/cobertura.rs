@@ -133,7 +133,7 @@ pub fn export(coverage_data: &TraceMap, config: &Config) {
                 _ => manifest_path,
             };
             let package_name = package_name.to_str().unwrap_or_default();
-            let _ = write_package(&mut writer, &manifest_path, package_name, &coverage_data);
+            let _ = write_package(&mut writer, &parent, package_name, &coverage_data);
         }
     }
 

@@ -136,6 +136,10 @@ pub fn amount_covered(traces: &[Trace]) -> usize {
     result
 }
 
+pub fn coverage_percentage(traces: &[Trace]) -> f64 {
+    (amount_covered(traces) as f64) / (amount_coverable(traces) as f64)
+}
+
 /// Stores all the program traces mapped to files and provides an interface to
 /// add, query and change traces.
 #[derive(Debug)]
