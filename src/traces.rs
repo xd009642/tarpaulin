@@ -100,7 +100,7 @@ impl Ord for Trace {
 }
 
 /// Amount of data coverable in the provided slice traces
-pub fn amount_coverable(traces: &[Trace]) -> usize {
+pub fn amount_coverable(traces: &[&Trace]) -> usize {
     let mut result = 0usize;
     for t in traces {
         result += match t.stats {
@@ -117,7 +117,7 @@ pub fn amount_coverable(traces: &[Trace]) -> usize {
 }
 
 /// Amount of data covered in the provided trace slice
-pub fn amount_covered(traces: &[Trace]) -> usize {
+pub fn amount_covered(traces: &[&Trace]) -> usize {
     let mut result = 0usize;
     for t in traces {
         result += match t.stats {
@@ -136,7 +136,7 @@ pub fn amount_covered(traces: &[Trace]) -> usize {
     result
 }
 
-pub fn coverage_percentage(traces: &[Trace]) -> f64 {
+pub fn coverage_percentage(traces: &[&Trace]) -> f64 {
     (amount_covered(traces) as f64) / (amount_coverable(traces) as f64)
 }
 
@@ -312,38 +312,11 @@ impl TraceMap {
 
 
     pub fn coverable_in_path(&self, path: &Path) -> usize {
-        let mut result = 0usize;
-        for t in self.get_child_traces(path) {
-            result += match t.stats {
-                CoverageStat::Branch(_) => {
-                    2usize
-                },
-                CoverageStat::Condition(ref x) => {
-                    x.len() * 2usize
-                }
-                _ => 1usize
-            };
-        }
-        result
+        amount_coverable(self.get_child_traces(path).as_slice())
     }
 
     pub fn covered_in_path(&self, path: &Path) -> usize {
-        let mut result = 0usize;
-        for t in self.get_child_traces(path) {
-            result += match t.stats {
-                CoverageStat::Branch(ref x) => {
-                    (x.been_true as usize) + (x.been_false as usize)
-                },
-                CoverageStat::Condition(ref x) => {
-                    x.iter()
-                     .fold(0, |acc, ref x| acc + (x.been_true as usize) + (x.been_false as usize))
-                }
-                CoverageStat::Line(ref x) => {
-                    (x > &0) as usize
-                }
-            };
-        }
-        result
+        amount_covered(self.get_child_traces(path).as_slice())
     }
 
     /// Give the total amount of coverable points in the code. This will vary
@@ -351,44 +324,17 @@ impl TraceMap {
     /// line whereas for condition or decision it will count the number of 
     /// conditions available
     pub fn total_coverable(&self) -> usize {
-        let mut result = 0usize;
-        for t in self.all_traces() {
-            result += match t.stats {
-                CoverageStat::Branch(_) => {
-                    2usize
-                },
-                CoverageStat::Condition(ref x) => {
-                    x.len() * 2usize
-                }
-                _ => 1usize
-            };
-        }
-        result
+        amount_coverable(self.all_traces().as_slice())
     }
     
     /// From all the coverable data return the amount covered
     pub fn total_covered(&self) -> usize {
-        let mut result = 0usize;
-        for t in self.all_traces() {
-            result += match t.stats {
-                CoverageStat::Branch(ref x) => {
-                    (x.been_true as usize) + (x.been_false as usize)
-                },
-                CoverageStat::Condition(ref x) => {
-                    x.iter()
-                     .fold(0, |acc, ref x| acc + (x.been_true as usize) + (x.been_false as usize))
-                }
-                CoverageStat::Line(ref x) => {
-                    (x > &0) as usize
-                }
-            };
-        }
-        result
+        amount_covered(self.all_traces().as_slice())
     }
 
     /// Returns coverage percentage ranging from 0.0-1.0
     pub fn coverage_percentage(&self) -> f64 {
-        (self.total_covered() as f64) / (self.total_coverable() as f64)
+        coverage_percentage(self.all_traces().as_slice())
     }
 
 }
