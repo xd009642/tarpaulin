@@ -33,7 +33,7 @@ fn write_class<T:Write>(writer: &mut Writer<T>,
                         coverage: &TraceMap) ->Result<usize> {
     if !coverage.is_empty() {
         let covered = coverage.covered_in_path(filename);
-        let covered = (covered as f64)/(coverage.coverable_in_path(filename) as f64);
+        let covered = (covered as f32)/(coverage.coverable_in_path(filename) as f32);
         
         let tidy_filename = match filename.strip_prefix(manifest_path) {
             Ok(p) => p,
@@ -76,7 +76,7 @@ fn write_package<T:Write>(mut writer: &mut Writer<T>,
                           package_name: &str,
                           coverage: &TraceMap) -> Result<usize> {
     let covered = coverage.covered_in_path(package);
-    let covered = (covered as f64)/(coverage.coverable_in_path(package) as f64);
+    let covered = (covered as f32)/(coverage.coverable_in_path(package) as f32);
 
     let mut pack = BytesStart::owned(b"package".to_vec(), b"package".len());
     pack.push_attribute(("name", package_name));
