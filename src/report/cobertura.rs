@@ -26,6 +26,7 @@ fn write_header<T:Write>(writer: &mut Writer<T>, config: &Config) -> Result<usiz
     writer.write_event(Event::End(BytesEnd::borrowed(b"sources")))
 }
 
+
 /// Input only from single source file
 fn write_class<T:Write>(writer: &mut Writer<T>, 
                         manifest_path: &Path, 
@@ -87,7 +88,7 @@ fn write_package<T:Write>(mut writer: &mut Writer<T>,
     writer.write_event(Event::Start(BytesStart::borrowed(b"classes", b"classes".len())))?;
 
     for file in &coverage.files() {
-        if file.starts_with(package) {
+        if file.parent() == Some(package) {
             write_class(&mut writer, package, file, coverage)?;
         }
     }

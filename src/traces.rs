@@ -5,6 +5,7 @@ use std::fmt::{Display, Formatter, Result};
 use std::ops::Add;
 use std::cmp::{Ord, Ordering};
 
+
 /// Used to track the state of logical conditions
 #[derive(Debug, Clone, Copy, Default, Hash, PartialEq, Eq, PartialOrd)]
 pub struct LogicState {
@@ -76,6 +77,7 @@ pub struct Trace {
     pub stats: CoverageStat,
 }
 
+
 /// Implemented to allow Traces to be sorted by line number
 impl Ord for Trace {
     fn cmp(&self, other: &Trace) -> Ordering {
@@ -95,6 +97,43 @@ impl Ord for Trace {
             other
         }
     }
+}
+
+/// Amount of data coverable in the provided slice traces
+pub fn amount_coverable(traces: &[Trace]) -> usize {
+    let mut result = 0usize;
+    for t in traces {
+        result += match t.stats {
+            CoverageStat::Branch(_) => {
+                2usize
+            },
+            CoverageStat::Condition(ref x) => {
+                x.len() * 2usize
+            }
+            _ => 1usize
+        };
+    }
+    result
+}
+
+/// Amount of data covered in the provided trace slice
+pub fn amount_covered(traces: &[Trace]) -> usize {
+    let mut result = 0usize;
+    for t in traces {
+        result += match t.stats {
+            CoverageStat::Branch(ref x) => {
+                (x.been_true as usize) + (x.been_false as usize)
+            },
+            CoverageStat::Condition(ref x) => {
+                x.iter()
+                 .fold(0, |acc, ref x| acc + (x.been_true as usize) + (x.been_false as usize))
+            }
+            CoverageStat::Line(ref x) => {
+                (x > &0) as usize
+            }
+        };
+    }
+    result
 }
 
 /// Stores all the program traces mapped to files and provides an interface to
@@ -231,13 +270,26 @@ impl TraceMap {
             None => false,
         }
     }
-    
+
     /// Gets all traces below a certain path
-    pub fn get_child_traces(&self, root: &Path) -> Vec<&Trace> {
+    pub fn get_child_traces(&self, root: &Path) -> Vec<&Trace> { 
         self.traces.iter()
                    .filter(|&(ref k, _)| k.starts_with(root))
                    .flat_map(|(_, ref v)| v.iter())
                    .collect()
+    }
+
+    /// Gets all traces in folder, doesn't go into other folders for that you
+    /// want get_child_traces
+    pub fn get_traces(&self, root: &Path) -> Vec<&Trace> {
+        if root.is_file() {
+            self.get_child_traces(root)
+        } else {
+            self.traces.iter()
+                       .filter(|&(ref k, _)| k.parent() == Some(root))
+                       .flat_map(|(_, ref v)| v.iter())
+                       .collect()
+        }
     }
 
     /// Gets all traces
