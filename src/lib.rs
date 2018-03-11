@@ -22,7 +22,6 @@ use std::io;
 use std::ffi::CString;
 use std::path::{Path, PathBuf};
 use std::process::Command;
-use std::collections::{BTreeMap, HashMap};
 use nix::unistd::*;
 use cargo::util::Config as CargoConfig;
 use cargo::core::{Workspace, Package};
@@ -30,9 +29,10 @@ use cargo::ops;
 
 
 pub mod config;
-pub mod tracer;
+pub mod test_loader;
 pub mod breakpoint;
 pub mod report;
+pub mod traces;
 mod statemachine;
 mod source_analysis;
 
@@ -41,9 +41,10 @@ mod personality;
 mod ptrace_control;
 
 use config::*;
-use tracer::*;
+use test_loader::*;
 use ptrace_control::*;
 use statemachine::*;
+use traces::*;
 
 
 
@@ -54,7 +55,7 @@ pub fn run(config: Config) -> Result<(), i32> {
 }
 
 /// Launches tarpaulin with the given configuration.
-pub fn launch_tarpaulin(config: &Config) -> Result<Vec<TracerData>, i32> {
+pub fn launch_tarpaulin(config: &Config) -> Result<TraceMap, i32> {
     let mut cargo_config = CargoConfig::default().unwrap();
     let flag_quiet = if config.verbose {
         None
@@ -62,12 +63,7 @@ pub fn launch_tarpaulin(config: &Config) -> Result<Vec<TracerData>, i32> {
         Some(true)
     };
     // This shouldn't fail so no checking the error.
-    let _ = cargo_config.configure(0u32,
-                                   flag_quiet,
-                                   &None,
-                                   false,
-                                   false,
-                                   &[]);
+    let _ = cargo_config.configure(0u32, flag_quiet, &None, false, false, &[]);
     
     let workspace = Workspace::new(config.manifest.as_path(), &cargo_config).map_err(|_| 1i32)?;
     
@@ -105,7 +101,7 @@ pub fn launch_tarpaulin(config: &Config) -> Result<Vec<TracerData>, i32> {
         };
         let _ = ops::clean(&workspace, &clean_opt);
     }
-    let mut result:Vec<TracerData> = Vec::new();
+    let mut result = TraceMap::new();
     println!("Building project");
     let compilation = ops::compile(&workspace, &copt);
     match compilation {
@@ -114,18 +110,18 @@ pub fn launch_tarpaulin(config: &Config) -> Result<Vec<TracerData>, i32> {
                 if config.verbose {
                     println!("Processing {}", name);
                 }
-                let res = get_test_coverage(&workspace, package, path.as_path(),
-                                            &config, false)
-                    .unwrap_or_default();
-                merge_test_results(&mut result, &res);
+                if let Some(res) = get_test_coverage(&workspace, package, path.as_path(), &config, false) {
+                    result.merge(&res);
+                }
                 if config.run_ignored {
-                    let res = get_test_coverage(&workspace, package, path.as_path(),
-                                                &config, true)
-                        .unwrap_or_default();
-                    merge_test_results(&mut result, &res);
+                    if let Some(res) = get_test_coverage(&workspace, package, path.as_path(),
+                                                         &config, true) {
+                        result.merge(&res);
+                    }
                 }
             }
-            Ok(resolve_results(result))
+            result.dedup();
+            Ok(result)
         },
         Err(e) => {
             if config.verbose{
@@ -178,77 +174,29 @@ fn setup_environment(cargo_config: &CargoConfig) {
 
 }
 
-fn resolve_results(raw_results: Vec<TracerData>) -> Vec<TracerData> {
-    let mut result = Vec::new();
-    let mut map = HashMap::new();
-    for r in raw_results.iter() {
-        map.entry((r.path.as_path(), r.line)).or_insert(vec![]).push(r);
-    }
-    for (_, v) in map.iter() {
-        // Guaranteed to have at least one element
-        let hits = v.iter().fold(0, |acc, &x| acc + x.hits);
-        let mut temp = v[0].clone();
-        temp.hits = hits;
-        result.push(temp);
-    }
-    result.sort();
-    result
-}
-
-/// Test artefacts may have different lines visible to them therefore for 
-/// each test artefact covered we need to merge the `TracerData` entries to get
-/// the overall coverage.
-pub fn merge_test_results(master: &mut Vec<TracerData>, new: &[TracerData]) {
-    let mut unmerged:Vec<TracerData> = Vec::new();
-    for t in new.iter() {
-        let mut update = master.iter_mut()
-                               .filter(|x| x.path== t.path && x.line == t.line)
-                               .collect::<Vec<_>>();
-        for u in &mut update {
-            u.hits += t.hits;
-        }
-        
-        if update.is_empty() {
-            unmerged.push(t.clone());
-        }
-    }
-    master.append(&mut unmerged);
-}
-
 
 /// Reports the test coverage using the users preferred method. See config.rs 
 /// or help text for details.
-pub fn report_coverage(config: &Config, result: &[TracerData]) {
+pub fn report_coverage(config: &Config, result: &TraceMap) {
     if !result.is_empty() {
         println!("Coverage Results");
         if config.verbose {
-            for r in result.iter() {
-                let path = config.strip_project_path(r.path.as_path());
-                println!("{}:{} - hits: {}", path.display(), r.line, r.hits);
+            for (ref key, ref value) in result.iter() {
+                let path = config.strip_project_path(key);
+                for v in value.iter() {
+                    println!("{}:{} - {}", path.display(), v.line, v.stats);
+                }
             }
             println!("");
         }
-        // Hash map of files with the value (lines covered, total lines)
-        let mut file_map: BTreeMap<&Path, (u64, u64)> = BTreeMap::new();
-        for r in result.iter() {
-            if file_map.contains_key(r.path.as_path()) {
-                if let Some(v) = file_map.get_mut(r.path.as_path()) {
-                    (*v).0 += (r.hits > 0) as u64;
-                    (*v).1 += 1u64;
-                } 
-            } else {
-                file_map.insert(r.path.as_path(), ((r.hits > 0) as u64, 1));
-            }
+        for file in result.files() {
+            let path = config.strip_project_path(file);
+            println!("{}: {}/{}", path.display(), result.covered_in_path(&file), result.coverable_in_path(&file));
         }
-        for (k, v) in &file_map {
-            let path = config.strip_project_path(k);
-            println!("{}: {}/{}", path.display(), v.0, v.1);
-        }
-        let covered = result.iter().filter(|&x| (x.hits > 0 )).count();
-        let total = result.len();
-        let percent = (covered as f64)/(total as f64) * 100.0f64;
+        let percent = result.coverage_percentage() * 100.0f64;
         // Put file filtering here
-        println!("\n{:.2}% coverage, {}/{} lines covered", percent, covered, total);
+        println!("\n{:.2}% coverage, {}/{} lines covered", percent, 
+                 result.total_covered(), result.total_coverable());
         if config.is_coveralls() {
             println!("Sending coverage data to coveralls.io");
             report::coveralls::export(result, config);
@@ -276,7 +224,7 @@ pub fn get_test_coverage(project: &Workspace,
                          package: &Package,
                          test: &Path, 
                          config: &Config, 
-                         ignored: bool) -> Option<Vec<TracerData>> {
+                         ignored: bool) -> Option<TraceMap> {
     if !test.exists() {
         return None;
     } 
@@ -310,8 +258,8 @@ pub fn get_test_coverage(project: &Workspace,
 fn collect_coverage(project: &Workspace, 
                     test_path: &Path, 
                     test: Pid,
-                    config: &Config) -> io::Result<Vec<TracerData>> {
-    let mut traces = generate_tracer_data(project, test_path, config)?;
+                    config: &Config) -> io::Result<TraceMap> {
+    let mut traces = generate_tracemap(project, test_path, config)?;
     {
         let (mut state, mut data) = create_state_machine(test, &mut traces, config);
         loop {
@@ -366,52 +314,3 @@ fn execute_test(test: &Path, package: &Package, ignored: bool, config: &Config) 
         .unwrap();
 }
 
-
-#[cfg(test)]
-mod tests {
-    use std::path::PathBuf;
-    use ::*;
-    
-    #[test]
-    fn result_merge_test() {
-        let mut master:Vec<TracerData> = vec![];
-
-        master.push(TracerData { 
-            path: PathBuf::from("testing/test.rs"),
-            line: 2,
-            address: Some(0),
-            trace_type: LineType::Unknown,
-            hits: 1
-        });
-        master.push(TracerData { 
-            path: PathBuf::from("testing/test.rs"),
-            line: 3,
-            address: Some(1),
-            trace_type: LineType::Unknown,
-            hits: 1
-        });
-        master.push(TracerData {
-            path: PathBuf::from("testing/not.rs"),
-            line: 2,
-            address: Some(0),
-            trace_type: LineType::Unknown,
-            hits: 7
-        });
-
-        let other:Vec<TracerData> = vec![
-            TracerData {
-                path:PathBuf::from("testing/test.rs"),
-                line: 2,
-                address: Some(0),
-                trace_type: LineType::Unknown,
-                hits: 2
-            }];
-
-        merge_test_results(&mut master, &other);
-        let expected = vec![3, 1, 7];
-        for (act, exp) in master.iter().zip(expected) {
-            assert_eq!(act.hits, exp);
-        }
-    }
-
-}

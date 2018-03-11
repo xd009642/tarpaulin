@@ -6,8 +6,8 @@ use nix::sys::signal::Signal;
 use nix::errno::Errno;
 use nix::Result;
 use nix::unistd::Pid;
-use tracer::*;
 use breakpoint::*;
+use traces::*;
 use ptrace_control::*;
 use config::Config;
 
@@ -125,7 +125,7 @@ impl TestState {
 
 
 pub fn create_state_machine<'a>(test: Pid, 
-                                traces: &'a mut Vec<TracerData>, 
+                                traces: &'a mut TraceMap, 
                                 config: &'a Config) -> (TestState, LinuxData<'a>) {
     let mut data = LinuxData::new(traces, config);
     data.parent = test;
@@ -134,7 +134,6 @@ pub fn create_state_machine<'a>(test: Pid,
 
 
 /// Handle to linux process state
-#[derive(Debug)]
 pub struct LinuxData<'a> {
     /// Recent result from waitpid to be handled by statemachine
     wait: WaitStatus,
@@ -145,7 +144,7 @@ pub struct LinuxData<'a> {
     /// Map of addresses to breakpoints
     breakpoints: HashMap<u64, Breakpoint>,
     /// Instrumentation points in code with associated coverage data
-    traces: &'a mut Vec<TracerData>,
+    traces: &'a mut TraceMap,
     /// Program config
     config: &'a Config,
     /// Used to store error for user in the event something goes wrong
@@ -186,7 +185,7 @@ impl <'a> StateData for LinuxData<'a> {
             println!("Failed to trace child threads");
         }
         let mut instrumented = true;
-        for trace in self.traces.iter() {
+        for trace in self.traces.all_traces() {
             if let Some(addr) = trace.address {
                 match Breakpoint::new(self.current, addr) {
                     Ok(bp) => {
@@ -311,7 +310,7 @@ impl <'a> StateData for LinuxData<'a> {
 
 
 impl <'a>LinuxData<'a> {
-    pub fn new(traces: &'a mut Vec<TracerData>, config: &'a Config) -> LinuxData<'a> {
+    pub fn new(traces: &'a mut TraceMap, config: &'a Config) -> LinuxData<'a> {
         LinuxData {
             wait: WaitStatus::StillAlive,
             current: Pid::from_raw(0),
@@ -379,9 +378,13 @@ impl <'a>LinuxData<'a> {
                     false
                 };
                 if updated {
-                    for t in self.traces.iter_mut()
-                                        .filter(|x| x.address == Some(rip)) {
-                        (*t).hits += 1;
+                    if let Some(ref mut t) = self.traces.get_trace_mut(rip) {
+                        match t.stats {
+                            CoverageStat::Line(ref mut x) => {
+                                *x += 1;
+                            },
+                             _ => {}
+                        }
                     }
                 } 
             } else {

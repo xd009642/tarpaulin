@@ -1,4 +1,4 @@
-use tracer::TracerData;
+use test_loader::TracerData;
 use config::Config;
 use serde::Serialize;
 
