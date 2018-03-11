@@ -475,8 +475,7 @@ impl<'v, 'a> Visitor<'v> for CoverageVisitor<'a> {
         // TODO unimplemented should have extra logic to exclude the
         // function from coverage
         match mac_text {
-            "unimplemented" => self.ignore_lines(mac.span),
-            "unreachable" => self.ignore_lines(mac.span),
+            "unimplemented" | "unreachable" | "include" => self.ignore_lines(mac.span),
             _ => self.ignore_mac_args(&mac.node, mac.span),
         }
         visit::walk_mac(self, mac);
