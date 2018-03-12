@@ -469,6 +469,16 @@ impl<'v, 'a> Visitor<'v> for CoverageVisitor<'a> {
         visit::walk_expr(self, ex);
     }
 
+    fn visit_mac_def(&mut self, mac: &MacroDef, _id: NodeId) {
+        // Makes sure the macro definitions have ignorable lines ignored as well.
+        for token in mac.stream().into_trees() {
+            match token {
+                TokenTree::Token(span, _) => self.find_ignorable_lines(span),
+                TokenTree::Delimited(span, _) => self.find_ignorable_lines(span),
+            }
+        }
+    }
+
     fn visit_mac(&mut self, mac: &Mac) {
         // Use this to ignore unreachable lines
         let mac_text = &format!("{}", mac.node.path)[..];
