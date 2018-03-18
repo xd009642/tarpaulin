@@ -161,7 +161,6 @@ fn get_addresses_from_program<R, Offset>(prog: IncompleteLineNumberProgram<R>,
                             Some(l) => l,
                             None => continue,
                         };
-                  
                         let file = file.path_name();
                         
                         if let Ok(file) = file.to_string() {
