@@ -640,6 +640,16 @@ mod tests {
     }
 
     #[test]
+    fn filter_struct_consts() {
+        let ctx = TestContext::default();
+        let mut parser = ctx.generate_parser("struct_test.rs", 
+                                             "struct T{x:String, y:i32}\nfn test()-> T {\nT{\nx:\"hello\".to_string(),\ny:4,\n}\n}");
+        
+        let lines = parse_crate(&ctx, &mut parser);
+        assert!(lines.contains(&5));
+    }
+
+    #[test]
     fn filter_mods() {
         let ctx = TestContext::default();
         let mut parser = ctx.generate_parser("test.rs", "mod foo {\nfn double(x:i32)->i32 {\n x*2\n}\n}");
