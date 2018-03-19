@@ -482,7 +482,7 @@ impl<'v, 'a> Visitor<'v> for CoverageVisitor<'a> {
                     ExprKind::Struct(_, ref fields, _) => {
                         for f in fields.iter() {
                             match f.expr.node {
-                                ExprKind::Lit(_) => {
+                                ExprKind::Lit(_) | ExprKind::Path(_,_) => {
                                     self.ignore_lines(f.span);
                                 }, 
                                 _ => {},
