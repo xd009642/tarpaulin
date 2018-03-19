@@ -1,7 +1,6 @@
 use std::io;
 use std::path::{PathBuf, Path};
 use std::fs::File;
-use std::cmp::min;
 use std::collections::HashMap;
 use object::{Object, File as OFile};
 use memmap::MmapOptions;
@@ -126,12 +125,13 @@ fn get_entry_points<R, Offset>(debug_info: &CompilationUnitHeader<R, Offset>,
 fn get_addresses_from_program<R, Offset>(prog: IncompleteLineNumberProgram<R>,
                                          entries: &[(u64, LineType)],
                                          project: &Path,
-                                         result: &mut HashMap<SourceLocation, TracerData>) -> Result<()>
+                                         result: &mut HashMap<SourceLocation, Vec<TracerData>>) -> Result<()>
     where R: Reader<Offset = Offset>,
           Offset: ReaderOffset
 {
     let ( cprog, seq) = prog.sequences()?;
     for s in seq {
+        let mut temp_map: HashMap<SourceLocation, TracerData> = HashMap::new();
         let mut sm = cprog.resume_from(&s);   
          while let Ok(Some((header, &ln_row))) = sm.next_row() {
             if let Some(file) = ln_row.file(header) {
@@ -180,24 +180,27 @@ fn get_addresses_from_program<R, Offset>(prog: IncompleteLineNumberProgram<R>,
                                 path: path,
                                 line: line,
                             };
-                            if result.contains_key(&loc) {
-                                let mut x = result.get_mut(&loc).unwrap();
-                                if let Some(mut addr) = x.address {
-                                    x.address = Some(min(address, addr));
-                                    x.length += 1;
-                                } else {
-                                    x.address = Some(address);
-                                }
-                            } else {
-                                result.insert(loc, TracerData {
+                            // This keeps the lowest addressed instrumentation point
+                            if !temp_map.contains_key(&loc) && desc != LineType::TestMain {
+                                temp_map.insert(loc, TracerData {
                                     address: Some(address),
                                     trace_type: desc,
-                                    length: 1,
+                                    length: 1
                                 });
-                            } 
+                            }
                         }
                     }
                 }
+            }
+        }
+        // Merge temp_map into result. This gets a trace point for each line number
+        // sequence a trace appears in.
+        for (k, v) in &temp_map {
+            if result.contains_key(k) {
+                let mut x = result.get_mut(k).unwrap();
+                x.push(v.clone());
+            } else {
+                result.insert(k.clone(), vec![v.clone()]);
             }
         }
     }
@@ -243,7 +246,7 @@ fn get_line_addresses(endian: RunTimeEndian,
                 _ => continue,
             };
             let prog = debug_line.program(offset, addr_size, None, None)?;
-            let mut temp_map:HashMap<SourceLocation, TracerData> = HashMap::new();
+            let mut temp_map:HashMap<SourceLocation, Vec<TracerData>> = HashMap::new();
             if let Err(e) = get_addresses_from_program(prog, &entries, project, &mut temp_map) {
                 if config.verbose {
                     println!("Potential issue reading test addresses {}", e);
@@ -255,16 +258,17 @@ fn get_line_addresses(endian: RunTimeEndian,
                                        .filter(|&(ref k, _)| !(config.ignore_tests && k.path.starts_with(project.join("tests"))))
                                        .filter(|&(ref k, _)| !(config.exclude_path(&k.path)))
                                        .filter(|&(ref k, _)| !analysis.should_ignore(k.path.as_ref(), &(k.line as usize)))
-                                       .filter(|&(_, ref v)| v.trace_type != LineType::TestMain)
-                                       .collect::<HashMap<SourceLocation, TracerData>>();
+                                       .collect::<HashMap<SourceLocation, Vec<TracerData>>>();
                 let mut tracemap = TraceMap::new();
-                for (k, v) in &temp_map {
-                    tracemap.add_trace(&k.path, Trace {
-                        line: k.line,
-                        address: v.address,
-                        length: 1,
-                        stats: CoverageStat::Line(0)
-                    });
+                for (k, val) in &temp_map {
+                    for v in val.iter() {
+                        tracemap.add_trace(&k.path, Trace {
+                            line: k.line,
+                            address: v.address,
+                            length: 1,
+                            stats: CoverageStat::Line(0)
+                        });
+                    }
                 }
                 result.merge(&tracemap);
             }
