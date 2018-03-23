@@ -5,9 +5,9 @@ use std::path::Path;
 use std::io::prelude::*;
 use std::io::Cursor;
 use std::collections::HashSet;
-use quick_xml::writer::Writer;
+use quick_xml::Writer;
 use quick_xml::events::{Event, BytesEnd, BytesStart, BytesDecl};
-use quick_xml::errors::Result;
+use quick_xml::Result;
 use tracer::TracerData;
 use config::Config;
 
