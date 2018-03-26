@@ -222,7 +222,12 @@ impl<'a> CoverageVisitor<'a> {
 
     fn cover_lines(&mut self, span: Span) {
         if let Ok(ls) = self.codemap.span_to_lines(span) {
-            let temp_string = self.codemap.span_to_string(span);
+            let temp_string = if let Ok(s) = self.codemap.span_to_snippet(span) {
+                s
+            } else {
+                // First line is always declaration so this is fine.
+                "fn".to_string() 
+            };
             let txt = temp_string.lines();
             let mut is_comment = false;
             lazy_static! {
@@ -248,7 +253,7 @@ impl<'a> CoverageVisitor<'a> {
                     let pb = PathBuf::from(self.codemap.span_to_filename(span) as String);
                     // Line number is index+1
                     self.coverable.push((pb, line.line_index + 1));
-                }
+                } 
             }
         }
     }
