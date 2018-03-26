@@ -222,11 +222,9 @@ impl<'a> CoverageVisitor<'a> {
 
     fn cover_lines(&mut self, span: Span) {
         if let Ok(ls) = self.codemap.span_to_lines(span) {
-            let temp_string = if let Ok(s) = self.codemap.span_to_snippet(span) {
-                s
-            } else {
-                // First line is always declaration so this is fine.
-                "fn".to_string() 
+            let temp_string = match self.codemap.span_to_snippet(span) {
+                Ok(s) => s,
+                Err(_) => "fn".to_string(),
             };
             let txt = temp_string.lines();
             let mut is_comment = false;
