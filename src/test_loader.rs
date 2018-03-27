@@ -131,7 +131,10 @@ fn get_addresses_from_program<R, Offset>(prog: IncompleteLineNumberProgram<R>,
 {
     let ( cprog, seq) = prog.sequences()?;
     for s in seq {
-        let mut temp_map: HashMap<SourceLocation, TracerData> = HashMap::new();
+        let mut last_loc = SourceLocation{
+            path: PathBuf::new(),
+            line: 0,
+        };
         let mut sm = cprog.resume_from(&s);   
          while let Ok(Some((header, &ln_row))) = sm.next_row() {
             if let Some(file) = ln_row.file(header) {
@@ -180,27 +183,23 @@ fn get_addresses_from_program<R, Offset>(prog: IncompleteLineNumberProgram<R>,
                                 path: path,
                                 line: line,
                             };
-                            // This keeps the lowest addressed instrumentation point
-                            if !temp_map.contains_key(&loc) && desc != LineType::TestMain {
-                                temp_map.insert(loc, TracerData {
+                            if loc != last_loc && desc != LineType::TestMain {
+                                let temp_trace = TracerData {
                                     address: Some(address),
                                     trace_type: desc,
-                                    length: 1
-                                });
+                                    length: 1,
+                                };
+                                if result.contains_key(&loc) {
+                                    let mut x = result.get_mut(&loc).unwrap();
+                                    x.push(temp_trace);
+                                } else {
+                                    result.insert(loc.clone(), vec![temp_trace]);
+                                }
                             }
+                            last_loc = loc;
                         }
                     }
                 }
-            }
-        }
-        // Merge temp_map into result. This gets a trace point for each line number
-        // sequence a trace appears in.
-        for (k, v) in &temp_map {
-            if result.contains_key(k) {
-                let mut x = result.get_mut(k).unwrap();
-                x.push(v.clone());
-            } else {
-                result.insert(k.clone(), vec![v.clone()]);
             }
         }
     }
