@@ -131,12 +131,13 @@ fn get_addresses_from_program<R, Offset>(prog: IncompleteLineNumberProgram<R>,
 {
     let ( cprog, seq) = prog.sequences()?;
     for s in seq {
-        let mut last_loc = SourceLocation{
-            path: PathBuf::new(),
-            line: 0,
-        };
+        let mut temp_map: HashMap<SourceLocation, TracerData> = HashMap::new();
         let mut sm = cprog.resume_from(&s);   
          while let Ok(Some((header, &ln_row))) = sm.next_row() {
+             // If this row isn't useful move on
+            if !ln_row.is_stmt() || ln_row.line().is_none() {
+                continue;
+            }
             if let Some(file) = ln_row.file(header) {
                 let mut path = PathBuf::new();
                 
@@ -159,13 +160,9 @@ fn get_addresses_from_program<R, Offset>(prog: IncompleteLineNumberProgram<R>,
                 // Source is part of project so we cover it.
                 if !is_target && path.starts_with(project) {
                     if let Some(file) = ln_row.file(header) {
-                        // If we can't map to line, we can't trace it.
-                        let line = match ln_row.line() {
-                            Some(l) => l,
-                            None => continue,
-                        };
+                        let line = ln_row.line().unwrap();
                         let file = file.path_name();
-                        
+                         
                         if let Ok(file) = file.to_string() {
                             path.push(file.as_ref());
                             if !path.is_file() {
@@ -183,23 +180,24 @@ fn get_addresses_from_program<R, Offset>(prog: IncompleteLineNumberProgram<R>,
                                 path: path,
                                 line: line,
                             };
-                            if loc != last_loc && desc != LineType::TestMain {
-                                let temp_trace = TracerData {
+                            if desc != LineType::TestMain && !temp_map.contains_key(&loc) {
+                                temp_map.insert(loc, TracerData {
                                     address: Some(address),
                                     trace_type: desc,
                                     length: 1,
-                                };
-                                if result.contains_key(&loc) {
-                                    let mut x = result.get_mut(&loc).unwrap();
-                                    x.push(temp_trace);
-                                } else {
-                                    result.insert(loc.clone(), vec![temp_trace]);
-                                }
+                                });
                             }
-                            last_loc = loc;
                         }
                     }
                 }
+            }
+        }
+        for (k, v) in &temp_map {
+            if result.contains_key(k) {
+                let mut x = result.get_mut(k).unwrap();
+                x.push(v.clone());
+            } else {
+                result.insert(k.clone(), vec![v.clone()]);
             }
         }
     }
