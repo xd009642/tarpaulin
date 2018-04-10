@@ -66,6 +66,7 @@ fn main() {
                 Arg::with_name("args")
                     .set(ArgSettings::Last)
                     .multiple(true)
+                    .help("Arguments to be passed to the test executables can be used to filter or skip certain tests")
             ]))
         .get_matches();
 
