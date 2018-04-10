@@ -170,7 +170,6 @@ fn get_addresses_from_program<R, Offset>(prog: IncompleteLineNumberProgram<R>,
                                 continue;
                             }
                             let address = ln_row.address();
-                            
                             let desc = entries.iter()
                                               .filter(|&&(addr, _)| addr == address )
                                               .map(|&(_, t)| t)
