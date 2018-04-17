@@ -2,6 +2,8 @@ use std::rc::Rc;
 use std::ops::Deref;
 use std::path::{PathBuf, Path};
 use std::collections::{HashSet, HashMap};
+use std::fs::File;
+use std::io::{BufReader, BufRead};
 use cargo::core::{Workspace, Package};
 use cargo::sources::PathSource;
 use cargo::util::Config as CargoConfig;
@@ -19,7 +21,7 @@ use config::Config;
 
 /// Represents the results of analysis of a single file. Does not store the file
 /// in question as this is expected to be maintained by the user.
-#[derive(Clone)]
+#[derive(Clone, Debug)]
 pub struct LineAnalysis {
     /// This represents lines that should be ignored in coverage 
     /// but may be identifed as coverable in the DWARF tables
@@ -99,6 +101,25 @@ pub fn get_line_analysis(project: &Workspace, config: &Config) -> HashMap<PathBu
     result
 }
 
+fn analyse_lib_rs(file: &Path, result: &mut HashMap<PathBuf, LineAnalysis>) {
+    if let Ok(f) = File::open(file) {
+        let mut read_file = BufReader::new(f);
+        if let Some(Ok(first)) = read_file.lines().nth(0) {
+            if !(first.starts_with("pub") || first.starts_with("fn")) {
+                let file = file.to_path_buf();
+                if result.contains_key(&file) {
+                    let l = result.get_mut(&file).unwrap();
+                    l.add_to_ignore(&[1]);
+                } else {
+                    let mut l = LineAnalysis::new();
+                    l.add_to_ignore(&[1]);
+                    result.insert(file, l);
+                }
+            }   
+        }
+    }
+}
+
 fn analyse_package(pkg: &Package, 
                    config:&Config, 
                    cargo_conf: &CargoConfig, 
@@ -113,7 +134,6 @@ fn analyse_package(pkg: &Package,
         
         for target in package.targets() {
             let file = target.src_path();
-            
             let skip_cause_test = config.ignore_tests && 
                                   file.starts_with(pkg.root().join("tests"));
             let skip_cause_example = file.starts_with(pkg.root().join("examples"));
@@ -153,6 +173,11 @@ fn analyse_package(pkg: &Package,
                         }
                     }
                 }
+            }
+            // This could probably be done with the DWARF if I could find a discriminating factor
+            // to why lib.rs:1 shows up as a real line!
+            if file.ends_with("src/lib.rs") {
+                analyse_lib_rs(file, result);
             }
         }
     }
@@ -197,7 +222,10 @@ impl<'a> CoverageVisitor<'a> {
 
     fn cover_lines(&mut self, span: Span) {
         if let Ok(ls) = self.codemap.span_to_lines(span) {
-            let temp_string = self.codemap.span_to_string(span);
+            let temp_string = match self.codemap.span_to_snippet(span) {
+                Ok(s) => s,
+                Err(_) => "fn".to_string(),
+            };
             let txt = temp_string.lines();
             let mut is_comment = false;
             lazy_static! {
@@ -223,7 +251,7 @@ impl<'a> CoverageVisitor<'a> {
                     let pb = PathBuf::from(self.codemap.span_to_filename(span) as String);
                     // Line number is index+1
                     self.coverable.push((pb, line.line_index + 1));
-                }
+                } 
             }
         }
     }
@@ -454,6 +482,16 @@ impl<'v, 'a> Visitor<'v> for CoverageVisitor<'a> {
                     ExprKind::Mac(ref mac) => {
                         self.ignore_mac_args(&mac.node, ex.span);
                     },
+                    ExprKind::Struct(_, ref fields, _) => {
+                        for f in fields.iter() {
+                            match f.expr.node {
+                                ExprKind::Lit(_) | ExprKind::Path(_,_) => {
+                                    self.ignore_lines(f.span);
+                                }, 
+                                _ => {},
+                            }
+                        }
+                    },
                     _ => {},
                 }
                 if !cover.is_empty() {
@@ -469,14 +507,23 @@ impl<'v, 'a> Visitor<'v> for CoverageVisitor<'a> {
         visit::walk_expr(self, ex);
     }
 
+    fn visit_mac_def(&mut self, mac: &MacroDef, _id: NodeId) {
+        // Makes sure the macro definitions have ignorable lines ignored as well.
+        for token in mac.stream().into_trees() {
+            match token {
+                TokenTree::Token(span, _) => self.find_ignorable_lines(span),
+                TokenTree::Delimited(span, _) => self.find_ignorable_lines(span),
+            }
+        }
+    }
+
     fn visit_mac(&mut self, mac: &Mac) {
         // Use this to ignore unreachable lines
         let mac_text = &format!("{}", mac.node.path)[..];
         // TODO unimplemented should have extra logic to exclude the
         // function from coverage
         match mac_text {
-            "unimplemented" => self.ignore_lines(mac.span),
-            "unreachable" => self.ignore_lines(mac.span),
+            "unimplemented" | "unreachable" | "include" => self.ignore_lines(mac.span),
             _ => self.ignore_mac_args(&mac.node, mac.span),
         }
         visit::walk_mac(self, mac);
@@ -593,6 +640,16 @@ mod tests {
         assert!(lines.contains(&1)); 
         assert!(lines.contains(&3)); 
         assert!(lines.contains(&4)); 
+    }
+
+    #[test]
+    fn filter_struct_consts() {
+        let ctx = TestContext::default();
+        let mut parser = ctx.generate_parser("struct_test.rs", 
+                                             "struct T{x:String, y:i32}\nfn test()-> T {\nT{\nx:\"hello\".to_string(),\ny:4,\n}\n}");
+        
+        let lines = parse_crate(&ctx, &mut parser);
+        assert!(lines.contains(&5));
     }
 
     #[test]
