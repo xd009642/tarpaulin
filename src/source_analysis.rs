@@ -547,6 +547,37 @@ impl<'v, 'a> Visitor<'v> for CoverageVisitor<'a> {
 
     fn visit_block(&mut self, b: &'v Block) {
         self.find_ignorable_lines(b.span);
+        if let BlockCheckMode::Unsafe(ref u) = b.rules {
+            if u == &UnsafeSource::UserProvided {
+                // if first statement line isn't first line of block
+                // you can ignore first line cause it's just `unsafe {`
+                let block_lines = self.codemap.span_to_lines(b.span);
+                let first_line = if let Ok(x) = block_lines {
+                    match x.lines.first() {
+                        Some(y) => Some(y.line_index),
+                        _ => None,
+                    }
+                } else {
+                    None
+                }
+                ;
+                if let Some(s) = b.stmts.first() {
+                    let inner_lines = self.codemap.span_to_lines(s.span);
+                    let inner_line = if let Ok(x) = inner_lines {
+                        match x.lines.first() {
+                            Some(y) => Some(y.line_index),
+                            _ => None,
+                        }
+                    } else {
+                        None 
+                    };
+                    if first_line.is_some() && first_line != inner_line {
+                        let pb = PathBuf::from(self.codemap.span_to_filename(b.span) as String);
+                        self.lines.push((pb, first_line.unwrap() +1));
+                    }
+                }
+            }
+        }
         visit::walk_block(self, b);
     }
 
