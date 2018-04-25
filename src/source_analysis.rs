@@ -161,6 +161,7 @@ fn process_module(file: SFile) -> LineAnalysis {
     let mut analysis = LineAnalysis::new();
     for item in &file.items {
         match item {
+            Item::ExternCrate(i) => analysis.ignore_span(&i.extern_token.0),
             Item::Use(i) => analysis.ignore_span(&i.use_token.0),
             _ =>{}
         } 
