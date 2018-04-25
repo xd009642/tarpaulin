@@ -7,7 +7,7 @@ use std::io::{BufReader, BufRead};
 use cargo::core::{Workspace, Package};
 use cargo::sources::PathSource;
 use cargo::util::Config as CargoConfig;
-use syn::{parse_file, Item};
+use syn::{parse_file, Item, File as SFile};
 use proc_macro2::Span;
 use regex::Regex;
 use config::Config;
@@ -131,35 +131,42 @@ fn analyse_package(pkg: &Package,
     let mut src = PathSource::new(pkg.root(), pkg.package_id().source_id(), cargo_conf);
     if let Ok(package) = src.root_package() {
         for target in package.targets() {
-            let file = target.src_path();
-            let file_str = match file.to_str() {
+            let path = target.src_path();
+            let file = match path.to_str() {
                 Some(s) => s,
                 _ => continue
             };
             let skip_cause_test = config.ignore_tests && 
-                                  file.starts_with(pkg.root().join("tests"));
-            let skip_cause_example = file.starts_with(pkg.root().join("examples"));
+                                  path.starts_with(pkg.root().join("tests"));
+            let skip_cause_example = path.starts_with(pkg.root().join("examples"));
             if !(skip_cause_test || skip_cause_example)  {
-                let file = parse_file(file_str);
+                let file = parse_file(file);
                 if let Ok(file) = file {
-                    let mut analysis = LineAnalysis::new();
-                    for item in &file.items {
-                        match item {
-                            Item::Use(i) => analysis.ignore_span(&i.use_token.0),
-                            _ =>{}
-                        }
-                    }
+                    let analysis = process_module(file);
+                    // Check there's no conflict!
+                    result.insert(path.to_path_buf(), analysis);
                 }
             }
             // This could probably be done with the DWARF if I could find a discriminating factor
             // to why lib.rs:1 shows up as a real line!
             if file.ends_with("src/lib.rs") {
-                analyse_lib_rs(file, result);
+                analyse_lib_rs(path, result);
             }
         }
     }
 }
 
+
+fn process_module(file: SFile) -> LineAnalysis {
+    let mut analysis = LineAnalysis::new();
+    for item in &file.items {
+        match item {
+            Item::Use(i) => analysis.ignore_span(&i.use_token.0),
+            _ =>{}
+        } 
+    }
+    analysis
+}
 
 #[cfg(test)]
 mod tests {
