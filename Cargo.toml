@@ -26,6 +26,7 @@ serde = "1.0.34"
 serde_json = "1.0.13"
 coveralls-api = "0.3.3"
 quick-xml = "0.12.1"
-syntex_syntax = "0.59.1"
 regex = "0.2.10"
 lazy_static = "1.0"
+syn = { version = "0.13", features = ["full"]}
+proc-macro2 = "0.3"
