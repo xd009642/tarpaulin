@@ -1,5 +1,3 @@
-use std::rc::Rc;
-use std::ops::Deref;
 use std::path::{PathBuf, Path};
 use std::collections::{HashSet, HashMap};
 use std::fs::File;
@@ -7,7 +5,7 @@ use std::io::{BufReader, BufRead};
 use cargo::core::{Workspace, Package};
 use cargo::sources::PathSource;
 use cargo::util::Config as CargoConfig;
-use syn::{parse_file, Item, File as SFile};
+use syn::{parse_file, Item, ItemMod, Ident, File as SFile};
 use proc_macro2::Span;
 use regex::Regex;
 use config::Config;
@@ -142,7 +140,7 @@ fn analyse_package(pkg: &Package,
             if !(skip_cause_test || skip_cause_example)  {
                 let file = parse_file(file);
                 if let Ok(file) = file {
-                    let analysis = process_module(file);
+                    let analysis = process_module(file, config);
                     // Check there's no conflict!
                     result.insert(path.to_path_buf(), analysis);
                 }
@@ -157,16 +155,30 @@ fn analyse_package(pkg: &Package,
 }
 
 
-fn process_module(file: SFile) -> LineAnalysis {
+fn process_module(file: SFile, config: &Config) -> LineAnalysis {
     let mut analysis = LineAnalysis::new();
     for item in &file.items {
         match item {
             Item::ExternCrate(i) => analysis.ignore_span(&i.extern_token.0),
             Item::Use(i) => analysis.ignore_span(&i.use_token.0),
+            Item::Mod(i) => visit_mod(i, &mut analysis, config),
             _ =>{}
         } 
     }
     analysis
+}
+
+
+fn visit_mod(module: &ItemMod, analysis: &mut LineAnalysis, config: &Config) {
+    // Need to read the nested meta.. But this should work for fns
+    let test_mod = module.attrs.iter()
+                               .map(|ref x| x.interpret_meta())
+                               .filter(|ref x| x.is_some())
+                               .map(|x| x.unwrap())
+                               .any(|x| x.name() == Ident::from("test"));
+    if test_mod && config.ignore_tests {
+        analysis.ignore_span(&module.mod_token.0);
+    }
 }
 
 #[cfg(test)]
