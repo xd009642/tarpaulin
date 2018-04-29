@@ -188,7 +188,7 @@ fn process_statements(stmts: &[Stmt], config: &Config, analysis: &mut LineAnalys
 
 
 fn visit_mod(module: &ItemMod, analysis: &mut LineAnalysis, config: &Config) {
-    // Need to read the nested meta.. But this should work for fns
+    analysis.ignore_span(&module.mod_token.0); 
     let mut check_insides = true;
     for attr in &module.attrs {
         if let Some(Meta::List(ref ml)) = attr.interpret_meta() {
