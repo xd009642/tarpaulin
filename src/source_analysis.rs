@@ -62,9 +62,37 @@ impl LineAnalysis {
     }
 
     /// Adds the lines of the provided span to the cover set
-    pub fn cover_span(&mut self, span: &Span) {
+    pub fn cover_span(&mut self, span: &Span, contents: Option<&str>) {
+        let mut useless_lines: HashSet<usize> = HashSet::new();
+        if let Some(ref c) = contents {
+            lazy_static! {
+                static ref SINGLE_LINE: Regex = Regex::new(r"\s*//\n").unwrap();
+                static ref MULTI_START: Regex = Regex::new(r"/\*").unwrap();
+                static ref MULTI_END: Regex = Regex::new(r"\*/").unwrap();
+            }
+            let len = span.end().line - span.start().line;
+            let mut is_comment = false;
+            for (i, line) in c.lines().enumerate().skip(span.start().line - 1).take(len) {
+                let is_code = if MULTI_START.is_match(line) {
+                    if !MULTI_END.is_match(line) {
+                        is_comment = true;
+                    }
+                    false
+                } else if is_comment {
+                    if MULTI_END.is_match(line) {
+                        is_comment = false;
+                    }
+                    false
+                } else {
+                    true
+                };
+                if is_code && !SINGLE_LINE.is_match(line) {
+                    useless_lines.insert(i+1);    
+                }
+            }
+        }
         for i in span.start().line..(span.end().line +1) {
-            if !self.ignore.contains(&i) {
+            if !self.ignore.contains(&i) && !useless_lines.contains(&i) {
                 self.cover.insert(i);
             }
         }
@@ -253,6 +281,7 @@ fn visit_mod(module: &ItemMod, analysis: &mut LineAnalysis, ctx: &Context) {
 fn visit_fn(func: &ItemFn, analysis: &mut LineAnalysis, ctx: &Context) {
     // Need to read the nested meta.. But this should work for fns
     let mut ignore_func = false;
+    let mut is_inline = false;
     for attr in &func.attrs {
         if let Some(x) = attr.interpret_meta() {
             let id = x.name();
@@ -260,6 +289,8 @@ fn visit_fn(func: &ItemFn, analysis: &mut LineAnalysis, ctx: &Context) {
                 ignore_func = true;
             } else if id == Ident::from("derive") {
                 analysis.ignore_span(&attr.bracket_token.0);
+            } else if id == Ident::from("inline") {
+                is_inline = true;
             }
         }
     }
@@ -267,6 +298,10 @@ fn visit_fn(func: &ItemFn, analysis: &mut LineAnalysis, ctx: &Context) {
         analysis.ignore_span(&func.decl.fn_token.0);
         analysis.ignore_span(&func.block.brace_token.0);
     } else {
+        if is_inline {
+            // We need to force cover!
+            analysis.cover_span(&func.block.brace_token.0, Some(ctx.file_contents));
+        }
         process_statements(&func.block.stmts, ctx, analysis);
     }
 }
