@@ -218,12 +218,18 @@ fn visit_mod(module: &ItemMod, analysis: &mut LineAnalysis, config: &Config) {
 
 fn visit_fn(func: &ItemFn, analysis: &mut LineAnalysis, config: &Config) {
     // Need to read the nested meta.. But this should work for fns
-    let test_mod = func.attrs.iter()
-                             .map(|ref x| x.interpret_meta())
-                             .filter(|ref x| x.is_some())
-                             .map(|x| x.unwrap())
-                             .any(|x| x.name() == Ident::from("test"));
-    if test_mod && config.ignore_tests {
+    let mut ignore_func = false;
+    for attr in &func.attrs {
+        if let Some(x) = attr.interpret_meta() {
+            let id = x.name();
+            if id == Ident::from("test") {
+                ignore_func = true;
+            } else if id == Ident::from("derive") {
+                analysis.ignore_span(&attr.bracket_token.0);
+            }
+        }
+    }
+    if ignore_func && config.ignore_tests {
         analysis.ignore_span(&func.decl.fn_token.0);
         analysis.ignore_span(&func.block.brace_token.0);
     } else {
