@@ -1,11 +1,12 @@
 use std::path::{PathBuf, Path};
 use std::collections::{HashSet, HashMap};
 use std::fs::File;
+use std::io::Read;
 use std::io::{BufReader, BufRead};
 use cargo::core::{Workspace, Package};
 use cargo::sources::PathSource;
 use cargo::util::Config as CargoConfig;
-use syn::{parse_file, Item, ItemMod, Ident, File as SFile};
+use syn::{parse_file, Item, ItemMod, ItemFn, Ident, File as SFile};
 use proc_macro2::Span;
 use regex::Regex;
 use config::Config;
@@ -51,7 +52,8 @@ impl LineAnalysis {
 
     /// Adds the lines of the provided span to the ignore set
     pub fn ignore_span(&mut self, span: &Span) {
-        for i in span.start().line..span.end().line {
+        for i in span.start().line..(span.end().line+1) {
+            println!("Ignoring line {}", i);
             self.ignore.insert(i);
             if self.cover.contains(&i) {
                 self.cover.remove(&i);
@@ -61,7 +63,7 @@ impl LineAnalysis {
 
     /// Adds the lines of the provided span to the cover set
     pub fn cover_span(&mut self, span: &Span) {
-        for i in span.start().line..span.end().line {
+        for i in span.start().line..(span.end().line +1) {
             if !self.ignore.contains(&i) {
                 self.cover.insert(i);
             }
@@ -138,9 +140,17 @@ fn analyse_package(pkg: &Package,
                                   path.starts_with(pkg.root().join("tests"));
             let skip_cause_example = path.starts_with(pkg.root().join("examples"));
             if !(skip_cause_test || skip_cause_example)  {
-                let file = parse_file(file);
+                let file = File::open(file);
+                let mut file = match file {
+                    Ok(f) => f,
+                    _ => continue,
+                };
+                let mut content = String::new();
+                let _ = file.read_to_string(&mut content);
+                let file = parse_file(&content);
                 if let Ok(file) = file {
-                    let analysis = process_module(file, config);
+                    let mut analysis = LineAnalysis::new();
+                    process_items(&file.items, config, &mut analysis);
                     // Check there's no conflict!
                     result.insert(path.to_path_buf(), analysis);
                 }
@@ -155,17 +165,16 @@ fn analyse_package(pkg: &Package,
 }
 
 
-fn process_module(file: SFile, config: &Config) -> LineAnalysis {
-    let mut analysis = LineAnalysis::new();
-    for item in &file.items {
+fn process_items(items: &[Item], config: &Config, analysis: &mut LineAnalysis) {
+    for item in items {
         match item {
             Item::ExternCrate(i) => analysis.ignore_span(&i.extern_token.0),
             Item::Use(i) => analysis.ignore_span(&i.use_token.0),
-            Item::Mod(i) => visit_mod(i, &mut analysis, config),
+            Item::Mod(i) => visit_mod(i, analysis, config),
+            Item::Fn(i) => visit_fn(i, analysis, config),
             _ =>{}
         } 
     }
-    analysis
 }
 
 
@@ -178,6 +187,23 @@ fn visit_mod(module: &ItemMod, analysis: &mut LineAnalysis, config: &Config) {
                                .any(|x| x.name() == Ident::from("test"));
     if test_mod && config.ignore_tests {
         analysis.ignore_span(&module.mod_token.0);
+    }
+    if let Some((_, ref items)) = module.content {
+        process_items(items, config, analysis);
+    }
+}
+
+
+fn visit_fn(func: &ItemFn, analysis: &mut LineAnalysis, config: &Config) {
+    // Need to read the nested meta.. But this should work for fns
+    let test_mod = func.attrs.iter()
+                             .map(|ref x| x.interpret_meta())
+                             .filter(|ref x| x.is_some())
+                             .map(|x| x.unwrap())
+                             .any(|x| x.name() == Ident::from("test"));
+    println!("visit fn {}", test_mod);
+    if test_mod && config.ignore_tests {
+        analysis.ignore_span(&func.decl.fn_token.0);
     }
 }
 
