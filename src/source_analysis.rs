@@ -6,7 +6,7 @@ use std::io::{BufReader, BufRead};
 use cargo::core::{Workspace, Package};
 use cargo::sources::PathSource;
 use cargo::util::Config as CargoConfig;
-use syn::{parse_file, Item, ItemMod, ItemFn, Ident, File as SFile};
+use syn::{parse_file, Item, ItemMod, ItemFn, Ident, Meta, NestedMeta, File as SFile};
 use proc_macro2::Span;
 use regex::Regex;
 use config::Config;
@@ -53,7 +53,6 @@ impl LineAnalysis {
     /// Adds the lines of the provided span to the ignore set
     pub fn ignore_span(&mut self, span: &Span) {
         for i in span.start().line..(span.end().line+1) {
-            println!("Ignoring line {}", i);
             self.ignore.insert(i);
             if self.cover.contains(&i) {
                 self.cover.remove(&i);
@@ -180,16 +179,30 @@ fn process_items(items: &[Item], config: &Config, analysis: &mut LineAnalysis) {
 
 fn visit_mod(module: &ItemMod, analysis: &mut LineAnalysis, config: &Config) {
     // Need to read the nested meta.. But this should work for fns
-    let test_mod = module.attrs.iter()
-                               .map(|ref x| x.interpret_meta())
-                               .filter(|ref x| x.is_some())
-                               .map(|x| x.unwrap())
-                               .any(|x| x.name() == Ident::from("test"));
-    if test_mod && config.ignore_tests {
-        analysis.ignore_span(&module.mod_token.0);
+    let test_attr = NestedMeta::Meta(Meta::Word(Ident::from("test")));
+    let mut check_insides = true;
+    for attr in &module.attrs {
+        if let Some(Meta::List(ref ml)) = attr.interpret_meta() {
+            if ml.ident != Ident::from("cfg") {
+                continue;
+            }
+            for nested in &ml.nested {
+                if let NestedMeta::Meta(Meta::Word(i)) = nested {
+                    if i == &Ident::from("test") {
+                        check_insides = false;
+                        analysis.ignore_span(&module.mod_token.0);
+                        if let Some((ref braces, _)) = module.content {
+                            analysis.ignore_span(&braces.0);
+                        }
+                    }
+                }
+            }
+        }
     }
-    if let Some((_, ref items)) = module.content {
-        process_items(items, config, analysis);
+    if check_insides {
+        if let Some((_, ref items)) = module.content {
+            process_items(items, config, analysis);
+        }
     }
 }
 
@@ -201,9 +214,9 @@ fn visit_fn(func: &ItemFn, analysis: &mut LineAnalysis, config: &Config) {
                              .filter(|ref x| x.is_some())
                              .map(|x| x.unwrap())
                              .any(|x| x.name() == Ident::from("test"));
-    println!("visit fn {}", test_mod);
     if test_mod && config.ignore_tests {
         analysis.ignore_span(&func.decl.fn_token.0);
+        analysis.ignore_span(&func.block.brace_token.0);
     }
 }
 
