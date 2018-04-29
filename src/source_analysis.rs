@@ -6,7 +6,7 @@ use std::io::{BufReader, BufRead};
 use cargo::core::{Workspace, Package};
 use cargo::sources::PathSource;
 use cargo::util::Config as CargoConfig;
-use syn::{parse_file, Item, ItemMod, ItemFn, Ident, Meta, NestedMeta, Stmt};
+use syn::{parse_file, Item, ItemMod, ItemFn, ItemStruct, ItemEnum, Ident, Meta, NestedMeta, Stmt};
 use proc_macro2::Span;
 use regex::Regex;
 use config::Config;
@@ -201,6 +201,8 @@ fn process_items(items: &[Item], ctx: &Context, analysis: &mut LineAnalysis) {
             Item::Use(i) => analysis.ignore_span(&i.use_token.0),
             Item::Mod(i) => visit_mod(i, analysis, ctx),
             Item::Fn(i) => visit_fn(i, analysis, ctx),
+            Item::Struct(i) => visit_struct(i, analysis),
+            Item::Enum(i) => visit_enum(i, analysis),
             _ =>{}
         } 
     }
@@ -266,6 +268,33 @@ fn visit_fn(func: &ItemFn, analysis: &mut LineAnalysis, ctx: &Context) {
         analysis.ignore_span(&func.block.brace_token.0);
     } else {
         process_statements(&func.block.stmts, ctx, analysis);
+    }
+}
+
+
+fn visit_struct(structure: &ItemStruct, analysis: &mut LineAnalysis) {
+    for attr in &structure.attrs {
+        if let Some(x) = attr.interpret_meta() {
+            if x.name() == Ident::from("derive") {
+                analysis.ignore_span(&attr.bracket_token.0);
+            }
+        }
+    }
+    for field in &structure.fields {
+        if let Some(colon) = field.colon_token {
+            analysis.ignore_span(&colon.0[0]);
+        }
+    }
+}
+
+
+fn visit_enum(enumeration: &ItemEnum, analysis: &mut LineAnalysis) {
+    for attr in &enumeration.attrs {
+        if let Some(x) = attr.interpret_meta() {
+            if x.name() == Ident::from("derive") {
+                analysis.ignore_span(&attr.bracket_token.0);
+            }
+        }
     }
 }
 
