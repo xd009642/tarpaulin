@@ -6,7 +6,7 @@ use std::io::{BufReader, BufRead};
 use cargo::core::{Workspace, Package};
 use cargo::sources::PathSource;
 use cargo::util::Config as CargoConfig;
-use syn::{parse_file, Item, ItemMod, ItemFn, Ident, Meta, NestedMeta, File as SFile};
+use syn::{parse_file, Item, ItemMod, ItemFn, Ident, Meta, NestedMeta, Stmt};
 use proc_macro2::Span;
 use regex::Regex;
 use config::Config;
@@ -177,9 +177,18 @@ fn process_items(items: &[Item], config: &Config, analysis: &mut LineAnalysis) {
 }
 
 
+fn process_statements(stmts: &[Stmt], config: &Config, analysis: &mut LineAnalysis) {
+    for stmt in stmts {
+        match stmt {
+            Stmt::Item(i) => process_items(&[i.clone()], config, analysis),
+            _ => {},
+        }
+    }
+}
+
+
 fn visit_mod(module: &ItemMod, analysis: &mut LineAnalysis, config: &Config) {
     // Need to read the nested meta.. But this should work for fns
-    let test_attr = NestedMeta::Meta(Meta::Word(Ident::from("test")));
     let mut check_insides = true;
     for attr in &module.attrs {
         if let Some(Meta::List(ref ml)) = attr.interpret_meta() {
@@ -217,6 +226,8 @@ fn visit_fn(func: &ItemFn, analysis: &mut LineAnalysis, config: &Config) {
     if test_mod && config.ignore_tests {
         analysis.ignore_span(&func.decl.fn_token.0);
         analysis.ignore_span(&func.block.brace_token.0);
+    } else {
+        process_statements(&func.block.stmts, config, analysis);
     }
 }
 
