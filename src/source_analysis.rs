@@ -43,6 +43,7 @@ impl SourceAnalysisQuery for HashMap<PathBuf, LineAnalysis> {
 }
 
 impl LineAnalysis {
+    /// Creates a new LineAnalysis object
     fn new() -> LineAnalysis {
         LineAnalysis {
             ignore: HashSet::new(),
@@ -69,10 +70,12 @@ impl LineAnalysis {
         }
     }
 
+    /// Shows whether the line should be ignored by tarpaulin
     pub fn should_ignore(&self, line: &usize) -> bool {
         self.ignore.contains(line)
     }
     
+    /// Adds a line to the list of lines to ignore
     fn add_to_ignore(&mut self, lines: &[usize]) {
         for l in lines {
             self.ignore.insert(*l);
@@ -82,6 +85,7 @@ impl LineAnalysis {
         }
     }
 
+    /// Adds a line to the list of lines to cover
     fn add_to_cover(&mut self, lines: &[usize]) {
         for l in lines {
             if !self.ignore.contains(l) {
@@ -103,6 +107,7 @@ pub fn get_line_analysis(project: &Workspace, config: &Config) -> HashMap<PathBu
     result
 }
 
+/// Analyse the crates lib.rs for some common false positives
 fn analyse_lib_rs(file: &Path, result: &mut HashMap<PathBuf, LineAnalysis>) {
     if let Ok(f) = File::open(file) {
         let mut read_file = BufReader::new(f);
@@ -122,6 +127,15 @@ fn analyse_lib_rs(file: &Path, result: &mut HashMap<PathBuf, LineAnalysis>) {
     }
 }
 
+/// Provides context to the source analysis stage including the tarpaulin
+/// config and the source code being analysed.
+struct Context<'a> {
+    config: &'a Config,
+    file_contents: &'a str
+}
+
+
+/// Analyses a package of the target crate.
 fn analyse_package(pkg: &Package, 
                    config:&Config, 
                    cargo_conf: &CargoConfig, 
@@ -149,8 +163,13 @@ fn analyse_package(pkg: &Package,
                 let file = parse_file(&content);
                 if let Ok(file) = file {
                     let mut analysis = LineAnalysis::new();
+                    let ctx = Context {
+                        config: config,
+                        file_contents: &content,
+                    };
+
                     find_ignorable_lines(&content, &mut analysis);
-                    process_items(&file.items, config, &mut analysis);
+                    process_items(&file.items, &ctx, &mut analysis);
                     // Check there's no conflict!
                     result.insert(path.to_path_buf(), analysis);
                 }
@@ -175,44 +194,46 @@ fn find_ignorable_lines(content: &str, analysis: &mut LineAnalysis) {
 }
 
 
-fn process_items(items: &[Item], config: &Config, analysis: &mut LineAnalysis) {
+fn process_items(items: &[Item], ctx: &Context, analysis: &mut LineAnalysis) {
     for item in items {
         match item {
             Item::ExternCrate(i) => analysis.ignore_span(&i.extern_token.0),
             Item::Use(i) => analysis.ignore_span(&i.use_token.0),
-            Item::Mod(i) => visit_mod(i, analysis, config),
-            Item::Fn(i) => visit_fn(i, analysis, config),
+            Item::Mod(i) => visit_mod(i, analysis, ctx),
+            Item::Fn(i) => visit_fn(i, analysis, ctx),
             _ =>{}
         } 
     }
 }
 
 
-fn process_statements(stmts: &[Stmt], config: &Config, analysis: &mut LineAnalysis) {
+fn process_statements(stmts: &[Stmt], ctx: &Context, analysis: &mut LineAnalysis) {
     for stmt in stmts {
         match stmt {
-            Stmt::Item(i) => process_items(&[i.clone()], config, analysis),
+            Stmt::Item(i) => process_items(&[i.clone()], ctx, analysis),
             _ => {},
         }
     }
 }
 
 
-fn visit_mod(module: &ItemMod, analysis: &mut LineAnalysis, config: &Config) {
+fn visit_mod(module: &ItemMod, analysis: &mut LineAnalysis, ctx: &Context) {
     analysis.ignore_span(&module.mod_token.0); 
     let mut check_insides = true;
-    for attr in &module.attrs {
-        if let Some(Meta::List(ref ml)) = attr.interpret_meta() {
-            if ml.ident != Ident::from("cfg") {
-                continue;
-            }
-            for nested in &ml.nested {
-                if let NestedMeta::Meta(Meta::Word(i)) = nested {
-                    if i == &Ident::from("test") {
-                        check_insides = false;
-                        analysis.ignore_span(&module.mod_token.0);
-                        if let Some((ref braces, _)) = module.content {
-                            analysis.ignore_span(&braces.0);
+    if ctx.config.ignore_tests {
+        for attr in &module.attrs {
+            if let Some(Meta::List(ref ml)) = attr.interpret_meta() {
+                if ml.ident != Ident::from("cfg") {
+                    continue;
+                }
+                for nested in &ml.nested {
+                    if let NestedMeta::Meta(Meta::Word(i)) = nested {
+                        if i == &Ident::from("test") {
+                            check_insides = false;
+                            analysis.ignore_span(&module.mod_token.0);
+                            if let Some((ref braces, _)) = module.content {
+                                analysis.ignore_span(&braces.0);
+                            }
                         }
                     }
                 }
@@ -221,13 +242,13 @@ fn visit_mod(module: &ItemMod, analysis: &mut LineAnalysis, config: &Config) {
     }
     if check_insides {
         if let Some((_, ref items)) = module.content {
-            process_items(items, config, analysis);
+            process_items(items, ctx, analysis);
         }
     }
 }
 
 
-fn visit_fn(func: &ItemFn, analysis: &mut LineAnalysis, config: &Config) {
+fn visit_fn(func: &ItemFn, analysis: &mut LineAnalysis, ctx: &Context) {
     // Need to read the nested meta.. But this should work for fns
     let mut ignore_func = false;
     for attr in &func.attrs {
@@ -240,11 +261,11 @@ fn visit_fn(func: &ItemFn, analysis: &mut LineAnalysis, config: &Config) {
             }
         }
     }
-    if ignore_func && config.ignore_tests {
+    if ignore_func && ctx.config.ignore_tests {
         analysis.ignore_span(&func.decl.fn_token.0);
         analysis.ignore_span(&func.block.brace_token.0);
     } else {
-        process_statements(&func.block.stmts, config, analysis);
+        process_statements(&func.block.stmts, ctx, analysis);
     }
 }
 
@@ -257,22 +278,34 @@ mod tests {
     fn filter_str_literals() {
         let mut lines = LineAnalysis::new();
         let config = Config::default();
-        let parser = parse_file("fn test() {\nwriteln!(#\"test\n\ttest\n\ttest\"#);\n}\n").unwrap();
-        process_items(&parser.items, &config, &mut lines);
+        let ctx = Context {
+            config: &config,
+            file_contents: "fn test() {\nwriteln!(#\"test\n\ttest\n\ttest\"#);\n}\n",
+        };
+        let parser = parse_file(ctx.file_contents).unwrap();
+        process_items(&parser.items, &ctx, &mut lines);
         assert!(lines.ignore.len() > 1);
         assert!(lines.ignore.contains(&3));
         assert!(lines.ignore.contains(&4));
         
-        let parser = parse_file("fn test() {\nwrite(\"test\ntest\ntest\");\n}\nfn write(s:&str){}").unwrap();
+        let ctx = Context {
+            config: &config,
+            file_contents: "fn test() {\nwrite(\"test\ntest\ntest\");\n}\nfn write(s:&str){}",
+        };
+        let parser = parse_file(ctx.file_contents).unwrap();
         let mut lines = LineAnalysis::new();
-        process_items(&parser.items, &config, &mut lines);
+        process_items(&parser.items, &ctx, &mut lines);
         assert!(lines.ignore.len() > 1);
         assert!(lines.ignore.contains(&3));
         assert!(lines.ignore.contains(&4));
         
         let mut lines = LineAnalysis::new();
-        let parser = parse_file("\n\nfn test() {\nwriteln!(\n#\"test\"#\n);\n}\n").unwrap();
-        process_items(&parser.items, &config, &mut lines);
+        let ctx = Context {
+            config: &config,
+            file_contents: "\n\nfn test() {\nwriteln!(\n#\"test\"#\n);\n}\n",
+        };
+        let parser = parse_file(ctx.file_contents).unwrap();
+        process_items(&parser.items, &ctx, &mut lines);
         assert!(lines.ignore.contains(&5));
     }
 
@@ -280,8 +313,12 @@ mod tests {
     fn filter_struct_members() {
         let config = Config::default();
         let mut lines = LineAnalysis::new();
-        let parser = parse_file("#[derive(Debug)]\npub struct Struct {\npub i: i32,\nj:String,\n}").unwrap();
-        process_items(&parser.items, &config, &mut lines);
+        let ctx = Context {
+            config: &config,
+            file_contents: "#[derive(Debug)]\npub struct Struct {\npub i: i32,\nj:String,\n}",
+        };
+        let parser = parse_file(ctx.file_contents).unwrap();
+        process_items(&parser.items, &ctx, &mut lines);
         
         assert_eq!(lines.ignore.len(), 3);
         assert!(lines.ignore.contains(&1)); 
@@ -293,23 +330,43 @@ mod tests {
     fn filter_struct_consts() {
         let config = Config::default();
         let mut lines = LineAnalysis::new();
-        let parser = parse_file("struct T{x:String, y:i32}\nfn test()-> T {\nT{\nx:\"hello\".to_string(),\ny:4,\n}\n}").unwrap();
-        process_items(&parser.items, &config, &mut lines);
-        
+        let ctx = Context {
+            config: &config,
+            file_contents: "struct T{x:String, y:i32}\nfn test()-> T {\nT{\nx:\"hello\".to_string(),\ny:4,\n}\n}",
+        };
+        let parser = parse_file(ctx.file_contents).unwrap();
+        process_items(&parser.items, &ctx, &mut lines);
         assert!(lines.ignore.contains(&5));
     }
 
     #[test]
     fn filter_mods() {
         let config = Config::default();
+        let ctx = Context {
+            config: &config,
+            file_contents: "mod foo {\nfn double(x:i32)->i32 {\n x*2\n}\n}",
+        };
+        let parser = parse_file(ctx.file_contents).unwrap();
         let mut lines = LineAnalysis::new();
-        let parser = parse_file("mod foo {\nfn double(x:i32)->i32 {\n x*2\n}\n}").unwrap();
-        process_items(&parser.items, &config, &mut lines);
+        process_items(&parser.items, &ctx, &mut lines);
         assert!(!lines.ignore.contains(&3));
         
         let mut lines = LineAnalysis::new();
-        let parser = parse_file("mod foo{}").unwrap();
-        process_items(&parser.items, &config, &mut lines);
+        let ctx = Context {
+            config: &config,
+            file_contents: "mod foo;",
+        };
+        let parser = parse_file(ctx.file_contents).unwrap();
+        process_items(&parser.items, &ctx, &mut lines);
+        assert!(lines.ignore.contains(&1));
+        
+        let mut lines = LineAnalysis::new();
+        let ctx = Context {
+            config: &config,
+            file_contents: "mod foo{}",
+        };
+        let parser = parse_file(ctx.file_contents).unwrap();
+        process_items(&parser.items, &ctx, &mut lines);
         assert!(lines.ignore.contains(&1));
     }
 
@@ -317,49 +374,77 @@ mod tests {
     fn filter_macros() {
         let config = Config::default();
         let mut lines = LineAnalysis::new();
-        let parser = parse_file("\n\nfn unused() {\nunimplemented!();\n}").unwrap(); 
-        process_items(&parser.items, &config, &mut lines);
+        let ctx = Context {
+            config: &config,
+            file_contents: "\n\nfn unused() {\nunimplemented!();\n}",
+        };
+        let parser = parse_file(ctx.file_contents).unwrap();
+        process_items(&parser.items, &ctx, &mut lines);
         
         // Braces should be ignored so number could be higher
         assert!(lines.ignore.len() >= 1);
         assert!(lines.ignore.contains(&4));
         
         let mut lines = LineAnalysis::new();
-        let parser = parse_file("fn unused() {\nunreachable!();\n}").unwrap(); 
-        process_items(&parser.items, &config, &mut lines);
+        let ctx = Context {
+            config: &config,
+            file_contents: "\n\nfn unused() {\nunreachable!();\n}",
+        };
+        let parser = parse_file(ctx.file_contents).unwrap();
+        process_items(&parser.items, &ctx, &mut lines);
         assert!(lines.ignore.len() >= 1);
         assert!(lines.ignore.contains(&2));
         
         let mut lines = LineAnalysis::new();
-        let parser = parse_file("fn unused() {\nprintln!(\"text\");\n}").unwrap(); 
-        process_items(&parser.items, &config, &mut lines);
+        let ctx = Context {
+            config: &config,
+            file_contents: "fn unused() {\nprintln!(\"text\");\n}",
+        };
+        let parser = parse_file(ctx.file_contents).unwrap();
+        process_items(&parser.items, &ctx, &mut lines);
         assert!(!lines.ignore.contains(&2));
     }
    
     #[test]
     fn filter_tests() {
-        let mut config = Config::default();
-        let mut lines = LineAnalysis::new();
-        let src_string = "#[cfg(test)]\nmod tests {\n fn boo(){\nassert!(true);\n}\n}";
-        let parser = parse_file(src_string).unwrap();
-        process_items(&parser.items, &config, &mut lines);
-        assert!(!lines.ignore.contains(&4));
+        let config = Config::default();
+        let mut igconfig = Config::default();
+        igconfig.ignore_tests = true;
 
-        config.ignore_tests = true;
         let mut lines = LineAnalysis::new();
-        process_items(&parser.items, &config, &mut lines);
+        let ctx = Context {
+            config: &config,
+            file_contents: "#[cfg(test)]\nmod tests {\n fn boo(){\nassert!(true);\n}\n}",
+        };
+        let parser = parse_file(ctx.file_contents).unwrap();
+        process_items(&parser.items, &ctx, &mut lines);
+        assert!(!lines.ignore.contains(&4));
+        
+        let ctx = Context {
+            config: &igconfig,
+            file_contents: "#[cfg(test)]\nmod tests {\n fn boo(){\nassert!(true);\n}\n}",
+        };
+
+        let mut lines = LineAnalysis::new();
+        process_items(&parser.items, &ctx, &mut lines);
         assert!(lines.ignore.contains(&4));
 
-        let src_string = "#[test]\nfn mytest() { \n assert!(true);\n}";
-        let parser = parse_file(src_string).unwrap();
+        let ctx = Context {
+            config: &config,
+            file_contents: "#[test]\nfn mytest() { \n assert!(true);\n}",
+        };
+        let parser = parse_file(ctx.file_contents).unwrap();
         let mut lines = LineAnalysis::new();
-        process_items(&parser.items, &config, &mut lines);
+        process_items(&parser.items, &ctx, &mut lines);
         assert!(!lines.ignore.contains(&2));
         assert!(!lines.ignore.contains(&3));
 
-        config.ignore_tests = true;
+        let ctx = Context {
+            config: &igconfig,
+            file_contents: "#[test]\nfn mytest() { \n assert!(true);\n}",
+        };
         let mut lines = LineAnalysis::new();
-        process_items(&parser.items, &config, &mut lines);
+        process_items(&parser.items, &ctx, &mut lines);
         assert!(lines.ignore.contains(&2));
         assert!(lines.ignore.contains(&3));
 
