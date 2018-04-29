@@ -6,7 +6,7 @@ use std::io::{BufReader, BufRead};
 use cargo::core::{Workspace, Package};
 use cargo::sources::PathSource;
 use cargo::util::Config as CargoConfig;
-use syn::{parse_file, Item, ItemMod, ItemFn, ItemStruct, ItemEnum, Ident, Meta, NestedMeta, Stmt};
+use syn::{parse_file, Item, ItemMod, ItemFn, ItemStruct, ItemEnum, Generics, Ident, Meta, NestedMeta, Stmt};
 use proc_macro2::Span;
 use regex::Regex;
 use config::Config;
@@ -303,6 +303,7 @@ fn visit_fn(func: &ItemFn, analysis: &mut LineAnalysis, ctx: &Context) {
             analysis.cover_span(&func.block.brace_token.0, Some(ctx.file_contents));
         }
         process_statements(&func.block.stmts, ctx, analysis);
+        visit_generics(&func.decl.generics, analysis);
     }
 }
 
@@ -320,6 +321,7 @@ fn visit_struct(structure: &ItemStruct, analysis: &mut LineAnalysis) {
             analysis.ignore_span(&colon.0[0]);
         }
     }
+    visit_generics(&structure.generics, analysis);
 }
 
 
@@ -330,6 +332,22 @@ fn visit_enum(enumeration: &ItemEnum, analysis: &mut LineAnalysis) {
                 analysis.ignore_span(&attr.bracket_token.0);
             }
         }
+    }
+    visit_generics(&enumeration.generics, analysis);
+}
+
+
+fn visit_generics(generics: &Generics, analysis: &mut LineAnalysis) {
+    if let Some(ref wh) = generics.where_clause {
+        let span = wh.where_token.0;
+        let mut lines: Vec<usize> = Vec::new();
+        if span.start().column == 0 {
+            lines.push(span.start().line);
+        }
+        for l in span.start().line+1..span.end().line +1 {
+            lines.push(l);
+        }
+        analysis.add_to_ignore(&lines);
     }
 }
 
