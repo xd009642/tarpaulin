@@ -251,149 +251,117 @@ fn visit_fn(func: &ItemFn, analysis: &mut LineAnalysis, config: &Config) {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use syntex_syntax::parse::filemap_to_parser;
-    use syntex_syntax::parse::parser::Parser;
+    use syn::parse_file;
 
-    struct TestContext {
-        conf: Config,
-        codemap: Rc<CodeMap>,
-        parse_session: ParseSess
-    }
-
-    impl TestContext {
-        fn generate_parser(&self, filename: &str, src_string: &str) -> Parser {
-            let filemap = self.codemap.new_filemap(filename.to_string(), 
-                                                   src_string.to_string());
-            filemap_to_parser(&self.parse_session, filemap)
-        }
-    }
-
-    impl Default for TestContext {
-        fn default() -> TestContext {
-            let codemap = Rc::new(CodeMap::new(FilePathMapping::empty()));
-            let handler = Handler::with_tty_emitter(ColorConfig::Auto, false, false, Some(codemap.clone()));
-            let parse_session = ParseSess::with_span_handler(handler, codemap.clone());
-            TestContext {
-                conf: Config::default(),
-                codemap: codemap,
-                parse_session: parse_session
-            }
-        }
-    }
-
-    fn parse_crate(ctx: &TestContext, parser: &mut Parser) -> Vec<usize>  {
-        let krate = parser.parse_crate_mod();
-        assert!(krate.is_ok());
-        let krate = krate.unwrap();
-        let unused: HashSet<PathBuf> = HashSet::new();
-        let mut visitor = CoverageVisitor::from_session(&ctx.parse_session, &unused, &ctx.conf);
-        visitor.visit_mod(&krate.module, krate.span, &krate.attrs, NodeId::new(0));
-        visitor.lines.iter().map(|x| x.1).collect::<Vec<_>>()
-    }
-    
     #[test] 
     fn filter_str_literals() {
-        let ctx = TestContext::default();
-        let mut parser = ctx.generate_parser("literals.rs", "fn test() {\nwriteln!(#\"test\n\ttest\n\ttest\"#);\n}\n");
-        let lines = parse_crate(&ctx, &mut parser);
-        assert!(lines.len() > 1);
-        assert!(lines.contains(&3));
-        assert!(lines.contains(&4));
+        let mut lines = LineAnalysis::new();
+        let config = Config::default();
+        let parser = parse_file("fn test() {\nwriteln!(#\"test\n\ttest\n\ttest\"#);\n}\n").unwrap();
+        process_items(&parser.items, &config, &mut lines);
+        assert!(lines.ignore.len() > 1);
+        assert!(lines.ignore.contains(&3));
+        assert!(lines.ignore.contains(&4));
         
-        let ctx = TestContext::default();
-        let mut parser = ctx.generate_parser("literals.rs", "fn test() {\nwrite(\"test\ntest\ntest\");\n}\nfn write(s:&str){}");
-        let lines = parse_crate(&ctx, &mut parser);
-        assert!(lines.len() > 1);
-        assert!(lines.contains(&3));
-        assert!(lines.contains(&4));
+        let parser = parse_file("fn test() {\nwrite(\"test\ntest\ntest\");\n}\nfn write(s:&str){}").unwrap();
+        let mut lines = LineAnalysis::new();
+        process_items(&parser.items, &config, &mut lines);
+        assert!(lines.ignore.len() > 1);
+        assert!(lines.ignore.contains(&3));
+        assert!(lines.ignore.contains(&4));
         
-        let ctx = TestContext::default();
-        let mut parser = ctx.generate_parser("literals.rs", "\n\nfn test() {\nwriteln!(\n#\"test\"#\n);\n}\n");
-        let lines = parse_crate(&ctx, &mut parser);
-        assert!(lines.contains(&5));
+        let mut lines = LineAnalysis::new();
+        let parser = parse_file("\n\nfn test() {\nwriteln!(\n#\"test\"#\n);\n}\n").unwrap();
+        process_items(&parser.items, &config, &mut lines);
+        assert!(lines.ignore.contains(&5));
     }
 
     #[test]
     fn filter_struct_members() {
-        let ctx = TestContext::default();
-        let mut parser = ctx.generate_parser("struct_test.rs", "#[derive(Debug)]\npub struct Struct {\npub i: i32,\nj:String,\n}");
-        let lines = parse_crate(&ctx, &mut parser);
+        let config = Config::default();
+        let mut lines = LineAnalysis::new();
+        let parser = parse_file("#[derive(Debug)]\npub struct Struct {\npub i: i32,\nj:String,\n}").unwrap();
+        process_items(&parser.items, &config, &mut lines);
         
-        assert_eq!(lines.len(), 3);
-        assert!(lines.contains(&1)); 
-        assert!(lines.contains(&3)); 
-        assert!(lines.contains(&4)); 
+        assert_eq!(lines.ignore.len(), 3);
+        assert!(lines.ignore.contains(&1)); 
+        assert!(lines.ignore.contains(&3)); 
+        assert!(lines.ignore.contains(&4)); 
     }
 
     #[test]
     fn filter_struct_consts() {
-        let ctx = TestContext::default();
-        let mut parser = ctx.generate_parser("struct_test.rs", 
-                                             "struct T{x:String, y:i32}\nfn test()-> T {\nT{\nx:\"hello\".to_string(),\ny:4,\n}\n}");
+        let config = Config::default();
+        let mut lines = LineAnalysis::new();
+        let parser = parse_file("struct T{x:String, y:i32}\nfn test()-> T {\nT{\nx:\"hello\".to_string(),\ny:4,\n}\n}").unwrap();
+        process_items(&parser.items, &config, &mut lines);
         
-        let lines = parse_crate(&ctx, &mut parser);
-        assert!(lines.contains(&5));
+        assert!(lines.ignore.contains(&5));
     }
 
     #[test]
     fn filter_mods() {
-        let ctx = TestContext::default();
-        let mut parser = ctx.generate_parser("test.rs", "mod foo {\nfn double(x:i32)->i32 {\n x*2\n}\n}");
-        let lines = parse_crate(&ctx, &mut parser);
-        assert!(!lines.contains(&3));
+        let config = Config::default();
+        let mut lines = LineAnalysis::new();
+        let parser = parse_file("mod foo {\nfn double(x:i32)->i32 {\n x*2\n}\n}").unwrap();
+        process_items(&parser.items, &config, &mut lines);
+        assert!(!lines.ignore.contains(&3));
         
-        let mut parser = ctx.generate_parser("test.rs", "mod foo{}");
-        let lines = parse_crate(&ctx, &mut parser);
-        assert!(lines.contains(&1));
+        let mut lines = LineAnalysis::new();
+        let parser = parse_file("mod foo{}").unwrap();
+        process_items(&parser.items, &config, &mut lines);
+        assert!(lines.ignore.contains(&1));
     }
 
     #[test]
     fn filter_macros() {
-        let ctx = TestContext::default();
-        let mut parser = ctx.generate_parser("test.rs", "\n\nfn unused() {\nunimplemented!();\n}"); 
+        let config = Config::default();
+        let mut lines = LineAnalysis::new();
+        let parser = parse_file("\n\nfn unused() {\nunimplemented!();\n}").unwrap(); 
+        process_items(&parser.items, &config, &mut lines);
         
-        let lines = parse_crate(&ctx, &mut parser);
         // Braces should be ignored so number could be higher
-        assert!(lines.len() >= 1);
-        assert!(lines.contains(&4));
+        assert!(lines.ignore.len() >= 1);
+        assert!(lines.ignore.contains(&4));
         
-        let mut parser = ctx.generate_parser("test.rs", "fn unused() {\nunreachable!();\n}"); 
-        let lines = parse_crate(&ctx, &mut parser);
-        assert!(lines.len() >= 1);
-        assert!(lines.contains(&2));
+        let mut lines = LineAnalysis::new();
+        let parser = parse_file("fn unused() {\nunreachable!();\n}").unwrap(); 
+        process_items(&parser.items, &config, &mut lines);
+        assert!(lines.ignore.len() >= 1);
+        assert!(lines.ignore.contains(&2));
         
-        let mut parser = ctx.generate_parser("test.rs", "fn unused() {\nprintln!(\"text\");\n}"); 
-        let lines = parse_crate(&ctx, &mut parser);
-        assert!(!lines.contains(&2));
+        let mut lines = LineAnalysis::new();
+        let parser = parse_file("fn unused() {\nprintln!(\"text\");\n}").unwrap(); 
+        process_items(&parser.items, &config, &mut lines);
+        assert!(!lines.ignore.contains(&2));
     }
    
     #[test]
     fn filter_tests() {
-        let ctx = TestContext::default();
+        let mut config = Config::default();
+        let mut lines = LineAnalysis::new();
         let src_string = "#[cfg(test)]\nmod tests {\n fn boo(){\nassert!(true);\n}\n}";
-        let mut parser = ctx.generate_parser("test.rs", src_string);
-        let lines = parse_crate(&ctx, &mut parser);
-        assert!(!lines.contains(&4));
+        let parser = parse_file(src_string).unwrap();
+        process_items(&parser.items, &config, &mut lines);
+        assert!(!lines.ignore.contains(&4));
 
-        let mut ctx = TestContext::default();
-        ctx.conf.ignore_tests = true;
-        let mut parser = ctx.generate_parser("test.rs", src_string);
-        let lines = parse_crate(&ctx, &mut parser);
-        assert!(lines.contains(&4));
+        config.ignore_tests = true;
+        let mut lines = LineAnalysis::new();
+        process_items(&parser.items, &config, &mut lines);
+        assert!(lines.ignore.contains(&4));
 
-        let ctx = TestContext::default();
         let src_string = "#[test]\nfn mytest() { \n assert!(true);\n}";
-        let mut parser = ctx.generate_parser("test.rs", src_string);
-        let lines = parse_crate(&ctx, &mut parser);
-        assert!(!lines.contains(&2));
-        assert!(!lines.contains(&3));
+        let parser = parse_file(src_string).unwrap();
+        let mut lines = LineAnalysis::new();
+        process_items(&parser.items, &config, &mut lines);
+        assert!(!lines.ignore.contains(&2));
+        assert!(!lines.ignore.contains(&3));
 
-        let mut ctx = TestContext::default();
-        ctx.conf.ignore_tests = true;
-        let mut parser = ctx.generate_parser("test.rs", src_string);
-        let lines = parse_crate(&ctx, &mut parser);
-        assert!(lines.contains(&2));
-        assert!(lines.contains(&3));
+        config.ignore_tests = true;
+        let mut lines = LineAnalysis::new();
+        process_items(&parser.items, &config, &mut lines);
+        assert!(lines.ignore.contains(&2));
+        assert!(lines.ignore.contains(&3));
 
     }
 }
