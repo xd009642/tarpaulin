@@ -149,6 +149,7 @@ fn analyse_package(pkg: &Package,
                 let file = parse_file(&content);
                 if let Ok(file) = file {
                     let mut analysis = LineAnalysis::new();
+                    find_ignorable_lines(&content, &mut analysis);
                     process_items(&file.items, config, &mut analysis);
                     // Check there's no conflict!
                     result.insert(path.to_path_buf(), analysis);
@@ -161,6 +162,16 @@ fn analyse_package(pkg: &Package,
             }
         }
     }
+}
+
+
+fn find_ignorable_lines(content: &str, analysis: &mut LineAnalysis) {
+    let lines = content.lines()
+                       .enumerate()
+                       .filter(|(_, x)| !x.chars().any(|x| !"(){}[]?;\t ,".contains(x)))
+                       .map(|(i, _)| i+1)
+                       .collect::<Vec<usize>>();
+    analysis.add_to_ignore(&lines);
 }
 
 
