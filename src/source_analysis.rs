@@ -6,7 +6,7 @@ use std::io::{BufReader, BufRead};
 use cargo::core::{Workspace, Package};
 use cargo::sources::PathSource;
 use cargo::util::Config as CargoConfig;
-use syn::{parse_file, Item, ItemMod, ItemFn, ItemStruct, ItemEnum, Generics, Ident, Meta, NestedMeta, Stmt};
+use syn::{parse_file, Item, ItemMod, ItemFn, ItemStruct, ItemEnum, ItemUnion, Generics, Ident, Meta, NestedMeta, Stmt, Attribute};
 use proc_macro2::Span;
 use regex::Regex;
 use config::Config;
@@ -231,6 +231,7 @@ fn process_items(items: &[Item], ctx: &Context, analysis: &mut LineAnalysis) {
             Item::Fn(i) => visit_fn(i, analysis, ctx),
             Item::Struct(i) => visit_struct(i, analysis),
             Item::Enum(i) => visit_enum(i, analysis),
+            Item::Union(i) => visit_union(i, analysis),
             _ =>{}
         } 
     }
@@ -309,31 +310,25 @@ fn visit_fn(func: &ItemFn, analysis: &mut LineAnalysis, ctx: &Context) {
 
 
 fn visit_struct(structure: &ItemStruct, analysis: &mut LineAnalysis) {
-    for attr in &structure.attrs {
-        if let Some(x) = attr.interpret_meta() {
-            if x.name() == Ident::from("derive") {
-                analysis.ignore_span(&attr.bracket_token.0);
-            }
-        }
-    }
     for field in &structure.fields {
         if let Some(colon) = field.colon_token {
             analysis.ignore_span(&colon.0[0]);
         }
     }
+    ignore_derive_attrs(&structure.attrs, analysis);
     visit_generics(&structure.generics, analysis);
 }
 
 
 fn visit_enum(enumeration: &ItemEnum, analysis: &mut LineAnalysis) {
-    for attr in &enumeration.attrs {
-        if let Some(x) = attr.interpret_meta() {
-            if x.name() == Ident::from("derive") {
-                analysis.ignore_span(&attr.bracket_token.0);
-            }
-        }
-    }
+    ignore_derive_attrs(&enumeration.attrs, analysis);
     visit_generics(&enumeration.generics, analysis);
+}
+
+
+fn visit_union(uni: &ItemUnion, analysis: &mut LineAnalysis) {
+    ignore_derive_attrs(&uni.attrs, analysis);
+    visit_generics(&uni.generics, analysis);
 }
 
 
@@ -348,6 +343,17 @@ fn visit_generics(generics: &Generics, analysis: &mut LineAnalysis) {
             lines.push(l);
         }
         analysis.add_to_ignore(&lines);
+    }
+}
+
+
+fn ignore_derive_attrs(attrs: &[Attribute], analysis: &mut LineAnalysis) {
+    for attr in attrs {
+        if let Some(x) = attr.interpret_meta() {
+            if x.name() == Ident::from("derive") {
+                analysis.ignore_span(&attr.bracket_token.0);
+            }
+        }
     }
 }
 
@@ -533,7 +539,7 @@ mod tests {
 
 
     #[test]
-    fn where_test() {
+    fn filter_where() {
         let config = Config::default();
         let mut lines = LineAnalysis::new();
         let ctx = Context {
@@ -548,6 +554,30 @@ mod tests {
         let ctx = Context {
             config: &config,
             file_contents: "fn boop<T>() -> T \nwhere T:Default {\nT::default()\n}",
+        };
+        let parser = parse_file(ctx.file_contents).unwrap();
+        process_items(&parser.items, &ctx, &mut lines);
+        assert!(lines.ignore.contains(&2));
+    }
+
+
+    #[test]
+    fn filter_derives() {
+        let config = Config::default();
+        let mut lines = LineAnalysis::new();
+        let ctx = Context {
+            config: &config,
+            file_contents: "#[derive(Debug)]\nstruct T;",
+        };
+        let parser = parse_file(ctx.file_contents).unwrap();
+        process_items(&parser.items, &ctx, &mut lines);
+        assert!(lines.ignore.contains(&1));
+
+
+        let mut lines = LineAnalysis::new();
+        let ctx = Context {
+            config: &config,
+            file_contents: "\n#[derive(Copy, Eq)]\nunion x { x:i32, y:f32}",
         };
         let parser = parse_file(ctx.file_contents).unwrap();
         process_items(&parser.items, &ctx, &mut lines);
