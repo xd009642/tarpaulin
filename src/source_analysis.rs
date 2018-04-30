@@ -6,7 +6,7 @@ use std::io::{BufReader, BufRead};
 use cargo::core::{Workspace, Package};
 use cargo::sources::PathSource;
 use cargo::util::Config as CargoConfig;
-use syn::*;
+use syn::{*, punctuated::Pair::End};
 use proc_macro2::Span;
 use regex::Regex;
 use config::Config;
@@ -244,6 +244,8 @@ fn process_statements(stmts: &[Stmt], ctx: &Context, analysis: &mut LineAnalysis
     for stmt in stmts {
         match stmt {
             Stmt::Item(i) => process_items(&[i.clone()], ctx, analysis),
+            Stmt::Expr(i) => process_expr(i, analysis),
+            Stmt::Semi(i, _) => process_expr(i, analysis),
             _ => {},
         }
     }
@@ -282,7 +284,6 @@ fn visit_mod(module: &ItemMod, analysis: &mut LineAnalysis, ctx: &Context) {
 
 
 fn visit_fn(func: &ItemFn, analysis: &mut LineAnalysis, ctx: &Context) {
-    // Need to read the nested meta.. But this should work for fns
     let mut ignore_func = false;
     let mut is_inline = false;
     for attr in &func.attrs {
@@ -383,6 +384,24 @@ fn ignore_derive_attrs(attrs: &[Attribute], analysis: &mut LineAnalysis) {
         }
     }
 }
+
+
+fn process_expr(expr: &Expr, analysis: &mut LineAnalysis) {
+    match expr {
+        Expr::Macro(m) => visit_macro_call(&m.mac, analysis),
+        _ => {},
+    }
+}
+
+
+fn visit_macro_call(mac: &Macro, analysis: &mut LineAnalysis) {
+    if let Some(End(ref name)) = mac.path.segments.last() {
+        if name.ident == Ident::from("unreachable") || name.ident == Ident::from("unimplemented") {
+            analysis.ignore_span(&name.ident.span());
+        }
+    }
+}
+
 
 #[cfg(test)]
 mod tests {
