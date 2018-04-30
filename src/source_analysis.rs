@@ -529,6 +529,28 @@ mod tests {
         process_items(&parser.items, &ctx, &mut lines);
         assert!(lines.ignore.contains(&2));
         assert!(lines.ignore.contains(&3));
+    }
 
+
+    #[test]
+    fn where_test() {
+        let config = Config::default();
+        let mut lines = LineAnalysis::new();
+        let ctx = Context {
+            config: &config,
+            file_contents: "fn boop<T>() -> T  where T:Default {\nT::default()\n}",
+        };
+        let parser = parse_file(ctx.file_contents).unwrap();
+        process_items(&parser.items, &ctx, &mut lines);
+        assert!(!lines.ignore.contains(&1));
+        
+        let mut lines = LineAnalysis::new();
+        let ctx = Context {
+            config: &config,
+            file_contents: "fn boop<T>() -> T \nwhere T:Default {\nT::default()\n}",
+        };
+        let parser = parse_file(ctx.file_contents).unwrap();
+        process_items(&parser.items, &ctx, &mut lines);
+        assert!(lines.ignore.contains(&2));
     }
 }
