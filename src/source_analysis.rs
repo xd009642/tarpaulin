@@ -232,7 +232,7 @@ fn process_items(items: &[Item], ctx: &Context, analysis: &mut LineAnalysis) {
             Item::Struct(i) => visit_struct(i, analysis),
             Item::Enum(i) => visit_enum(i, analysis),
             Item::Union(i) => visit_union(i, analysis),
-            Item::Trait(i) => visit_trait(i, analysis),
+            Item::Trait(i) => visit_trait(i, analysis, ctx),
             Item::Impl(i) => visit_impl(i, analysis, ctx),
             _ =>{}
         } 
@@ -322,8 +322,16 @@ fn visit_struct(structure: &ItemStruct, analysis: &mut LineAnalysis) {
 }
 
 
-fn visit_trait(trait_item: &ItemTrait, analysis: &mut LineAnalysis) {
-    visit_generics(&trait_item.generics, analysis);    
+fn visit_trait(trait_item: &ItemTrait, analysis: &mut LineAnalysis, ctx: &Context) {
+    for item in &trait_item.items {
+        if let TraitItem::Method(ref i) = item {
+            if let Some(ref default_impl) = i.default {
+                analysis.cover_span(&i.sig.decl.fn_token.0, None);
+                analysis.cover_span(&default_impl.brace_token.0, Some(ctx.file_contents));
+            }
+        }
+    }
+    visit_generics(&trait_item.generics, analysis);
 }
 
 
