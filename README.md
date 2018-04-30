@@ -194,6 +194,10 @@ pycobertura show --format html --output coverage.html cobertura.xml
 
 Then open `coverage.html` in your browser.
 
+### Procedural Macros
+
+Normally, Tarpaulin can't report on code coverage within the code for a procedural macro. You'll need to add a test that expands the macro at run time in order to get those stats. The [`runtime-macros` crate](https://crates.io/crates/runtime-macros) was made for this purpose, and its documentation describes how to use it with Tarpaulin.
+
 ## Issues and Contributing
 
 Issues, feature requests and pull requests are always welcome! For a guide on
