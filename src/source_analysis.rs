@@ -6,7 +6,7 @@ use std::io::{BufReader, BufRead};
 use cargo::core::{Workspace, Package};
 use cargo::sources::PathSource;
 use cargo::util::Config as CargoConfig;
-use syn::{parse_file, Item, ItemMod, ItemFn, ItemStruct, ItemEnum, ItemUnion, Generics, Ident, Meta, NestedMeta, Stmt, Attribute};
+use syn::*;
 use proc_macro2::Span;
 use regex::Regex;
 use config::Config;
@@ -232,6 +232,8 @@ fn process_items(items: &[Item], ctx: &Context, analysis: &mut LineAnalysis) {
             Item::Struct(i) => visit_struct(i, analysis),
             Item::Enum(i) => visit_enum(i, analysis),
             Item::Union(i) => visit_union(i, analysis),
+            Item::Trait(i) => visit_trait(i, analysis),
+            Item::Impl(i) => visit_impl(i, analysis),
             _ =>{}
         } 
     }
@@ -317,6 +319,16 @@ fn visit_struct(structure: &ItemStruct, analysis: &mut LineAnalysis) {
     }
     ignore_derive_attrs(&structure.attrs, analysis);
     visit_generics(&structure.generics, analysis);
+}
+
+
+fn visit_trait(trait_item: &ItemTrait, analysis: &mut LineAnalysis) {
+    visit_generics(&trait_item.generics, analysis);    
+}
+
+
+fn visit_impl(impl_blk: &ItemImpl, analysis: &mut LineAnalysis) {
+    visit_generics(&impl_blk.generics, analysis);
 }
 
 
