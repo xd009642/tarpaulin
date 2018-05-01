@@ -18,9 +18,9 @@ pub fn export(coverage_data: &[TracerData], config: &Config) {
                                      if !acc.contains(&x.path.as_path()) {
                                          acc.push(x.path.as_path());
                                      }
-                                     acc    
+                                     acc
                                  });
-        
+
         for file in &files {
             let rel_path = if let Some(root) = config.manifest.parent() {
                 file.strip_prefix(root).unwrap_or(file)
@@ -39,7 +39,18 @@ pub fn export(coverage_data: &[TracerData], config: &Config) {
                 report.add_source(source);
             }
         }
-        let res = report.send_to_coveralls();
+
+        let res = match config.report_uri {
+            Some(ref uri) => {
+                println!("Sending report to endpoint: {}", uri);
+                report.send_to_endpoint(uri)
+            },
+            None => {
+                println!("Sending coverage data to coveralls.io");
+                report.send_to_coveralls()
+            }
+        };
+
         if config.verbose {
             match res {
                 Ok(_) => {},
