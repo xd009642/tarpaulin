@@ -60,8 +60,12 @@ pub struct Config {
     pub coveralls: Option<String>,
     /// Enum representing CI tool used.
     pub ci_tool: Option<CiService>,
+    /// Only valid if coveralls option is set. If coveralls option is set,
+    /// as well as report_uri, then the report will be sent to this endpoint
+    /// instead.
+    pub report_uri: Option<String>,
     /// Forward unexpected signals back to the tracee. Used for tests which
-    /// rely on signals to work. 
+    /// rely on signals to work.
     pub forward_signals: bool,
     /// Include all available features in target build
     pub all_features: bool,
@@ -122,6 +126,10 @@ impl Config {
         } else {
             None
         };
+        let report_uri = match args.value_of("report-uri"){
+            Some(r) => Some(r.to_string()),
+            None => None
+        };
         let out:Vec<OutputFile> = values_t!(args.values_of("out"), OutputFile)
             .unwrap_or_default();
         let features: Vec<String> = Config::get_list_from_args(args, "features");
@@ -162,6 +170,7 @@ impl Config {
             generate: out,
             coveralls: coveralls,
             ci_tool: ci_tool,
+            report_uri: report_uri,
             forward_signals: forward,
             all_features: all_features,
             features: features,
@@ -169,12 +178,12 @@ impl Config {
             packages: packages,
             exclude: exclude,
             excluded_files: ex_files,
-            varargs: varargs,
             test_timeout: Duration::from_secs(timeout),
+            varargs: varargs,
         }
     }
 
-    /// Determine whether to send data to coveralls 
+    /// Determine whether to send data to coveralls
     pub fn is_coveralls(&self) -> bool {
         self.coveralls.is_some()
     }

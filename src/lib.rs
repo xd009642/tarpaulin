@@ -175,7 +175,7 @@ fn setup_environment(cargo_config: &CargoConfig) {
 }
 
 
-/// Reports the test coverage using the users preferred method. See config.rs 
+/// Reports the test coverage using the users preferred method. See config.rs
 /// or help text for details.
 pub fn report_coverage(config: &Config, result: &TraceMap) {
     if !result.is_empty() {
@@ -198,7 +198,6 @@ pub fn report_coverage(config: &Config, result: &TraceMap) {
         println!("\n{:.2}% coverage, {}/{} lines covered", percent, 
                  result.total_covered(), result.total_coverable());
         if config.is_coveralls() {
-            println!("Sending coverage data to coveralls.io");
             report::coveralls::export(result, config);
             println!("Coverage data sent");
         }

@@ -12,8 +12,7 @@ pub fn export(coverage_data: &TraceMap, config: &Config) {
             }),
             _ => Identity::RepoToken(key.clone()),
         };
-        let mut report = CoverallsReport::new(id);
-        
+        let mut report = CoverallsReport::new(id);        
         for file in &coverage_data.files() {
             let rel_path = config.strip_project_path(file);
             let mut lines: HashMap<usize, usize> = HashMap::new();
@@ -33,7 +32,18 @@ pub fn export(coverage_data: &TraceMap, config: &Config) {
                 report.add_source(source);
             }
         }
-        let res = report.send_to_coveralls();
+
+        let res = match config.report_uri {
+            Some(ref uri) => {
+                println!("Sending report to endpoint: {}", uri);
+                report.send_to_endpoint(uri)
+            },
+            None => {
+                println!("Sending coverage data to coveralls.io");
+                report.send_to_coveralls()
+            }
+        };
+
         if config.verbose {
             match res {
                 Ok(_) => {},
