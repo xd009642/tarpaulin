@@ -1,3 +1,4 @@
+use std::cmp::max;
 use std::path::{PathBuf, Path};
 use std::collections::{HashSet, HashMap};
 use std::fs::File;
@@ -7,7 +8,7 @@ use cargo::core::{Workspace, Package};
 use cargo::sources::PathSource;
 use cargo::util::Config as CargoConfig;
 use syn::{*, punctuated::Pair::End};
-use proc_macro2::Span;
+use proc_macro2::{Span, TokenTree, TokenStream};
 use regex::Regex;
 use config::Config;
 
@@ -399,8 +400,34 @@ fn visit_macro_call(mac: &Macro, analysis: &mut LineAnalysis) {
     if let Some(End(ref name)) = mac.path.segments.last() {
         if name.ident == Ident::from("unreachable") || name.ident == Ident::from("unimplemented") || name.ident == Ident::from("include") {
             analysis.ignore_span(&name.ident.span());
+        } else {
+            // This could be outside but it wouldn't make sense for it to not have a end segment
+            // but have args 
+            process_mac_args(&mac.tts, name.ident.span().start().line, analysis);
+        }
+    } 
+}
+
+
+fn process_mac_args(tokens: &TokenStream, first_line: usize, analysis: &mut LineAnalysis) {
+    let mut cover: HashSet<usize> = HashSet::new();
+    let mut end_line: usize = first_line;
+    // IntoIter not implemented for &TokenStream.
+    for token in tokens.clone().into_iter() {
+        end_line = max(end_line, token.span().end().line);
+        match token {
+            TokenTree::Literal(_) => {},
+            t @ _ => { 
+                cover.insert(t.span().start().line);
+                for i in t.span().start().line..(t.span().end().line+1) {
+                    cover.insert(i);
+                }
+            },
         }
     }
+    let lines:Vec<usize> = ((first_line+1)..(end_line+1)).filter(|x| !cover.contains(&x))
+                                                         .collect();
+    analysis.add_to_ignore(&lines);
 }
 
 
