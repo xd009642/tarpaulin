@@ -228,7 +228,7 @@ fn strip_project_path<'a>(config: &'a Config, path: &'a Path) -> &'a Path {
     }
 }
 
-/// Reports the test coverage using the users preferred method. See config.rs 
+/// Reports the test coverage using the users preferred method. See config.rs
 /// or help text for details.
 pub fn report_coverage(config: &Config, result: &[TracerData]) {
     if !result.is_empty() {
@@ -247,7 +247,7 @@ pub fn report_coverage(config: &Config, result: &[TracerData]) {
                 if let Some(v) = file_map.get_mut(r.path.as_path()) {
                     (*v).0 += (r.hits > 0) as u64;
                     (*v).1 += 1u64;
-                } 
+                }
             } else {
                 file_map.insert(r.path.as_path(), ((r.hits > 0) as u64, 1));
             }
@@ -262,7 +262,6 @@ pub fn report_coverage(config: &Config, result: &[TracerData]) {
         // Put file filtering here
         println!("\n{:.2}% coverage, {}/{} lines covered", percent, covered, total);
         if config.is_coveralls() {
-            println!("Sending coverage data to coveralls.io");
             report::coveralls::export(result, config);
             println!("Coverage data sent");
         }
