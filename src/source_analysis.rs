@@ -234,6 +234,7 @@ fn process_items(items: &[Item], ctx: &Context, analysis: &mut LineAnalysis) {
             Item::Union(i) => visit_union(i, analysis),
             Item::Trait(i) => visit_trait(i, analysis, ctx),
             Item::Impl(i) => visit_impl(i, analysis, ctx),
+            Item::Macro(i) => visit_macro_call(&i.mac, analysis),
             _ =>{}
         } 
     }
@@ -396,7 +397,7 @@ fn process_expr(expr: &Expr, analysis: &mut LineAnalysis) {
 
 fn visit_macro_call(mac: &Macro, analysis: &mut LineAnalysis) {
     if let Some(End(ref name)) = mac.path.segments.last() {
-        if name.ident == Ident::from("unreachable") || name.ident == Ident::from("unimplemented") {
+        if name.ident == Ident::from("unreachable") || name.ident == Ident::from("unimplemented") || name.ident == Ident::from("include") {
             analysis.ignore_span(&name.ident.span());
         }
     }
@@ -527,7 +528,7 @@ mod tests {
         let parser = parse_file(ctx.file_contents).unwrap();
         process_items(&parser.items, &ctx, &mut lines);
         assert!(lines.ignore.len() >= 1);
-        assert!(lines.ignore.contains(&2));
+        assert!(lines.ignore.contains(&4));
         
         let mut lines = LineAnalysis::new();
         let ctx = Context {
