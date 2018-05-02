@@ -1,4 +1,4 @@
-use std::cmp::max;
+use std::cmp::{max, min};
 use std::path::{PathBuf, Path};
 use std::collections::{HashSet, HashMap};
 use std::fs::File;
@@ -7,7 +7,7 @@ use std::io::{BufReader, BufRead};
 use cargo::core::{Workspace, Package};
 use cargo::sources::PathSource;
 use cargo::util::Config as CargoConfig;
-use syn::{*, punctuated::Pair::End};
+use syn::{*, punctuated::{Pair::End, Pair}};
 use proc_macro2::{Span, TokenTree, TokenStream};
 use regex::Regex;
 use config::Config;
@@ -391,8 +391,37 @@ fn ignore_derive_attrs(attrs: &[Attribute], analysis: &mut LineAnalysis) {
 fn process_expr(expr: &Expr, analysis: &mut LineAnalysis) {
     match expr {
         Expr::Macro(m) => visit_macro_call(&m.mac, analysis),
+        Expr::Struct(s) => visit_struct_expr(&s, analysis),
         _ => {},
     }
+}
+
+
+fn visit_struct_expr(structure: &ExprStruct, analysis: &mut LineAnalysis) {
+    let mut cover: HashSet<usize> = HashSet::new();
+    let mut start = 0usize;
+    let mut end = 0usize;
+    for field in structure.fields.pairs() {
+        let first = match field {
+            Pair::Punctuated(t, _) => {t},
+            Pair::End(t) => {t},
+        };
+        let span = match first.member {
+            Member::Named(ref i) => i.span(),
+            Member::Unnamed(ref i) => i.span,
+        };
+        start = min(start, span.start().line);
+        end = max(start, span.start().line);
+        match first.expr {
+            Expr::Lit(_) | Expr::Path(_) => {},
+            _=>{ 
+                cover.insert(span.start().line);
+            },
+        }
+    }
+    let x = (start..(end+1)).filter(|x| !cover.contains(&x))
+                            .collect::<Vec<usize>>();
+    analysis.add_to_ignore(&x);
 }
 
 
