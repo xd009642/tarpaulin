@@ -7,7 +7,7 @@ use std::io::{BufReader, BufRead};
 use cargo::core::{Workspace, Package};
 use cargo::sources::PathSource;
 use cargo::util::Config as CargoConfig;
-use syn::{*, punctuated::{Pair::End, Pair}, spanned::Spanned};
+use syn::{*, punctuated::{Pair::End, Pair}, spanned::Spanned, punctuated::Punctuated, token::Comma};
 use proc_macro2::{Span, TokenTree, TokenStream};
 use regex::Regex;
 use config::Config;
@@ -398,8 +398,48 @@ fn process_expr(expr: &Expr, ctx: &Context, analysis: &mut LineAnalysis) {
         Expr::Macro(m) => visit_macro_call(&m.mac, analysis),
         Expr::Struct(s) => visit_struct_expr(&s, analysis),
         Expr::Unsafe(u) => visit_unsafe_block(&u, ctx, analysis),
+        Expr::Call(c) => visit_callable(&c, analysis),
+        Expr::MethodCall(m) => visit_methodcall(&m, analysis),
         _ => {},
     }
+}
+
+fn get_coverable_args(args: &Punctuated<Expr, Comma>) -> HashSet<usize> {
+    let mut lines:HashSet<usize> = HashSet::new();
+    for a in args.iter() {
+        let s = a.span();
+        match a {
+            Expr::Lit(_) => {},
+            _ => {
+                for i in s.start().line..(s.end().line+1) {
+                    lines.insert(i);
+                }
+            }
+        }
+    }
+    lines
+}
+
+
+fn visit_callable(call: &ExprCall, analysis: &mut LineAnalysis ) {
+    let start = call.span().start().line + 1;
+    let end = call.span().end().line + 1;
+    let lines = get_coverable_args(&call.args);
+    let lines = (start..end).filter(|x| !lines.contains(&x))
+                            .collect::<Vec<_>>();
+    analysis.add_to_ignore(&lines);
+
+}
+
+
+fn visit_methodcall(meth: &ExprMethodCall, analysis: &mut LineAnalysis) {
+    let start = meth.span().start().line + 1;
+    let end = meth.span().end().line + 1;
+    let lines = get_coverable_args(&meth.args);
+    let lines = (start..end).filter(|x| !lines.contains(&x))
+                            .collect::<Vec<_>>();
+
+    analysis.add_to_ignore(&lines);
 }
 
 
