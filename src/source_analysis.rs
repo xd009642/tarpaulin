@@ -7,7 +7,7 @@ use std::io::{BufReader, BufRead};
 use cargo::core::{Workspace, Package};
 use cargo::sources::PathSource;
 use cargo::util::Config as CargoConfig;
-use syn::{*, punctuated::{Pair::End, Pair}};
+use syn::{*, punctuated::{Pair::End, Pair}, spanned::Spanned};
 use proc_macro2::{Span, TokenTree, TokenStream};
 use regex::Regex;
 use config::Config;
@@ -246,8 +246,8 @@ fn process_statements(stmts: &[Stmt], ctx: &Context, analysis: &mut LineAnalysis
     for stmt in stmts {
         match stmt {
             Stmt::Item(i) => process_items(&[i.clone()], ctx, analysis),
-            Stmt::Expr(i) => process_expr(i, analysis),
-            Stmt::Semi(i, _) => process_expr(i, analysis),
+            Stmt::Expr(i) => process_expr(i, ctx, analysis),
+            Stmt::Semi(i, _) => process_expr(i, ctx, analysis),
             _ => {},
         }
     }
@@ -388,14 +388,38 @@ fn ignore_derive_attrs(attrs: &[Attribute], analysis: &mut LineAnalysis) {
 }
 
 
-fn process_expr(expr: &Expr, analysis: &mut LineAnalysis) {
+fn process_expr(expr: &Expr, ctx: &Context, analysis: &mut LineAnalysis) {
     match expr {
         Expr::Macro(m) => visit_macro_call(&m.mac, analysis),
         Expr::Struct(s) => visit_struct_expr(&s, analysis),
+        Expr::Unsafe(u) => visit_unsafe_block(&u, ctx, analysis),
         _ => {},
     }
 }
 
+
+fn visit_unsafe_block(unsafe_expr: &ExprUnsafe, ctx: &Context, analysis: &mut LineAnalysis) {
+    let u_line = unsafe_expr.unsafe_token.0.start().line;
+
+    let blk = &unsafe_expr.block;
+    if u_line != blk.brace_token.0.start().line || blk.stmts.is_empty()  {
+        analysis.ignore_span(&unsafe_expr.unsafe_token.0);
+    } else if let Some(ref first_stmt) = blk.stmts.iter().nth(0) {
+        let s = match first_stmt {
+            Stmt::Local(l) => l.span(),
+            Stmt::Item(i) => i.span(),
+            Stmt::Expr(e) => e.span(),
+            Stmt::Semi(e, _) => e.span(),
+        };
+        if u_line != s.start().line {
+            analysis.ignore_span(&unsafe_expr.unsafe_token.0);
+        }
+        process_statements(&blk.stmts, ctx, analysis); 
+    } else {
+        analysis.ignore_span(&unsafe_expr.unsafe_token.0);
+        analysis.ignore_span(&blk.brace_token.0);
+    }
+}
 
 fn visit_struct_expr(structure: &ExprStruct, analysis: &mut LineAnalysis) {
     let mut cover: HashSet<usize> = HashSet::new();
@@ -699,5 +723,14 @@ mod tests {
         process_items(&parser.items, &ctx, &mut lines);
         assert!(lines.ignore.contains(&3));
         assert!(!lines.ignore.contains(&4));
+        
+        let mut lines = LineAnalysis::new();
+        let ctx = Context {
+            config: &config, 
+            file_contents: "fn unsafe_fn() {\n let x=1;\nunsafe {println!(\"{}\", x);}\n}",
+        };
+        let parser = parse_file(ctx.file_contents).unwrap();
+        process_items(&parser.items, &ctx, &mut lines);
+        assert!(!lines.ignore.contains(&3));
     }
 }
