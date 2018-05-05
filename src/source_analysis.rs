@@ -686,4 +686,18 @@ mod tests {
         process_items(&parser.items, &ctx, &mut lines);
         assert!(lines.ignore.contains(&2));
     }
+
+    #[test]
+    fn filter_unsafe() {
+        let config = Config::default();
+        let mut lines = LineAnalysis::new();
+        let ctx = Context {
+            config: &config, 
+            file_contents: "fn unsafe_fn() {\n let x=1;\nunsafe {\nprintln!(\"{}\", x);\n}\n}",
+        };
+        let parser = parse_file(ctx.file_contents).unwrap();
+        process_items(&parser.items, &ctx, &mut lines);
+        assert!(lines.ignore.contains(&3));
+        assert!(!lines.ignore.contains(&4));
+    }
 }
