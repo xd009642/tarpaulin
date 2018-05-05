@@ -496,37 +496,39 @@ fn visit_struct_expr(structure: &ExprStruct, analysis: &mut LineAnalysis) {
 
 
 fn visit_macro_call(mac: &Macro, analysis: &mut LineAnalysis) {
+    let mut skip = false;
+    let start = mac.span().start().line + 1;
+    let end = mac.span().end().line + 1;
     if let Some(End(ref name)) = mac.path.segments.last() {
         if name.ident == Ident::from("unreachable") || name.ident == Ident::from("unimplemented") || name.ident == Ident::from("include") {
-            analysis.ignore_span(&name.ident.span());
-        } else {
-            // This could be outside but it wouldn't make sense for it to not have a end segment
-            // but have args 
-            process_mac_args(&mac.tts, name.ident.span().start().line, analysis);
-        }
-    } 
+            analysis.ignore_span(&mac.span());
+            skip = true;
+        } 
+    }
+    if !skip {
+        let lines = process_mac_args(&mac.tts);
+        let lines = (start..end).filter(|x| !lines.contains(&x))
+                                .collect::<Vec<_>>();
+        analysis.add_to_ignore(&lines);
+    }
 }
 
 
-fn process_mac_args(tokens: &TokenStream, first_line: usize, analysis: &mut LineAnalysis) {
+fn process_mac_args(tokens: &TokenStream) -> HashSet<usize> {
     let mut cover: HashSet<usize> = HashSet::new();
-    let mut end_line: usize = first_line;
     // IntoIter not implemented for &TokenStream.
     for token in tokens.clone().into_iter() {
-        end_line = max(end_line, token.span().end().line);
+        let t = token.span();
         match token {
-            TokenTree::Literal(_) => {},
-            t @ _ => { 
-                cover.insert(t.span().start().line);
-                for i in t.span().start().line..(t.span().end().line+1) {
+            TokenTree::Literal(_) | TokenTree::Op(_) => {},
+            _ => { 
+                for i in t.start().line..(t.end().line+1) {
                     cover.insert(i);
                 }
             },
         }
     }
-    let lines:Vec<usize> = ((first_line+1)..(end_line+1)).filter(|x| !cover.contains(&x))
-                                                         .collect();
-    analysis.add_to_ignore(&lines);
+    cover
 }
 
 
