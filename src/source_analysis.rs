@@ -117,19 +117,25 @@ impl LineAnalysis {
 }
 
 
-fn is_source_file(entry: &DirEntry, target_folder: &Path) -> bool {
+fn is_source_file(entry: &DirEntry) -> bool {
     let p = entry.path();
-    (!p.starts_with(target_folder)) && p.extension() == Some(OsStr::new("rs"))
+    p.extension() == Some(OsStr::new("rs"))
+}
+
+
+fn is_target_folder(entry: &DirEntry, root: &Path) -> bool {
+    let target = root.join("target");
+    entry.path().starts_with(&target)
 }
 
 /// Returns a list of files and line numbers to ignore (not indexes!)
 pub fn get_line_analysis(project: &Workspace, config: &Config) -> HashMap<PathBuf, LineAnalysis> {
     let mut result: HashMap<PathBuf, LineAnalysis> = HashMap::new();
-    // Members iterates over all non-virtual packages in the workspace
-    for pkg in project.members() {
-        if config.packages.is_empty() || config.packages.contains(&pkg.name().to_string()) {
-            analyse_package(pkg, &config, project.config(), &mut result); 
-        }
+    let walker = WalkDir::new(project.root()).into_iter();
+    for e in walker.filter_entry(|e| !is_target_folder(e, project.root()))
+                   .filter_map(|e| e.ok())
+                   .filter(|e| is_source_file(e)) {
+        analyse_package(e.path(), project.root(), &config, &mut result); 
     }
     result
 }
@@ -163,28 +169,18 @@ struct Context<'a> {
 
 
 /// Analyses a package of the target crate.
-fn analyse_package(pkg: &Package, 
+fn analyse_package(path: &Path, 
+                   root: &Path,
                    config:&Config, 
-                   cargo_conf: &CargoConfig, 
                    result: &mut HashMap<PathBuf, LineAnalysis>) {
 
-    let mut src = PathSource::new(pkg.root(), pkg.package_id().source_id(), cargo_conf);
-    if let Ok(package) = src.root_package() {
-        for target in package.targets() {
-            let path = target.src_path();
-            let file = match path.to_str() {
-                Some(s) => s,
-                _ => continue
-            };
-            let skip_cause_test = config.ignore_tests && 
-                                  path.starts_with(pkg.root().join("tests"));
-            let skip_cause_example = path.starts_with(pkg.root().join("examples"));
-            if !(skip_cause_test || skip_cause_example)  {
-                let file = File::open(file);
-                let mut file = match file {
-                    Ok(f) => f,
-                    _ => continue,
-                };
+    if let Some(file) = path.to_str() {
+        let skip_cause_test = config.ignore_tests && 
+                              path.starts_with(root.join("tests"));
+        let skip_cause_example = path.starts_with(root.join("examples"));
+        if !(skip_cause_test || skip_cause_example)  {
+            let file = File::open(file);
+            if let Ok(mut file) =  file {
                 let mut content = String::new();
                 let _ = file.read_to_string(&mut content);
                 let file = parse_file(&content);
@@ -199,12 +195,12 @@ fn analyse_package(pkg: &Package,
                     process_items(&file.items, &ctx, &mut analysis);
                     // Check there's no conflict!
                     result.insert(path.to_path_buf(), analysis);
+                    // This could probably be done with the DWARF if I could find a discriminating factor
+                    // to why lib.rs:1 shows up as a real line!
+                    if path.ends_with("src/lib.rs") {
+                        analyse_lib_rs(path, result);
+                    }
                 }
-            }
-            // This could probably be done with the DWARF if I could find a discriminating factor
-            // to why lib.rs:1 shows up as a real line!
-            if file.ends_with("src/lib.rs") {
-                analyse_lib_rs(path, result);
             }
         }
     }
