@@ -286,23 +286,28 @@ fn visit_mod(module: &ItemMod, analysis: &mut LineAnalysis, ctx: &Context) {
 
 
 fn visit_fn(func: &ItemFn, analysis: &mut LineAnalysis, ctx: &Context) {
-    let mut ignore_func = false;
+    let mut test_func = false;
+    let mut ignored_attr = false;
     let mut is_inline = false;
     for attr in &func.attrs {
         if let Some(x) = attr.interpret_meta() {
             let id = x.name();
             if id == Ident::from("test") {
-                ignore_func = true;
+                test_func = true;
             } else if id == Ident::from("derive") {
                 analysis.ignore_span(&attr.bracket_token.0);
             } else if id == Ident::from("inline") {
                 is_inline = true;
+            } else if id == Ident::from("ignore") {
+                ignored_attr = true;
             }
         }
     }
-    if ignore_func && ctx.config.ignore_tests {
-        analysis.ignore_span(&func.decl.fn_token.0);
-        analysis.ignore_span(&func.block.brace_token.0);
+    if test_func && ctx.config.ignore_tests {
+        if !(ignored_attr && !ctx.config.run_ignored) {
+            analysis.ignore_span(&func.decl.fn_token.0);
+            analysis.ignore_span(&func.block.brace_token.0);
+        }
     } else {
         if is_inline {
             // We need to force cover!
@@ -420,6 +425,7 @@ fn visit_unsafe_block(unsafe_expr: &ExprUnsafe, ctx: &Context, analysis: &mut Li
         analysis.ignore_span(&blk.brace_token.0);
     }
 }
+
 
 fn visit_struct_expr(structure: &ExprStruct, analysis: &mut LineAnalysis) {
     let mut cover: HashSet<usize> = HashSet::new();
