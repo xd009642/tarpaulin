@@ -16,7 +16,7 @@ extern crate serde;
 extern crate serde_json;
 extern crate quick_xml;
 extern crate regex;
-
+extern crate walkdir;
 
 use std::env;
 use std::io;

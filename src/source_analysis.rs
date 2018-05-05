@@ -2,8 +2,8 @@ use std::cmp::{max, min};
 use std::path::{PathBuf, Path};
 use std::collections::{HashSet, HashMap};
 use std::fs::File;
-use std::io::Read;
-use std::io::{BufReader, BufRead};
+use std::ffi::OsStr;
+use std::io::{Read, BufReader, BufRead};
 use cargo::core::{Workspace, Package};
 use cargo::sources::PathSource;
 use cargo::util::Config as CargoConfig;
@@ -11,6 +11,7 @@ use syn::{*, punctuated::{Pair::End, Pair}, spanned::Spanned, punctuated::Punctu
 use proc_macro2::{Span, TokenTree, TokenStream};
 use regex::Regex;
 use config::Config;
+use walkdir::{DirEntry, WalkDir};
 
 /// Represents the results of analysis of a single file. Does not store the file
 /// in question as this is expected to be maintained by the user.
@@ -113,15 +114,12 @@ impl LineAnalysis {
             }
         }
     }
+}
 
-    /// Adds a line to the list of lines to cover
-    fn add_to_cover(&mut self, lines: &[usize]) {
-        for l in lines {
-            if !self.ignore.contains(l) {
-                self.cover.insert(*l);
-            }
-        }
-    }
+
+fn is_source_file(entry: &DirEntry, target_folder: &Path) -> bool {
+    let p = entry.path();
+    (!p.starts_with(target_folder)) && p.extension() == Some(OsStr::new("rs"))
 }
 
 /// Returns a list of files and line numbers to ignore (not indexes!)
@@ -212,7 +210,9 @@ fn analyse_package(pkg: &Package,
     }
 }
 
-
+/// Finds lines from the raw string which are ignorable.
+/// These are often things like close braces, semi colons that may regiser as
+/// false positives.
 fn find_ignorable_lines(content: &str, analysis: &mut LineAnalysis) {
     let lines = content.lines()
                        .enumerate()
