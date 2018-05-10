@@ -1,23 +1,15 @@
-use std::rc::Rc;
-use std::ops::Deref;
+use std::cmp::{max, min};
 use std::path::{PathBuf, Path};
 use std::collections::{HashSet, HashMap};
 use std::fs::File;
-use std::io::{BufReader, BufRead};
-use cargo::core::{Workspace, Package};
-use cargo::sources::PathSource;
-use cargo::util::Config as CargoConfig;
-use syntex_syntax::attr;
-use syntex_syntax::visit::{self, Visitor, FnKind};
-use syntex_syntax::codemap::{CodeMap, Span, FilePathMapping};
-use syntex_syntax::ast::*;
-use syntex_syntax::parse::{self, ParseSess};
-use syntex_syntax::parse::token::*;
-use syntex_syntax::tokenstream::TokenTree;
-use syntex_syntax::errors::Handler;
-use syntex_syntax::errors::emitter::ColorConfig;
+use std::ffi::OsStr;
+use std::io::{Read, BufReader, BufRead};
+use cargo::core::Workspace;
+use syn::{*, punctuated::{Pair::End, Pair}, spanned::Spanned, punctuated::Punctuated, token::Comma};
+use proc_macro2::{Span, TokenTree, TokenStream};
 use regex::Regex;
 use config::Config;
+use walkdir::{DirEntry, WalkDir};
 
 /// Represents the results of analysis of a single file. Does not store the file
 /// in question as this is expected to be maintained by the user.
@@ -51,6 +43,7 @@ impl SourceAnalysisQuery for HashMap<PathBuf, LineAnalysis> {
 }
 
 impl LineAnalysis {
+    /// Creates a new LineAnalysis object
     fn new() -> LineAnalysis {
         LineAnalysis {
             ignore: HashSet::new(),
@@ -58,10 +51,59 @@ impl LineAnalysis {
         }
     }
 
+    /// Adds the lines of the provided span to the ignore set
+    pub fn ignore_span(&mut self, span: &Span) {
+        for i in span.start().line..(span.end().line+1) {
+            self.ignore.insert(i);
+            if self.cover.contains(&i) {
+                self.cover.remove(&i);
+            }
+        }
+    }
+
+    /// Adds the lines of the provided span to the cover set
+    pub fn cover_span(&mut self, span: &Span, contents: Option<&str>) {
+        let mut useless_lines: HashSet<usize> = HashSet::new();
+        if let Some(ref c) = contents {
+            lazy_static! {
+                static ref SINGLE_LINE: Regex = Regex::new(r"\s*//\n").unwrap();
+                static ref MULTI_START: Regex = Regex::new(r"/\*").unwrap();
+                static ref MULTI_END: Regex = Regex::new(r"\*/").unwrap();
+            }
+            let len = span.end().line - span.start().line;
+            let mut is_comment = false;
+            for (i, line) in c.lines().enumerate().skip(span.start().line - 1).take(len) {
+                let is_code = if MULTI_START.is_match(line) {
+                    if !MULTI_END.is_match(line) {
+                        is_comment = true;
+                    }
+                    false
+                } else if is_comment {
+                    if MULTI_END.is_match(line) {
+                        is_comment = false;
+                    }
+                    false
+                } else {
+                    true
+                };
+                if is_code && !SINGLE_LINE.is_match(line) {
+                    useless_lines.insert(i+1);    
+                }
+            }
+        }
+        for i in span.start().line..(span.end().line +1) {
+            if !self.ignore.contains(&i) && !useless_lines.contains(&i) {
+                self.cover.insert(i);
+            }
+        }
+    }
+
+    /// Shows whether the line should be ignored by tarpaulin
     pub fn should_ignore(&self, line: &usize) -> bool {
         self.ignore.contains(line)
     }
     
+    /// Adds a line to the list of lines to ignore
     fn add_to_ignore(&mut self, lines: &[usize]) {
         for l in lines {
             self.ignore.insert(*l);
@@ -70,37 +112,33 @@ impl LineAnalysis {
             }
         }
     }
-
-    fn add_to_cover(&mut self, lines: &[usize]) {
-        for l in lines {
-            if !self.ignore.contains(l) {
-                self.cover.insert(*l);
-            }
-        }
-    }
 }
 
-struct CoverageVisitor<'a> {
-    lines: Vec<(PathBuf, usize)>,
-    coverable: Vec<(PathBuf, usize)>,
-    covered: &'a HashSet<PathBuf>,
-    codemap: &'a CodeMap,
-    config: &'a Config, 
+
+fn is_source_file(entry: &DirEntry) -> bool {
+    let p = entry.path();
+    p.extension() == Some(OsStr::new("rs"))
 }
 
+
+fn is_target_folder(entry: &DirEntry, root: &Path) -> bool {
+    let target = root.join("target");
+    entry.path().starts_with(&target)
+}
 
 /// Returns a list of files and line numbers to ignore (not indexes!)
 pub fn get_line_analysis(project: &Workspace, config: &Config) -> HashMap<PathBuf, LineAnalysis> {
     let mut result: HashMap<PathBuf, LineAnalysis> = HashMap::new();
-    // Members iterates over all non-virtual packages in the workspace
-    for pkg in project.members() {
-        if config.packages.is_empty() || config.packages.contains(&pkg.name().to_string()) {
-            analyse_package(pkg, &config, project.config(), &mut result); 
-        }
+    let walker = WalkDir::new(project.root()).into_iter();
+    for e in walker.filter_entry(|e| !is_target_folder(e, project.root()))
+                   .filter_map(|e| e.ok())
+                   .filter(|e| is_source_file(e)) {
+        analyse_package(e.path(), project.root(), &config, &mut result); 
     }
     result
 }
 
+/// Analyse the crates lib.rs for some common false positives
 fn analyse_lib_rs(file: &Path, result: &mut HashMap<PathBuf, LineAnalysis>) {
     if let Ok(f) = File::open(file) {
         let mut read_file = BufReader::new(f);
@@ -120,234 +158,45 @@ fn analyse_lib_rs(file: &Path, result: &mut HashMap<PathBuf, LineAnalysis>) {
     }
 }
 
-fn analyse_package(pkg: &Package, 
+/// Provides context to the source analysis stage including the tarpaulin
+/// config and the source code being analysed.
+struct Context<'a> {
+    config: &'a Config,
+    file_contents: &'a str
+}
+
+
+/// Analyses a package of the target crate.
+fn analyse_package(path: &Path, 
+                   root: &Path,
                    config:&Config, 
-                   cargo_conf: &CargoConfig, 
                    result: &mut HashMap<PathBuf, LineAnalysis>) {
 
-    let mut src = PathSource::new(pkg.root(), pkg.package_id().source_id(), cargo_conf);
-    if let Ok(package) = src.root_package() {
-
-        let codemap = Rc::new(CodeMap::new(FilePathMapping::empty()));
-        let handler = Handler::with_tty_emitter(ColorConfig::Auto, false, false, Some(codemap.clone()));
-        let parse_session = ParseSess::with_span_handler(handler, codemap.clone());
-        
-        for target in package.targets() {
-            let file = target.src_path();
-            let skip_cause_test = config.ignore_tests && 
-                                  file.starts_with(pkg.root().join("tests"));
-            let skip_cause_example = file.starts_with(pkg.root().join("examples"));
-            if !(skip_cause_test || skip_cause_example) {
-                let mut parser = parse::new_parser_from_file(&parse_session, file);
-                parser.cfg_mods = false;
-                if let Ok(krate) = parser.parse_crate_mod() {
-                    
-                    let done_files: HashSet<PathBuf> = result.keys()
-                                                             .map(|x| x.clone())
-                                                             .collect::<HashSet<_>>();
-                    let lines = {
-                        let mut visitor = CoverageVisitor::from_session(&parse_session, &done_files, config);
-                        visitor.visit_mod(&krate.module, krate.span, &krate.attrs, NodeId::new(0));
-                        visitor
+    if let Some(file) = path.to_str() {
+        let skip_cause_test = config.ignore_tests && 
+                              path.starts_with(root.join("tests"));
+        let skip_cause_example = path.starts_with(root.join("examples"));
+        if !(skip_cause_test || skip_cause_example)  {
+            let file = File::open(file);
+            if let Ok(mut file) =  file {
+                let mut content = String::new();
+                let _ = file.read_to_string(&mut content);
+                let file = parse_file(&content);
+                if let Ok(file) = file {
+                    let mut analysis = LineAnalysis::new();
+                    let ctx = Context {
+                        config: config,
+                        file_contents: &content,
                     };
-                    for ignore in &lines.lines {
-                        if result.contains_key(&ignore.0) {
-                            let l = result.get_mut(&ignore.0).unwrap();
-                            l.add_to_ignore(&[ignore.1]);
-                        }
-                        else {
-                            let mut l = LineAnalysis::new();
-                            l.add_to_ignore(&[ignore.1]);
-                            result.insert(ignore.0.clone(), l);                         
-                        }
-                    }
-                    for cover in &lines.coverable {
-                        if result.contains_key(&cover.0) {
-                            let l = result.get_mut(&cover.0).unwrap();
-                            l.add_to_cover(&[cover.1]);
-                        }
-                        else {
-                            let mut l = LineAnalysis::new();
-                            l.add_to_cover(&[cover.1]);
-                            result.insert(cover.0.clone(), l);                         
-                        }
-                    }
-                }
-            }
-            // This could probably be done with the DWARF if I could find a discriminating factor
-            // to why lib.rs:1 shows up as a real line!
-            if file.ends_with("src/lib.rs") {
-                analyse_lib_rs(file, result);
-            }
-        }
-    }
-}
 
-
-impl<'a> CoverageVisitor<'a> {
-    /// Construct a new ignored lines object for the given project
-    fn from_session(session: &'a ParseSess, 
-                    covered: &'a HashSet<PathBuf>, 
-                    config: &'a Config) -> CoverageVisitor<'a> {
-        CoverageVisitor {
-            lines: vec![],
-            coverable: vec![],
-            covered: covered,
-            codemap: session.codemap(),
-            config: config,
-        }
-    }
-    
-    fn get_line_indexes(&mut self, span: Span) -> Vec<usize> {
-        if let Ok(ts) = self.codemap.span_to_lines(span) {
-            ts.lines.iter()
-                    .map(|x| x.line_index)
-                    .collect::<Vec<_>>()
-        } else {
-            Vec::new()
-        }
-    }
-
-    /// Add lines to the line ignore list
-    fn ignore_lines(&mut self, span: Span) {
-        if let Ok(ls) = self.codemap.span_to_lines(span) {
-            for line in &ls.lines {
-                let pb = PathBuf::from(self.codemap.span_to_filename(span) as String);
-                // Line number is index+1
-                self.lines.push((pb, line.line_index + 1));
-            }
-        }
-    }    
-
-
-    fn cover_lines(&mut self, span: Span) {
-        if let Ok(ls) = self.codemap.span_to_lines(span) {
-            let temp_string = match self.codemap.span_to_snippet(span) {
-                Ok(s) => s,
-                Err(_) => "fn".to_string(),
-            };
-            let txt = temp_string.lines();
-            let mut is_comment = false;
-            lazy_static! {
-                static ref SINGLE_LINE: Regex = Regex::new(r"\s*//\n").unwrap();
-                static ref MULTI_START: Regex = Regex::new(r"/\*").unwrap();
-                static ref MULTI_END: Regex = Regex::new(r"\*/").unwrap();
-            }
-            for (&line, text) in ls.lines.iter().zip(txt) {
-                let is_code = if MULTI_START.is_match(text) {
-                    if !MULTI_END.is_match(text) {
-                        is_comment = true;
-                    } 
-                    false
-                } else if is_comment {
-                    if MULTI_END.is_match(text) {
-                        is_comment = false;
-                    }
-                    false
-                } else {
-                    true
-                };
-                if is_code && !SINGLE_LINE.is_match(text) {
-                    let pb = PathBuf::from(self.codemap.span_to_filename(span) as String);
-                    // Line number is index+1
-                    self.coverable.push((pb, line.line_index + 1));
-                } 
-            }
-        }
-    }
-
-   
-    /// Looks for #[cfg(test)] attribute.
-    fn contains_cfg_test(&mut self, attrs: &[Attribute]) -> bool {
-        attrs.iter()
-             .filter(|x| x.path == "cfg")
-             .filter_map(|x| x.meta_item_list())
-             .flat_map(|x| x)
-             .any(|x| { 
-                 if let Some(w) = x.word() {
-                    w.name().as_str() == "test"
-                 } else {
-                     false
-                 }
-             })
-    }
-
-    /// This function finds ignorable lines within actual coverable code. 
-    /// As opposed to other functions which find isolated lines that aren't 
-    /// executed or lines filtered by the user. These lines are things like 
-    /// close braces that are within coverable code but not coverable.
-    fn find_ignorable_lines(&mut self, span: Span) {
-        if let Ok(l) = self.codemap.span_to_lines(span) {
-            for line in &l.lines {
-                let pb = PathBuf::from(self.codemap.span_to_filename(span) as String);
-                if let Some(s) = l.file.get_line(line.line_index) {
-                    // Is this one of those pointless {, } or }; or )?; only lines?
-                    if !s.chars().any(|x| !"(){}[]?;\t ,".contains(x)) {
-                        self.lines.push((pb, line.line_index + 1));
-                    }
-                }
-            }
-        }
-    }
-
-    fn ignore_mac_args(&mut self, mac: &Mac_, s:Span) {
-        let mut cover: HashSet<usize>  = HashSet::new();
-        for token in mac.stream().into_trees() {
-            match token {
-                TokenTree::Token(ref s, ref t) => {
-                    match t {
-                        &Token::Literal(_,_) | &Token::Pound | &Token::Comma => {},
-                        _ => {
-                            for l in self.get_line_indexes(*s) {
-                                cover.insert(l);
-                            }
-                        },
-                    }
-                },
-                _ => {},
-            }
-        }
-        let pb = PathBuf::from(self.codemap.span_to_filename(s) as String);
-        if let Ok(ts) = self.codemap.span_to_lines(s) {
-            for l in ts.lines.iter().skip(1) {
-                let linestr = if let Some(linestr) = ts.file.get_line(l.line_index) {
-                    linestr
-                } else {
-                    ""
-                };
-                if !cover.contains(&l.line_index) && (linestr.len() <= (l.end_col.0 - l.start_col.0)) {
-                    self.lines.push((pb.clone(), l.line_index+1));     
-                }
-            }
-        }
-    }
-    
-    /// Ignores where statements given the generics struct and the span this where
-    /// is contained within. In every instance tested the first line of the containing
-    /// span is coverable (as it is function definition) therefore shouldn't be 
-    /// added to ignore list.
-    fn ignore_where_statements(&mut self, gen: &Generics, container: Span) {
-        let pb = PathBuf::from(self.codemap.span_to_filename(gen.span) as String);
-        let first_line = {
-            let mut line = None;
-            if let Ok(fl) = self.codemap.span_to_lines(container) {
-                if let Some(s) = fl.lines.get(0) {
-                    line = Some(s.line_index);
-                }
-            } 
-            line
-        };
-        if let Some(first_line) = first_line {
-            for w in &gen.where_clause.predicates {
-                let span = match w {
-                    &WherePredicate::BoundPredicate(ref b) => b.span,
-                    &WherePredicate::RegionPredicate(ref r) => r.span,
-                    &WherePredicate::EqPredicate(ref e) => e.span,
-                };
-                let end = self.get_line_indexes(span.end_point());
-                if let Some(&end) = end.last() {
-                    for l in (first_line+1)..(end+1) {
-                        self.lines.push((pb.clone(), l+1));
+                    find_ignorable_lines(&content, &mut analysis);
+                    process_items(&file.items, &ctx, &mut analysis);
+                    // Check there's no conflict!
+                    result.insert(path.to_path_buf(), analysis);
+                    // This could probably be done with the DWARF if I could find a discriminating factor
+                    // to why lib.rs:1 shows up as a real line!
+                    if path.ends_with("src/lib.rs") {
+                        analyse_lib_rs(path, result);
                     }
                 }
             }
@@ -355,393 +204,547 @@ impl<'a> CoverageVisitor<'a> {
     }
 }
 
+/// Finds lines from the raw string which are ignorable.
+/// These are often things like close braces, semi colons that may regiser as
+/// false positives.
+fn find_ignorable_lines(content: &str, analysis: &mut LineAnalysis) {
+    let lines = content.lines()
+                       .enumerate()
+                       .filter(|&(_, x)| !x.chars().any(|x| !"(){}[]?;\t ,".contains(x)))
+                       .map(|(i, _)| i+1)
+                       .collect::<Vec<usize>>();
+    analysis.add_to_ignore(&lines);
+}
 
-impl<'v, 'a> Visitor<'v> for CoverageVisitor<'a> {
- 
-    fn visit_item(&mut self, i: &'v Item) {
-        match i.node {
-            ItemKind::ExternCrate(..) => self.ignore_lines(i.span),
-            ItemKind::Fn(_, _, _, _, ref gen, ref block) => {
-                if attr::contains_name(&i.attrs, "test") && self.config.ignore_tests {
-                    self.ignore_lines(i.span);
-                    self.ignore_lines(block.deref().span);
-                } else if attr::contains_name(&i.attrs, "inline") {
-                    self.cover_lines(block.deref().span);
-                }
-                if attr::contains_name(&i.attrs, "ignore") && !self.config.run_ignored {
-                    self.ignore_lines(i.span);
-                    self.ignore_lines(block.deref().span);
-                }
-                self.ignore_where_statements(gen, i.span);
+
+fn process_items(items: &[Item], ctx: &Context, analysis: &mut LineAnalysis) {
+    for item in items.iter() {
+        match item {
+            &Item::ExternCrate(ref i) => analysis.ignore_span(&i.extern_token.0),
+            &Item::Use(ref i) => analysis.ignore_span(&i.use_token.0),
+            &Item::Mod(ref i) => visit_mod(&i, analysis, ctx),
+            &Item::Fn(ref i) => visit_fn(&i, analysis, ctx),
+            &Item::Struct(ref i) => {
+                analysis.ignore_span(&i.span());
             },
-            ItemKind::Impl(_, _, _, _, _, _, ref items) => {
-                for i in items {
-                    match i.node {
-                        ImplItemKind::Method(ref sig,_) => {
-                            self.cover_lines(i.span);
-                            self.ignore_where_statements(&sig.generics, i.span);
-                        }
-                        _ => {},
-                    }
-                }
+            &Item::Enum(ref i) => {
+                analysis.ignore_span(&i.span());
+            }
+            &Item::Union(ref i) => {
+                analysis.ignore_span(&i.span());
             },
-            ItemKind::Use(_) => {
-                self.ignore_lines(i.span);
-            }
-            _ => {},
-        }
-        visit::walk_item(self, i);
-    }
-
-
-    fn visit_mod(&mut self, m: &'v Mod, s: Span, _attrs: &[Attribute], _n: NodeId) {
-        // If mod is cfg(test) and --ignore-tests ignore contents!
-        if let Ok(fl) = self.codemap.span_to_lines(s) {
-            if self.config.ignore_tests && self.contains_cfg_test(_attrs) {
-                self.ignore_lines(s);
-                if fl.lines.len() == 1 {
-                    // Ignore the file
-                    self.ignore_lines(m.inner);
-                }
-            }
-            else { 
-                if fl.lines.len() == 1 {
-                    // mod imports show up as coverable. Ignore
-                    self.ignore_lines(s);
-                }
-                let mod_path = PathBuf::from(self.codemap.span_to_filename(m.inner));
-                if !self.covered.contains(&mod_path) {
-                    visit::walk_mod(self, m);
-                }
-            }
+            &Item::Trait(ref i) => visit_trait(&i, analysis, ctx),
+            &Item::Impl(ref i) => visit_impl(&i, analysis, ctx),
+            &Item::Macro(ref i) => visit_macro_call(&i.mac, analysis),
+            _ =>{}
         } 
     }
-   
+}
 
-    fn visit_trait_item(&mut self, ti: &TraitItem) {
-        match ti.node {
-            TraitItemKind::Method(_, Some(ref b)) => {
-                self.cover_lines(b.span);
-            },
+
+fn process_statements(stmts: &[Stmt], ctx: &Context, analysis: &mut LineAnalysis) {
+    for stmt in stmts.iter() {
+        match stmt {
+            &Stmt::Item(ref i) => process_items(&[i.clone()], ctx, analysis),
+            &Stmt::Expr(ref i) => process_expr(&i, ctx, analysis),
+            &Stmt::Semi(ref i, _) => process_expr(&i, ctx, analysis),
             _ => {},
         }
-        visit::walk_trait_item(self, ti);
-    }
-
-    fn visit_fn(&mut self, fk: FnKind, fd: &FnDecl, s: Span, _: NodeId) {
-        match fk {
-            FnKind::ItemFn(_, g, _,_,_,_,_) => {
-                if !g.ty_params.is_empty() {
-                    self.cover_lines(s);
-                }
-            },
-            FnKind::Method(_, sig, _, _) => {
-                if !sig.generics.ty_params.is_empty() {
-                    self.cover_lines(s);
-                }
-            },
-            _ => {},
-        }
-        visit::walk_fn(self, fk, fd, s);
-    }
-
-    fn visit_expr(&mut self, ex: &Expr) {
-        if let Ok(s) = self.codemap.span_to_lines(ex.span) {
-            // If expression is multiple lines we might have to remove some of 
-            // said lines.
-            if s.lines.len() > 1 {
-                let mut cover: HashSet<usize>  = HashSet::new();
-                match ex.node {
-                    ExprKind::Call(_, ref args) => {
-                        cover.insert(s.lines[0].line_index);
-                        for a in args {
-                            match a.node {
-                                ExprKind::Lit(..) => {},
-                                _ => {
-                                    for l in self.get_line_indexes(a.span) {
-                                        cover.insert(l);
-                                    }
-                                },
-                            }
-                        }
-                    },
-                    ExprKind::MethodCall(_, _, ref args) => {
-                        let mut it = args.iter();
-                        it.next(); // First is function call
-                        for i in it {
-                            match i.node {
-                                ExprKind::Lit(..) => {},
-                                _ => {
-                                    for l in self.get_line_indexes(i.span) {
-                                        cover.insert(l);
-                                    }
-                                },
-                            }
-                        }
-                    },
-                    ExprKind::Mac(ref mac) => {
-                        self.ignore_mac_args(&mac.node, ex.span);
-                    },
-                    ExprKind::Struct(_, ref fields, _) => {
-                        for f in fields.iter() {
-                            match f.expr.node {
-                                ExprKind::Lit(_) | ExprKind::Path(_,_) => {
-                                    self.ignore_lines(f.span);
-                                }, 
-                                _ => {},
-                            }
-                        }
-                    },
-                    _ => {},
-                }
-                if !cover.is_empty() {
-                    let pb = PathBuf::from(self.codemap.span_to_filename(ex.span) as String);
-                    for l in &s.lines {
-                        if !cover.contains(&l.line_index) {
-                            self.lines.push((pb.clone(), l.line_index + 1));
-                        }
-                    }
-                }
-            }
-        }
-        visit::walk_expr(self, ex);
-    }
-
-    fn visit_mac_def(&mut self, mac: &MacroDef, _id: NodeId) {
-        // Makes sure the macro definitions have ignorable lines ignored as well.
-        for token in mac.stream().into_trees() {
-            match token {
-                TokenTree::Token(span, _) => self.find_ignorable_lines(span),
-                TokenTree::Delimited(span, _) => self.find_ignorable_lines(span),
-            }
-        }
-    }
-
-    fn visit_mac(&mut self, mac: &Mac) {
-        // Use this to ignore unreachable lines
-        let mac_text = &format!("{}", mac.node.path)[..];
-        // TODO unimplemented should have extra logic to exclude the
-        // function from coverage
-        match mac_text {
-            "unimplemented" | "unreachable" | "include" => self.ignore_lines(mac.span),
-            _ => self.ignore_mac_args(&mac.node, mac.span),
-        }
-        visit::walk_mac(self, mac);
-    }
-
-
-    /// Ignores attributes which may get identified as coverable lines.
-    fn visit_attribute(&mut self, attr: &Attribute) {
-        if attr.check_name("derive") {
-            self.ignore_lines(attr.span);
-        }
-    }
-
-    
-    /// Struct fields are mistakenly identified as instructions and uncoverable.
-    fn visit_struct_field(&mut self, s: &'v StructField) {
-        self.ignore_lines(s.span);
-        visit::walk_struct_field(self, s);
-    }
-
-
-    fn visit_block(&mut self, b: &'v Block) {
-        self.find_ignorable_lines(b.span);
-        if let BlockCheckMode::Unsafe(ref u) = b.rules {
-            if u == &UnsafeSource::UserProvided {
-                // if first statement line isn't first line of block
-                // you can ignore first line cause it's just `unsafe {`
-                let block_lines = self.codemap.span_to_lines(b.span);
-                let first_line = if let Ok(x) = block_lines {
-                    match x.lines.first() {
-                        Some(y) => Some(y.line_index),
-                        _ => None,
-                    }
-                } else {
-                    None
-                }
-                ;
-                if let Some(s) = b.stmts.first() {
-                    let inner_lines = self.codemap.span_to_lines(s.span);
-                    let inner_line = if let Ok(x) = inner_lines {
-                        match x.lines.first() {
-                            Some(y) => Some(y.line_index),
-                            _ => None,
-                        }
-                    } else {
-                        None 
-                    };
-                    if first_line.is_some() && first_line != inner_line {
-                        let pb = PathBuf::from(self.codemap.span_to_filename(b.span) as String);
-                        self.lines.push((pb, first_line.unwrap() +1));
-                    }
-                }
-            }
-        }
-        visit::walk_block(self, b);
-    }
-
-
-    fn visit_stmt(&mut self, s: &Stmt) {
-        match s.node {
-            StmtKind::Mac(ref p) => {
-                let ref mac = p.0.node;
-                self.ignore_mac_args(mac, s.span);
-            },
-            _ => {}
-        }
-        visit::walk_stmt(self, s);
     }
 }
 
+
+fn visit_mod(module: &ItemMod, analysis: &mut LineAnalysis, ctx: &Context) {
+    analysis.ignore_span(&module.mod_token.0); 
+    let mut check_insides = true;
+    if ctx.config.ignore_tests {
+        for attr in &module.attrs {
+            if let Some(Meta::List(ref ml)) = attr.interpret_meta() {
+                if ml.ident != Ident::from("cfg") {
+                    continue;
+                }
+                for nested in &ml.nested {
+                    if let &NestedMeta::Meta(Meta::Word(i)) = nested {
+                        if i == &Ident::from("test") {
+                            check_insides = false;
+                            analysis.ignore_span(&module.mod_token.0);
+                            if let Some((ref braces, _)) = module.content {
+                                analysis.ignore_span(&braces.0);
+                            }
+                        }
+                    }
+                }
+            }
+        }
+    }
+    if check_insides {
+        if let Some((_, ref items)) = module.content {
+            process_items(items, ctx, analysis);
+        }
+    }
+}
+
+
+fn visit_fn(func: &ItemFn, analysis: &mut LineAnalysis, ctx: &Context) {
+    let mut test_func = false;
+    let mut ignored_attr = false;
+    let mut is_inline = false;
+    for attr in &func.attrs {
+        if let Some(x) = attr.interpret_meta() {
+            let id = x.name();
+            if id == Ident::from("test") {
+                test_func = true;
+            } else if id == Ident::from("derive") {
+                analysis.ignore_span(&attr.bracket_token.0);
+            } else if id == Ident::from("inline") {
+                is_inline = true;
+            } else if id == Ident::from("ignore") {
+                ignored_attr = true;
+            }
+        }
+    }
+    if test_func && ctx.config.ignore_tests {
+        if !(ignored_attr && !ctx.config.run_ignored) {
+            analysis.ignore_span(&func.decl.fn_token.0);
+            analysis.ignore_span(&func.block.brace_token.0);
+        }
+    } else {
+        if is_inline {
+            // We need to force cover!
+            analysis.cover_span(&func.block.brace_token.0, Some(ctx.file_contents));
+        }
+        process_statements(&func.block.stmts, ctx, analysis);
+        visit_generics(&func.decl.generics, analysis);
+    }
+}
+
+
+fn visit_trait(trait_item: &ItemTrait, analysis: &mut LineAnalysis, ctx: &Context) {
+    for item in trait_item.items.iter() {
+        if let &TraitItem::Method(ref i) = item {
+            if let Some(ref default_impl) = i.default {
+                analysis.cover_span(&i.sig.decl.fn_token.0, None);
+                analysis.cover_span(&default_impl.brace_token.0, Some(ctx.file_contents));
+            }
+        }
+    }
+    visit_generics(&trait_item.generics, analysis);
+}
+
+
+fn visit_impl(impl_blk: &ItemImpl, analysis: &mut LineAnalysis, ctx: &Context) {
+    for item in impl_blk.items.iter() {
+        if let &ImplItem::Method(ref i) = item {
+            analysis.cover_span(&i.sig.decl.fn_token.0, None);
+            analysis.cover_span(&i.block.brace_token.0, Some(ctx.file_contents));
+            process_statements(&i.block.stmts, ctx, analysis);
+        }
+    }
+    visit_generics(&impl_blk.generics, analysis);
+}
+
+
+fn visit_generics(generics: &Generics, analysis: &mut LineAnalysis) {
+    if let Some(ref wh) = generics.where_clause {
+        let span = wh.where_token.0;
+        let mut lines: Vec<usize> = Vec::new();
+        if span.start().column == 0 {
+            lines.push(span.start().line);
+        }
+        for l in span.start().line+1..span.end().line +1 {
+            lines.push(l);
+        }
+        analysis.add_to_ignore(&lines);
+    }
+}
+
+
+fn process_expr(expr: &Expr, ctx: &Context, analysis: &mut LineAnalysis) {
+    match expr {
+        &Expr::Macro(ref m) => visit_macro_call(&m.mac, analysis),
+        &Expr::Struct(ref s) => visit_struct_expr(&s, analysis),
+        &Expr::Unsafe(ref u) => visit_unsafe_block(&u, ctx, analysis),
+        &Expr::Call(ref c) => visit_callable(&c, analysis),
+        &Expr::MethodCall(ref m) => visit_methodcall(&m, analysis),
+        _ => {},
+    }
+}
+
+fn get_coverable_args(args: &Punctuated<Expr, Comma>) -> HashSet<usize> {
+    let mut lines:HashSet<usize> = HashSet::new();
+    for a in args.iter() {
+        let s = a.span();
+        match a {
+            &Expr::Lit(_) => {},
+            _ => {
+                for i in s.start().line..(s.end().line+1) {
+                    lines.insert(i);
+                }
+            }
+        }
+    }
+    lines
+}
+
+
+fn visit_callable(call: &ExprCall, analysis: &mut LineAnalysis ) {
+    let start = call.span().start().line + 1;
+    let end = call.span().end().line + 1;
+    let lines = get_coverable_args(&call.args);
+    let lines = (start..end).filter(|x| !lines.contains(&x))
+                            .collect::<Vec<_>>();
+    analysis.add_to_ignore(&lines);
+
+}
+
+
+fn visit_methodcall(meth: &ExprMethodCall, analysis: &mut LineAnalysis) {
+    let start = meth.span().start().line + 1;
+    let end = meth.span().end().line + 1;
+    let lines = get_coverable_args(&meth.args);
+    let lines = (start..end).filter(|x| !lines.contains(&x))
+                            .collect::<Vec<_>>();
+
+    analysis.add_to_ignore(&lines);
+}
+
+
+fn visit_unsafe_block(unsafe_expr: &ExprUnsafe, ctx: &Context, analysis: &mut LineAnalysis) {
+    let u_line = unsafe_expr.unsafe_token.0.start().line;
+
+    let blk = &unsafe_expr.block;
+    if u_line != blk.brace_token.0.start().line || blk.stmts.is_empty()  {
+        analysis.ignore_span(&unsafe_expr.unsafe_token.0);
+    } else if let Some(ref first_stmt) = blk.stmts.iter().nth(0) {
+        let s = match first_stmt {
+            &&Stmt::Local(ref l) => l.span(),
+            &&Stmt::Item(ref i) => i.span(),
+            &&Stmt::Expr(ref e) => e.span(),
+            &&Stmt::Semi(ref e, _) => e.span(),
+        };
+        if u_line != s.start().line {
+            analysis.ignore_span(&unsafe_expr.unsafe_token.0);
+        }
+        process_statements(&blk.stmts, ctx, analysis); 
+    } else {
+        analysis.ignore_span(&unsafe_expr.unsafe_token.0);
+        analysis.ignore_span(&blk.brace_token.0);
+    }
+}
+
+
+fn visit_struct_expr(structure: &ExprStruct, analysis: &mut LineAnalysis) {
+    let mut cover: HashSet<usize> = HashSet::new();
+    let mut start = 0usize;
+    let mut end = 0usize;
+    for field in structure.fields.pairs() {
+        let first = match field {
+            Pair::Punctuated(t, _) => {t},
+            Pair::End(t) => {t},
+        };
+        let span = match first.member {
+            Member::Named(ref i) => i.span(),
+            Member::Unnamed(ref i) => i.span,
+        };
+        start = min(start, span.start().line);
+        end = max(start, span.start().line);
+        match first.expr {
+            Expr::Lit(_) | Expr::Path(_) => {},
+            _=>{ 
+                cover.insert(span.start().line);
+            },
+        }
+    }
+    let x = (start..(end+1)).filter(|x| !cover.contains(&x))
+                            .collect::<Vec<usize>>();
+    analysis.add_to_ignore(&x);
+}
+
+
+fn visit_macro_call(mac: &Macro, analysis: &mut LineAnalysis) {
+    let mut skip = false;
+    let start = mac.span().start().line + 1;
+    let end = mac.span().end().line + 1;
+    if let Some(End(ref name)) = mac.path.segments.last() {
+        if name.ident == Ident::from("unreachable") || name.ident == Ident::from("unimplemented") || name.ident == Ident::from("include") {
+            analysis.ignore_span(&mac.span());
+            skip = true;
+        } 
+    }
+    if !skip {
+        let lines = process_mac_args(&mac.tts);
+        let lines = (start..end).filter(|x| !lines.contains(&x))
+                                .collect::<Vec<_>>();
+        analysis.add_to_ignore(&lines);
+    }
+}
+
+
+fn process_mac_args(tokens: &TokenStream) -> HashSet<usize> {
+    let mut cover: HashSet<usize> = HashSet::new();
+    // IntoIter not implemented for &TokenStream.
+    for token in tokens.clone().into_iter() {
+        let t = token.span();
+        match token {
+            TokenTree::Literal(_) | TokenTree::Op(_) => {},
+            _ => { 
+                for i in t.start().line..(t.end().line+1) {
+                    cover.insert(i);
+                }
+            },
+        }
+    }
+    cover
+}
 
 
 #[cfg(test)]
 mod tests {
     use super::*;
-    use syntex_syntax::parse::filemap_to_parser;
-    use syntex_syntax::parse::parser::Parser;
+    use syn::parse_file;
 
-    struct TestContext {
-        conf: Config,
-        codemap: Rc<CodeMap>,
-        parse_session: ParseSess
-    }
-
-    impl TestContext {
-        fn generate_parser(&self, filename: &str, src_string: &str) -> Parser {
-            let filemap = self.codemap.new_filemap(filename.to_string(), 
-                                                   src_string.to_string());
-            filemap_to_parser(&self.parse_session, filemap)
-        }
-    }
-
-    impl Default for TestContext {
-        fn default() -> TestContext {
-            let codemap = Rc::new(CodeMap::new(FilePathMapping::empty()));
-            let handler = Handler::with_tty_emitter(ColorConfig::Auto, false, false, Some(codemap.clone()));
-            let parse_session = ParseSess::with_span_handler(handler, codemap.clone());
-            TestContext {
-                conf: Config::default(),
-                codemap: codemap,
-                parse_session: parse_session
-            }
-        }
-    }
-
-    fn parse_crate(ctx: &TestContext, parser: &mut Parser) -> Vec<usize>  {
-        let krate = parser.parse_crate_mod();
-        assert!(krate.is_ok());
-        let krate = krate.unwrap();
-        let unused: HashSet<PathBuf> = HashSet::new();
-        let mut visitor = CoverageVisitor::from_session(&ctx.parse_session, &unused, &ctx.conf);
-        visitor.visit_mod(&krate.module, krate.span, &krate.attrs, NodeId::new(0));
-        visitor.lines.iter().map(|x| x.1).collect::<Vec<_>>()
-    }
-    
     #[test] 
     fn filter_str_literals() {
-        let ctx = TestContext::default();
-        let mut parser = ctx.generate_parser("literals.rs", "fn test() {\nwriteln!(#\"test\n\ttest\n\ttest\"#);\n}\n");
-        let lines = parse_crate(&ctx, &mut parser);
-        assert!(lines.len() > 1);
-        assert!(lines.contains(&3));
-        assert!(lines.contains(&4));
+        let mut lines = LineAnalysis::new();
+        let config = Config::default();
+        let ctx = Context {
+            config: &config,
+            file_contents: "fn test() {\nwriteln!(#\"test\n\ttest\n\ttest\"#);\n}\n",
+        };
+        let parser = parse_file(ctx.file_contents).unwrap();
+        process_items(&parser.items, &ctx, &mut lines);
+        assert!(lines.ignore.len() > 1);
+        assert!(lines.ignore.contains(&3));
+        assert!(lines.ignore.contains(&4));
         
-        let ctx = TestContext::default();
-        let mut parser = ctx.generate_parser("literals.rs", "fn test() {\nwrite(\"test\ntest\ntest\");\n}\nfn write(s:&str){}");
-        let lines = parse_crate(&ctx, &mut parser);
-        assert!(lines.len() > 1);
-        assert!(lines.contains(&3));
-        assert!(lines.contains(&4));
+        let ctx = Context {
+            config: &config,
+            file_contents: "fn test() {\nwrite(\"test\ntest\ntest\");\n}\nfn write(s:&str){}",
+        };
+        let parser = parse_file(ctx.file_contents).unwrap();
+        let mut lines = LineAnalysis::new();
+        process_items(&parser.items, &ctx, &mut lines);
+        assert!(lines.ignore.len() > 1);
+        assert!(lines.ignore.contains(&3));
+        assert!(lines.ignore.contains(&4));
         
-        let ctx = TestContext::default();
-        let mut parser = ctx.generate_parser("literals.rs", "\n\nfn test() {\nwriteln!(\n#\"test\"#\n);\n}\n");
-        let lines = parse_crate(&ctx, &mut parser);
-        assert!(lines.contains(&5));
+        let mut lines = LineAnalysis::new();
+        let ctx = Context {
+            config: &config,
+            file_contents: "\n\nfn test() {\nwriteln!(\n#\"test\"#\n);\n}\n",
+        };
+        let parser = parse_file(ctx.file_contents).unwrap();
+        process_items(&parser.items, &ctx, &mut lines);
+        assert!(lines.ignore.contains(&5));
     }
 
     #[test]
     fn filter_struct_members() {
-        let ctx = TestContext::default();
-        let mut parser = ctx.generate_parser("struct_test.rs", "#[derive(Debug)]\npub struct Struct {\npub i: i32,\nj:String,\n}");
-        let lines = parse_crate(&ctx, &mut parser);
+        let config = Config::default();
+        let mut lines = LineAnalysis::new();
+        let ctx = Context {
+            config: &config,
+            file_contents: "#[derive(Debug)]\npub struct Struct {\npub i: i32,\nj:String,\n}",
+        };
+        let parser = parse_file(ctx.file_contents).unwrap();
+        process_items(&parser.items, &ctx, &mut lines);
         
-        assert_eq!(lines.len(), 3);
-        assert!(lines.contains(&1)); 
-        assert!(lines.contains(&3)); 
-        assert!(lines.contains(&4)); 
+        assert!(lines.ignore.len()> 3);
+        assert!(lines.ignore.contains(&1)); 
+        assert!(lines.ignore.contains(&3)); 
+        assert!(lines.ignore.contains(&4)); 
     }
 
     #[test]
     fn filter_struct_consts() {
-        let ctx = TestContext::default();
-        let mut parser = ctx.generate_parser("struct_test.rs", 
-                                             "struct T{x:String, y:i32}\nfn test()-> T {\nT{\nx:\"hello\".to_string(),\ny:4,\n}\n}");
-        
-        let lines = parse_crate(&ctx, &mut parser);
-        assert!(lines.contains(&5));
+        let config = Config::default();
+        let mut lines = LineAnalysis::new();
+        let ctx = Context {
+            config: &config,
+            file_contents: "struct T{x:String, y:i32}\nfn test()-> T {\nT{\nx:\"hello\".to_string(),\ny:4,\n}\n}",
+        };
+        let parser = parse_file(ctx.file_contents).unwrap();
+        process_items(&parser.items, &ctx, &mut lines);
+        assert!(lines.ignore.contains(&5));
     }
 
     #[test]
     fn filter_mods() {
-        let ctx = TestContext::default();
-        let mut parser = ctx.generate_parser("test.rs", "mod foo {\nfn double(x:i32)->i32 {\n x*2\n}\n}");
-        let lines = parse_crate(&ctx, &mut parser);
-        assert!(!lines.contains(&3));
+        let config = Config::default();
+        let ctx = Context {
+            config: &config,
+            file_contents: "mod foo {\nfn double(x:i32)->i32 {\n x*2\n}\n}",
+        };
+        let parser = parse_file(ctx.file_contents).unwrap();
+        let mut lines = LineAnalysis::new();
+        process_items(&parser.items, &ctx, &mut lines);
+        assert!(!lines.ignore.contains(&3));
         
-        let mut parser = ctx.generate_parser("test.rs", "mod foo{}");
-        let lines = parse_crate(&ctx, &mut parser);
-        assert!(lines.contains(&1));
+        let mut lines = LineAnalysis::new();
+        let ctx = Context {
+            config: &config,
+            file_contents: "mod foo;",
+        };
+        let parser = parse_file(ctx.file_contents).unwrap();
+        process_items(&parser.items, &ctx, &mut lines);
+        assert!(lines.ignore.contains(&1));
+        
+        let mut lines = LineAnalysis::new();
+        let ctx = Context {
+            config: &config,
+            file_contents: "mod foo{}",
+        };
+        let parser = parse_file(ctx.file_contents).unwrap();
+        process_items(&parser.items, &ctx, &mut lines);
+        assert!(lines.ignore.contains(&1));
     }
 
     #[test]
     fn filter_macros() {
-        let ctx = TestContext::default();
-        let mut parser = ctx.generate_parser("test.rs", "\n\nfn unused() {\nunimplemented!();\n}"); 
+        let config = Config::default();
+        let mut lines = LineAnalysis::new();
+        let ctx = Context {
+            config: &config,
+            file_contents: "\n\nfn unused() {\nunimplemented!();\n}",
+        };
+        let parser = parse_file(ctx.file_contents).unwrap();
+        process_items(&parser.items, &ctx, &mut lines);
         
-        let lines = parse_crate(&ctx, &mut parser);
         // Braces should be ignored so number could be higher
-        assert!(lines.len() >= 1);
-        assert!(lines.contains(&4));
+        assert!(lines.ignore.len() >= 1);
+        assert!(lines.ignore.contains(&4));
         
-        let mut parser = ctx.generate_parser("test.rs", "fn unused() {\nunreachable!();\n}"); 
-        let lines = parse_crate(&ctx, &mut parser);
-        assert!(lines.len() >= 1);
-        assert!(lines.contains(&2));
+        let mut lines = LineAnalysis::new();
+        let ctx = Context {
+            config: &config,
+            file_contents: "\n\nfn unused() {\nunreachable!();\n}",
+        };
+        let parser = parse_file(ctx.file_contents).unwrap();
+        process_items(&parser.items, &ctx, &mut lines);
+        assert!(lines.ignore.len() >= 1);
+        assert!(lines.ignore.contains(&4));
         
-        let mut parser = ctx.generate_parser("test.rs", "fn unused() {\nprintln!(\"text\");\n}"); 
-        let lines = parse_crate(&ctx, &mut parser);
-        assert!(!lines.contains(&2));
+        let mut lines = LineAnalysis::new();
+        let ctx = Context {
+            config: &config,
+            file_contents: "fn unused() {\nprintln!(\"text\");\n}",
+        };
+        let parser = parse_file(ctx.file_contents).unwrap();
+        process_items(&parser.items, &ctx, &mut lines);
+        assert!(!lines.ignore.contains(&2));
     }
    
     #[test]
     fn filter_tests() {
-        let ctx = TestContext::default();
-        let src_string = "#[cfg(test)]\nmod tests {\n fn boo(){\nassert!(true);\n}\n}";
-        let mut parser = ctx.generate_parser("test.rs", src_string);
-        let lines = parse_crate(&ctx, &mut parser);
-        assert!(!lines.contains(&4));
+        let config = Config::default();
+        let mut igconfig = Config::default();
+        igconfig.ignore_tests = true;
 
-        let mut ctx = TestContext::default();
-        ctx.conf.ignore_tests = true;
-        let mut parser = ctx.generate_parser("test.rs", src_string);
-        let lines = parse_crate(&ctx, &mut parser);
-        assert!(lines.contains(&4));
+        let mut lines = LineAnalysis::new();
+        let ctx = Context {
+            config: &config,
+            file_contents: "#[cfg(test)]\nmod tests {\n fn boo(){\nassert!(true);\n}\n}",
+        };
+        let parser = parse_file(ctx.file_contents).unwrap();
+        process_items(&parser.items, &ctx, &mut lines);
+        assert!(!lines.ignore.contains(&4));
+        
+        let ctx = Context {
+            config: &igconfig,
+            file_contents: "#[cfg(test)]\nmod tests {\n fn boo(){\nassert!(true);\n}\n}",
+        };
 
-        let ctx = TestContext::default();
-        let src_string = "#[test]\nfn mytest() { \n assert!(true);\n}";
-        let mut parser = ctx.generate_parser("test.rs", src_string);
-        let lines = parse_crate(&ctx, &mut parser);
-        assert!(!lines.contains(&2));
-        assert!(!lines.contains(&3));
+        let mut lines = LineAnalysis::new();
+        process_items(&parser.items, &ctx, &mut lines);
+        assert!(lines.ignore.contains(&4));
 
-        let mut ctx = TestContext::default();
-        ctx.conf.ignore_tests = true;
-        let mut parser = ctx.generate_parser("test.rs", src_string);
-        let lines = parse_crate(&ctx, &mut parser);
-        assert!(lines.contains(&2));
-        assert!(lines.contains(&3));
+        let ctx = Context {
+            config: &config,
+            file_contents: "#[test]\nfn mytest() { \n assert!(true);\n}",
+        };
+        let parser = parse_file(ctx.file_contents).unwrap();
+        let mut lines = LineAnalysis::new();
+        process_items(&parser.items, &ctx, &mut lines);
+        assert!(!lines.ignore.contains(&2));
+        assert!(!lines.ignore.contains(&3));
 
+        let ctx = Context {
+            config: &igconfig,
+            file_contents: "#[test]\nfn mytest() { \n assert!(true);\n}",
+        };
+        let mut lines = LineAnalysis::new();
+        process_items(&parser.items, &ctx, &mut lines);
+        assert!(lines.ignore.contains(&2));
+        assert!(lines.ignore.contains(&3));
+    }
+
+
+    #[test]
+    fn filter_where() {
+        let config = Config::default();
+        let mut lines = LineAnalysis::new();
+        let ctx = Context {
+            config: &config,
+            file_contents: "fn boop<T>() -> T  where T:Default {\nT::default()\n}",
+        };
+        let parser = parse_file(ctx.file_contents).unwrap();
+        process_items(&parser.items, &ctx, &mut lines);
+        assert!(!lines.ignore.contains(&1));
+        
+        let mut lines = LineAnalysis::new();
+        let ctx = Context {
+            config: &config,
+            file_contents: "fn boop<T>() -> T \nwhere T:Default {\nT::default()\n}",
+        };
+        let parser = parse_file(ctx.file_contents).unwrap();
+        process_items(&parser.items, &ctx, &mut lines);
+        assert!(lines.ignore.contains(&2));
+    }
+
+
+    #[test]
+    fn filter_derives() {
+        let config = Config::default();
+        let mut lines = LineAnalysis::new();
+        let ctx = Context {
+            config: &config,
+            file_contents: "#[derive(Debug)]\nstruct T;",
+        };
+        let parser = parse_file(ctx.file_contents).unwrap();
+        process_items(&parser.items, &ctx, &mut lines);
+        assert!(lines.ignore.contains(&1));
+
+
+        let mut lines = LineAnalysis::new();
+        let ctx = Context {
+            config: &config,
+            file_contents: "\n#[derive(Copy, Eq)]\nunion x { x:i32, y:f32}",
+        };
+        let parser = parse_file(ctx.file_contents).unwrap();
+        process_items(&parser.items, &ctx, &mut lines);
+        assert!(lines.ignore.contains(&2));
+    }
+
+    #[test]
+    fn filter_unsafe() {
+        let config = Config::default();
+        let mut lines = LineAnalysis::new();
+        let ctx = Context {
+            config: &config, 
+            file_contents: "fn unsafe_fn() {\n let x=1;\nunsafe {\nprintln!(\"{}\", x);\n}\n}",
+        };
+        let parser = parse_file(ctx.file_contents).unwrap();
+        process_items(&parser.items, &ctx, &mut lines);
+        assert!(lines.ignore.contains(&3));
+        assert!(!lines.ignore.contains(&4));
+        
+        let mut lines = LineAnalysis::new();
+        let ctx = Context {
+            config: &config, 
+            file_contents: "fn unsafe_fn() {\n let x=1;\nunsafe {println!(\"{}\", x);}\n}",
+        };
+        let parser = parse_file(ctx.file_contents).unwrap();
+        process_items(&parser.items, &ctx, &mut lines);
+        assert!(!lines.ignore.contains(&3));
     }
 }

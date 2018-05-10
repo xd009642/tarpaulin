@@ -1,12 +1,13 @@
 extern crate nix;
 extern crate cargo;
 extern crate gimli;
-extern crate syntex_syntax;
 extern crate object;
 extern crate memmap;
 extern crate coveralls_api;
 extern crate fallible_iterator;
 extern crate rustc_demangle;
+extern crate syn;
+extern crate proc_macro2;
 #[macro_use]
 extern crate clap;
 #[macro_use]
@@ -15,7 +16,7 @@ extern crate serde;
 extern crate serde_json;
 extern crate quick_xml;
 extern crate regex;
-
+extern crate walkdir;
 
 use std::env;
 use std::io;
