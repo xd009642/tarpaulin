@@ -28,6 +28,6 @@ coveralls-api = "0.3.3"
 quick-xml = "0.12.1"
 regex = "1.0.0"
 lazy_static = "1.0"
-syn = { version = "0.13.6", features = ["full"]}
+syn = { version = "0.13.7", features = ["full"]}
 proc-macro2 = "0.3.8"
 walkdir = "2"

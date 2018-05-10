@@ -224,9 +224,15 @@ fn process_items(items: &[Item], ctx: &Context, analysis: &mut LineAnalysis) {
             &Item::Use(ref i) => analysis.ignore_span(&i.use_token.0),
             &Item::Mod(ref i) => visit_mod(&i, analysis, ctx),
             &Item::Fn(ref i) => visit_fn(&i, analysis, ctx),
-            &Item::Struct(ref i) => visit_struct(&i, analysis),
-            &Item::Enum(ref i) => visit_enum(&i, analysis),
-            &Item::Union(ref i) => visit_union(&i, analysis),
+            &Item::Struct(ref i) => {
+                analysis.ignore_span(&i.span());
+            },
+            &Item::Enum(ref i) => {
+                analysis.ignore_span(&i.span());
+            }
+            &Item::Union(ref i) => {
+                analysis.ignore_span(&i.span());
+            },
             &Item::Trait(ref i) => visit_trait(&i, analysis, ctx),
             &Item::Impl(ref i) => visit_impl(&i, analysis, ctx),
             &Item::Macro(ref i) => visit_macro_call(&i.mac, analysis),
@@ -313,17 +319,6 @@ fn visit_fn(func: &ItemFn, analysis: &mut LineAnalysis, ctx: &Context) {
 }
 
 
-fn visit_struct(structure: &ItemStruct, analysis: &mut LineAnalysis) {
-    for field in &structure.fields {
-        if let Some(colon) = field.colon_token {
-            analysis.ignore_span(&colon.0[0]);
-        }
-    }
-    ignore_derive_attrs(&structure.attrs, analysis);
-    visit_generics(&structure.generics, analysis);
-}
-
-
 fn visit_trait(trait_item: &ItemTrait, analysis: &mut LineAnalysis, ctx: &Context) {
     for item in trait_item.items.iter() {
         if let &TraitItem::Method(ref i) = item {
@@ -349,18 +344,6 @@ fn visit_impl(impl_blk: &ItemImpl, analysis: &mut LineAnalysis, ctx: &Context) {
 }
 
 
-fn visit_enum(enumeration: &ItemEnum, analysis: &mut LineAnalysis) {
-    ignore_derive_attrs(&enumeration.attrs, analysis);
-    visit_generics(&enumeration.generics, analysis);
-}
-
-
-fn visit_union(uni: &ItemUnion, analysis: &mut LineAnalysis) {
-    ignore_derive_attrs(&uni.attrs, analysis);
-    visit_generics(&uni.generics, analysis);
-}
-
-
 fn visit_generics(generics: &Generics, analysis: &mut LineAnalysis) {
     if let Some(ref wh) = generics.where_clause {
         let span = wh.where_token.0;
@@ -372,17 +355,6 @@ fn visit_generics(generics: &Generics, analysis: &mut LineAnalysis) {
             lines.push(l);
         }
         analysis.add_to_ignore(&lines);
-    }
-}
-
-
-fn ignore_derive_attrs(attrs: &[Attribute], analysis: &mut LineAnalysis) {
-    for attr in attrs {
-        if let Some(x) = attr.interpret_meta() {
-            if x.name() == Ident::from("derive") {
-                analysis.ignore_span(&attr.bracket_token.0);
-            }
-        }
     }
 }
 
@@ -577,7 +549,7 @@ mod tests {
         let parser = parse_file(ctx.file_contents).unwrap();
         process_items(&parser.items, &ctx, &mut lines);
         
-        assert_eq!(lines.ignore.len(), 3);
+        assert!(lines.ignore.len()> 3);
         assert!(lines.ignore.contains(&1)); 
         assert!(lines.ignore.contains(&3)); 
         assert!(lines.ignore.contains(&4)); 
