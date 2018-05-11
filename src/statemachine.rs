@@ -265,7 +265,10 @@ impl <'a> StateData for LinuxData<'a> {
                     TestState::Unrecoverable
                 }
             },
-            WaitStatus::Stopped(_, Signal::SIGSEGV) => TestState::Unrecoverable,
+            WaitStatus::Stopped(_, Signal::SIGSEGV) => {
+                self.error_message = Some("Error a segfault occured when executing test".to_string());
+                TestState::Unrecoverable
+            },
             WaitStatus::Stopped(c, s) => {
                 let sig = if self.config.forward_signals {
                     Some(s)

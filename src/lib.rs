@@ -268,6 +268,9 @@ fn collect_coverage(project: &Workspace,
                 break;
             }
         }
+        if let Some(m) = data.error_message {
+            println!("{}", m);
+        }
         if state == TestState::Abort  {
             println!("Can't collect coverage data. Exiting");
             std::process::exit(1);
