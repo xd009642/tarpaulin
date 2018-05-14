@@ -199,6 +199,11 @@ impl <'a> StateData for LinuxData<'a> {
                         instrumented = false;
                         break;
                     }
+                    Err(NixErr::UnsupportedOperation) => {
+                        if self.config.verbose {
+                            println!("Instrumentation address clash, ignoring 0x{:x}", addr);
+                        }
+                    },
                     Err(_) => {
                         self.error_message = Some("Failed to instrument test executable".to_string());
                     },
