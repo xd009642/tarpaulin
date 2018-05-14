@@ -378,6 +378,9 @@ impl <'a>LinuxData<'a> {
                 let updated = if let Ok(x) = bp.process(self.current, enable) {
                      x
                 } else {
+                    // So failed to process a breakpoint.. Still continue to avoid
+                    // stalling
+                    continue_exec(self.current, None)?;
                     false
                 };
                 if updated {
