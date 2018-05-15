@@ -236,20 +236,24 @@ fn get_line_addresses(endian: RunTimeEndian,
                     FunctionType::Generated => (a, LineType::TestMain),
                 }
             }).collect::<Vec<_>>();
+        
         if let Ok(Some((_, root))) = cu.entries(&abbr).next_dfs() {
             let offset = match root.attr_value(DW_AT_stmt_list) {
                 Ok(Some(AttributeValue::DebugLineRef(o))) => o,
                 _ => continue,
             };
             let prog = debug_line.program(offset, addr_size, None, None)?;
-            let mut temp_map:HashMap<SourceLocation, Vec<TracerData>> = HashMap::new();
+            let mut temp_map : HashMap<SourceLocation, Vec<TracerData>> = HashMap::new();
             if let Err(e) = get_addresses_from_program(prog, &entries, project, &mut temp_map) {
                 if config.verbose {
                     println!("Potential issue reading test addresses {}", e);
                 }
             }
             else {
-                
+                // Deduplicate addresses 
+                for (_, v) in temp_map.iter_mut() {
+                    v.dedup_by_key(|x| x.address);
+                }
                 let temp_map = temp_map.into_iter()
                                        .filter(|&(ref k, _)| !(config.ignore_tests && k.path.starts_with(project.join("tests"))))
                                        .filter(|&(ref k, _)| !(config.exclude_path(&k.path)))

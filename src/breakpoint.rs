@@ -1,7 +1,7 @@
 use std::collections::HashMap;
 use nix::libc::c_long;
 use nix::unistd::Pid;
-use nix::Result;
+use nix::{Result, Error};
 use ptrace_control::*;
 
 #[cfg(any(target_arch = "x86", target_arch = "x86_64"))]
@@ -51,7 +51,11 @@ impl Breakpoint {
         self.is_running.insert(pid, true);
         let mut intdata = data & (!(0xFFu64 << self.shift) as i64);
         intdata |= (INT << self.shift) as i64;
-        write_to_address(pid, self.aligned_address(), intdata)
+        if data == intdata {
+            Err(Error::UnsupportedOperation)
+        } else {
+            write_to_address(pid, self.aligned_address(), intdata)
+        }
     }
     
     fn disable(&self, pid: Pid) -> Result<c_long> {
@@ -69,7 +73,7 @@ impl Breakpoint {
             None => true,
         };
         if is_running {
-            self.enable(pid)?;
+            let _ = self.enable(pid);
             self.step(pid)?;
             self.is_running.insert(pid, false);
             Ok(true)

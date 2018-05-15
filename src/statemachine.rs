@@ -199,6 +199,11 @@ impl <'a> StateData for LinuxData<'a> {
                         instrumented = false;
                         break;
                     }
+                    Err(NixErr::UnsupportedOperation) => {
+                        if self.config.verbose {
+                            println!("Instrumentation address clash, ignoring 0x{:x}", addr);
+                        }
+                    },
                     Err(_) => {
                         self.error_message = Some("Failed to instrument test executable".to_string());
                     },
@@ -265,7 +270,10 @@ impl <'a> StateData for LinuxData<'a> {
                     TestState::Unrecoverable
                 }
             },
-            WaitStatus::Stopped(_, Signal::SIGSEGV) => TestState::Unrecoverable,
+            WaitStatus::Stopped(_, Signal::SIGSEGV) => {
+                self.error_message = Some("Error a segfault occured when executing test".to_string());
+                TestState::Unrecoverable
+            },
             WaitStatus::Stopped(c, s) => {
                 let sig = if self.config.forward_signals {
                     Some(s)
@@ -375,6 +383,9 @@ impl <'a>LinuxData<'a> {
                 let updated = if let Ok(x) = bp.process(self.current, enable) {
                      x
                 } else {
+                    // So failed to process a breakpoint.. Still continue to avoid
+                    // stalling
+                    continue_exec(self.current, None)?;
                     false
                 };
                 if updated {
