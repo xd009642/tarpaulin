@@ -503,6 +503,19 @@ mod tests {
     use super::*;
     use syn::parse_file;
 
+    #[test]
+    fn line_analysis_works() {
+        let mut la = LineAnalysis::new();
+        assert!(!la.should_ignore(&0));
+        assert!(!la.should_ignore(&10));
+        
+        la.add_to_ignore(&[3,4, 10]);
+        assert!(la.should_ignore(&3));
+        assert!(la.should_ignore(&4));
+        assert!(la.should_ignore(&10));
+        assert!(!la.should_ignore(&1));
+    }
+
     #[test] 
     fn filter_str_literals() {
         let mut lines = LineAnalysis::new();
@@ -553,6 +566,16 @@ mod tests {
         assert!(lines.ignore.contains(&1)); 
         assert!(lines.ignore.contains(&3)); 
         assert!(lines.ignore.contains(&4)); 
+        
+        let ctx = Context {
+            config: &config,
+            file_contents: "#[derive(Debug)]\npub struct Struct (\n i32\n);",
+        };
+        let parser = parse_file(ctx.file_contents).unwrap();
+        process_items(&parser.items, &ctx, &mut lines);
+        
+        assert!(!lines.ignore.is_empty());
+        assert!(lines.ignore.contains(&3)); 
     }
 
     #[test]
