@@ -63,7 +63,7 @@ impl LineAnalysis {
 
     /// Adds the lines of the provided span to the cover set
     pub fn cover_span(&mut self, span: &Span, contents: Option<&str>) {
-        let mut useless_lines: HashSet<usize> = HashSet::new();
+        let mut useful_lines: HashSet<usize> = HashSet::new();
         if let Some(ref c) = contents {
             lazy_static! {
                 static ref SINGLE_LINE: Regex = Regex::new(r"\s*//\n").unwrap();
@@ -87,12 +87,12 @@ impl LineAnalysis {
                     true
                 };
                 if is_code && !SINGLE_LINE.is_match(line) {
-                    useless_lines.insert(i+1);    
+                    useful_lines.insert(i+1);    
                 }
             }
         }
         for i in span.start().line..(span.end().line +1) {
-            if !self.ignore.contains(&i) && !useless_lines.contains(&i) {
+            if !self.ignore.contains(&i) && useful_lines.contains(&i) {
                 self.cover.insert(i);
             }
         }
@@ -322,9 +322,9 @@ fn visit_fn(func: &ItemFn, analysis: &mut LineAnalysis, ctx: &Context) {
 fn visit_trait(trait_item: &ItemTrait, analysis: &mut LineAnalysis, ctx: &Context) {
     for item in trait_item.items.iter() {
         if let &TraitItem::Method(ref i) = item {
-            if let Some(ref default_impl) = i.default {
+            if i.default.is_some() {
+                analysis.cover_span(&item.span(), Some(ctx.file_contents));
                 analysis.cover_span(&i.sig.decl.fn_token.0, None);
-                analysis.cover_span(&default_impl.brace_token.0, Some(ctx.file_contents));
             }
         }
     }
@@ -788,5 +788,58 @@ mod tests {
         let parser = parse_file(ctx.file_contents).unwrap();
         process_items(&parser.items, &ctx, &mut lines);
         assert!(!lines.ignore.contains(&3));
+    }
+
+    #[test]
+    fn cover_default_trait_methods() {
+        let config = Config::default();
+        let mut lines = LineAnalysis::new();
+        let ctx = Context {
+            config: &config, 
+            file_contents: "trait Thing {
+                fn hw(&self) {
+                    println!(\"hello world\");
+                    }
+                }",
+        };
+        let parser = parse_file(ctx.file_contents).unwrap();
+        process_items(&parser.items, &ctx, &mut lines);
+        assert!(lines.cover.contains(&2));
+        assert!(lines.cover.contains(&3));
+
+    }
+
+    #[test]
+    fn filter_method_args() {
+        let config = Config::default();
+        let mut lines = LineAnalysis::new();
+        let ctx = Context {
+            config: &config, 
+            file_contents: "struct Thing;                   
+            impl Thing{                                     
+                fn hw(&self, name: &str) {                  
+                    println!(\"hello {}\", name);           
+                }                                           //5
+            }                                               
+                                                            
+            fn get_name() -> String {                       
+                return \"Daniel\".to_string()               
+            }                                               //10
+                                                            
+            fn main() {                                     
+                let s=Thing{};                              
+                s.hw(                                       
+                    \"Paul\"                                //15
+                );                                          
+                                                            
+                s.hw(                                       
+                    &get_name()                             
+                );                                          //20
+            }",
+        };
+        let parser = parse_file(ctx.file_contents).unwrap();
+        process_items(&parser.items, &ctx, &mut lines);
+        assert!(lines.ignore.contains(&15));
+        assert!(!lines.ignore.contains(&19));
     }
 }
