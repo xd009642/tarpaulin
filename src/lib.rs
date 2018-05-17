@@ -136,7 +136,7 @@ pub fn launch_tarpaulin(config: &Config) -> Result<TraceMap, i32> {
 
 fn setup_environment(cargo_config: &CargoConfig) {
     let rustflags = "RUSTFLAGS";
-    let mut value = "-C relocation-model=dynamic-no-pic -C link-dead-code -C opt-level=0".to_string();
+    let mut value = " -C relocation-model=dynamic-no-pic -C link-dead-code -C opt-level=0 ".to_string();
     let env_linker = env::var(rustflags)
                         .ok()
                         .and_then(|flags| flags.split(' ')
@@ -172,7 +172,6 @@ fn setup_environment(cargo_config: &CargoConfig) {
         value.push_str(vtemp.as_ref());
     }
     env::set_var(rustflags, value);
-
 }
 
 
