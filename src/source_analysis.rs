@@ -579,6 +579,25 @@ mod tests {
     }
 
     #[test]
+    fn filter_enum_members() {
+        let config = Config::default();
+        let mut lines = LineAnalysis::new();
+        let ctx = Context {
+            config: &config,
+            file_contents: "#[derive(Debug)]\npub enum E {\nI1,\nI2(u32),\nI3{\nx:u32,\n},\n}",
+        };
+        let parser = parse_file(ctx.file_contents).unwrap();
+        process_items(&parser.items, &ctx, &mut lines);
+        
+        assert!(lines.ignore.len()> 3);
+        assert!(lines.ignore.contains(&3)); 
+        assert!(lines.ignore.contains(&4)); 
+        assert!(lines.ignore.contains(&5)); 
+        assert!(lines.ignore.contains(&6)); 
+        assert!(lines.ignore.contains(&7)); 
+    }
+
+    #[test]
     fn filter_struct_consts() {
         let config = Config::default();
         let mut lines = LineAnalysis::new();
