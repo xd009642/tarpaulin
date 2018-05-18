@@ -20,6 +20,10 @@ script:
 - cargo clean
 - RUST_BACKTRACE=1 cargo build
 - cargo test
+after_success: |
+    if [[$TRAVIS_BRANCH == "develop"]]; then
+        ./ci/trigger_docker_build.sh
+    fi
 before_deploy:
     - cargo package
     - sh ci/before_deploy.sh
