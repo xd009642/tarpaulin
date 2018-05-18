@@ -21,9 +21,9 @@ script:
 - RUST_BACKTRACE=1 cargo build
 - cargo test
 after_success: |
-    if [[$TRAVIS_BRANCH == "develop"]]; then
-        ./ci/trigger_docker_build.sh
-    fi
+    test $TRAVIS_BRANCH = develop &&
+    test $TRAVIS_RUST_VERSION = stable &&
+    ./ci/trigger_docker_build.sh
 before_deploy:
     - cargo package
     - sh ci/before_deploy.sh
