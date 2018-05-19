@@ -211,14 +211,14 @@ fn get_line_addresses(endian: RunTimeEndian,
                       config: &Config) -> Result<TraceMap>  {
 
     let mut result = TraceMap::new();
-    let debug_info = obj.section_data_by_name(".debug_info").unwrap_or(&[]);
-    let debug_info = DebugInfo::new(debug_info, endian);
-    let debug_abbrev = obj.section_data_by_name(".debug_abbrev").unwrap_or(&[]);
-    let debug_abbrev = DebugAbbrev::new(debug_abbrev, endian);
-    let debug_strings = obj.section_data_by_name(".debug_str").unwrap_or(&[]);
-    let debug_strings = DebugStr::new(debug_strings, endian);
-    let debug_line = obj.section_data_by_name(".debug_line").unwrap_or(&[]);
-    let debug_line = DebugLine::new(debug_line, endian);
+    let debug_info = obj.section_data_by_name(".debug_info").unwrap_or_default();
+    let debug_info = DebugInfo::new(&debug_info, endian);
+    let debug_abbrev = obj.section_data_by_name(".debug_abbrev").unwrap_or_default();
+    let debug_abbrev = DebugAbbrev::new(&debug_abbrev, endian);
+    let debug_strings = obj.section_data_by_name(".debug_str").unwrap_or_default();
+    let debug_strings = DebugStr::new(&debug_strings, endian);
+    let debug_line = obj.section_data_by_name(".debug_line").unwrap_or_default();
+    let debug_line = DebugLine::new(&debug_line, endian);
 
     let mut iter = debug_info.units();
     while let Ok(Some(cu)) = iter.next() {
