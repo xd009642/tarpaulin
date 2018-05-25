@@ -48,6 +48,8 @@ environment with cargo install:
 cargo install cargo-tarpaulin
 ```
 
+If you use nested use statements you need the latest develop build of tarpaulin as `syntex\_syntax` dependency can't handle them. To install tarpaulin via cargo with this you need the following command `RUSTFLAGS="--cfg procmacro2_semver_exempt" cargo install cargo-tarpaulin --git https://github.com/xd009642/tarpaulin --branch develop` or you can use the docker develop image.
+
 ### Command line
 
 To get detailed help on available arguments when running tarpaulin call:
