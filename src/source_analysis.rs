@@ -260,12 +260,12 @@ fn visit_mod(module: &ItemMod, analysis: &mut LineAnalysis, ctx: &Context) {
     if ctx.config.ignore_tests {
         for attr in &module.attrs {
             if let Some(Meta::List(ref ml)) = attr.interpret_meta() {
-                if ml.ident != Ident::from("cfg") {
+                if ml.ident != "cfg" {
                     continue;
                 }
                 for nested in &ml.nested {
-                    if let &NestedMeta::Meta(Meta::Word(i)) = nested {
-                        if i == &Ident::from("test") {
+                    if let &NestedMeta::Meta(Meta::Word(ref i)) = nested {
+                        if i == "test" {
                             check_insides = false;
                             analysis.ignore_span(&module.mod_token.0);
                             if let Some((ref braces, _)) = module.content {
@@ -292,13 +292,13 @@ fn visit_fn(func: &ItemFn, analysis: &mut LineAnalysis, ctx: &Context) {
     for attr in &func.attrs {
         if let Some(x) = attr.interpret_meta() {
             let id = x.name();
-            if id == Ident::from("test") {
+            if id == "test" {
                 test_func = true;
-            } else if id == Ident::from("derive") {
+            } else if id == "derive" {
                 analysis.ignore_span(&attr.bracket_token.0);
-            } else if id == Ident::from("inline") {
+            } else if id == "inline" {
                 is_inline = true;
-            } else if id == Ident::from("ignore") {
+            } else if id == "ignore" {
                 ignored_attr = true;
             }
         }
@@ -466,7 +466,7 @@ fn visit_macro_call(mac: &Macro, analysis: &mut LineAnalysis) {
     let start = mac.span().start().line + 1;
     let end = mac.span().end().line + 1;
     if let Some(End(ref name)) = mac.path.segments.last() {
-        if name.ident == Ident::from("unreachable") || name.ident == Ident::from("unimplemented") || name.ident == Ident::from("include") {
+        if name.ident == "unreachable" || name.ident == "unimplemented" || name.ident == "include" {
             analysis.ignore_span(&mac.span());
             skip = true;
         } 
@@ -486,7 +486,7 @@ fn process_mac_args(tokens: &TokenStream) -> HashSet<usize> {
     for token in tokens.clone().into_iter() {
         let t = token.span();
         match token {
-            TokenTree::Literal(_) | TokenTree::Op(_) => {},
+            TokenTree::Literal(_) => {},
             _ => { 
                 for i in t.start().line..(t.end().line+1) {
                     cover.insert(i);
