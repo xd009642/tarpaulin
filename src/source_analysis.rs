@@ -486,7 +486,7 @@ fn process_mac_args(tokens: &TokenStream) -> HashSet<usize> {
     for token in tokens.clone().into_iter() {
         let t = token.span();
         match token {
-            TokenTree::Literal(_) => {},
+            TokenTree::Literal(_) | TokenTree::Punct{..} => {},
             _ => { 
                 for i in t.start().line..(t.end().line+1) {
                     cover.insert(i);
