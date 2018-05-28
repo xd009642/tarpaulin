@@ -221,7 +221,7 @@ fn process_items(items: &[Item], ctx: &Context, analysis: &mut LineAnalysis) {
     for item in items.iter() {
         match item {
             &Item::ExternCrate(ref i) => analysis.ignore_span(&i.extern_token.0),
-            &Item::Use(ref i) => analysis.ignore_span(&i.use_token.0),
+            &Item::Use(ref i) => analysis.ignore_span(&i.span()),
             &Item::Mod(ref i) => visit_mod(&i, analysis, ctx),
             &Item::Fn(ref i) => visit_fn(&i, analysis, ctx),
             &Item::Struct(ref i) => {
@@ -841,5 +841,20 @@ mod tests {
         process_items(&parser.items, &ctx, &mut lines);
         assert!(lines.ignore.contains(&15));
         assert!(!lines.ignore.contains(&19));
+    }
+
+    #[test]
+    fn filter_use_statements() {
+        let config = Config::default();
+        let mut lines = LineAnalysis::new();
+        let ctx = Context {
+            config: &config, 
+            file_contents: "use std::collections::HashMap;
+            use std::{ffi::CString, os::raw::c_char};"
+        };
+        let parser = parse_file(ctx.file_contents).unwrap();
+        process_items(&parser.items, &ctx, &mut lines);
+        assert!(lines.ignore.contains(&1));
+        assert!(lines.ignore.contains(&2));
     }
 }
