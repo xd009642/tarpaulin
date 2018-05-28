@@ -66,7 +66,7 @@ impl LineAnalysis {
         let mut useful_lines: HashSet<usize> = HashSet::new();
         if let Some(ref c) = contents {
             lazy_static! {
-                static ref SINGLE_LINE: Regex = Regex::new(r"\s*//\n").unwrap();
+                static ref SINGLE_LINE: Regex = Regex::new(r"\s*//").unwrap();
                 static ref MULTI_START: Regex = Regex::new(r"/\*").unwrap();
                 static ref MULTI_END: Regex = Regex::new(r"\*/").unwrap();
             }
@@ -856,5 +856,31 @@ mod tests {
         process_items(&parser.items, &ctx, &mut lines);
         assert!(lines.ignore.contains(&1));
         assert!(lines.ignore.contains(&2));
+    }
+
+    #[test]
+    fn include_inline_fns() {
+        let config = Config::default();
+        let mut lines = LineAnalysis::new();
+        let ctx = Context {
+            config: &config, 
+            file_contents: "#[inline]
+                fn inline_func() {
+                    // I shouldn't be covered 
+                    println!(\"I should\");
+                    /*
+                     None of us should
+                     */
+                    println!(\"But I will\");
+                }"
+        };
+        let parser = parse_file(ctx.file_contents).unwrap();
+        process_items(&parser.items, &ctx, &mut lines);
+        assert!(!lines.cover.contains(&3));
+        assert!(lines.cover.contains(&4));
+        assert!(!lines.cover.contains(&5));
+        assert!(!lines.cover.contains(&6));
+        assert!(!lines.cover.contains(&7));
+        assert!(lines.cover.contains(&8));
     }
 }
