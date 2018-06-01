@@ -15,7 +15,7 @@ name = "cargo-tarpaulin"
 [dependencies]
 nix = "0.10.0"
 libc = "0.2.40"
-gimli = "0.15.0"
+gimli = "0.16.0"
 fallible-iterator = "0.1.4"
 memmap = "0.6.2"
 object = "0.8"
