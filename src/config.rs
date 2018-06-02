@@ -101,7 +101,7 @@ impl Config {
         let ignored = args.is_present("ignored");
         let forward = args.is_present("forward");
         let skip_clean = args.is_present("skip-clean");
-        let no_count = args.is_present("no-count");
+        let no_count = !args.is_present("count");
         let ignore_tests = args.is_present("ignore-tests");
         let all_features = args.is_present("all-features");
         // If no coverage selected do everything!
