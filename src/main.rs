@@ -41,7 +41,7 @@ fn main() {
             .args_from_usage(
                  "--verbose -v 'Show extra output'
                  --ignore-tests 'ignore lines of test functions when collecting coverage'
-                 --no-count   'Disables counting line hits for a faster run'
+                 --no-count   'Disables counting line hits for a faster run (default)'
                  --ignored -i 'Run ignored tests as well'
                  --line -l    'Line coverage'
                  --skip-clean 'Skips the clean stage to reduce build times, may affect coverage results'
@@ -57,6 +57,8 @@ fn main() {
                  --exclude-files [FILE]... 'Exclude given files from coverage results has * wildcard'
                  --timeout -t [SECONDS] 'Integer for the maximum time in seconds without response from test before timeout (default is 1 minute).'")
             .args(&[
+                Arg::from_usage("--count 'Counts the number of hits during line coverage'")
+                    .conflicts_with("no-count"),
                 Arg::from_usage("--out -o [FMT]   'Output path'")
                     .possible_values(&OutputFile::variants())
                     .multiple(true),
