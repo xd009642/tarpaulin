@@ -2,7 +2,10 @@ extern crate cargo_tarpaulin;
 
 use cargo_tarpaulin::launch_tarpaulin;
 use cargo_tarpaulin::config::Config;
+use cargo_tarpaulin::traces::CoverageStat;
 use std::env;
+use std::time::Duration;
+
 
 #[test]
 fn incorrect_manifest_path() {
@@ -14,20 +17,20 @@ fn incorrect_manifest_path() {
 #[test]
 fn simple_project_coverage() {
     let mut config = Config::default();
-    config.manifest = env::current_dir().unwrap();
-    config.manifest.push("tests");
-    config.manifest.push("data");
-    config.manifest.push("simple_project");
-    config.manifest.push("Cargo.toml");
+    config.test_timeout = Duration::from_secs(60);
+    let mut test_dir = env::current_dir().unwrap();
+    test_dir.push("tests");
+    test_dir.push("data");
+    test_dir.push("simple_project");
+    config.manifest = test_dir.join("Cargo.toml");
     let res = launch_tarpaulin(&config).unwrap();
-    
-    let unused_hits = res.iter()
-                         .filter(|x| x.path.file_name().unwrap() == "unused.rs")
-                         .fold(0, |acc, ref x| acc + x.hits);
+    let unused_file = test_dir.join("src/unused.rs");
+    let unused_hits = res.covered_in_path(&unused_file);
+    let unused_lines = res.coverable_in_path(&unused_file);
     assert_eq!(unused_hits, 0);
-
-    let unused_hits = res.iter()
-                         .filter(|x| x.path.file_name().unwrap() == "unused.rs")
+    assert_eq!(unused_lines, 3);
+    let unused_hits = res.get_child_traces(&unused_file)
+                         .iter()
                          .map(|x| x.line)
                          .collect::<Vec<_>>();
 
@@ -36,11 +39,13 @@ fn simple_project_coverage() {
     assert!(unused_hits.contains(&5));
     assert!(unused_hits.contains(&6));
 
-    assert!(res.iter().any(|ref x| x.line == 6 && 
-                                   x.hits == 0 && 
-                                   x.path.file_name().unwrap() == "lib.rs")); 
-    
-    assert!(res.iter().any(|ref x| x.line == 8 && 
-                                   x.hits == 1 && 
-                                   x.path.file_name().unwrap() == "lib.rs")); 
+    let lib_file = test_dir.join("src/lib.rs");
+    let lib_traces = res.get_child_traces(&lib_file);
+    for l in &lib_traces {
+        if l.line == 6 {
+            assert_eq!(CoverageStat::Line(0), l.stats);
+        } else if l.line == 8 {
+            assert_eq!(CoverageStat::Line(1), l.stats);
+        }
+    }
 }
