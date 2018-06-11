@@ -1,9 +1,6 @@
 # Tarpaulin
 
-[![Build Status](https://travis-ci.org/xd009642/tarpaulin.svg?branch=master)](https://travis-ci.org/xd009642/tarpaulin) [![Latest Version](https://img.shields.io/crates/v/cargo-tarpaulin.svg)](https://crates.io/crates/cargo-tarpaulin)  [![License:MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
-
-**Tarpaulin is currently not working on rustc 1.23 stable or beta due to an issue
-in rustc, use nightly 1.23 in the interim**
+[![Build Status](https://travis-ci.org/xd009642/tarpaulin.svg?branch=master)](https://travis-ci.org/xd009642/tarpaulin) [![Latest Version](https://img.shields.io/crates/v/cargo-tarpaulin.svg)](https://crates.io/crates/cargo-tarpaulin)  [![License:MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT) ![](https://img.shields.io/docker/automated/xd009642/tarpaulin.svg)
 
 Tarpaulin is designed to be a code coverage reporting tool for the Cargo build
 system, named for a waterproof cloth used to cover cargo on a ship. Currently,
@@ -50,6 +47,8 @@ environment with cargo install:
 ```text
 cargo install cargo-tarpaulin
 ```
+
+If you use nested use statements you need the latest develop build of tarpaulin as `syntex\_syntax` dependency can't handle them. To install tarpaulin via cargo with this you need the following command `RUSTFLAGS="--cfg procmacro2_semver_exempt" cargo install cargo-tarpaulin --git https://github.com/xd009642/tarpaulin --branch develop` or you can use the docker develop image.
 
 ### Command line
 
@@ -162,14 +161,21 @@ after_success: |
 
 ### Docker
 
-To run Tarpaulin on any system that has Docker, run this in your project
-directory:
+Tarpaulin has builds deployed to [docker-hub](https://hub.docker.com/r/xd009642/tarpaulin/), 
+to run Tarpaulin on any system that has Docker, run this in your project directory:
 
 ```text
 docker run --security-opt seccomp=unconfined -v "$PWD:/volume" xd009642/tarpaulin
 ```
 
-This builds your project inside Docker and runs Tarpaulin without any arguments.
+This builds your project inside Docker and runs Tarpaulin without any arguments. There are
+also tags available for the latest version on the develop branch in stable or nightly. And 
+versions after 0.5.6 will have the latest release built with the rust stable and nightly 
+compilers. To get the latest development version built with rustc-nightly run the following:
+
+```text
+docker run --security-opt seccomp=unconfined -v "$PWD:/volume" xd009642/tarpaulin:develop-nightly
+```
 
 Note that the build might fail if the Docker image doesn't contain any necessary
 dependencies. In that case, you can install dependencies before, like this:
@@ -203,6 +209,9 @@ Normally, Tarpaulin can't report on code coverage within the code for a procedur
 Issues, feature requests and pull requests are always welcome! For a guide on
 how to approach bugs found in Tarpaulin and adding features please check 
 [CONTRIBUTING](CONTRIBUTING.md).
+
+Rust 1.23 introduced a regression in the compiler affecting tarpaulin's
+accuracy. If you see missing lines or files, check your compiler version.
 
 ## Roadmap
 
