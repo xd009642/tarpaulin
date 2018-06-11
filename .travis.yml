@@ -26,6 +26,8 @@ after_success: |
     ./ci/trigger_docker_build.sh
 before_deploy:
     - cargo package
+    # This avoids trying to publish with a dirty repo
+    - cargo publish --token "$CRATES_IO_TOKEN"
     - sh ci/before_deploy.sh
 deploy:
   provider: releases
@@ -38,5 +40,3 @@ deploy:
     repo: xd009642/tarpaulin
     condition: $TRAVIS_RUST_VERSION = stable
     tags: true
-after_deploy:
-  - cargo publish --token "$CRATES_IO_TOKEN"
