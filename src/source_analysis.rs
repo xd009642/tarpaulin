@@ -257,13 +257,17 @@ fn process_statements(stmts: &[Stmt], ctx: &Context, analysis: &mut LineAnalysis
 fn visit_mod(module: &ItemMod, analysis: &mut LineAnalysis, ctx: &Context) {
     analysis.ignore_span(&module.mod_token.0); 
     let mut check_insides = true;
-    if ctx.config.ignore_tests {
-        for attr in &module.attrs {
-            if let Some(x) = attr.interpret_meta() {
-                if check_cfg_attr(&x) {
-                    analysis.ignore_span(&module.span());
-                    check_insides = false;
-                } else if let Meta::List(ref ml) = x {
+    for attr in &module.attrs {
+        if let Some(x) = attr.interpret_meta() {
+            if check_cfg_attr(&x) {
+                analysis.ignore_span(&module.span());
+                if let Some((ref braces, _)) = module.content {
+                    analysis.ignore_span(&braces.0);
+                }
+                check_insides = false;
+                break;
+            } else if ctx.config.ignore_tests {
+                if let Meta::List(ref ml) = x {
                     if ml.ident != "cfg" {
                         continue;
                     }
@@ -917,5 +921,54 @@ mod tests {
         assert!(!lines.cover.contains(&6));
         assert!(!lines.cover.contains(&7));
         assert!(lines.cover.contains(&8));
+    }
+
+
+    #[test]
+    fn tarpaulin_ignore_attr() {
+        let config = Config::default();
+        let mut lines = LineAnalysis::new();
+        let ctx = Context {
+            config: &config, 
+            file_contents: "#[cfg_attr(tarpaulin, skip)]
+                fn skipped() {
+                    println!(\"Hello world\");
+                }
+            
+            #[cfg_attr(tarpaulin, not_a_thing)]
+            fn covered() {
+                println!(\"hell world\");
+            }
+            "
+        };
+        let parser = parse_file(ctx.file_contents).unwrap();
+        process_items(&parser.items, &ctx, &mut lines);
+        assert!(lines.ignore.contains(&2));
+        assert!(lines.ignore.contains(&3));
+        assert!(!lines.ignore.contains(&7));
+        assert!(!lines.ignore.contains(&8));
+        
+        let mut lines = LineAnalysis::new();
+        let ctx = Context {
+            config: &config, 
+            file_contents: "#[cfg_attr(tarpaulin, skip)]
+            mod ignore_all {
+                fn skipped() {
+                    println!(\"Hello world\");
+                }
+                
+                #[cfg_attr(tarpaulin, not_a_thing)]
+                fn covered() {
+                    println!(\"hell world\");
+                }
+            }
+            "
+        };
+        let parser = parse_file(ctx.file_contents).unwrap();
+        process_items(&parser.items, &ctx, &mut lines);
+        assert!(lines.ignore.contains(&3));
+        assert!(lines.ignore.contains(&4));
+        assert!(lines.ignore.contains(&8));
+        assert!(lines.ignore.contains(&9));
     }
 }
