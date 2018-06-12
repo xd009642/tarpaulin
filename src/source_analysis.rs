@@ -333,6 +333,19 @@ fn visit_fn(func: &ItemFn, analysis: &mut LineAnalysis, ctx: &Context) {
     }
 }
 
+fn check_attr_list(attrs: &[Attribute]) -> bool {
+    let mut check_cover = true;
+    for attr in attrs {
+        if let Some(x) = attr.interpret_meta() {
+            if check_cfg_attr(&x) {
+                check_cover = false;
+                break;
+            }
+        }
+    }
+    check_cover
+}
+
 fn check_cfg_attr(attr: &Meta) -> bool {
     let mut ignore_span = false;
     let id = attr.name();
@@ -359,27 +372,43 @@ fn check_cfg_attr(attr: &Meta) -> bool {
 
 
 fn visit_trait(trait_item: &ItemTrait, analysis: &mut LineAnalysis, ctx: &Context) {
-    for item in trait_item.items.iter() {
-        if let &TraitItem::Method(ref i) = item {
-            if i.default.is_some() {
-                analysis.cover_span(&item.span(), Some(ctx.file_contents));
-                analysis.cover_span(&i.sig.decl.fn_token.0, None);
+    let check_cover = check_attr_list(&trait_item.attrs);
+    if check_cover {
+        for item in trait_item.items.iter() {
+            if let &TraitItem::Method(ref i) = item {
+                if i.default.is_some() && check_attr_list(&i.attrs) {
+                    analysis.cover_span(&item.span(), Some(ctx.file_contents));
+                    analysis.cover_span(&i.sig.decl.fn_token.0, None);
+                } else {
+                    analysis.ignore_span(&i.span());
+                }
             }
         }
+        visit_generics(&trait_item.generics, analysis);
+    } else {
+        analysis.ignore_span(&trait_item.span());
     }
-    visit_generics(&trait_item.generics, analysis);
 }
 
 
 fn visit_impl(impl_blk: &ItemImpl, analysis: &mut LineAnalysis, ctx: &Context) {
-    for item in impl_blk.items.iter() {
-        if let &ImplItem::Method(ref i) = item {
-            analysis.cover_span(&i.sig.decl.fn_token.0, None);
-            analysis.cover_span(&i.block.brace_token.0, Some(ctx.file_contents));
-            process_statements(&i.block.stmts, ctx, analysis);
+    let check_cover = check_attr_list(&impl_blk.attrs);
+    if check_cover {
+        for item in impl_blk.items.iter() {
+            if let &ImplItem::Method(ref i) = item {
+                if check_attr_list(&i.attrs) {
+                    analysis.cover_span(&i.sig.decl.fn_token.0, None);
+                    analysis.cover_span(&i.block.brace_token.0, Some(ctx.file_contents));
+                    process_statements(&i.block.stmts, ctx, analysis);
+                } else {
+                    analysis.ignore_span(&i.span());
+                }
+            }
         }
+        visit_generics(&impl_blk.generics, analysis);
+    } else {
+        analysis.ignore_span(&impl_blk.span());
     }
-    visit_generics(&impl_blk.generics, analysis);
 }
 
 
@@ -925,7 +954,7 @@ mod tests {
 
 
     #[test]
-    fn tarpaulin_ignore_attr() {
+    fn tarpaulin_skip_attr() {
         let config = Config::default();
         let mut lines = LineAnalysis::new();
         let ctx = Context {
@@ -970,5 +999,109 @@ mod tests {
         assert!(lines.ignore.contains(&4));
         assert!(lines.ignore.contains(&8));
         assert!(lines.ignore.contains(&9));
+    }
+
+
+    #[test]
+    fn tarpaulin_skip_trait_attrs() {
+        let config = Config::default();
+        let mut lines = LineAnalysis::new();
+        let ctx = Context {
+            config: &config, 
+            file_contents: "#[cfg_attr(tarpaulin, skip)]
+                trait Foo {
+                    fn bar() {
+                        println!(\"Hello world\");
+                    }
+                
+                    
+                    fn not_covered() {
+                        println!(\"hell world\");
+                    }
+                }
+            "
+        };
+        let parser = parse_file(ctx.file_contents).unwrap();
+        process_items(&parser.items, &ctx, &mut lines);
+        assert!(lines.ignore.contains(&3));
+        assert!(lines.ignore.contains(&4));
+        assert!(lines.ignore.contains(&8));
+        assert!(lines.ignore.contains(&9));
+        
+        let mut lines = LineAnalysis::new();
+        let ctx = Context {
+            config: &config, 
+            file_contents: "trait Foo {
+                    fn bar() {
+                        println!(\"Hello world\");
+                    }
+                
+                    #[cfg_attr(tarpaulin, skip)] 
+                    fn not_covered() {
+                        println!(\"hell world\");
+                    }
+                }
+            "
+        };
+        let parser = parse_file(ctx.file_contents).unwrap();
+        process_items(&parser.items, &ctx, &mut lines);
+        println!("{:?}", lines.ignore);
+        assert!(!lines.ignore.contains(&2));
+        assert!(!lines.ignore.contains(&3));
+        assert!(lines.ignore.contains(&7));
+        assert!(lines.ignore.contains(&8));
+    }
+    
+   
+    #[test]
+    fn tarpaulin_skip_impl_attrs() {
+        let config = Config::default();
+        let mut lines = LineAnalysis::new();
+        let ctx = Context {
+            config: &config, 
+            file_contents: "struct Foo;
+                #[cfg_attr(tarpaulin, skip)]
+                impl Foo {
+                    fn bar() {
+                        println!(\"Hello world\");
+                    }
+                
+                    
+                    fn not_covered() {
+                        println!(\"hell world\");
+                    }
+                }
+            "
+        };
+        let parser = parse_file(ctx.file_contents).unwrap();
+        process_items(&parser.items, &ctx, &mut lines);
+        assert!(lines.ignore.contains(&4));
+        assert!(lines.ignore.contains(&5));
+        assert!(lines.ignore.contains(&9));
+        assert!(lines.ignore.contains(&10));
+        
+        let mut lines = LineAnalysis::new();
+        let ctx = Context {
+            config: &config, 
+            file_contents: "struct Foo;
+                impl Foo {
+                    fn bar() {
+                        println!(\"Hello world\");
+                    }
+                
+                    
+                    #[cfg_attr(tarpaulin, skip)]
+                    fn not_covered() {
+                        println!(\"hell world\");
+                    }
+                }
+            "
+        };
+        let parser = parse_file(ctx.file_contents).unwrap();
+        process_items(&parser.items, &ctx, &mut lines);
+        assert!(!lines.ignore.contains(&3));
+        assert!(!lines.ignore.contains(&4));
+        assert!(lines.ignore.contains(&9));
+        assert!(lines.ignore.contains(&10));
     }
 }

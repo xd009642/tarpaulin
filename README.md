@@ -108,6 +108,18 @@ coverage results submitted (although you can still see them on the coveralls
 web interface). For an example of a project using Tarpaulin, you can check out
 my crate [keygraph-rs](https://github.com/xd009642/keygraph-rs).
 
+### Ignoring code in files.
+
+Tarpaulin now allows you to ignore modules or functions using config attributes.
+Below is an example of ignoring the main function in a project:
+
+```Rust
+#[cfg_attr(tarpaulin, skip)]
+fn main() {
+    println!("I won't be included in results");
+}
+```
+
 ### Travis-ci and Coverage Sites
 
 The expected most common usecase is launching coverage via a CI service to
