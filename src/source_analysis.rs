@@ -259,17 +259,22 @@ fn visit_mod(module: &ItemMod, analysis: &mut LineAnalysis, ctx: &Context) {
     let mut check_insides = true;
     if ctx.config.ignore_tests {
         for attr in &module.attrs {
-            if let Some(Meta::List(ref ml)) = attr.interpret_meta() {
-                if ml.ident != "cfg" {
-                    continue;
-                }
-                for nested in &ml.nested {
-                    if let &NestedMeta::Meta(Meta::Word(ref i)) = nested {
-                        if i == "test" {
-                            check_insides = false;
-                            analysis.ignore_span(&module.mod_token.0);
-                            if let Some((ref braces, _)) = module.content {
-                                analysis.ignore_span(&braces.0);
+            if let Some(x) = attr.interpret_meta() {
+                if check_cfg_attr(&x) {
+                    analysis.ignore_span(&module.span());
+                    check_insides = false;
+                } else if let Meta::List(ref ml) = x {
+                    if ml.ident != "cfg" {
+                        continue;
+                    }
+                    for nested in &ml.nested {
+                        if let &NestedMeta::Meta(Meta::Word(ref i)) = nested {
+                            if i == "test" {
+                                check_insides = false;
+                                analysis.ignore_span(&module.mod_token.0);
+                                if let Some((ref braces, _)) = module.content {
+                                    analysis.ignore_span(&braces.0);
+                                }
                             }
                         }
                     }
@@ -289,6 +294,7 @@ fn visit_fn(func: &ItemFn, analysis: &mut LineAnalysis, ctx: &Context) {
     let mut test_func = false;
     let mut ignored_attr = false;
     let mut is_inline = false;
+    let mut ignore_span = false;
     for attr in &func.attrs {
         if let Some(x) = attr.interpret_meta() {
             let id = x.name();
@@ -300,10 +306,15 @@ fn visit_fn(func: &ItemFn, analysis: &mut LineAnalysis, ctx: &Context) {
                 is_inline = true;
             } else if id == "ignore" {
                 ignored_attr = true;
+            } else if check_cfg_attr(&x) {
+                ignore_span = true;
+                break;
             }
         }
     }
-    if test_func && ctx.config.ignore_tests {
+    if ignore_span {
+        analysis.ignore_span(&func.span());
+    } else if test_func && ctx.config.ignore_tests {
         if !(ignored_attr && !ctx.config.run_ignored) {
             analysis.ignore_span(&func.decl.fn_token.0);
             analysis.ignore_span(&func.block.brace_token.0);
@@ -316,6 +327,30 @@ fn visit_fn(func: &ItemFn, analysis: &mut LineAnalysis, ctx: &Context) {
         process_statements(&func.block.stmts, ctx, analysis);
         visit_generics(&func.decl.generics, analysis);
     }
+}
+
+fn check_cfg_attr(attr: &Meta) -> bool {
+    let mut ignore_span = false;
+    let id = attr.name();
+    if id == "cfg_attr" {
+        if let Meta::List(ml) = attr {
+            let mut skip_match = false;
+            let list = vec!["tarpaulin", "skip"];
+            for (p, x) in ml.nested.iter().zip(list.iter()) {
+                match p {
+                    NestedMeta::Meta(Meta::Word(ref i)) => {
+                        skip_match = i == x;
+                    },
+                    _ => skip_match = false,
+                }
+                if !skip_match {
+                    break;
+                }
+            }
+            ignore_span = skip_match;
+        }
+    }
+    ignore_span 
 }
 
 
