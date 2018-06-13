@@ -435,14 +435,20 @@ fn process_expr(expr: &Expr, ctx: &Context, analysis: &mut LineAnalysis) {
         &Expr::Call(ref c) => visit_callable(&c, analysis),
         &Expr::MethodCall(ref m) => visit_methodcall(&m, analysis),
         &Expr::Match(ref m) => visit_match(&m, ctx, analysis),
-        &Expr::Block(ref b) => visit_block(&b, ctx, analysis),
+        &Expr::Block(ref b) => visit_block(&b.block, ctx, analysis),
+        &Expr::If(ref i) => visit_if(&i, ctx, analysis),
+        &Expr::IfLet(ref i) => visit_if_let(&i, ctx, analysis),
+        &Expr::While(ref w) => visit_while(&w, ctx, analysis),
+        &Expr::WhileLet(ref w) => visit_while_let(&w, ctx, analysis),
+        &Expr::ForLoop(ref f) => visit_for(&f, ctx, analysis),
+        &Expr::Loop(ref l) => visit_loop(&l, ctx, analysis),
         _ => {},
     }
 }
 
 
-fn visit_block(block: &ExprBlock, ctx: &Context, analysis: &mut LineAnalysis) {
-    process_statements(&block.block.stmts, ctx, analysis);
+fn visit_block(block: &Block, ctx: &Context, analysis: &mut LineAnalysis) {
+    process_statements(&block.stmts, ctx, analysis);
 }
 
 
@@ -450,6 +456,42 @@ fn visit_match(mat: &ExprMatch, ctx: &Context, analysis: &mut LineAnalysis) {
     for arm in &mat.arms {
         process_expr(&arm.body, ctx, analysis);
     }
+}
+
+
+fn visit_if(if_block: &ExprIf, ctx: &Context, analysis: &mut LineAnalysis) {
+    visit_block(&if_block.then_branch, ctx, analysis);
+    if let Some((_ ,ref else_block)) = if_block.else_branch {
+        process_expr(&else_block, ctx, analysis);
+    }
+}
+
+
+fn visit_if_let(if_let: &ExprIfLet, ctx: &Context, analysis: &mut LineAnalysis) {
+    visit_block(&if_let.then_branch, ctx, analysis);
+    if let Some((_ ,ref else_block)) = if_let.else_branch {
+        process_expr(&else_block, ctx, analysis);
+    }
+}
+
+
+fn visit_while(whl: &ExprWhile, ctx: &Context, analysis: &mut LineAnalysis) {
+    visit_block(&whl.body, ctx, analysis);
+}
+
+
+fn visit_while_let(while_let: &ExprWhileLet, ctx: &Context, analysis: &mut LineAnalysis) {
+    visit_block(&while_let.body, ctx, analysis);
+}
+
+
+fn visit_for(for_loop: &ExprForLoop, ctx: &Context, analysis: &mut LineAnalysis) {
+    visit_block(&for_loop.body, ctx, analysis);
+}
+
+
+fn visit_loop(loopex: &ExprLoop, ctx: &Context, analysis: &mut LineAnalysis) {
+    visit_block(&loopex.body, ctx, analysis);
 }
 
 
@@ -1194,5 +1236,34 @@ mod tests {
         let parser = parse_file(ctx.file_contents).unwrap();
         process_items(&parser.items, &ctx, &mut lines);
         assert!(lines.ignore.contains(&5));
+    }
+
+    #[test]
+    fn filter_nested_blocks() {
+        let config = Config::default();
+        let mut lines = LineAnalysis::new();
+        let ctx = Context {
+            config: &config, 
+            file_contents: "fn block() {
+                {
+                    loop {
+                        for i in 1..2 {
+                            if false {
+                                while let Some(x) = Some(6) {
+                                    while false { 
+                                        if let Ok(y) = Ok(4) {
+                                            unreachable!();
+                                        }
+                                    }
+                                }
+                            }
+                        }
+                    }
+                }
+            }"
+        };
+        let parser = parse_file(ctx.file_contents).unwrap();
+        process_items(&parser.items, &ctx, &mut lines);
+        assert!(lines.ignore.contains(&9));
     }
 }
