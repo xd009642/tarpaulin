@@ -434,9 +434,24 @@ fn process_expr(expr: &Expr, ctx: &Context, analysis: &mut LineAnalysis) {
         &Expr::Unsafe(ref u) => visit_unsafe_block(&u, ctx, analysis),
         &Expr::Call(ref c) => visit_callable(&c, analysis),
         &Expr::MethodCall(ref m) => visit_methodcall(&m, analysis),
+        &Expr::Match(ref m) => visit_match(&m, ctx, analysis),
+        &Expr::Block(ref b) => visit_block(&b, ctx, analysis),
         _ => {},
     }
 }
+
+
+fn visit_block(block: &ExprBlock, ctx: &Context, analysis: &mut LineAnalysis) {
+    process_statements(&block.block.stmts, ctx, analysis);
+}
+
+
+fn visit_match(mat: &ExprMatch, ctx: &Context, analysis: &mut LineAnalysis) {
+    for arm in &mat.arms {
+        process_expr(&arm.body, ctx, analysis);
+    }
+}
+
 
 fn get_coverable_args(args: &Punctuated<Expr, Comma>) -> HashSet<usize> {
     let mut lines:HashSet<usize> = HashSet::new();
@@ -723,7 +738,6 @@ mod tests {
         // Braces should be ignored so number could be higher
         assert!(lines.ignore.len() >= 1);
         assert!(lines.ignore.contains(&4));
-        
         let mut lines = LineAnalysis::new();
         let ctx = Context {
             config: &config,
@@ -733,6 +747,21 @@ mod tests {
         process_items(&parser.items, &ctx, &mut lines);
         assert!(lines.ignore.len() >= 1);
         assert!(lines.ignore.contains(&4));
+        
+        let mut lines = LineAnalysis::new();
+        let ctx = Context {
+            config: &config, 
+            file_contents: "fn unreachable_match(x: u32) -> u32 {
+                match x {
+                    1 => 5,
+                    2 => 7,
+                    _ => unreachable!(),
+                }
+            }"
+        };
+        let parser = parse_file(ctx.file_contents).unwrap();
+        process_items(&parser.items, &ctx, &mut lines);
+        assert!(lines.ignore.contains(&5));
         
         let mut lines = LineAnalysis::new();
         let ctx = Context {
@@ -1045,7 +1074,6 @@ mod tests {
         };
         let parser = parse_file(ctx.file_contents).unwrap();
         process_items(&parser.items, &ctx, &mut lines);
-        println!("{:?}", lines.ignore);
         assert!(!lines.ignore.contains(&2));
         assert!(!lines.ignore.contains(&3));
         assert!(lines.ignore.contains(&7));
