@@ -235,7 +235,7 @@ fn process_items(items: &[Item], ctx: &Context, analysis: &mut LineAnalysis) {
             },
             &Item::Trait(ref i) => visit_trait(&i, analysis, ctx),
             &Item::Impl(ref i) => visit_impl(&i, analysis, ctx),
-            &Item::Macro(ref i) => visit_macro_call(&i.mac, analysis),
+            &Item::Macro(ref i) => visit_macro_call(&i.mac, ctx, analysis),
             _ =>{}
         } 
     }
@@ -429,7 +429,7 @@ fn visit_generics(generics: &Generics, analysis: &mut LineAnalysis) {
 
 fn process_expr(expr: &Expr, ctx: &Context, analysis: &mut LineAnalysis) {
     match expr {
-        &Expr::Macro(ref m) => visit_macro_call(&m.mac, analysis),
+        &Expr::Macro(ref m) => visit_macro_call(&m.mac, ctx, analysis),
         &Expr::Struct(ref s) => visit_struct_expr(&s, analysis),
         &Expr::Unsafe(ref u) => visit_unsafe_block(&u, ctx, analysis),
         &Expr::Call(ref c) => visit_callable(&c, analysis),
@@ -544,15 +544,19 @@ fn visit_struct_expr(structure: &ExprStruct, analysis: &mut LineAnalysis) {
 }
 
 
-fn visit_macro_call(mac: &Macro, analysis: &mut LineAnalysis) {
+fn visit_macro_call(mac: &Macro, ctx: &Context, analysis: &mut LineAnalysis) {
     let mut skip = false;
     let start = mac.span().start().line + 1;
     let end = mac.span().end().line + 1;
     if let Some(End(ref name)) = mac.path.segments.last() {
-        if name.ident == "unreachable" || name.ident == "unimplemented" || name.ident == "include" {
+        let standard_ignores =  name.ident == "unreachable" || 
+            name.ident == "unimplemented" || name.ident == "include";
+        let ignore_panic =  ctx.config.ignore_panics && name.ident == "panic"; 
+        if standard_ignores || ignore_panic {
             analysis.ignore_span(&mac.span());
             skip = true;
-        } 
+        }
+        
     }
     if !skip {
         let lines = process_mac_args(&mac.tts);
@@ -1131,5 +1135,64 @@ mod tests {
         assert!(!lines.ignore.contains(&4));
         assert!(lines.ignore.contains(&9));
         assert!(lines.ignore.contains(&10));
+    }
+    
+    
+    #[test]
+    fn filter_block_contents() {
+        let config = Config::default();
+        let mut lines = LineAnalysis::new();
+        let ctx = Context {
+            config: &config, 
+            file_contents: "fn unreachable_match(x: u32) -> u32 {
+                match x {
+                    1 => 5,
+                    2 => 7,
+                    _ => { 
+                        unreachable!();
+                    },
+                }
+            }"
+        };
+        let parser = parse_file(ctx.file_contents).unwrap();
+        process_items(&parser.items, &ctx, &mut lines);
+        assert!(lines.ignore.contains(&6));
+    }
+
+    #[test]
+    fn optional_panic_ignore() {
+        let config = Config::default();
+        let mut lines = LineAnalysis::new();
+        let ctx = Context {
+            config: &config, 
+            file_contents: "fn unreachable_match(x: u32) -> u32 {
+                match x {
+                    1 => 5,
+                    2 => 7,
+                    _ => panic!(),
+                }
+            }"
+        };
+        let parser = parse_file(ctx.file_contents).unwrap();
+        process_items(&parser.items, &ctx, &mut lines);
+        assert!(!lines.ignore.contains(&5));
+        
+        let mut config = Config::default();
+        config.ignore_panics = true;
+        let mut lines = LineAnalysis::new();
+        let ctx = Context {
+            config: &config, 
+            file_contents: "fn unreachable_match(x: u32) -> u32 {
+                match x {
+                    1 => 5,
+                    2 => 7,
+                    _ => panic!(),
+                }
+            }"
+        };
+        
+        let parser = parse_file(ctx.file_contents).unwrap();
+        process_items(&parser.items, &ctx, &mut lines);
+        assert!(lines.ignore.contains(&5));
     }
 }

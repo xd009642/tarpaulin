@@ -44,6 +44,8 @@ pub struct Config {
     pub run_ignored: bool,
     /// Flag to ignore test functions in coverage statistics
     pub ignore_tests: bool,
+    /// Ignore panic macros in code.
+    pub ignore_panics: bool,
     /// Flag to skip the clean step when preparing the target project
     pub skip_clean: bool,
     /// Verbose flag for printing information to the user
@@ -104,6 +106,7 @@ impl Config {
         let no_count = !args.is_present("count");
         let ignore_tests = args.is_present("ignore-tests");
         let all_features = args.is_present("all-features");
+        let ignore_panics = args.is_present("ignore-panics");
         // If no coverage selected do everything!
         if !branch && !line {
             branch = true;
@@ -162,6 +165,7 @@ impl Config {
             manifest: root,
             run_ignored: ignored,
             ignore_tests: ignore_tests,
+            ignore_panics: ignore_panics,
             verbose: verbose,
             no_count: no_count,
             line_coverage: line,
