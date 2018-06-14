@@ -235,7 +235,7 @@ fn process_items(items: &[Item], ctx: &Context, analysis: &mut LineAnalysis) {
             },
             &Item::Trait(ref i) => visit_trait(&i, analysis, ctx),
             &Item::Impl(ref i) => visit_impl(&i, analysis, ctx),
-            &Item::Macro(ref i) => visit_macro_call(&i.mac, analysis),
+            &Item::Macro(ref i) => visit_macro_call(&i.mac, ctx, analysis),
             _ =>{}
         } 
     }
@@ -257,19 +257,28 @@ fn process_statements(stmts: &[Stmt], ctx: &Context, analysis: &mut LineAnalysis
 fn visit_mod(module: &ItemMod, analysis: &mut LineAnalysis, ctx: &Context) {
     analysis.ignore_span(&module.mod_token.0); 
     let mut check_insides = true;
-    if ctx.config.ignore_tests {
-        for attr in &module.attrs {
-            if let Some(Meta::List(ref ml)) = attr.interpret_meta() {
-                if ml.ident != "cfg" {
-                    continue;
+    for attr in &module.attrs {
+        if let Some(x) = attr.interpret_meta() {
+            if check_cfg_attr(&x) {
+                analysis.ignore_span(&module.span());
+                if let Some((ref braces, _)) = module.content {
+                    analysis.ignore_span(&braces.0);
                 }
-                for nested in &ml.nested {
-                    if let &NestedMeta::Meta(Meta::Word(ref i)) = nested {
-                        if i == "test" {
-                            check_insides = false;
-                            analysis.ignore_span(&module.mod_token.0);
-                            if let Some((ref braces, _)) = module.content {
-                                analysis.ignore_span(&braces.0);
+                check_insides = false;
+                break;
+            } else if ctx.config.ignore_tests {
+                if let Meta::List(ref ml) = x {
+                    if ml.ident != "cfg" {
+                        continue;
+                    }
+                    for nested in &ml.nested {
+                        if let &NestedMeta::Meta(Meta::Word(ref i)) = nested {
+                            if i == "test" {
+                                check_insides = false;
+                                analysis.ignore_span(&module.mod_token.0);
+                                if let Some((ref braces, _)) = module.content {
+                                    analysis.ignore_span(&braces.0);
+                                }
                             }
                         }
                     }
@@ -289,6 +298,7 @@ fn visit_fn(func: &ItemFn, analysis: &mut LineAnalysis, ctx: &Context) {
     let mut test_func = false;
     let mut ignored_attr = false;
     let mut is_inline = false;
+    let mut ignore_span = false;
     for attr in &func.attrs {
         if let Some(x) = attr.interpret_meta() {
             let id = x.name();
@@ -300,10 +310,15 @@ fn visit_fn(func: &ItemFn, analysis: &mut LineAnalysis, ctx: &Context) {
                 is_inline = true;
             } else if id == "ignore" {
                 ignored_attr = true;
+            } else if check_cfg_attr(&x) {
+                ignore_span = true;
+                break;
             }
         }
     }
-    if test_func && ctx.config.ignore_tests {
+    if ignore_span {
+        analysis.ignore_span(&func.span());
+    } else if test_func && ctx.config.ignore_tests {
         if !(ignored_attr && !ctx.config.run_ignored) {
             analysis.ignore_span(&func.decl.fn_token.0);
             analysis.ignore_span(&func.block.brace_token.0);
@@ -318,29 +333,82 @@ fn visit_fn(func: &ItemFn, analysis: &mut LineAnalysis, ctx: &Context) {
     }
 }
 
-
-fn visit_trait(trait_item: &ItemTrait, analysis: &mut LineAnalysis, ctx: &Context) {
-    for item in trait_item.items.iter() {
-        if let &TraitItem::Method(ref i) = item {
-            if i.default.is_some() {
-                analysis.cover_span(&item.span(), Some(ctx.file_contents));
-                analysis.cover_span(&i.sig.decl.fn_token.0, None);
+fn check_attr_list(attrs: &[Attribute]) -> bool {
+    let mut check_cover = true;
+    for attr in attrs {
+        if let Some(x) = attr.interpret_meta() {
+            if check_cfg_attr(&x) {
+                check_cover = false;
+                break;
             }
         }
     }
-    visit_generics(&trait_item.generics, analysis);
+    check_cover
+}
+
+fn check_cfg_attr(attr: &Meta) -> bool {
+    let mut ignore_span = false;
+    let id = attr.name();
+    if id == "cfg_attr" {
+        if let Meta::List(ml) = attr {
+            let mut skip_match = false;
+            let list = vec!["tarpaulin", "skip"];
+            for (p, x) in ml.nested.iter().zip(list.iter()) {
+                match p {
+                    NestedMeta::Meta(Meta::Word(ref i)) => {
+                        skip_match = i == x;
+                    },
+                    _ => skip_match = false,
+                }
+                if !skip_match {
+                    break;
+                }
+            }
+            ignore_span = skip_match;
+        }
+    }
+    ignore_span 
+}
+
+
+fn visit_trait(trait_item: &ItemTrait, analysis: &mut LineAnalysis, ctx: &Context) {
+    let check_cover = check_attr_list(&trait_item.attrs);
+    if check_cover {
+        for item in trait_item.items.iter() {
+            if let &TraitItem::Method(ref i) = item {
+                if i.default.is_some() && check_attr_list(&i.attrs) {
+                    analysis.cover_span(&item.span(), Some(ctx.file_contents));
+                    analysis.cover_span(&i.sig.decl.fn_token.0, None);
+                } else {
+                    analysis.ignore_span(&i.span());
+                }
+            }
+        }
+        visit_generics(&trait_item.generics, analysis);
+    } else {
+        analysis.ignore_span(&trait_item.span());
+    }
 }
 
 
 fn visit_impl(impl_blk: &ItemImpl, analysis: &mut LineAnalysis, ctx: &Context) {
-    for item in impl_blk.items.iter() {
-        if let &ImplItem::Method(ref i) = item {
-            analysis.cover_span(&i.sig.decl.fn_token.0, None);
-            analysis.cover_span(&i.block.brace_token.0, Some(ctx.file_contents));
-            process_statements(&i.block.stmts, ctx, analysis);
+    let check_cover = check_attr_list(&impl_blk.attrs);
+    if check_cover {
+        for item in impl_blk.items.iter() {
+            if let &ImplItem::Method(ref i) = item {
+                if check_attr_list(&i.attrs) {
+                    analysis.cover_span(&i.sig.decl.fn_token.0, None);
+                    analysis.cover_span(&i.block.brace_token.0, Some(ctx.file_contents));
+                    process_statements(&i.block.stmts, ctx, analysis);
+                } else {
+                    analysis.ignore_span(&i.span());
+                }
+            }
         }
+        visit_generics(&impl_blk.generics, analysis);
+    } else {
+        analysis.ignore_span(&impl_blk.span());
     }
-    visit_generics(&impl_blk.generics, analysis);
 }
 
 
@@ -361,14 +429,71 @@ fn visit_generics(generics: &Generics, analysis: &mut LineAnalysis) {
 
 fn process_expr(expr: &Expr, ctx: &Context, analysis: &mut LineAnalysis) {
     match expr {
-        &Expr::Macro(ref m) => visit_macro_call(&m.mac, analysis),
+        &Expr::Macro(ref m) => visit_macro_call(&m.mac, ctx, analysis),
         &Expr::Struct(ref s) => visit_struct_expr(&s, analysis),
         &Expr::Unsafe(ref u) => visit_unsafe_block(&u, ctx, analysis),
         &Expr::Call(ref c) => visit_callable(&c, analysis),
         &Expr::MethodCall(ref m) => visit_methodcall(&m, analysis),
+        &Expr::Match(ref m) => visit_match(&m, ctx, analysis),
+        &Expr::Block(ref b) => visit_block(&b.block, ctx, analysis),
+        &Expr::If(ref i) => visit_if(&i, ctx, analysis),
+        &Expr::IfLet(ref i) => visit_if_let(&i, ctx, analysis),
+        &Expr::While(ref w) => visit_while(&w, ctx, analysis),
+        &Expr::WhileLet(ref w) => visit_while_let(&w, ctx, analysis),
+        &Expr::ForLoop(ref f) => visit_for(&f, ctx, analysis),
+        &Expr::Loop(ref l) => visit_loop(&l, ctx, analysis),
         _ => {},
     }
 }
+
+
+fn visit_block(block: &Block, ctx: &Context, analysis: &mut LineAnalysis) {
+    process_statements(&block.stmts, ctx, analysis);
+}
+
+
+fn visit_match(mat: &ExprMatch, ctx: &Context, analysis: &mut LineAnalysis) {
+    for arm in &mat.arms {
+        process_expr(&arm.body, ctx, analysis);
+    }
+}
+
+
+fn visit_if(if_block: &ExprIf, ctx: &Context, analysis: &mut LineAnalysis) {
+    visit_block(&if_block.then_branch, ctx, analysis);
+    if let Some((_ ,ref else_block)) = if_block.else_branch {
+        process_expr(&else_block, ctx, analysis);
+    }
+}
+
+
+fn visit_if_let(if_let: &ExprIfLet, ctx: &Context, analysis: &mut LineAnalysis) {
+    visit_block(&if_let.then_branch, ctx, analysis);
+    if let Some((_ ,ref else_block)) = if_let.else_branch {
+        process_expr(&else_block, ctx, analysis);
+    }
+}
+
+
+fn visit_while(whl: &ExprWhile, ctx: &Context, analysis: &mut LineAnalysis) {
+    visit_block(&whl.body, ctx, analysis);
+}
+
+
+fn visit_while_let(while_let: &ExprWhileLet, ctx: &Context, analysis: &mut LineAnalysis) {
+    visit_block(&while_let.body, ctx, analysis);
+}
+
+
+fn visit_for(for_loop: &ExprForLoop, ctx: &Context, analysis: &mut LineAnalysis) {
+    visit_block(&for_loop.body, ctx, analysis);
+}
+
+
+fn visit_loop(loopex: &ExprLoop, ctx: &Context, analysis: &mut LineAnalysis) {
+    visit_block(&loopex.body, ctx, analysis);
+}
+
 
 fn get_coverable_args(args: &Punctuated<Expr, Comma>) -> HashSet<usize> {
     let mut lines:HashSet<usize> = HashSet::new();
@@ -461,15 +586,19 @@ fn visit_struct_expr(structure: &ExprStruct, analysis: &mut LineAnalysis) {
 }
 
 
-fn visit_macro_call(mac: &Macro, analysis: &mut LineAnalysis) {
+fn visit_macro_call(mac: &Macro, ctx: &Context, analysis: &mut LineAnalysis) {
     let mut skip = false;
     let start = mac.span().start().line + 1;
     let end = mac.span().end().line + 1;
     if let Some(End(ref name)) = mac.path.segments.last() {
-        if name.ident == "unreachable" || name.ident == "unimplemented" || name.ident == "include" {
+        let standard_ignores =  name.ident == "unreachable" || 
+            name.ident == "unimplemented" || name.ident == "include";
+        let ignore_panic =  ctx.config.ignore_panics && name.ident == "panic"; 
+        if standard_ignores || ignore_panic {
             analysis.ignore_span(&mac.span());
             skip = true;
-        } 
+        }
+        
     }
     if !skip {
         let lines = process_mac_args(&mac.tts);
@@ -655,7 +784,6 @@ mod tests {
         // Braces should be ignored so number could be higher
         assert!(lines.ignore.len() >= 1);
         assert!(lines.ignore.contains(&4));
-        
         let mut lines = LineAnalysis::new();
         let ctx = Context {
             config: &config,
@@ -665,6 +793,21 @@ mod tests {
         process_items(&parser.items, &ctx, &mut lines);
         assert!(lines.ignore.len() >= 1);
         assert!(lines.ignore.contains(&4));
+        
+        let mut lines = LineAnalysis::new();
+        let ctx = Context {
+            config: &config, 
+            file_contents: "fn unreachable_match(x: u32) -> u32 {
+                match x {
+                    1 => 5,
+                    2 => 7,
+                    _ => unreachable!(),
+                }
+            }"
+        };
+        let parser = parse_file(ctx.file_contents).unwrap();
+        process_items(&parser.items, &ctx, &mut lines);
+        assert!(lines.ignore.contains(&5));
         
         let mut lines = LineAnalysis::new();
         let ctx = Context {
@@ -882,5 +1025,245 @@ mod tests {
         assert!(!lines.cover.contains(&6));
         assert!(!lines.cover.contains(&7));
         assert!(lines.cover.contains(&8));
+    }
+
+
+    #[test]
+    fn tarpaulin_skip_attr() {
+        let config = Config::default();
+        let mut lines = LineAnalysis::new();
+        let ctx = Context {
+            config: &config, 
+            file_contents: "#[cfg_attr(tarpaulin, skip)]
+                fn skipped() {
+                    println!(\"Hello world\");
+                }
+            
+            #[cfg_attr(tarpaulin, not_a_thing)]
+            fn covered() {
+                println!(\"hell world\");
+            }
+            "
+        };
+        let parser = parse_file(ctx.file_contents).unwrap();
+        process_items(&parser.items, &ctx, &mut lines);
+        assert!(lines.ignore.contains(&2));
+        assert!(lines.ignore.contains(&3));
+        assert!(!lines.ignore.contains(&7));
+        assert!(!lines.ignore.contains(&8));
+        
+        let mut lines = LineAnalysis::new();
+        let ctx = Context {
+            config: &config, 
+            file_contents: "#[cfg_attr(tarpaulin, skip)]
+            mod ignore_all {
+                fn skipped() {
+                    println!(\"Hello world\");
+                }
+                
+                #[cfg_attr(tarpaulin, not_a_thing)]
+                fn covered() {
+                    println!(\"hell world\");
+                }
+            }
+            "
+        };
+        let parser = parse_file(ctx.file_contents).unwrap();
+        process_items(&parser.items, &ctx, &mut lines);
+        assert!(lines.ignore.contains(&3));
+        assert!(lines.ignore.contains(&4));
+        assert!(lines.ignore.contains(&8));
+        assert!(lines.ignore.contains(&9));
+    }
+
+
+    #[test]
+    fn tarpaulin_skip_trait_attrs() {
+        let config = Config::default();
+        let mut lines = LineAnalysis::new();
+        let ctx = Context {
+            config: &config, 
+            file_contents: "#[cfg_attr(tarpaulin, skip)]
+                trait Foo {
+                    fn bar() {
+                        println!(\"Hello world\");
+                    }
+                
+                    
+                    fn not_covered() {
+                        println!(\"hell world\");
+                    }
+                }
+            "
+        };
+        let parser = parse_file(ctx.file_contents).unwrap();
+        process_items(&parser.items, &ctx, &mut lines);
+        assert!(lines.ignore.contains(&3));
+        assert!(lines.ignore.contains(&4));
+        assert!(lines.ignore.contains(&8));
+        assert!(lines.ignore.contains(&9));
+        
+        let mut lines = LineAnalysis::new();
+        let ctx = Context {
+            config: &config, 
+            file_contents: "trait Foo {
+                    fn bar() {
+                        println!(\"Hello world\");
+                    }
+                
+                    #[cfg_attr(tarpaulin, skip)] 
+                    fn not_covered() {
+                        println!(\"hell world\");
+                    }
+                }
+            "
+        };
+        let parser = parse_file(ctx.file_contents).unwrap();
+        process_items(&parser.items, &ctx, &mut lines);
+        assert!(!lines.ignore.contains(&2));
+        assert!(!lines.ignore.contains(&3));
+        assert!(lines.ignore.contains(&7));
+        assert!(lines.ignore.contains(&8));
+    }
+    
+   
+    #[test]
+    fn tarpaulin_skip_impl_attrs() {
+        let config = Config::default();
+        let mut lines = LineAnalysis::new();
+        let ctx = Context {
+            config: &config, 
+            file_contents: "struct Foo;
+                #[cfg_attr(tarpaulin, skip)]
+                impl Foo {
+                    fn bar() {
+                        println!(\"Hello world\");
+                    }
+                
+                    
+                    fn not_covered() {
+                        println!(\"hell world\");
+                    }
+                }
+            "
+        };
+        let parser = parse_file(ctx.file_contents).unwrap();
+        process_items(&parser.items, &ctx, &mut lines);
+        assert!(lines.ignore.contains(&4));
+        assert!(lines.ignore.contains(&5));
+        assert!(lines.ignore.contains(&9));
+        assert!(lines.ignore.contains(&10));
+        
+        let mut lines = LineAnalysis::new();
+        let ctx = Context {
+            config: &config, 
+            file_contents: "struct Foo;
+                impl Foo {
+                    fn bar() {
+                        println!(\"Hello world\");
+                    }
+                
+                    
+                    #[cfg_attr(tarpaulin, skip)]
+                    fn not_covered() {
+                        println!(\"hell world\");
+                    }
+                }
+            "
+        };
+        let parser = parse_file(ctx.file_contents).unwrap();
+        process_items(&parser.items, &ctx, &mut lines);
+        assert!(!lines.ignore.contains(&3));
+        assert!(!lines.ignore.contains(&4));
+        assert!(lines.ignore.contains(&9));
+        assert!(lines.ignore.contains(&10));
+    }
+    
+    
+    #[test]
+    fn filter_block_contents() {
+        let config = Config::default();
+        let mut lines = LineAnalysis::new();
+        let ctx = Context {
+            config: &config, 
+            file_contents: "fn unreachable_match(x: u32) -> u32 {
+                match x {
+                    1 => 5,
+                    2 => 7,
+                    _ => { 
+                        unreachable!();
+                    },
+                }
+            }"
+        };
+        let parser = parse_file(ctx.file_contents).unwrap();
+        process_items(&parser.items, &ctx, &mut lines);
+        assert!(lines.ignore.contains(&6));
+    }
+
+    #[test]
+    fn optional_panic_ignore() {
+        let config = Config::default();
+        let mut lines = LineAnalysis::new();
+        let ctx = Context {
+            config: &config, 
+            file_contents: "fn unreachable_match(x: u32) -> u32 {
+                match x {
+                    1 => 5,
+                    2 => 7,
+                    _ => panic!(),
+                }
+            }"
+        };
+        let parser = parse_file(ctx.file_contents).unwrap();
+        process_items(&parser.items, &ctx, &mut lines);
+        assert!(!lines.ignore.contains(&5));
+        
+        let mut config = Config::default();
+        config.ignore_panics = true;
+        let mut lines = LineAnalysis::new();
+        let ctx = Context {
+            config: &config, 
+            file_contents: "fn unreachable_match(x: u32) -> u32 {
+                match x {
+                    1 => 5,
+                    2 => 7,
+                    _ => panic!(),
+                }
+            }"
+        };
+        
+        let parser = parse_file(ctx.file_contents).unwrap();
+        process_items(&parser.items, &ctx, &mut lines);
+        assert!(lines.ignore.contains(&5));
+    }
+
+    #[test]
+    fn filter_nested_blocks() {
+        let config = Config::default();
+        let mut lines = LineAnalysis::new();
+        let ctx = Context {
+            config: &config, 
+            file_contents: "fn block() {
+                {
+                    loop {
+                        for i in 1..2 {
+                            if false {
+                                while let Some(x) = Some(6) {
+                                    while false { 
+                                        if let Ok(y) = Ok(4) {
+                                            unreachable!();
+                                        }
+                                    }
+                                }
+                            }
+                        }
+                    }
+                }
+            }"
+        };
+        let parser = parse_file(ctx.file_contents).unwrap();
+        process_items(&parser.items, &ctx, &mut lines);
+        assert!(lines.ignore.contains(&9));
     }
 }

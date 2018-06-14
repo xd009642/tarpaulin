@@ -49,3 +49,15 @@ fn simple_project_coverage() {
         }
     }
 }
+
+#[test]
+fn proc_macro_link() {
+    let mut config = Config::default();
+    config.test_timeout = Duration::from_secs(60);
+    let mut test_dir = env::current_dir().unwrap();
+    test_dir.push("tests");
+    test_dir.push("data");
+    test_dir.push("proc_macro");
+    config.manifest = test_dir.join("Cargo.toml");
+    assert!(launch_tarpaulin(&config).is_ok());
+}

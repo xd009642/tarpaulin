@@ -41,6 +41,7 @@ fn main() {
             .args_from_usage(
                  "--verbose -v 'Show extra output'
                  --ignore-tests 'ignore lines of test functions when collecting coverage'
+                 --ignore-panics 'ignore panic macros in tests'
                  --no-count   'Disables counting line hits for a faster run (default)'
                  --ignored -i 'Run ignored tests as well'
                  --line -l    'Line coverage'

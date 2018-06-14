@@ -21,8 +21,7 @@ extern crate walkdir;
 use std::env;
 use std::io;
 use std::ffi::CString;
-use std::path::{Path, PathBuf};
-use std::process::Command;
+use std::path::Path;
 use nix::unistd::*;
 use cargo::util::Config as CargoConfig;
 use cargo::core::{Workspace, Package};
@@ -68,7 +67,7 @@ pub fn launch_tarpaulin(config: &Config) -> Result<TraceMap, i32> {
     
     let workspace = Workspace::new(config.manifest.as_path(), &cargo_config).map_err(|_| 1i32)?;
     
-    setup_environment(&cargo_config);
+    setup_environment();
         
     let mut copt = ops::CompileOptions::default(&cargo_config, ops::CompileMode::Test);
     match copt.filter {
@@ -134,40 +133,9 @@ pub fn launch_tarpaulin(config: &Config) -> Result<TraceMap, i32> {
 }
 
 
-fn setup_environment(cargo_config: &CargoConfig) {
+fn setup_environment() {
     let rustflags = "RUSTFLAGS";
     let mut value = " -C relocation-model=dynamic-no-pic -C link-dead-code -C opt-level=0 ".to_string();
-    let env_linker = env::var(rustflags)
-                        .ok()
-                        .and_then(|flags| flags.split(' ')
-                                               .map(str::trim)
-                                               .filter(|s| !s.is_empty())
-                                               .skip_while(|s| !s.contains("linker="))
-                                               .next()
-                                               .map(|s| s.trim_left_matches("linker="))
-                                               .map(PathBuf::from));
-
-    let target_linker = env_linker.or_else(|| {
-        fn get_target_path(cargo_config: &CargoConfig, triple: &str) -> Option<PathBuf> {
-            cargo_config.get_path(&format!("target.{}.linker", triple)).unwrap().map(|v| v.val)
-        }
-
-        let host = get_target_path(&cargo_config, &cargo_config.rustc().unwrap().host);
-        match cargo_config.get_string("build.target").unwrap().map(|s| s.val) {
-            Some(triple) => get_target_path(&cargo_config, &triple),
-            None => host,
-        }
-    });
-
-    // For Linux (and most everything that isn't Windows) it is fair to
-    // assume the default linker is `cc` and that `cc` is GCC based.
-    let mut linker_cmd = Command::new(&target_linker.unwrap_or_else(|| PathBuf::from("cc")));
-    linker_cmd.arg("-v");
-    if let Ok(linker_output) = linker_cmd.output() {
-        if String::from_utf8_lossy(&linker_output.stderr).contains("--enable-default-pie") {
-            value.push_str("-C link-arg=-no-pie ");
-        }
-    }
     if let Ok(vtemp) = env::var(rustflags) {
         value.push_str(vtemp.as_ref());
     }
