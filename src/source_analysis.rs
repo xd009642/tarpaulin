@@ -318,10 +318,9 @@ fn visit_fn(func: &ItemFn, analysis: &mut LineAnalysis, ctx: &Context) {
     }
     if ignore_span {
         analysis.ignore_span(&func.span());
-    } else if test_func && ctx.config.ignore_tests {
-        if !(ignored_attr && !ctx.config.run_ignored) {
-            analysis.ignore_span(&func.decl.fn_token.0);
-            analysis.ignore_span(&func.block.brace_token.0);
+    } else if test_func {
+        if ctx.config.ignore_tests || (ignored_attr && !ctx.config.run_ignored) {
+            analysis.ignore_span(&func.span());
         }
     } else {
         if is_inline {
