@@ -416,12 +416,7 @@ fn visit_impl(impl_blk: &ItemImpl, analysis: &mut LineAnalysis, ctx: &Context) {
 
 fn visit_generics(generics: &Generics, analysis: &mut LineAnalysis) {
     if let Some(ref wh) = generics.where_clause {
-        let span = wh.where_token.0;
-        let mut lines: Vec<usize> = Vec::new();
-        for l in span.start().line..span.end().line +1 {
-            lines.push(l);
-        }
-        analysis.add_to_ignore(&lines);
+        analysis.ignore_span(&wh.span());
     }
 }
 
