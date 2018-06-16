@@ -1,4 +1,3 @@
-use std::cmp::{max, min};
 use std::path::{PathBuf, Path};
 use std::collections::{HashSet, HashMap};
 use std::fs::File;
@@ -329,6 +328,7 @@ fn visit_fn(func: &ItemFn, analysis: &mut LineAnalysis, ctx: &Context) {
         }
         process_statements(&func.block.stmts, ctx, analysis);
         visit_generics(&func.decl.generics, analysis);
+        analysis.ignore.remove(&func.decl.fn_token.span().start().line);
     }
 }
 
@@ -377,7 +377,8 @@ fn visit_trait(trait_item: &ItemTrait, analysis: &mut LineAnalysis, ctx: &Contex
             if let &TraitItem::Method(ref i) = item {
                 if i.default.is_some() && check_attr_list(&i.attrs) {
                     analysis.cover_span(&item.span(), Some(ctx.file_contents));
-                    analysis.cover_span(&i.sig.decl.fn_token.0, None);
+                    visit_generics(&i.sig.decl.generics, analysis);
+                    analysis.ignore.remove(&i.sig.span().start().line);
                 } else {
                     analysis.ignore_span(&i.span());
                 }
@@ -396,12 +397,13 @@ fn visit_impl(impl_blk: &ItemImpl, analysis: &mut LineAnalysis, ctx: &Context) {
         for item in impl_blk.items.iter() {
             if let &ImplItem::Method(ref i) = item {
                 if check_attr_list(&i.attrs) {
-                    //analysis.cover_span(&i.sig.decl.fn_token.0, None);
-                    //analysis.cover_span(&i.block.brace_token.0, Some(ctx.file_contents));
                     analysis.cover_span(&i.span(), Some(ctx.file_contents));
                     process_statements(&i.block.stmts, ctx, analysis);
+                    
+                    visit_generics(&i.sig.decl.generics, analysis);
+                    analysis.ignore.remove(&i.span().start().line);
                 } else {
-                    analysis.ignore_span(&i.span());
+                    analysis.ignore_span(&item.span());
                 }
             }
         }
@@ -416,10 +418,7 @@ fn visit_generics(generics: &Generics, analysis: &mut LineAnalysis) {
     if let Some(ref wh) = generics.where_clause {
         let span = wh.where_token.0;
         let mut lines: Vec<usize> = Vec::new();
-        if span.start().column == 0 {
-            lines.push(span.start().line);
-        }
-        for l in span.start().line+1..span.end().line +1 {
+        for l in span.start().line..span.end().line +1 {
             lines.push(l);
         }
         analysis.add_to_ignore(&lines);
@@ -874,7 +873,9 @@ mod tests {
         let mut lines = LineAnalysis::new();
         let ctx = Context {
             config: &config,
-            file_contents: "fn boop<T>() -> T  where T:Default {\nT::default()\n}",
+            file_contents: "fn boop<T>() -> T  where T:Default {
+                T::default()
+            }",
         };
         let parser = parse_file(ctx.file_contents).unwrap();
         process_items(&parser.items, &ctx, &mut lines);
@@ -883,11 +884,28 @@ mod tests {
         let mut lines = LineAnalysis::new();
         let ctx = Context {
             config: &config,
-            file_contents: "fn boop<T>() -> T \nwhere T:Default {\nT::default()\n}",
+            file_contents: "fn boop<T>() -> T 
+                where T:Default {
+                    T::default()
+                }",
         };
         let parser = parse_file(ctx.file_contents).unwrap();
         process_items(&parser.items, &ctx, &mut lines);
         assert!(lines.ignore.contains(&2));
+        
+        let mut lines = LineAnalysis::new();
+        let ctx = Context {
+            config: &config,
+            file_contents: "trait foof {
+                fn boop<T>() -> T 
+                where T:Default {
+                    T::default()
+                }
+            }",
+        };
+        let parser = parse_file(ctx.file_contents).unwrap();
+        process_items(&parser.items, &ctx, &mut lines);
+        assert!(lines.ignore.contains(&3));
     }
 
 
