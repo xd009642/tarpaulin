@@ -177,7 +177,7 @@ fn analyse_package(path: &Path,
                               path.starts_with(root.join("tests"));
         let skip_cause_example = path.starts_with(root.join("examples"));
         if !(skip_cause_test || skip_cause_example)  {
-            let file = File::open(file);
+            let file = File::open(file); 
             if let Ok(mut file) =  file {
                 let mut content = String::new();
                 let _ = file.read_to_string(&mut content);
@@ -396,8 +396,9 @@ fn visit_impl(impl_blk: &ItemImpl, analysis: &mut LineAnalysis, ctx: &Context) {
         for item in impl_blk.items.iter() {
             if let &ImplItem::Method(ref i) = item {
                 if check_attr_list(&i.attrs) {
-                    analysis.cover_span(&i.sig.decl.fn_token.0, None);
-                    analysis.cover_span(&i.block.brace_token.0, Some(ctx.file_contents));
+                    //analysis.cover_span(&i.sig.decl.fn_token.0, None);
+                    //analysis.cover_span(&i.block.brace_token.0, Some(ctx.file_contents));
+                    analysis.cover_span(&i.span(), Some(ctx.file_contents));
                     process_statements(&i.block.stmts, ctx, analysis);
                 } else {
                     analysis.ignore_span(&i.span());
@@ -528,7 +529,6 @@ fn visit_methodcall(meth: &ExprMethodCall, analysis: &mut LineAnalysis) {
     let lines = get_coverable_args(&meth.args);
     let lines = (start..end).filter(|x| !lines.contains(&x))
                             .collect::<Vec<_>>();
-
     analysis.add_to_ignore(&lines);
 }
 
@@ -559,8 +559,8 @@ fn visit_unsafe_block(unsafe_expr: &ExprUnsafe, ctx: &Context, analysis: &mut Li
 
 fn visit_struct_expr(structure: &ExprStruct, analysis: &mut LineAnalysis) {
     let mut cover: HashSet<usize> = HashSet::new();
-    let mut start = 0usize;
-    let mut end = 0usize;
+    let start = structure.span().start().line;
+    let end = structure.span().end().line;
     for field in structure.fields.pairs() {
         let first = match field {
             Pair::Punctuated(t, _) => {t},
@@ -570,8 +570,6 @@ fn visit_struct_expr(structure: &ExprStruct, analysis: &mut LineAnalysis) {
             Member::Named(ref i) => i.span(),
             Member::Unnamed(ref i) => i.span,
         };
-        start = min(start, span.start().line);
-        end = max(start, span.start().line);
         match first.expr {
             Expr::Lit(_) | Expr::Path(_) => {},
             _=>{ 
@@ -731,10 +729,17 @@ mod tests {
         let mut lines = LineAnalysis::new();
         let ctx = Context {
             config: &config,
-            file_contents: "struct T{x:String, y:i32}\nfn test()-> T {\nT{\nx:\"hello\".to_string(),\ny:4,\n}\n}",
+            file_contents: "struct T{x:String, y:i32}
+                fn test()-> T {
+                    T{
+                        x:String::from(\"hello\"), //function call should be covered
+                        y:4,
+                    }
+                }",
         };
         let parser = parse_file(ctx.file_contents).unwrap();
         process_items(&parser.items, &ctx, &mut lines);
+        assert!(!lines.ignore.contains(&4));
         assert!(lines.ignore.contains(&5));
     }
 
@@ -930,6 +935,41 @@ mod tests {
         let parser = parse_file(ctx.file_contents).unwrap();
         process_items(&parser.items, &ctx, &mut lines);
         assert!(!lines.ignore.contains(&3));
+    }
+
+    #[test]
+    fn cover_generic_impl_methods() {
+        let config = Config::default();
+        let mut lines = LineAnalysis::new();
+        let ctx = Context {
+            config: &config, 
+            file_contents: "struct GenericStruct<T>(T);
+            impl<T> GenericStruct<T> {
+                fn hw(&self) {
+                    println!(\"hello world\");
+                }
+            }",
+        };
+        let parser = parse_file(ctx.file_contents).unwrap();
+        process_items(&parser.items, &ctx, &mut lines);
+        assert!(lines.cover.contains(&3));
+        assert!(lines.cover.contains(&4));
+
+        let mut lines = LineAnalysis::new();
+        let ctx = Context {
+            config: &config, 
+            file_contents: "struct GenericStruct<T>{v:Vec<T>}
+            impl<T> Default for GenericStruct<T> {
+                fn default() -> Self {
+                    T { 
+                        v: vec![],
+                    }
+                }
+            }",
+        };
+        let parser = parse_file(ctx.file_contents).unwrap();
+        process_items(&parser.items, &ctx, &mut lines);
+        assert!(lines.cover.contains(&5));
     }
 
     #[test]
