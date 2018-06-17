@@ -329,6 +329,11 @@ fn visit_fn(func: &ItemFn, analysis: &mut LineAnalysis, ctx: &Context) {
         process_statements(&func.block.stmts, ctx, analysis);
         visit_generics(&func.decl.generics, analysis);
         analysis.ignore.remove(&func.decl.fn_token.span().start().line);
+        // Ignore multiple lines of fn decl 
+        let decl_start = func.decl.fn_token.0.start().line+1;
+        let stmts_start = func.block.span().start().line;
+        let lines = (decl_start..(stmts_start+1)).collect::<Vec<_>>();
+        analysis.add_to_ignore(&lines);
     }
 }
 
@@ -375,12 +380,23 @@ fn visit_trait(trait_item: &ItemTrait, analysis: &mut LineAnalysis, ctx: &Contex
     if check_cover {
         for item in trait_item.items.iter() {
             if let &TraitItem::Method(ref i) = item {
-                if i.default.is_some() && check_attr_list(&i.attrs) {
-                    analysis.cover_span(&item.span(), Some(ctx.file_contents));
-                    visit_generics(&i.sig.decl.generics, analysis);
-                    analysis.ignore.remove(&i.sig.span().start().line);
+                if check_attr_list(&i.attrs) {
+                    if let Some(ref block) = i.default {
+                        analysis.cover_span(&item.span(), Some(ctx.file_contents));
+                        visit_generics(&i.sig.decl.generics, analysis);
+                        analysis.ignore.remove(&i.sig.span().start().line);
+                        
+                        // Ignore multiple lines of fn decl 
+                        let decl_start = i.sig.decl.fn_token.0.start().line+1;
+                        let stmts_start = block.span().start().line;
+                        let lines = (decl_start..(stmts_start+1)).collect::<Vec<_>>();
+                        analysis.add_to_ignore(&lines);
+                    }
                 } else {
                     analysis.ignore_span(&i.span());
+                }
+                for a in &i.attrs {
+                    analysis.ignore_span(&a.span());
                 }
             }
         }
@@ -402,8 +418,17 @@ fn visit_impl(impl_blk: &ItemImpl, analysis: &mut LineAnalysis, ctx: &Context) {
                     
                     visit_generics(&i.sig.decl.generics, analysis);
                     analysis.ignore.remove(&i.span().start().line);
+                    
+                    // Ignore multiple lines of fn decl 
+                    let decl_start = i.sig.decl.fn_token.0.start().line+1;
+                    let stmts_start = i.block.span().start().line;
+                    let lines = (decl_start..(stmts_start+1)).collect::<Vec<_>>();
+                    analysis.add_to_ignore(&lines);
                 } else {
                     analysis.ignore_span(&item.span());
+                }
+                for a in &i.attrs {
+                    analysis.ignore_span(&a.span());
                 }
             }
         }
@@ -1317,5 +1342,56 @@ mod tests {
         let parser = parse_file(ctx.file_contents).unwrap();
         process_items(&parser.items, &ctx, &mut lines);
         assert!(lines.ignore.contains(&9));
+    }
+
+    #[test]
+    fn filter_multi_line_decls() {
+        let config = Config::default();
+        let mut lines = LineAnalysis::new();
+        let ctx = Context {
+            config: &config, 
+            file_contents: "fn print_it(x:u32,
+                y:u32,
+                z:u32) {
+                println!(\"{}:{}:{}\",x,y,z);
+            }"
+        };
+        let parser = parse_file(ctx.file_contents).unwrap();
+        process_items(&parser.items, &ctx, &mut lines);
+        assert!(lines.ignore.contains(&2));
+        assert!(lines.ignore.contains(&3));
+        
+        let mut lines = LineAnalysis::new();
+        let ctx = Context {
+            config: &config, 
+            file_contents: "struct Boo;
+            impl Boo {
+                fn print_it(x:u32,
+                    y:u32,
+                    z:u32) {
+                    println!(\"{}:{}:{}\",x,y,z);
+                }
+            }"
+        };
+        let parser = parse_file(ctx.file_contents).unwrap();
+        process_items(&parser.items, &ctx, &mut lines);
+        assert!(lines.ignore.contains(&4));
+        assert!(lines.ignore.contains(&5));
+        
+        let mut lines = LineAnalysis::new();
+        let ctx = Context {
+            config: &config, 
+            file_contents: "trait Boo {
+                fn print_it(x:u32,
+                    y:u32,
+                    z:u32) {
+                    println!(\"{}:{}:{}\",x,y,z);
+                }
+            }"
+        };
+        let parser = parse_file(ctx.file_contents).unwrap();
+        process_items(&parser.items, &ctx, &mut lines);
+        assert!(lines.ignore.contains(&3));
+        assert!(lines.ignore.contains(&4));
     }
 }
