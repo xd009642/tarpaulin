@@ -28,7 +28,6 @@ travis-ci, travis-pro, circle-ci, semaphore, jenkins and codeship.
 If you are interfacing with coveralls.io or another site you can \
 also specify a name that they will recognise. Refer to their documentation for this.";
 
-
 fn main() {
     let args = App::new("cargo-tarpaulin")
         .author("Daniel McKenna, <danielmckenna93@gmail.com>")
