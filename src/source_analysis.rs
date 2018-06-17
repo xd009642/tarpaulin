@@ -337,14 +337,30 @@ fn visit_fn(func: &ItemFn, analysis: &mut LineAnalysis, ctx: &Context) {
     }
 }
 
-fn check_attr_list(attrs: &[Attribute]) -> bool {
+fn check_attr_list(attrs: &[Attribute], ctx: &Context) -> bool {
     let mut check_cover = true;
     for attr in attrs {
         if let Some(x) = attr.interpret_meta() {
             if check_cfg_attr(&x) {
                 check_cover = false;
-                break;
+            } else if ctx.config.ignore_tests {
+                if x.name() == "cfg" {
+                    if let Meta::List(ref ml) = x {
+                        let mut skip = false;
+                        for c in &ml.nested {
+                            if let NestedMeta::Meta(Meta::Word(ref i)) = c {
+                                skip |= i == "test";
+                            }
+                        }
+                        if skip {
+                            check_cover = false;
+                        }
+                    }
+                }
             }
+        }
+        if !check_cover {
+            break;
         }
     }
     check_cover
@@ -376,11 +392,11 @@ fn check_cfg_attr(attr: &Meta) -> bool {
 
 
 fn visit_trait(trait_item: &ItemTrait, analysis: &mut LineAnalysis, ctx: &Context) {
-    let check_cover = check_attr_list(&trait_item.attrs);
+    let check_cover = check_attr_list(&trait_item.attrs, ctx);
     if check_cover {
         for item in trait_item.items.iter() {
             if let &TraitItem::Method(ref i) = item {
-                if check_attr_list(&i.attrs) {
+                if check_attr_list(&i.attrs, ctx) {
                     if let Some(ref block) = i.default {
                         analysis.cover_span(&item.span(), Some(ctx.file_contents));
                         visit_generics(&i.sig.decl.generics, analysis);
@@ -408,11 +424,11 @@ fn visit_trait(trait_item: &ItemTrait, analysis: &mut LineAnalysis, ctx: &Contex
 
 
 fn visit_impl(impl_blk: &ItemImpl, analysis: &mut LineAnalysis, ctx: &Context) {
-    let check_cover = check_attr_list(&impl_blk.attrs);
+    let check_cover = check_attr_list(&impl_blk.attrs, ctx);
     if check_cover {
         for item in impl_blk.items.iter() {
             if let &ImplItem::Method(ref i) = item {
-                if check_attr_list(&i.attrs) {
+                if check_attr_list(&i.attrs, ctx) {
                     analysis.cover_span(&i.span(), Some(ctx.file_contents));
                     process_statements(&i.block.stmts, ctx, analysis);
                     
@@ -884,6 +900,46 @@ mod tests {
         process_items(&parser.items, &ctx, &mut lines);
         assert!(lines.ignore.contains(&2));
         assert!(lines.ignore.contains(&3));
+    }
+
+
+    #[test]
+    fn filter_test_utilities() {
+        let mut config = Config::default();
+        config.ignore_tests = true;
+
+        let mut lines = LineAnalysis::new();
+        let ctx = Context {
+            config: &config,
+            file_contents: "trait Thing { 
+                #[cfg(test)]
+                fn boo(){
+                    assert!(true);
+                }
+            }",
+        };
+        let parser = parse_file(ctx.file_contents).unwrap();
+        process_items(&parser.items, &ctx, &mut lines);
+        assert!(lines.ignore.contains(&2));
+        assert!(lines.ignore.contains(&3));
+        assert!(lines.ignore.contains(&4));
+        
+        let config = Config::default();
+
+        let mut lines = LineAnalysis::new();
+        let ctx = Context {
+            config: &config,
+            file_contents: "trait Thing { 
+                #[cfg(test)]
+                fn boo(){
+                    assert!(true);
+                }
+            }",
+        };
+        let parser = parse_file(ctx.file_contents).unwrap();
+        process_items(&parser.items, &ctx, &mut lines);
+        assert!(!lines.ignore.contains(&3));
+        assert!(!lines.ignore.contains(&4));
     }
 
 
