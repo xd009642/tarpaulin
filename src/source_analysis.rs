@@ -51,7 +51,7 @@ impl LineAnalysis {
     }
 
     /// Adds the lines of the provided span to the ignore set
-    pub fn ignore_span(&mut self, span: &Span) {
+    pub fn ignore_span(&mut self, span: Span) {
         for i in span.start().line..(span.end().line+1) {
             self.ignore.insert(i);
             if self.cover.contains(&i) {
@@ -61,7 +61,7 @@ impl LineAnalysis {
     }
 
     /// Adds the lines of the provided span to the cover set
-    pub fn cover_span(&mut self, span: &Span, contents: Option<&str>) {
+    pub fn cover_span(&mut self, span: Span, contents: Option<&str>) {
         let mut useful_lines: HashSet<usize> = HashSet::new();
         if let Some(ref c) = contents {
             lazy_static! {
@@ -98,8 +98,8 @@ impl LineAnalysis {
     }
 
     /// Shows whether the line should be ignored by tarpaulin
-    pub fn should_ignore(&self, line: &usize) -> bool {
-        self.ignore.contains(line)
+    pub fn should_ignore(&self, line: usize) -> bool {
+        self.ignore.contains(&line)
     }
     
     /// Adds a line to the list of lines to ignore
@@ -184,7 +184,7 @@ fn analyse_package(path: &Path,
                 if let Ok(file) = file {
                     let mut analysis = LineAnalysis::new();
                     let ctx = Context {
-                        config: config,
+                        config,
                         file_contents: &content,
                     };
 
@@ -218,23 +218,23 @@ fn find_ignorable_lines(content: &str, analysis: &mut LineAnalysis) {
 
 fn process_items(items: &[Item], ctx: &Context, analysis: &mut LineAnalysis) {
     for item in items.iter() {
-        match item {
-            &Item::ExternCrate(ref i) => analysis.ignore_span(&i.extern_token.0),
-            &Item::Use(ref i) => analysis.ignore_span(&i.span()),
-            &Item::Mod(ref i) => visit_mod(&i, analysis, ctx),
-            &Item::Fn(ref i) => visit_fn(&i, analysis, ctx),
-            &Item::Struct(ref i) => {
-                analysis.ignore_span(&i.span());
+        match *item {
+            Item::ExternCrate(ref i) => analysis.ignore_span(i.span()),
+            Item::Use(ref i) => analysis.ignore_span(i.span()),
+            Item::Mod(ref i) => visit_mod(&i, analysis, ctx),
+            Item::Fn(ref i) => visit_fn(&i, analysis, ctx),
+            Item::Struct(ref i) => {
+                analysis.ignore_span(i.span());
             },
-            &Item::Enum(ref i) => {
-                analysis.ignore_span(&i.span());
+            Item::Enum(ref i) => {
+                analysis.ignore_span(i.span());
             }
-            &Item::Union(ref i) => {
-                analysis.ignore_span(&i.span());
+            Item::Union(ref i) => {
+                analysis.ignore_span(i.span());
             },
-            &Item::Trait(ref i) => visit_trait(&i, analysis, ctx),
-            &Item::Impl(ref i) => visit_impl(&i, analysis, ctx),
-            &Item::Macro(ref i) => visit_macro_call(&i.mac, ctx, analysis),
+            Item::Trait(ref i) => visit_trait(&i, analysis, ctx),
+            Item::Impl(ref i) => visit_impl(&i, analysis, ctx),
+            Item::Macro(ref i) => visit_macro_call(&i.mac, ctx, analysis),
             _ =>{}
         } 
     }
@@ -243,10 +243,10 @@ fn process_items(items: &[Item], ctx: &Context, analysis: &mut LineAnalysis) {
 
 fn process_statements(stmts: &[Stmt], ctx: &Context, analysis: &mut LineAnalysis) {
     for stmt in stmts.iter() {
-        match stmt {
-            &Stmt::Item(ref i) => process_items(&[i.clone()], ctx, analysis),
-            &Stmt::Expr(ref i) => process_expr(&i, ctx, analysis),
-            &Stmt::Semi(ref i, _) => process_expr(&i, ctx, analysis),
+        match *stmt {
+            Stmt::Item(ref i) => process_items(&[i.clone()], ctx, analysis),
+            Stmt::Expr(ref i) => process_expr(&i, ctx, analysis),
+            Stmt::Semi(ref i, _) => process_expr(&i, ctx, analysis),
             _ => {},
         }
     }
@@ -254,14 +254,14 @@ fn process_statements(stmts: &[Stmt], ctx: &Context, analysis: &mut LineAnalysis
 
 
 fn visit_mod(module: &ItemMod, analysis: &mut LineAnalysis, ctx: &Context) {
-    analysis.ignore_span(&module.mod_token.0); 
+    analysis.ignore_span(module.mod_token.0); 
     let mut check_insides = true;
     for attr in &module.attrs {
         if let Some(x) = attr.interpret_meta() {
             if check_cfg_attr(&x) {
-                analysis.ignore_span(&module.span());
+                analysis.ignore_span(module.span());
                 if let Some((ref braces, _)) = module.content {
-                    analysis.ignore_span(&braces.0);
+                    analysis.ignore_span(braces.0);
                 }
                 check_insides = false;
                 break;
@@ -271,12 +271,12 @@ fn visit_mod(module: &ItemMod, analysis: &mut LineAnalysis, ctx: &Context) {
                         continue;
                     }
                     for nested in &ml.nested {
-                        if let &NestedMeta::Meta(Meta::Word(ref i)) = nested {
+                        if let NestedMeta::Meta(Meta::Word(ref i)) = *nested {
                             if i == "test" {
                                 check_insides = false;
-                                analysis.ignore_span(&module.mod_token.0);
+                                analysis.ignore_span(module.mod_token.0);
                                 if let Some((ref braces, _)) = module.content {
-                                    analysis.ignore_span(&braces.0);
+                                    analysis.ignore_span(braces.0);
                                 }
                             }
                         }
@@ -304,7 +304,7 @@ fn visit_fn(func: &ItemFn, analysis: &mut LineAnalysis, ctx: &Context) {
             if id == "test" {
                 test_func = true;
             } else if id == "derive" {
-                analysis.ignore_span(&attr.bracket_token.0);
+                analysis.ignore_span(attr.bracket_token.0);
             } else if id == "inline" {
                 is_inline = true;
             } else if id == "ignore" {
@@ -316,15 +316,15 @@ fn visit_fn(func: &ItemFn, analysis: &mut LineAnalysis, ctx: &Context) {
         }
     }
     if ignore_span {
-        analysis.ignore_span(&func.span());
+        analysis.ignore_span(func.span());
     } else if test_func {
         if ctx.config.ignore_tests || (ignored_attr && !ctx.config.run_ignored) {
-            analysis.ignore_span(&func.span());
+            analysis.ignore_span(func.span());
         }
     } else {
         if is_inline {
             // We need to force cover!
-            analysis.cover_span(&func.block.brace_token.0, Some(ctx.file_contents));
+            analysis.cover_span(func.block.brace_token.0, Some(ctx.file_contents));
         }
         process_statements(&func.block.stmts, ctx, analysis);
         visit_generics(&func.decl.generics, analysis);
@@ -343,18 +343,16 @@ fn check_attr_list(attrs: &[Attribute], ctx: &Context) -> bool {
         if let Some(x) = attr.interpret_meta() {
             if check_cfg_attr(&x) {
                 check_cover = false;
-            } else if ctx.config.ignore_tests {
-                if x.name() == "cfg" {
-                    if let Meta::List(ref ml) = x {
-                        let mut skip = false;
-                        for c in &ml.nested {
-                            if let NestedMeta::Meta(Meta::Word(ref i)) = c {
-                                skip |= i == "test";
-                            }
+            } else if ctx.config.ignore_tests &&  x.name() == "cfg" {
+                if let Meta::List(ref ml) = x {
+                    let mut skip = false;
+                    for c in &ml.nested {
+                        if let NestedMeta::Meta(Meta::Word(ref i)) = c {
+                            skip |= i == "test";
                         }
-                        if skip {
-                            check_cover = false;
-                        }
+                    }
+                    if skip {
+                        check_cover = false;
                     }
                 }
             }
@@ -394,11 +392,11 @@ fn check_cfg_attr(attr: &Meta) -> bool {
 fn visit_trait(trait_item: &ItemTrait, analysis: &mut LineAnalysis, ctx: &Context) {
     let check_cover = check_attr_list(&trait_item.attrs, ctx);
     if check_cover {
-        for item in trait_item.items.iter() {
-            if let &TraitItem::Method(ref i) = item {
+        for item in &trait_item.items {
+            if let TraitItem::Method(ref i) = *item {
                 if check_attr_list(&i.attrs, ctx) {
                     if let Some(ref block) = i.default {
-                        analysis.cover_span(&item.span(), Some(ctx.file_contents));
+                        analysis.cover_span(item.span(), Some(ctx.file_contents));
                         visit_generics(&i.sig.decl.generics, analysis);
                         analysis.ignore.remove(&i.sig.span().start().line);
                         
@@ -409,16 +407,16 @@ fn visit_trait(trait_item: &ItemTrait, analysis: &mut LineAnalysis, ctx: &Contex
                         analysis.add_to_ignore(&lines);
                     }
                 } else {
-                    analysis.ignore_span(&i.span());
+                    analysis.ignore_span(i.span());
                 }
                 for a in &i.attrs {
-                    analysis.ignore_span(&a.span());
+                    analysis.ignore_span(a.span());
                 }
             }
         }
         visit_generics(&trait_item.generics, analysis);
     } else {
-        analysis.ignore_span(&trait_item.span());
+        analysis.ignore_span(trait_item.span());
     }
 }
 
@@ -426,10 +424,10 @@ fn visit_trait(trait_item: &ItemTrait, analysis: &mut LineAnalysis, ctx: &Contex
 fn visit_impl(impl_blk: &ItemImpl, analysis: &mut LineAnalysis, ctx: &Context) {
     let check_cover = check_attr_list(&impl_blk.attrs, ctx);
     if check_cover {
-        for item in impl_blk.items.iter() {
-            if let &ImplItem::Method(ref i) = item {
+        for item in &impl_blk.items {
+            if let ImplItem::Method(ref i) = *item {
                 if check_attr_list(&i.attrs, ctx) {
-                    analysis.cover_span(&i.span(), Some(ctx.file_contents));
+                    analysis.cover_span(i.span(), Some(ctx.file_contents));
                     process_statements(&i.block.stmts, ctx, analysis);
                     
                     visit_generics(&i.sig.decl.generics, analysis);
@@ -441,42 +439,42 @@ fn visit_impl(impl_blk: &ItemImpl, analysis: &mut LineAnalysis, ctx: &Context) {
                     let lines = (decl_start..(stmts_start+1)).collect::<Vec<_>>();
                     analysis.add_to_ignore(&lines);
                 } else {
-                    analysis.ignore_span(&item.span());
+                    analysis.ignore_span(item.span());
                 }
                 for a in &i.attrs {
-                    analysis.ignore_span(&a.span());
+                    analysis.ignore_span(a.span());
                 }
             }
         }
         visit_generics(&impl_blk.generics, analysis);
     } else {
-        analysis.ignore_span(&impl_blk.span());
+        analysis.ignore_span(impl_blk.span());
     }
 }
 
 
 fn visit_generics(generics: &Generics, analysis: &mut LineAnalysis) {
     if let Some(ref wh) = generics.where_clause {
-        analysis.ignore_span(&wh.span());
+        analysis.ignore_span(wh.span());
     }
 }
 
 
 fn process_expr(expr: &Expr, ctx: &Context, analysis: &mut LineAnalysis) {
-    match expr {
-        &Expr::Macro(ref m) => visit_macro_call(&m.mac, ctx, analysis),
-        &Expr::Struct(ref s) => visit_struct_expr(&s, analysis),
-        &Expr::Unsafe(ref u) => visit_unsafe_block(&u, ctx, analysis),
-        &Expr::Call(ref c) => visit_callable(&c, analysis),
-        &Expr::MethodCall(ref m) => visit_methodcall(&m, analysis),
-        &Expr::Match(ref m) => visit_match(&m, ctx, analysis),
-        &Expr::Block(ref b) => visit_block(&b.block, ctx, analysis),
-        &Expr::If(ref i) => visit_if(&i, ctx, analysis),
-        &Expr::IfLet(ref i) => visit_if_let(&i, ctx, analysis),
-        &Expr::While(ref w) => visit_while(&w, ctx, analysis),
-        &Expr::WhileLet(ref w) => visit_while_let(&w, ctx, analysis),
-        &Expr::ForLoop(ref f) => visit_for(&f, ctx, analysis),
-        &Expr::Loop(ref l) => visit_loop(&l, ctx, analysis),
+    match *expr {
+        Expr::Macro(ref m) => visit_macro_call(&m.mac, ctx, analysis),
+        Expr::Struct(ref s) => visit_struct_expr(&s, analysis),
+        Expr::Unsafe(ref u) => visit_unsafe_block(&u, ctx, analysis),
+        Expr::Call(ref c) => visit_callable(&c, analysis),
+        Expr::MethodCall(ref m) => visit_methodcall(&m, analysis),
+        Expr::Match(ref m) => visit_match(&m, ctx, analysis),
+        Expr::Block(ref b) => visit_block(&b.block, ctx, analysis),
+        Expr::If(ref i) => visit_if(&i, ctx, analysis),
+        Expr::IfLet(ref i) => visit_if_let(&i, ctx, analysis),
+        Expr::While(ref w) => visit_while(&w, ctx, analysis),
+        Expr::WhileLet(ref w) => visit_while_let(&w, ctx, analysis),
+        Expr::ForLoop(ref f) => visit_for(&f, ctx, analysis),
+        Expr::Loop(ref l) => visit_loop(&l, ctx, analysis),
         _ => {},
     }
 }
@@ -534,8 +532,8 @@ fn get_coverable_args(args: &Punctuated<Expr, Comma>) -> HashSet<usize> {
     let mut lines:HashSet<usize> = HashSet::new();
     for a in args.iter() {
         let s = a.span();
-        match a {
-            &Expr::Lit(_) => {},
+        match *a {
+            Expr::Lit(_) => {},
             _ => {
                 for i in s.start().line..(s.end().line+1) {
                     lines.insert(i);
@@ -573,21 +571,21 @@ fn visit_unsafe_block(unsafe_expr: &ExprUnsafe, ctx: &Context, analysis: &mut Li
 
     let blk = &unsafe_expr.block;
     if u_line != blk.brace_token.0.start().line || blk.stmts.is_empty()  {
-        analysis.ignore_span(&unsafe_expr.unsafe_token.0);
-    } else if let Some(ref first_stmt) = blk.stmts.iter().nth(0) {
-        let s = match first_stmt {
-            &&Stmt::Local(ref l) => l.span(),
-            &&Stmt::Item(ref i) => i.span(),
-            &&Stmt::Expr(ref e) => e.span(),
-            &&Stmt::Semi(ref e, _) => e.span(),
+        analysis.ignore_span(unsafe_expr.unsafe_token.0);
+    } else if let Some(ref first_stmt) = blk.stmts.get(0) {
+        let s = match **first_stmt {
+            Stmt::Local(ref l) => l.span(),
+            Stmt::Item(ref i) => i.span(),
+            Stmt::Expr(ref e) => e.span(),
+            Stmt::Semi(ref e, _) => e.span(),
         };
         if u_line != s.start().line {
-            analysis.ignore_span(&unsafe_expr.unsafe_token.0);
+            analysis.ignore_span(unsafe_expr.unsafe_token.0);
         }
         process_statements(&blk.stmts, ctx, analysis); 
     } else {
-        analysis.ignore_span(&unsafe_expr.unsafe_token.0);
-        analysis.ignore_span(&blk.brace_token.0);
+        analysis.ignore_span(unsafe_expr.unsafe_token.0);
+        analysis.ignore_span(blk.brace_token.0);
     }
 }
 
@@ -627,7 +625,7 @@ fn visit_macro_call(mac: &Macro, ctx: &Context, analysis: &mut LineAnalysis) {
             name.ident == "unimplemented" || name.ident == "include";
         let ignore_panic =  ctx.config.ignore_panics && name.ident == "panic"; 
         if standard_ignores || ignore_panic {
-            analysis.ignore_span(&mac.span());
+            analysis.ignore_span(mac.span());
             skip = true;
         }
         
@@ -644,7 +642,7 @@ fn visit_macro_call(mac: &Macro, ctx: &Context, analysis: &mut LineAnalysis) {
 fn process_mac_args(tokens: &TokenStream) -> HashSet<usize> {
     let mut cover: HashSet<usize> = HashSet::new();
     // IntoIter not implemented for &TokenStream.
-    for token in tokens.clone().into_iter() {
+    for token in tokens.clone() {
         let t = token.span();
         match token {
             TokenTree::Literal(_) | TokenTree::Punct{..} => {},
@@ -667,14 +665,14 @@ mod tests {
     #[test]
     fn line_analysis_works() {
         let mut la = LineAnalysis::new();
-        assert!(!la.should_ignore(&0));
-        assert!(!la.should_ignore(&10));
+        assert!(!la.should_ignore(0));
+        assert!(!la.should_ignore(10));
         
         la.add_to_ignore(&[3,4, 10]);
-        assert!(la.should_ignore(&3));
-        assert!(la.should_ignore(&4));
-        assert!(la.should_ignore(&10));
-        assert!(!la.should_ignore(&1));
+        assert!(la.should_ignore(3));
+        assert!(la.should_ignore(4));
+        assert!(la.should_ignore(10));
+        assert!(!la.should_ignore(1));
     }
 
     #[test] 

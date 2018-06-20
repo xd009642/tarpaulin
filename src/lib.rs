@@ -48,7 +48,7 @@ use traces::*;
 
 
 
-pub fn run(config: Config) -> Result<(), i32> {
+pub fn run(config: &Config) -> Result<(), i32> {
     let result = launch_tarpaulin(&config)?;
     report_coverage(&config, &result);
     Ok(())
@@ -70,11 +70,8 @@ pub fn launch_tarpaulin(config: &Config) -> Result<TraceMap, i32> {
     setup_environment();
         
     let mut copt = ops::CompileOptions::default(&cargo_config, ops::CompileMode::Test);
-    match copt.filter {
-        ops::CompileFilter::Default{ref mut required_features_filterable} => {
-            *required_features_filterable = true;
-        },
-        _ => {},
+    if let ops::CompileFilter::Default{ref mut required_features_filterable} = copt.filter {
+        *required_features_filterable = true;
     }
     copt.features = config.features.as_slice();
     copt.all_features = config.all_features;
@@ -155,7 +152,7 @@ pub fn report_coverage(config: &Config, result: &TraceMap) {
                     println!("{}:{} - {}", path.display(), v.line, v.stats);
                 }
             }
-            println!("");
+            println!();
         }
         for file in result.files() {
             let path = config.strip_project_path(file);
@@ -171,8 +168,8 @@ pub fn report_coverage(config: &Config, result: &TraceMap) {
         }
 
         for g in &config.generate {
-            match g {
-                &OutputFile::Xml => {
+            match *g {
+                OutputFile::Xml => {
                     report::cobertura::export(result, config);
                 },
                 _ => {

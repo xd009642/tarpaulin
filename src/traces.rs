@@ -20,8 +20,8 @@ impl<'a> Add for &'a LogicState {
 
     fn add(self, other: &'a LogicState) -> LogicState {
         LogicState {
-            been_true: self.been_true | other.been_true,
-            been_false: self.been_false | other.been_false,
+            been_true: self.been_true || other.been_true,
+            been_false: self.been_false || other.been_false,
         }
     }
 }
@@ -48,15 +48,15 @@ impl Add for CoverageStat {
             (CoverageStat::Branch(ref l), CoverageStat::Branch(ref r)) => {
                 CoverageStat::Branch(l + r)
             },
-            t @ _ => t.0,
+            t => t.0,
         }
     }
 }
 
 impl Display for CoverageStat {
     fn fmt(&self, f: &mut Formatter) -> Result {
-        match self {
-            &CoverageStat::Line(x) => {
+        match *self {
+            CoverageStat::Line(x) => {
                 write!(f, "hits: {}", x)
             },
             _ => write!(f, ""),
@@ -129,7 +129,7 @@ pub fn amount_covered(traces: &[&Trace]) -> usize {
                  .fold(0, |acc, ref x| acc + (x.been_true as usize) + (x.been_false as usize))
             }
             CoverageStat::Line(ref x) => {
-                (x > &0) as usize
+                (*x > 0) as usize
             }
         };
     }
@@ -142,7 +142,7 @@ pub fn coverage_percentage(traces: &[&Trace]) -> f64 {
 
 /// Stores all the program traces mapped to files and provides an interface to
 /// add, query and change traces.
-#[derive(Debug)]
+#[derive(Debug, Default)]
 pub struct TraceMap {
     /// Traces in the program mapped to the given file
     traces: BTreeMap<PathBuf, Vec<Trace>>,
@@ -196,21 +196,20 @@ impl TraceMap {
     /// should be called only if you don't need those addresses from then on
     /// TODO possibly not the cleanest solution
     pub fn dedup(&mut self) {
-        for (_, values) in self.traces.iter_mut() {
+        for values in self.traces.values_mut() {
             // Map of lines and stats, merge duplicated stats here
             let mut lines: HashMap<u64, CoverageStat> = HashMap::new();
             // Duplicated traces need cleaning up. Maintain a list of them!
             let mut dirty: Vec<u64> = Vec::new();
             for v in values.iter() {
-                if lines.contains_key(&v.line) {
-                    dirty.push(v.line);
-                    let s = lines.get(&v.line).unwrap().clone() + v.stats.clone();
-                    lines.insert(v.line, s);
-                } else {
-                    lines.insert(v.line, v.stats.clone());
-                }
+                lines.entry(v.line)
+                    .and_modify(|e| {
+                         dirty.push(v.line);
+                         *e = e.clone() + v.stats.clone();
+                     })
+                    .or_insert_with(|| v.stats.clone());
             }
-            for d in dirty.iter() {
+            for d in &dirty {
                 let mut first = true;
                 values.retain(|x| {
                     let res = x.line != *d;

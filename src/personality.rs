@@ -7,7 +7,6 @@ use nix::errno::Errno;
               target_arch = "x86_64",
               target_arch = "arm")),
               )]
-
 type Persona = c_long;
 
 const ADDR_NO_RANDOMIZE: Persona = 0x004_0000;
@@ -36,7 +35,7 @@ fn personality(persona: Persona) -> Result<c_int> {
 pub fn disable_aslr() -> Result<i32> {
     match personality(GET_PERSONA) {
         Ok(p) => {
-            match personality(p as Persona | ADDR_NO_RANDOMIZE) {
+            match personality(i64::from(p) | ADDR_NO_RANDOMIZE) {
                 ok @ Ok(_) => ok,
                 err @ Err(..) => err,
             }

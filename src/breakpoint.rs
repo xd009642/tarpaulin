@@ -34,9 +34,9 @@ impl Breakpoint {
         let data = ((data >> shift) & 0xFF) as u8;
         
         let mut b = Breakpoint{ 
-            pc: pc,
-            data: data,
-            shift: shift,
+            pc,
+            data,
+            shift,
             is_running: HashMap::new(),
         };
         match b.enable(pid) {
@@ -62,7 +62,7 @@ impl Breakpoint {
         // I require the bit fiddlin this end.
         let data = read_address(pid, self.aligned_address())?;
         let mut orgdata = data & (!(0xFFu64 << self.shift) as i64);
-        orgdata |= (self.data as i64) << self.shift;
+        orgdata |= i64::from(self.data) << self.shift;
         write_to_address(pid, self.aligned_address(), orgdata)
     }
 

@@ -82,7 +82,7 @@ fn generate_func_desc<R, Offset>(die: &DebuggingInformationEntry<R, Offset>,
     if let Some(AttributeValue::DebugStrRef(offset)) = linkage {
         let name = debug_str.get_str(offset)
             .and_then(|r| r.to_string().map(|s| s.to_string()))
-            .unwrap_or("".into());
+            .unwrap_or_else(|_| "".into());
         let name = demangle(name.as_ref()).to_string();
         // Simplest test is whether it's in tests namespace.
         // Rust guidelines recommend all tests are in a tests module.
@@ -176,8 +176,8 @@ fn get_addresses_from_program<R, Offset>(prog: IncompleteLineNumberProgram<R>,
                                               .nth(0)
                                               .unwrap_or(LineType::Unknown);
                             let loc = SourceLocation {
-                                path: path,
-                                line: line,
+                                path,
+                                line,
                             };
                             if desc != LineType::TestMain && !temp_map.contains_key(&loc) {
                                 temp_map.insert(loc, TracerData {
@@ -251,7 +251,7 @@ fn get_line_addresses(endian: RunTimeEndian,
             }
             else {
                 // Deduplicate addresses 
-                for (_, v) in temp_map.iter_mut() {
+                for v in temp_map.values_mut() {
                     v.dedup_by_key(|x| x.address);
                 }
                 let temp_map = temp_map.into_iter()
@@ -281,9 +281,9 @@ fn get_line_addresses(endian: RunTimeEndian,
         }
         for line in &line_analysis.cover {
             let line = *line as u64;
-            if !result.contains_location(file, line) && !line_analysis.should_ignore(&(line as usize)) {
+            if !result.contains_location(file, line) && !line_analysis.should_ignore(line as usize) {
                 result.add_trace(file, Trace {
-                    line: line,
+                    line,
                     address: None,
                     length: 0,
                     stats: CoverageStat::Line(0),
