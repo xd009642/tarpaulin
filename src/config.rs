@@ -164,26 +164,26 @@ impl Config {
         Config{
             manifest: root,
             run_ignored: ignored,
-            ignore_tests: ignore_tests,
-            ignore_panics: ignore_panics,
-            verbose: verbose,
-            no_count: no_count,
+            ignore_tests,
+            ignore_panics,
+            verbose,
+            no_count,
             line_coverage: line,
-            skip_clean: skip_clean,
+            skip_clean,
             branch_coverage: branch,
             generate: out,
-            coveralls: coveralls,
-            ci_tool: ci_tool,
-            report_uri: report_uri,
+            coveralls,
+            ci_tool,
+            report_uri,
             forward_signals: forward,
-            all_features: all_features,
-            features: features,
-            all: all,
-            packages: packages,
-            exclude: exclude,
+            all_features,
+            features,
+            all,
+            packages,
+            exclude,
             excluded_files: ex_files,
             test_timeout: Duration::from_secs(timeout),
-            varargs: varargs,
+            varargs,
         }
     }
 
@@ -203,7 +203,7 @@ impl Config {
     /// nicer path for printing to the user.
     pub fn strip_project_path<'a>(&'a self, path: &'a Path) -> PathBuf {
         if let Some(root) = self.manifest.parent() {
-            path_relative_from(path, root).unwrap_or(path.to_path_buf())
+            path_relative_from(path, root).unwrap_or_else(|| path.to_path_buf())
         } else {
             path.to_path_buf()
         }

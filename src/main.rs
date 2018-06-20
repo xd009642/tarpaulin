@@ -75,7 +75,7 @@ fn main() {
 
     let args = args.subcommand_matches("tarpaulin").unwrap_or(&args);
     let config = Config::from_args(args);
-    match run(config) {
+    match run(&config) {
         Ok(()) => println!("Tarpaulin finished"),
         Err(e) => {
             println!("Error during run");
