@@ -49,13 +49,18 @@ use traces::*;
 
 
 pub fn run(config: &Config) -> Result<(), i32> {
-    let result = launch_tarpaulin(&config)?;
+    let (result, tp) = launch_tarpaulin(&config)?;
     report_coverage(&config, &result);
-    Ok(())
+    if tp {
+        Ok(())
+    } else {
+        println!("Tarpaulin ran successfully. Failure in tests.");
+        Err(-1)
+    }
 }
 
 /// Launches tarpaulin with the given configuration.
-pub fn launch_tarpaulin(config: &Config) -> Result<TraceMap, i32> {
+pub fn launch_tarpaulin(config: &Config) -> Result<(TraceMap, bool), i32> {
     let mut cargo_config = CargoConfig::default().unwrap();
     let flag_quiet = if config.verbose {
         None
@@ -101,24 +106,27 @@ pub fn launch_tarpaulin(config: &Config) -> Result<TraceMap, i32> {
     let mut result = TraceMap::new();
     println!("Building project");
     let compilation = ops::compile(&workspace, &copt);
+    let mut test_passed = true;
     match compilation {
         Ok(comp) => {
             for &(ref package, ref _target_kind, ref name, ref path) in &comp.tests {
                 if config.verbose {
                     println!("Processing {}", name);
                 }
-                if let Some(res) = get_test_coverage(&workspace, package, path.as_path(), &config, false) {
+                if let Some((res, tp)) = get_test_coverage(&workspace, package, path.as_path(), &config, false) {
                     result.merge(&res);
+                    test_passed &= tp;
                 }
                 if config.run_ignored {
-                    if let Some(res) = get_test_coverage(&workspace, package, path.as_path(),
+                    if let Some((res, tp)) = get_test_coverage(&workspace, package, path.as_path(),
                                                          &config, true) {
                         result.merge(&res);
+                        test_passed &= tp;
                     }
                 }
             }
             result.dedup();
-            Ok(result)
+            Ok((result, test_passed))
         },
         Err(e) => {
             if config.verbose{
@@ -188,7 +196,7 @@ pub fn get_test_coverage(project: &Workspace,
                          package: &Package,
                          test: &Path, 
                          config: &Config, 
-                         ignored: bool) -> Option<TraceMap> {
+                         ignored: bool) -> Option<(TraceMap, bool)> {
     if !test.exists() {
         return None;
     } 
@@ -222,13 +230,17 @@ pub fn get_test_coverage(project: &Workspace,
 fn collect_coverage(project: &Workspace, 
                     test_path: &Path, 
                     test: Pid,
-                    config: &Config) -> io::Result<TraceMap> {
+                    config: &Config) -> io::Result<(TraceMap, bool)> {
+    let mut test_passed = false;
     let mut traces = generate_tracemap(project, test_path, config)?;
     {
         let (mut state, mut data) = create_state_machine(test, &mut traces, config);
         loop {
             state = state.step(&mut data, config);
             if state.is_finished() {
+                if let TestState::End(i) = state {
+                    test_passed = i==0;
+                }
                 break;
             }
         }
@@ -240,7 +252,7 @@ fn collect_coverage(project: &Workspace,
             std::process::exit(1);
         }
     }
-    Ok(traces)
+    Ok((traces, test_passed))
 }
 
 /// Launches the test executable
