@@ -23,7 +23,8 @@ fn simple_project_coverage() {
     test_dir.push("data");
     test_dir.push("simple_project");
     config.manifest = test_dir.join("Cargo.toml");
-    let res = launch_tarpaulin(&config).unwrap();
+    let (res, tp) = launch_tarpaulin(&config).unwrap();
+    assert!(tp);
     let unused_file = test_dir.join("src/unused.rs");
     let unused_hits = res.covered_in_path(&unused_file);
     let unused_lines = res.coverable_in_path(&unused_file);
