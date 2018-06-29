@@ -142,6 +142,29 @@ fn setup_environment() {
     env::set_var(rustflags, value);
 }
 
+fn accumulate_lines((mut acc, mut group): (Vec<String>, Vec<u64>), next: u64) -> (Vec<String>, Vec<u64>) {
+    if let Some(last) = group.last().cloned() {
+        if next == last + 1 {
+            group.push(next);
+            (acc, group)
+        } else {
+            match (group.first(), group.last()) {
+                (Some(first), Some(last)) if first == last => {
+                    acc.push(format!("{}", first));
+                },
+                (Some(first), Some(last)) => {
+                    acc.push(format!("{}-{}", first, last));
+                },
+                (Some(_), None) |
+                (None, _) => (),
+            };
+            (acc, vec![])
+        }
+    } else {
+        group.push(next);
+        (acc, group)
+    }
+}
 
 /// Reports the test coverage using the users preferred method. See config.rs
 /// or help text for details.
@@ -149,6 +172,7 @@ pub fn report_coverage(config: &Config, result: &TraceMap) {
     if !result.is_empty() {
         println!("Coverage Results");
         if config.verbose {
+
             for (ref key, ref value) in result.iter() {
                 let path = config.strip_project_path(key);
                 let mut uncovered_lines = vec![];
@@ -159,9 +183,15 @@ pub fn report_coverage(config: &Config, result: &TraceMap) {
                         },
                         _ => (),
                     }
+
                     // println!("{}:{} - {}", path.display(), v.line, v.stats);
                 }
-                println!("{}: {:?}", path.display(), uncovered_lines);
+                uncovered_lines.sort();
+                let (groups, last_group) =
+                    uncovered_lines.into_iter()
+                    .fold((vec![], vec![]), accumulate_lines);
+                let (groups, _) = accumulate_lines((groups, last_group), u64::max_value());
+                println!("{}: {}", path.display(), groups.join(", "));
             }
             println!("");
         }
