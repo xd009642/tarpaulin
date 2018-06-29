@@ -151,9 +151,17 @@ pub fn report_coverage(config: &Config, result: &TraceMap) {
         if config.verbose {
             for (ref key, ref value) in result.iter() {
                 let path = config.strip_project_path(key);
+                let mut uncovered_lines = vec![];
                 for v in value.iter() {
-                    println!("{}:{} - {}", path.display(), v.line, v.stats);
+                    match v.stats {
+                        traces::CoverageStat::Line(count) if count == 0 => {
+                            uncovered_lines.push(v.line);
+                        },
+                        _ => (),
+                    }
+                    // println!("{}:{} - {}", path.display(), v.line, v.stats);
                 }
+                println!("{}: {:?}", path.display(), uncovered_lines);
             }
             println!("");
         }
