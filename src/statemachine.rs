@@ -31,8 +31,8 @@ pub enum TestState {
     Timeout,
     /// Unrecoverable error occurred
     Unrecoverable,
-    /// Test exited normally
-    End,
+    /// Test exited normally. Includes the exit code of the test executable.
+    End(i32),
     /// An error occurred that indicates no future runs will succeed such as
     /// PIE issues in OS. 
     Abort,
@@ -64,7 +64,7 @@ impl TestState {
     /// Convenience function used to check if the test has finished or errored
     pub fn is_finished(self) -> bool {
         match self {
-            TestState::End | TestState::Unrecoverable | TestState::Abort => true,
+            TestState::End(_) | TestState::Unrecoverable | TestState::Abort => true,
             _ => false,
         }
     }
@@ -110,14 +110,20 @@ impl TestState {
             },
             TestState::Timeout => {
                 data.cleanup();
-                TestState::End
+                // Test hasn't ran all the way through. Report as error
+                TestState::End(-1)
             },
             TestState::Unrecoverable => {
                 data.cleanup();
-                TestState::End
+                // We've gone wrong somewhere. Better report it as an issue
+                TestState::End(-1)
             },
             _ => {
-                TestState::End
+                // Unhandled 
+                if config.verbose {
+                    println!("Tarpaulin error: unhandled test state");
+                }
+                TestState::End(-1)
             }
         }
     }
@@ -291,12 +297,12 @@ impl <'a> StateData for LinuxData<'a> {
                     TestState::Unrecoverable
                 }
             },
-            WaitStatus::Exited(child, _) => {
+            WaitStatus::Exited(child, ec) => {
                 for ref mut value in self.breakpoints.values_mut() {
                     value.thread_killed(child); 
                 }
                 if child == self.parent {
-                    TestState::End
+                    TestState::End(ec)
                 } else {
                     // Process may have already been destroyed. This is just incase 
                     let _ = continue_exec(self.parent, None);
