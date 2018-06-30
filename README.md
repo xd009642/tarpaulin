@@ -132,12 +132,6 @@ We recommend taking the minimal rust .travis.yml, installing the libssl-dev
 dependency tarpaulin has and then running Tarpaulin with the version of 
 rustc you require.
 
-The travis-install shell script will install the latest tagged release built
-on travis to your travis instance and significantly speeds up the travis 
-builds. If you want an earlier version of tarpaulin, look at the script to
-see what you need to implement and adjust accordingly or use 
-`cargo install cargo-tarpaulin` and specify the version in the arguments.
-
 For codecov.io you'll need to export CODECOV_TOKEN are instructions on this in
 the settings of your codecov project.
 
@@ -164,7 +158,7 @@ script:
 
 after_success: |
   if [[ "$TRAVIS_RUST_VERSION" == stable ]]; then
-    bash <(curl https://raw.githubusercontent.com/xd009642/tarpaulin/master/travis-install.sh)
+    `RUSTFLAGS="--cfg procmacro2_semver_exempt" cargo install cargo-tarpaulin` 
     # Uncomment the following line for coveralls.io
     # cargo tarpaulin --ciserver travis-ci --coveralls $TRAVIS_JOB_ID
 
@@ -173,6 +167,14 @@ after_success: |
     # bash <(curl -s https://codecov.io/bash)
   fi
 ```
+
+Alternative, there is the travis-install shell script will install the latest tagged 
+release built on travis to your travis instance and significantly speeds up the travis 
+builds. You can install via that script using 
+`bash <(curl https://raw.githubusercontent.com/xd009642/tarpaulin/master/travis-install.sh)`.
+**Warning** due to the proc_macro2 dependency, the github releases are now tied
+to a specific version of rust so are no longer recommended. Instead use cargo or docker to 
+install tarpaulin.
 
 ### Docker
 
