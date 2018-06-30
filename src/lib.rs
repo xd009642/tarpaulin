@@ -174,7 +174,7 @@ pub fn report_coverage(config: &Config, result: &TraceMap) {
         if config.verbose {
 
             println!();
-            println!("## Uncovered Lines:");
+            println!("Uncovered Lines:");
             for (ref key, ref value) in result.iter() {
                 let path = config.strip_project_path(key);
                 let mut uncovered_lines = vec![];
@@ -185,8 +185,6 @@ pub fn report_coverage(config: &Config, result: &TraceMap) {
                         },
                         _ => (),
                     }
-
-                    // println!("{}:{} - {}", path.display(), v.line, v.stats);
                 }
                 uncovered_lines.sort();
                 let (groups, last_group) =
@@ -197,7 +195,7 @@ pub fn report_coverage(config: &Config, result: &TraceMap) {
             }
             println!();
         }
-        println!("## Tested/Total Lines");
+        println!("Tested/Total Lines:");
         for file in result.files() {
             let path = config.strip_project_path(file);
             println!("{}: {}/{}", path.display(), result.covered_in_path(&file), result.coverable_in_path(&file));
