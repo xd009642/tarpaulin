@@ -102,7 +102,7 @@ Tarpaulin finished
 ```
 
 Hint: if using coveralls.io with travis-ci run with the options
-"--ciserver travis-ci --coveralls $TRAVIS_JOB_ID". The coveralls.io repo-token
+`--ciserver travis-ci --coveralls $TRAVIS_JOB_ID`. The coveralls.io repo-token
 is mainly designed for private repos and it won't generate a badge for the
 coverage results submitted (although you can still see them on the coveralls
 web interface). For an example of a project using Tarpaulin, you can check out
@@ -158,7 +158,7 @@ script:
 
 after_success: |
   if [[ "$TRAVIS_RUST_VERSION" == stable ]]; then
-    `RUSTFLAGS="--cfg procmacro2_semver_exempt" cargo install cargo-tarpaulin` 
+    RUSTFLAGS="--cfg procmacro2_semver_exempt" cargo install cargo-tarpaulin 
     # Uncomment the following line for coveralls.io
     # cargo tarpaulin --ciserver travis-ci --coveralls $TRAVIS_JOB_ID
 
@@ -201,25 +201,35 @@ dependencies. In that case, you can install dependencies before, like this:
 docker run --security-opt seccomp=unconfined -v "$PWD:/volume" xd009642/tarpaulin sh -c "apt-get install xxx && cargo tarpaulin"
 ```
 
-If you want to have an HTML report with the results, first generate XML:
+## Extending Tarpaulin.
 
-```text
-docker run --security-opt seccomp=unconfined -v "$PWD:/volume" xd009642/tarpaulin cargo tarpaulin --out Xml
-```
-
-You'll get a `cobertura.xml` file in your directory. To turn that into an HTML
-report, you can use [pycobertura](https://pypi.python.org/pypi/pycobertura):
-
-```text
-pip install pycobertura
-pycobertura show --format html --output coverage.html cobertura.xml
-```
-
-Then open `coverage.html` in your browser.
+There are some tools available which can extend tarpaulin functionality for
+other potential user needs.
 
 ### Procedural Macros
 
-Normally, Tarpaulin can't report on code coverage within the code for a procedural macro. You'll need to add a test that expands the macro at run time in order to get those stats. The [`runtime-macros` crate](https://crates.io/crates/runtime-macros) was made for this purpose, and its documentation describes how to use it with Tarpaulin.
+Normally, Tarpaulin can't report on code coverage within the code for a 
+procedural macro. You'll need to add a test that expands the macro at run-time
+in order to get those stats. The
+[`runtime-macros` crate](https://crates.io/crates/runtime-macros) was made for
+this purpose, and its documentation describes how to use it with Tarpaulin.
+
+### Pycobertura 
+
+[`pycobertura`](https://pypi.python.org/pypi/pycobertura) is a python library
+for working with cobertura reports. It offers a report diffing tool as well as
+it's own report implementations.
+
+To generate a `cobertura.xml` simply run the following tarpaulin command:
+
+```text
+cargo tarpaulin --out Xml
+```
+
+Then install `pycobertura` with pip and execute the desired command.
+
+As tarpaulin doesn't allow you to change the name of the generated cobertura
+report be mindful of this if diffing reports between multiple commits.
 
 ## Issues and Contributing
 
