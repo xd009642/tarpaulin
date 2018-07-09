@@ -59,7 +59,7 @@ fn main() {
             .args(&[
                 Arg::from_usage("--count 'Counts the number of hits during line coverage'")
                     .conflicts_with("no-count"),
-                Arg::from_usage("--out -o [FMT]   'Output path'")
+                Arg::from_usage("--out -o [FMT]   'Output format of coverage report'")
                     .possible_values(&OutputFile::variants())
                     .multiple(true),
                 Arg::from_usage("--root -r [DIR]  'Root directory containing Cargo.toml to use'")
@@ -75,7 +75,7 @@ fn main() {
 
     let args = args.subcommand_matches("tarpaulin").unwrap_or(&args);
     let config = Config::from_args(args);
-    match run(config) {
+    match run(&config) {
         Ok(()) => println!("Tarpaulin finished"),
         Err(e) => {
             println!("Error during run");

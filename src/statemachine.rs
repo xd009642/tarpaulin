@@ -31,8 +31,8 @@ pub enum TestState {
     Timeout,
     /// Unrecoverable error occurred
     Unrecoverable,
-    /// Test exited normally
-    End,
+    /// Test exited normally. Includes the exit code of the test executable.
+    End(i32),
     /// An error occurred that indicates no future runs will succeed such as
     /// PIE issues in OS. 
     Abort,
@@ -64,7 +64,7 @@ impl TestState {
     /// Convenience function used to check if the test has finished or errored
     pub fn is_finished(self) -> bool {
         match self {
-            TestState::End | TestState::Unrecoverable | TestState::Abort => true,
+            TestState::End(_) | TestState::Unrecoverable | TestState::Abort => true,
             _ => false,
         }
     }
@@ -89,7 +89,7 @@ impl TestState {
                     println!("Error: Timed out when starting test");
                     TestState::Timeout
                 } else {
-                    TestState::Start{start_time:start_time}
+                    TestState::Start{start_time}
                 }
             },
             TestState::Initialise => {
@@ -110,14 +110,20 @@ impl TestState {
             },
             TestState::Timeout => {
                 data.cleanup();
-                TestState::End
+                // Test hasn't ran all the way through. Report as error
+                TestState::End(-1)
             },
             TestState::Unrecoverable => {
                 data.cleanup();
-                TestState::End
+                // We've gone wrong somewhere. Better report it as an issue
+                TestState::End(-1)
             },
             _ => {
-                TestState::End
+                // Unhandled 
+                if config.verbose {
+                    println!("Tarpaulin error: unhandled test state");
+                }
+                TestState::End(-1)
             }
         }
     }
@@ -213,7 +219,7 @@ impl <'a> StateData for LinuxData<'a> {
         if !instrumented {
             TestState::Abort
         }
-        else if let Ok(_) = continue_exec(self.parent, None) {
+        else if continue_exec(self.parent, None).is_ok() {
             TestState::wait_state()
         } else {
             TestState::Unrecoverable
@@ -291,12 +297,12 @@ impl <'a> StateData for LinuxData<'a> {
                     TestState::Unrecoverable
                 }
             },
-            WaitStatus::Exited(child, _) => {
-                for (_, ref mut value) in self.breakpoints.iter_mut() {
+            WaitStatus::Exited(child, ec) => {
+                for ref mut value in self.breakpoints.values_mut() {
                     value.thread_killed(child); 
                 }
                 if child == self.parent {
-                    TestState::End
+                    TestState::End(ec)
                 } else {
                     // Process may have already been destroyed. This is just incase 
                     let _ = continue_exec(self.parent, None);
@@ -324,8 +330,8 @@ impl <'a>LinuxData<'a> {
             current: Pid::from_raw(0),
             parent: Pid::from_raw(0),
             breakpoints: HashMap::new(),
-            traces: traces,
-            config: config,
+            traces,
+            config,
             error_message:None,
             thread_count: 0,
             force_disable_hit_count: !config.no_count
@@ -390,11 +396,8 @@ impl <'a>LinuxData<'a> {
                 };
                 if updated {
                     if let Some(ref mut t) = self.traces.get_trace_mut(rip) {
-                        match t.stats {
-                            CoverageStat::Line(ref mut x) => {
-                                *x += 1;
-                            },
-                             _ => {}
+                        if let CoverageStat::Line(ref mut x) = t.stats {
+                            *x += 1;
                         }
                     }
                 } 
