@@ -163,7 +163,7 @@ fn accumulate_lines((mut acc, mut group): (Vec<String>, Vec<u64>), next: u64) ->
                 (Some(_), None) |
                 (None, _) => (),
             };
-            (acc, vec![])
+            (acc, vec![next])
         }
     } else {
         group.push(next);
