@@ -196,7 +196,9 @@ pub fn report_coverage(config: &Config, result: &TraceMap) {
                     uncovered_lines.into_iter()
                     .fold((vec![], vec![]), accumulate_lines);
                 let (groups, _) = accumulate_lines((groups, last_group), u64::max_value());
-                println!("{}: {}", path.display(), groups.join(", "));
+                if ! groups.is_empty() {
+                    println!("{}: {}", path.display(), groups.join(", "));
+                }
             }
             println!();
         }
