@@ -74,6 +74,7 @@ fn write_class<T:Write>(writer: &mut Writer<T>,
 /// Input only tracer data from a single source folder
 fn write_package<T:Write>(mut writer: &mut Writer<T>, 
                           package: &Path,
+                          manifest_path: &Path,
                           package_name: &str,
                           coverage: &TraceMap) -> Result<usize> {
     let covered = coverage.covered_in_path(package);
@@ -89,7 +90,7 @@ fn write_package<T:Write>(mut writer: &mut Writer<T>,
 
     for file in &coverage.files() {
         if file.parent() == Some(package) {
-            write_class(&mut writer, package, file, coverage)?;
+            write_class(&mut writer, manifest_path, file, coverage)?;
         }
     }
 
@@ -133,7 +134,7 @@ pub fn export(coverage_data: &TraceMap, config: &Config) {
                 _ => manifest_path,
             };
             let package_name = package_name.to_str().unwrap_or_default();
-            let _ = write_package(&mut writer, &parent, package_name, &coverage_data);
+            let _ = write_package(&mut writer, &parent, &manifest_path, package_name, &coverage_data);
         }
     }
 
