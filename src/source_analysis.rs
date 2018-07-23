@@ -29,6 +29,12 @@ pub trait SourceAnalysisQuery {
     fn should_ignore(&self, path: &Path, l:&usize) -> bool;
 }
 
+#[derive(Copy,Clone,Debug)]
+enum SubResult {
+    Ok,
+    Unreachable
+}
+
 impl SourceAnalysisQuery for HashMap<PathBuf, LineAnalysis> {
 
     fn should_ignore(&self, path: &Path, l:&usize) -> bool {
@@ -234,21 +240,34 @@ fn process_items(items: &[Item], ctx: &Context, analysis: &mut LineAnalysis) {
             },
             Item::Trait(ref i) => visit_trait(&i, analysis, ctx),
             Item::Impl(ref i) => visit_impl(&i, analysis, ctx),
-            Item::Macro(ref i) => visit_macro_call(&i.mac, ctx, analysis),
+            Item::Macro(ref i) => { visit_macro_call(&i.mac, ctx, analysis); },
             _ =>{}
         } 
     }
 }
 
 
-fn process_statements(stmts: &[Stmt], ctx: &Context, analysis: &mut LineAnalysis) {
+fn process_statements(stmts: &[Stmt], ctx: &Context, analysis: &mut LineAnalysis) -> SubResult {
+    // in a list of statements, if any of them is unreachable, the whole list is
+    // unreachable
+    let mut unreachable = false;
     for stmt in stmts.iter() {
         match *stmt {
             Stmt::Item(ref i) => process_items(&[i.clone()], ctx, analysis),
-            Stmt::Expr(ref i) => process_expr(&i, ctx, analysis),
-            Stmt::Semi(ref i, _) => process_expr(&i, ctx, analysis),
+            Stmt::Expr(ref i)
+            | Stmt::Semi(ref i, _) => {
+                if let SubResult::Unreachable = process_expr(&i, ctx, analysis) {
+                    unreachable = true;
+                }
+            },
             _ => {},
         }
+    }
+    // We must be in a block, the parent will handle marking the span as unreachable
+    if unreachable {
+        SubResult::Unreachable
+    } else {
+        SubResult::Ok
     }
 }
 
@@ -326,7 +345,12 @@ fn visit_fn(func: &ItemFn, analysis: &mut LineAnalysis, ctx: &Context) {
             // We need to force cover!
             analysis.cover_span(func.block.brace_token.0, Some(ctx.file_contents));
         }
-        process_statements(&func.block.stmts, ctx, analysis);
+        if let SubResult::Unreachable = process_statements(&func.block.stmts, ctx, analysis) {
+            // if the whole body of the function is unreachable, that means the function itself
+            // cannot be called, so is unreachable as a whole
+            analysis.ignore_span(func.span());
+            return
+        }
         visit_generics(&func.decl.generics, analysis);
         analysis.ignore.remove(&func.decl.fn_token.span().start().line);
         // Ignore multiple lines of fn decl 
@@ -428,7 +452,12 @@ fn visit_impl(impl_blk: &ItemImpl, analysis: &mut LineAnalysis, ctx: &Context) {
             if let ImplItem::Method(ref i) = *item {
                 if check_attr_list(&i.attrs, ctx) {
                     analysis.cover_span(i.span(), Some(ctx.file_contents));
-                    process_statements(&i.block.stmts, ctx, analysis);
+                    if let SubResult::Unreachable = process_statements(&i.block.stmts, ctx, analysis) {
+                        // if the body of this method is unreachable, this means that the method
+                        // cannot be called, and is unreachable
+                        analysis.ignore_span(i.span());
+                        return
+                    }
                     
                     visit_generics(&i.sig.decl.generics, analysis);
                     analysis.ignore.remove(&i.span().start().line);
@@ -460,8 +489,8 @@ fn visit_generics(generics: &Generics, analysis: &mut LineAnalysis) {
 }
 
 
-fn process_expr(expr: &Expr, ctx: &Context, analysis: &mut LineAnalysis) {
-    match *expr {
+fn process_expr(expr: &Expr, ctx: &Context, analysis: &mut LineAnalysis) -> SubResult {
+    let res = match *expr {
         Expr::Macro(ref m) => visit_macro_call(&m.mac, ctx, analysis),
         Expr::Struct(ref s) => visit_struct_expr(&s, analysis),
         Expr::Unsafe(ref u) => visit_unsafe_block(&u, ctx, analysis),
@@ -475,56 +504,130 @@ fn process_expr(expr: &Expr, ctx: &Context, analysis: &mut LineAnalysis) {
         Expr::WhileLet(ref w) => visit_while_let(&w, ctx, analysis),
         Expr::ForLoop(ref f) => visit_for(&f, ctx, analysis),
         Expr::Loop(ref l) => visit_loop(&l, ctx, analysis),
-        _ => {},
+        // don't try to compute unreachability on other things
+        _ => SubResult::Ok,
+    };
+    if let SubResult::Unreachable = res {
+        analysis.ignore_span(expr.span());
+    }
+    res
+}
+
+
+fn visit_block(block: &Block, ctx: &Context, analysis: &mut LineAnalysis) -> SubResult {
+    if let SubResult::Unreachable = process_statements(&block.stmts, ctx, analysis) {
+        analysis.ignore_span(block.span());
+        SubResult::Unreachable
+    } else {
+        SubResult::Ok
     }
 }
 
 
-fn visit_block(block: &Block, ctx: &Context, analysis: &mut LineAnalysis) {
-    process_statements(&block.stmts, ctx, analysis);
-}
-
-
-fn visit_match(mat: &ExprMatch, ctx: &Context, analysis: &mut LineAnalysis) {
+fn visit_match(mat: &ExprMatch, ctx: &Context, analysis: &mut LineAnalysis) -> SubResult {
+    // a match with some arms is unreachable iff all its arms are unreachable
+    let mut reachable_arm = false;
     for arm in &mat.arms {
-        process_expr(&arm.body, ctx, analysis);
+        if let SubResult::Ok = process_expr(&arm.body, ctx, analysis) {
+            reachable_arm = true
+        }
+    }
+    if !reachable_arm {
+        analysis.ignore_span(mat.span());
+        SubResult::Unreachable
+    } else {
+        SubResult::Ok
     }
 }
 
 
-fn visit_if(if_block: &ExprIf, ctx: &Context, analysis: &mut LineAnalysis) {
-    visit_block(&if_block.then_branch, ctx, analysis);
+fn visit_if(if_block: &ExprIf, ctx: &Context, analysis: &mut LineAnalysis) -> SubResult {
+    // an if expression is unreachable iff both its branches are unreachable
+    let mut reachable_arm = false;
+    if let SubResult::Ok = visit_block(&if_block.then_branch, ctx, analysis) {
+        reachable_arm = true;
+    }
     if let Some((_ ,ref else_block)) = if_block.else_branch {
-        process_expr(&else_block, ctx, analysis);
+        if let SubResult::Ok = process_expr(&else_block, ctx, analysis) {
+            reachable_arm = true;
+        }
+    } else {
+        // an empty else branch is reachable
+        reachable_arm = true;
+    }
+    if !reachable_arm {
+        analysis.ignore_span(if_block.span());
+        SubResult::Unreachable
+    } else {
+        SubResult::Ok
     }
 }
 
 
-fn visit_if_let(if_let: &ExprIfLet, ctx: &Context, analysis: &mut LineAnalysis) {
-    visit_block(&if_let.then_branch, ctx, analysis);
+fn visit_if_let(if_let: &ExprIfLet, ctx: &Context, analysis: &mut LineAnalysis) -> SubResult {
+    // an if let expression is unreachable iff both its branches are unreachable
+    let mut reachable_arm = false;
+    if let SubResult::Ok = visit_block(&if_let.then_branch, ctx, analysis) {
+        reachable_arm = true;
+    }
     if let Some((_ ,ref else_block)) = if_let.else_branch {
-        process_expr(&else_block, ctx, analysis);
+        if let SubResult::Ok = process_expr(&else_block, ctx, analysis) {
+            reachable_arm = true;
+        }
+    } else {
+        // an empty else branch is reachable
+        reachable_arm = true;
+    }
+    if !reachable_arm {
+        analysis.ignore_span(if_let.span());
+        SubResult::Unreachable
+    } else {
+        SubResult::Ok
     }
 }
 
 
-fn visit_while(whl: &ExprWhile, ctx: &Context, analysis: &mut LineAnalysis) {
-    visit_block(&whl.body, ctx, analysis);
+fn visit_while(whl: &ExprWhile, ctx: &Context, analysis: &mut LineAnalysis) -> SubResult {
+    // a while block is unreachable iff its body is
+    if let SubResult::Unreachable = visit_block(&whl.body, ctx, analysis) {
+        analysis.ignore_span(whl.span());
+        SubResult::Unreachable
+    } else {
+        SubResult::Ok
+    }
 }
 
 
-fn visit_while_let(while_let: &ExprWhileLet, ctx: &Context, analysis: &mut LineAnalysis) {
-    visit_block(&while_let.body, ctx, analysis);
+fn visit_while_let(while_let: &ExprWhileLet, ctx: &Context, analysis: &mut LineAnalysis) -> SubResult {
+    // a while block is unreachable iff its body is
+    if let SubResult::Unreachable = visit_block(&while_let.body, ctx, analysis) {
+        analysis.ignore_span(while_let.span());
+        SubResult::Unreachable
+    } else {
+        SubResult::Ok
+    }
 }
 
 
-fn visit_for(for_loop: &ExprForLoop, ctx: &Context, analysis: &mut LineAnalysis) {
-    visit_block(&for_loop.body, ctx, analysis);
+fn visit_for(for_loop: &ExprForLoop, ctx: &Context, analysis: &mut LineAnalysis) -> SubResult {
+    // a for block is unreachable iff its body is
+    if let SubResult::Unreachable = visit_block(&for_loop.body, ctx, analysis) {
+        analysis.ignore_span(for_loop.span());
+        SubResult::Unreachable
+    } else {
+        SubResult::Ok
+    }
 }
 
 
-fn visit_loop(loopex: &ExprLoop, ctx: &Context, analysis: &mut LineAnalysis) {
-    visit_block(&loopex.body, ctx, analysis);
+fn visit_loop(loopex: &ExprLoop, ctx: &Context, analysis: &mut LineAnalysis) -> SubResult {
+    // a loop block is unreachable iff its body is
+    if let SubResult::Unreachable = visit_block(&loopex.body, ctx, analysis) {
+        analysis.ignore_span(loopex.span());
+        SubResult::Unreachable
+    } else {
+        SubResult::Ok
+    }
 }
 
 
@@ -545,28 +648,31 @@ fn get_coverable_args(args: &Punctuated<Expr, Comma>) -> HashSet<usize> {
 }
 
 
-fn visit_callable(call: &ExprCall, analysis: &mut LineAnalysis ) {
+fn visit_callable(call: &ExprCall, analysis: &mut LineAnalysis ) -> SubResult {
     let start = call.span().start().line + 1;
     let end = call.span().end().line + 1;
     let lines = get_coverable_args(&call.args);
     let lines = (start..end).filter(|x| !lines.contains(&x))
                             .collect::<Vec<_>>();
     analysis.add_to_ignore(&lines);
-
+    // We can't guess if a callable would actually be unreachable
+    SubResult::Ok
 }
 
 
-fn visit_methodcall(meth: &ExprMethodCall, analysis: &mut LineAnalysis) {
+fn visit_methodcall(meth: &ExprMethodCall, analysis: &mut LineAnalysis) -> SubResult {
     let start = meth.span().start().line + 1;
     let end = meth.span().end().line + 1;
     let lines = get_coverable_args(&meth.args);
     let lines = (start..end).filter(|x| !lines.contains(&x))
                             .collect::<Vec<_>>();
     analysis.add_to_ignore(&lines);
+    // We can't guess if a method would actually be unreachable
+    SubResult::Ok
 }
 
 
-fn visit_unsafe_block(unsafe_expr: &ExprUnsafe, ctx: &Context, analysis: &mut LineAnalysis) {
+fn visit_unsafe_block(unsafe_expr: &ExprUnsafe, ctx: &Context, analysis: &mut LineAnalysis) -> SubResult {
     let u_line = unsafe_expr.unsafe_token.0.start().line;
 
     let blk = &unsafe_expr.block;
@@ -582,15 +688,19 @@ fn visit_unsafe_block(unsafe_expr: &ExprUnsafe, ctx: &Context, analysis: &mut Li
         if u_line != s.start().line {
             analysis.ignore_span(unsafe_expr.unsafe_token.0);
         }
-        process_statements(&blk.stmts, ctx, analysis); 
+        if let SubResult::Unreachable = process_statements(&blk.stmts, ctx, analysis) {
+            analysis.ignore_span(unsafe_expr.span());
+            return SubResult::Unreachable;
+        }
     } else {
         analysis.ignore_span(unsafe_expr.unsafe_token.0);
         analysis.ignore_span(blk.brace_token.0);
     }
+    SubResult::Ok
 }
 
 
-fn visit_struct_expr(structure: &ExprStruct, analysis: &mut LineAnalysis) {
+fn visit_struct_expr(structure: &ExprStruct, analysis: &mut LineAnalysis) -> SubResult {
     let mut cover: HashSet<usize> = HashSet::new();
     let start = structure.span().start().line;
     let end = structure.span().end().line;
@@ -613,20 +723,25 @@ fn visit_struct_expr(structure: &ExprStruct, analysis: &mut LineAnalysis) {
     let x = (start..(end+1)).filter(|x| !cover.contains(&x))
                             .collect::<Vec<usize>>();
     analysis.add_to_ignore(&x);
+    // struct expressions are never unreachable by themselves
+    SubResult::Ok
 }
 
 
-fn visit_macro_call(mac: &Macro, ctx: &Context, analysis: &mut LineAnalysis) {
+fn visit_macro_call(mac: &Macro, ctx: &Context, analysis: &mut LineAnalysis) -> SubResult {
     let mut skip = false;
     let start = mac.span().start().line + 1;
     let end = mac.span().end().line + 1;
     if let Some(End(ref name)) = mac.path.segments.last() {
-        let standard_ignores =  name.ident == "unreachable" || 
-            name.ident == "unimplemented" || name.ident == "include";
+        let unreachable = name.ident == "unreachable";
+        let standard_ignores =  name.ident == "unimplemented" || name.ident == "include";
         let ignore_panic =  ctx.config.ignore_panics && name.ident == "panic"; 
-        if standard_ignores || ignore_panic {
+        if standard_ignores || ignore_panic || unreachable {
             analysis.ignore_span(mac.span());
             skip = true;
+        }
+        if unreachable {
+            return SubResult::Unreachable
         }
         
     }
@@ -636,6 +751,7 @@ fn visit_macro_call(mac: &Macro, ctx: &Context, analysis: &mut LineAnalysis) {
                                 .collect::<Vec<_>>();
         analysis.add_to_ignore(&lines);
     }
+    SubResult::Ok
 }
 
 
@@ -1434,7 +1550,7 @@ mod tests {
         
         let mut lines = LineAnalysis::new();
         let ctx = Context {
-            config: &config, 
+            config: &config,
             file_contents: "trait Boo {
                 fn print_it(x:u32,
                     y:u32,
@@ -1448,4 +1564,51 @@ mod tests {
         assert!(lines.ignore.contains(&3));
         assert!(lines.ignore.contains(&4));
     }
+
+    #[test]
+    fn unreachable_propagate() {
+        let config = Config::default();
+        let mut lines = LineAnalysis::new();
+        let ctx = Context {
+            config: &config, 
+            file_contents: "enum Void {}
+            fn empty_match(x: Void) -> u32 {
+                match x {
+                }
+            }"
+        };
+        let parser = parse_file(ctx.file_contents).unwrap();
+        process_items(&parser.items, &ctx, &mut lines);
+        assert!(lines.ignore.contains(&2));
+        assert!(lines.ignore.contains(&3));
+        assert!(lines.ignore.contains(&4));
+        assert!(lines.ignore.contains(&5));
+
+        let mut lines = LineAnalysis::new();
+        let ctx = Context {
+            config: &config,
+            file_contents: "fn foo() {
+                if random() {
+                    loop {
+                        match random() {
+                            true => match void() {},
+                            false => unreachable!()
+                        }
+                    }
+                } else {
+                    call();
+                }
+            }"
+        };
+        let parser = parse_file(ctx.file_contents).unwrap();
+        process_items(&parser.items, &ctx, &mut lines);
+        assert!(lines.ignore.contains(&3));
+        assert!(lines.ignore.contains(&4));
+        assert!(lines.ignore.contains(&5));
+        assert!(lines.ignore.contains(&6));
+        assert!(lines.ignore.contains(&7));
+        assert!(lines.ignore.contains(&8));
+    }
+
+
 }
