@@ -222,7 +222,8 @@ fn find_ignorable_lines(content: &str, analysis: &mut LineAnalysis) {
 }
 
 
-fn process_items(items: &[Item], ctx: &Context, analysis: &mut LineAnalysis) {
+fn process_items(items: &[Item], ctx: &Context, analysis: &mut LineAnalysis) -> SubResult {
+    let mut res = SubResult::Ok;
     for item in items.iter() {
         match *item {
             Item::ExternCrate(ref i) => analysis.ignore_span(i.span()),
@@ -240,10 +241,15 @@ fn process_items(items: &[Item], ctx: &Context, analysis: &mut LineAnalysis) {
             },
             Item::Trait(ref i) => visit_trait(&i, analysis, ctx),
             Item::Impl(ref i) => visit_impl(&i, analysis, ctx),
-            Item::Macro(ref i) => { visit_macro_call(&i.mac, ctx, analysis); },
+            Item::Macro(ref i) => {
+                if let SubResult::Unreachable = visit_macro_call(&i.mac, ctx, analysis) {
+                    res = SubResult::Unreachable;
+                }
+            },
             _ =>{}
         } 
     }
+    res
 }
 
 
@@ -252,15 +258,14 @@ fn process_statements(stmts: &[Stmt], ctx: &Context, analysis: &mut LineAnalysis
     // unreachable
     let mut unreachable = false;
     for stmt in stmts.iter() {
-        match *stmt {
+        let res = match *stmt {
             Stmt::Item(ref i) => process_items(&[i.clone()], ctx, analysis),
             Stmt::Expr(ref i)
-            | Stmt::Semi(ref i, _) => {
-                if let SubResult::Unreachable = process_expr(&i, ctx, analysis) {
-                    unreachable = true;
-                }
-            },
-            _ => {},
+            | Stmt::Semi(ref i, _) => process_expr(&i, ctx, analysis),
+            _ => SubResult::Ok,
+        };
+        if let SubResult::Unreachable = res {
+            unreachable = true;
         }
     }
     // We must be in a block, the parent will handle marking the span as unreachable
@@ -1608,7 +1613,27 @@ mod tests {
         assert!(lines.ignore.contains(&6));
         assert!(lines.ignore.contains(&7));
         assert!(lines.ignore.contains(&8));
-    }
 
+        let mut lines = LineAnalysis::new();
+        let ctx = Context {
+            config: &config,
+            file_contents: "fn test_unreachable() {
+				let x: u32 = foo();
+				if x > 5 {
+					bar();
+				}
+				unreachable!();
+			}"
+        };
+        let parser = parse_file(ctx.file_contents).unwrap();
+        process_items(&parser.items, &ctx, &mut lines);
+        assert!(lines.ignore.contains(&1));
+        assert!(lines.ignore.contains(&2));
+        assert!(lines.ignore.contains(&3));
+        assert!(lines.ignore.contains(&4));
+        assert!(lines.ignore.contains(&5));
+        assert!(lines.ignore.contains(&6));
+        assert!(lines.ignore.contains(&7));
+    }
 
 }
