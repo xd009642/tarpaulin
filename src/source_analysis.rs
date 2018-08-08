@@ -184,8 +184,12 @@ fn analyse_lib_rs(file: &Path, result: &mut HashMap<PathBuf, LineAnalysis>) {
 /// Provides context to the source analysis stage including the tarpaulin
 /// config and the source code being analysed.
 struct Context<'a> {
+    /// Program config
     config: &'a Config,
+    /// Contents of the source file
     file_contents: &'a str,
+    /// path to the file being analysed
+    file: &'a Path,
     /// Other parts of context are immutable like tarpaulin config and users
     /// source code. This is discovered during hence use of interior mutability
     ignore_mods: Cell<HashSet<PathBuf>>
@@ -213,6 +217,7 @@ fn analyse_package(path: &Path,
                     let mut ctx = Context {
                         config,
                         file_contents: &content,
+                        file: path,
                         ignore_mods: Cell::new(HashSet::new()),
                     };
 
@@ -828,6 +833,7 @@ mod tests {
         let ctx = Context {
             config: &config,
             file_contents: "fn test() {\nwriteln!(#\"test\n\ttest\n\ttest\"#);\n}\n",
+            file: Path::new(""),
             ignore_mods: Cell::new(HashSet::new()),
         };
         let parser = parse_file(ctx.file_contents).unwrap();
@@ -839,6 +845,7 @@ mod tests {
         let ctx = Context {
             config: &config,
             file_contents: "fn test() {\nwrite(\"test\ntest\ntest\");\n}\nfn write(s:&str){}",
+            file: Path::new(""),
             ignore_mods: Cell::new(HashSet::new()),
         };
         let parser = parse_file(ctx.file_contents).unwrap();
@@ -852,6 +859,7 @@ mod tests {
         let ctx = Context {
             config: &config,
             file_contents: "\n\nfn test() {\nwriteln!(\n#\"test\"#\n);\n}\n",
+            file: Path::new(""),
             ignore_mods: Cell::new(HashSet::new()),
         };
         let parser = parse_file(ctx.file_contents).unwrap();
@@ -866,6 +874,7 @@ mod tests {
         let ctx = Context {
             config: &config,
             file_contents: "#[derive(Debug)]\npub struct Struct {\npub i: i32,\nj:String,\n}",
+            file: Path::new(""),
             ignore_mods: Cell::new(HashSet::new()),
         };
         let parser = parse_file(ctx.file_contents).unwrap();
@@ -879,6 +888,7 @@ mod tests {
         let ctx = Context {
             config: &config,
             file_contents: "#[derive(Debug)]\npub struct Struct (\n i32\n);",
+            file: Path::new(""),
             ignore_mods: Cell::new(HashSet::new()),
         };
         let parser = parse_file(ctx.file_contents).unwrap();
@@ -895,6 +905,7 @@ mod tests {
         let ctx = Context {
             config: &config,
             file_contents: "#[derive(Debug)]\npub enum E {\nI1,\nI2(u32),\nI3{\nx:u32,\n},\n}",
+            file: Path::new(""),
             ignore_mods: Cell::new(HashSet::new()),
         };
         let parser = parse_file(ctx.file_contents).unwrap();
@@ -921,6 +932,7 @@ mod tests {
                         y:4,
                     }
                 }",
+            file: Path::new(""),
             ignore_mods: Cell::new(HashSet::new()),
         };
         let parser = parse_file(ctx.file_contents).unwrap();
@@ -935,6 +947,7 @@ mod tests {
         let ctx = Context {
             config: &config,
             file_contents: "mod foo {\nfn double(x:i32)->i32 {\n x*2\n}\n}",
+            file: Path::new(""),
             ignore_mods: Cell::new(HashSet::new()),
         };
         let parser = parse_file(ctx.file_contents).unwrap();
@@ -946,6 +959,7 @@ mod tests {
         let ctx = Context {
             config: &config,
             file_contents: "mod foo;",
+            file: Path::new(""),
             ignore_mods: Cell::new(HashSet::new()),
         };
         let parser = parse_file(ctx.file_contents).unwrap();
@@ -956,6 +970,7 @@ mod tests {
         let ctx = Context {
             config: &config,
             file_contents: "mod foo{}",
+            file: Path::new(""),
             ignore_mods: Cell::new(HashSet::new()),
         };
         let parser = parse_file(ctx.file_contents).unwrap();
@@ -970,6 +985,7 @@ mod tests {
         let ctx = Context {
             config: &config,
             file_contents: "\n\nfn unused() {\nunimplemented!();\n}",
+            file: Path::new(""),
             ignore_mods: Cell::new(HashSet::new()),
         };
         let parser = parse_file(ctx.file_contents).unwrap();
@@ -982,6 +998,7 @@ mod tests {
         let ctx = Context {
             config: &config,
             file_contents: "\n\nfn unused() {\nunreachable!();\n}",
+            file: Path::new(""),
             ignore_mods: Cell::new(HashSet::new()),
         };
         let parser = parse_file(ctx.file_contents).unwrap();
@@ -999,6 +1016,7 @@ mod tests {
                     _ => unreachable!(),
                 }
             }",
+            file: Path::new(""),
             ignore_mods: Cell::new(HashSet::new()),
         };
         let parser = parse_file(ctx.file_contents).unwrap();
@@ -1009,6 +1027,7 @@ mod tests {
         let ctx = Context {
             config: &config,
             file_contents: "fn unused() {\nprintln!(\"text\");\n}",
+            file: Path::new(""),
             ignore_mods: Cell::new(HashSet::new()),
         };
         let parser = parse_file(ctx.file_contents).unwrap();
@@ -1026,6 +1045,7 @@ mod tests {
         let ctx = Context {
             config: &config,
             file_contents: "#[cfg(test)]\nmod tests {\n fn boo(){\nassert!(true);\n}\n}",
+            file: Path::new(""),
             ignore_mods: Cell::new(HashSet::new()),
         };
         let parser = parse_file(ctx.file_contents).unwrap();
@@ -1035,6 +1055,7 @@ mod tests {
         let ctx = Context {
             config: &igconfig,
             file_contents: "#[cfg(test)]\nmod tests {\n fn boo(){\nassert!(true);\n}\n}",
+            file: Path::new(""),
             ignore_mods: Cell::new(HashSet::new()),
         };
 
@@ -1045,6 +1066,7 @@ mod tests {
         let ctx = Context {
             config: &config,
             file_contents: "#[test]\nfn mytest() { \n assert!(true);\n}",
+            file: Path::new(""),
             ignore_mods: Cell::new(HashSet::new()),
         };
         let parser = parse_file(ctx.file_contents).unwrap();
@@ -1056,6 +1078,7 @@ mod tests {
         let ctx = Context {
             config: &igconfig,
             file_contents: "#[test]\nfn mytest() { \n assert!(true);\n}",
+            file: Path::new(""),
             ignore_mods: Cell::new(HashSet::new()),
         };
         let mut lines = LineAnalysis::new();
@@ -1079,6 +1102,7 @@ mod tests {
                     assert!(true);
                 }
             }",
+            file: Path::new(""),
             ignore_mods: Cell::new(HashSet::new()),
         };
         let parser = parse_file(ctx.file_contents).unwrap();
@@ -1098,6 +1122,7 @@ mod tests {
                     assert!(true);
                 }
             }",
+            file: Path::new(""),
             ignore_mods: Cell::new(HashSet::new()),
         };
         let parser = parse_file(ctx.file_contents).unwrap();
@@ -1116,6 +1141,7 @@ mod tests {
             file_contents: "fn boop<T>() -> T  where T:Default {
                 T::default()
             }",
+            file: Path::new(""),
             ignore_mods: Cell::new(HashSet::new()),
         };
         let parser = parse_file(ctx.file_contents).unwrap();
@@ -1129,6 +1155,7 @@ mod tests {
                 where T:Default {
                     T::default()
                 }",
+            file: Path::new(""),
             ignore_mods: Cell::new(HashSet::new()),
         };
         let parser = parse_file(ctx.file_contents).unwrap();
@@ -1144,6 +1171,7 @@ mod tests {
                     T::default()
                 }
             }",
+            file: Path::new(""),
             ignore_mods: Cell::new(HashSet::new()),
         };
         let parser = parse_file(ctx.file_contents).unwrap();
@@ -1159,6 +1187,7 @@ mod tests {
         let ctx = Context {
             config: &config,
             file_contents: "#[derive(Debug)]\nstruct T;",
+            file: Path::new(""),
             ignore_mods: Cell::new(HashSet::new()),
         };
         let parser = parse_file(ctx.file_contents).unwrap();
@@ -1170,6 +1199,7 @@ mod tests {
         let ctx = Context {
             config: &config,
             file_contents: "\n#[derive(Copy, Eq)]\nunion x { x:i32, y:f32}",
+            file: Path::new(""),
             ignore_mods: Cell::new(HashSet::new()),
         };
         let parser = parse_file(ctx.file_contents).unwrap();
@@ -1184,6 +1214,7 @@ mod tests {
         let ctx = Context {
             config: &config, 
             file_contents: "fn unsafe_fn() {\n let x=1;\nunsafe {\nprintln!(\"{}\", x);\n}\n}",
+            file: Path::new(""),
             ignore_mods: Cell::new(HashSet::new()),
         };
         let parser = parse_file(ctx.file_contents).unwrap();
@@ -1195,6 +1226,7 @@ mod tests {
         let ctx = Context {
             config: &config, 
             file_contents: "fn unsafe_fn() {\n let x=1;\nunsafe {println!(\"{}\", x);}\n}",
+            file: Path::new(""),
             ignore_mods: Cell::new(HashSet::new()),
         };
         let parser = parse_file(ctx.file_contents).unwrap();
@@ -1214,6 +1246,7 @@ mod tests {
                     println!(\"hello world\");
                 }
             }",
+            file: Path::new(""),
             ignore_mods: Cell::new(HashSet::new()),
         };
         let parser = parse_file(ctx.file_contents).unwrap();
@@ -1232,6 +1265,7 @@ mod tests {
                     }
                 }
             }",
+            file: Path::new(""),
             ignore_mods: Cell::new(HashSet::new()),
         };
         let parser = parse_file(ctx.file_contents).unwrap();
@@ -1250,6 +1284,7 @@ mod tests {
                     println!(\"hello world\");
                     }
                 }",
+            file: Path::new(""),
             ignore_mods: Cell::new(HashSet::new()),
         };
         let parser = parse_file(ctx.file_contents).unwrap();
@@ -1286,6 +1321,7 @@ mod tests {
                     &get_name()                             
                 );                                          //20
             }",
+            file: Path::new(""),
             ignore_mods: Cell::new(HashSet::new()),
         };
         let parser = parse_file(ctx.file_contents).unwrap();
@@ -1302,6 +1338,7 @@ mod tests {
             config: &config, 
             file_contents: "use std::collections::HashMap;
             use std::{ffi::CString, os::raw::c_char};",
+            file: Path::new(""),
             ignore_mods: Cell::new(HashSet::new()),
         };
         let parser = parse_file(ctx.file_contents).unwrap();
@@ -1325,6 +1362,7 @@ mod tests {
                      */
                     println!(\"But I will\");
                 }",
+            file: Path::new(""),
             ignore_mods: Cell::new(HashSet::new()),
         };
         let parser = parse_file(ctx.file_contents).unwrap();
@@ -1354,6 +1392,7 @@ mod tests {
                 println!(\"hell world\");
             }
             ",
+            file: Path::new(""),
             ignore_mods: Cell::new(HashSet::new()),
         };
         let parser = parse_file(ctx.file_contents).unwrap();
@@ -1378,6 +1417,7 @@ mod tests {
                 }
             }
             ",
+            file: Path::new(""),
             ignore_mods: Cell::new(HashSet::new()),
         };
         let parser = parse_file(ctx.file_contents).unwrap();
@@ -1407,6 +1447,7 @@ mod tests {
                     }
                 }
             ",
+            file: Path::new(""),
             ignore_mods: Cell::new(HashSet::new()),
         };
         let parser = parse_file(ctx.file_contents).unwrap();
@@ -1430,6 +1471,7 @@ mod tests {
                     }
                 }
             ",
+            file: Path::new(""),
             ignore_mods: Cell::new(HashSet::new()),
         };
         let parser = parse_file(ctx.file_contents).unwrap();
@@ -1460,6 +1502,7 @@ mod tests {
                     }
                 }
             ",
+            file: Path::new(""),
             ignore_mods: Cell::new(HashSet::new()),
         };
         let parser = parse_file(ctx.file_contents).unwrap();
@@ -1485,6 +1528,7 @@ mod tests {
                     }
                 }
             ",
+            file: Path::new(""),
             ignore_mods: Cell::new(HashSet::new()),
         };
         let parser = parse_file(ctx.file_contents).unwrap();
@@ -1511,6 +1555,7 @@ mod tests {
                     },
                 }
             }",
+            file: Path::new(""),
             ignore_mods: Cell::new(HashSet::new()),
         };
         let parser = parse_file(ctx.file_contents).unwrap();
@@ -1531,6 +1576,7 @@ mod tests {
                     _ => panic!(),
                 }
             }",
+            file: Path::new(""),
             ignore_mods: Cell::new(HashSet::new()),
         };
         let parser = parse_file(ctx.file_contents).unwrap();
@@ -1549,6 +1595,7 @@ mod tests {
                     _ => panic!(),
                 }
             }",
+            file: Path::new(""),
             ignore_mods: Cell::new(HashSet::new()),
         };
         
@@ -1580,6 +1627,7 @@ mod tests {
                     }
                 }
             }",
+            file: Path::new(""),
             ignore_mods: Cell::new(HashSet::new()),
         };
         let parser = parse_file(ctx.file_contents).unwrap();
@@ -1598,6 +1646,7 @@ mod tests {
                 z:u32) {
                 println!(\"{}:{}:{}\",x,y,z);
             }",
+            file: Path::new(""),
             ignore_mods: Cell::new(HashSet::new()),
         };
         let parser = parse_file(ctx.file_contents).unwrap();
@@ -1616,6 +1665,7 @@ mod tests {
                     println!(\"{}:{}:{}\",x,y,z);
                 }
             }",
+            file: Path::new(""),
             ignore_mods: Cell::new(HashSet::new()),
         };
         let parser = parse_file(ctx.file_contents).unwrap();
@@ -1633,6 +1683,7 @@ mod tests {
                     println!(\"{}:{}:{}\",x,y,z);
                 }
             }",
+            file: Path::new(""),
             ignore_mods: Cell::new(HashSet::new()),
         };
         let parser = parse_file(ctx.file_contents).unwrap();
@@ -1652,6 +1703,7 @@ mod tests {
                 match x {
                 }
             }",
+            file: Path::new(""),
             ignore_mods: Cell::new(HashSet::new()),
         };
         let parser = parse_file(ctx.file_contents).unwrap();
@@ -1676,6 +1728,7 @@ mod tests {
                     call();
                 }
             }",
+            file: Path::new(""),
             ignore_mods: Cell::new(HashSet::new()),
         };
         let parser = parse_file(ctx.file_contents).unwrap();
@@ -1697,6 +1750,7 @@ mod tests {
 				}
 				unreachable!();
 			}",
+            file: Path::new(""),
             ignore_mods: Cell::new(HashSet::new()),
         };
         let parser = parse_file(ctx.file_contents).unwrap();
