@@ -1,4 +1,5 @@
 use std::path::{PathBuf, Path};
+use std::cell::RefCell;
 use std::collections::{HashSet, HashMap};
 use std::fs::File;
 use std::ffi::OsStr;
@@ -10,15 +11,22 @@ use regex::Regex;
 use config::Config;
 use walkdir::{DirEntry, WalkDir};
 
+#[derive(Copy, Clone, Debug, Eq, PartialEq, Hash)]
+pub enum Lines {
+    All,
+    Line(usize),
+}
+
 /// Represents the results of analysis of a single file. Does not store the file
 /// in question as this is expected to be maintained by the user.
 #[derive(Clone, Debug)]
 pub struct LineAnalysis {
     /// This represents lines that should be ignored in coverage 
     /// but may be identifed as coverable in the DWARF tables
-    pub ignore: HashSet<usize>,
+    pub ignore: HashSet<Lines>,
     /// This represents lines that should be included in coverage
-    /// But may be ignored.
+    /// But may be ignored. Doesn't make sense to cover ALL the lines so this
+    /// is just an index.
     pub cover: HashSet<usize>,
 }
 
@@ -39,7 +47,7 @@ impl SourceAnalysisQuery for HashMap<PathBuf, LineAnalysis> {
 
     fn should_ignore(&self, path: &Path, l:&usize) -> bool {
         if self.contains_key(path) {
-            self.get(path).unwrap().ignore.contains(l)
+            self.get(path).unwrap().should_ignore(*l)
         } else {
             false
         }
@@ -56,18 +64,29 @@ impl LineAnalysis {
         }
     }
 
+    pub fn ignore_all(&mut self) {
+        self.ignore.clear();
+        self.cover.clear();
+        self.ignore.insert(Lines::All);
+    }
+
     /// Adds the lines of the provided span to the ignore set
     pub fn ignore_span(&mut self, span: Span) {
-        for i in span.start().line..(span.end().line+1) {
-            self.ignore.insert(i);
-            if self.cover.contains(&i) {
-                self.cover.remove(&i);
+        // If we're already ignoring everything no need to ignore this span
+        if !self.ignore.contains(&Lines::All) {
+            for i in span.start().line..(span.end().line+1) {
+                self.ignore.insert(Lines::Line(i));
+                if self.cover.contains(&i) {
+                    self.cover.remove(&i);
+                }
             }
         }
     }
 
     /// Adds the lines of the provided span to the cover set
     pub fn cover_span(&mut self, span: Span, contents: Option<&str>) {
+        // Not checking for Lines::All because I trust we've called cover_span
+        // for a reason.
         let mut useful_lines: HashSet<usize> = HashSet::new();
         if let Some(ref c) = contents {
             lazy_static! {
@@ -97,7 +116,7 @@ impl LineAnalysis {
             }
         }
         for i in span.start().line..(span.end().line +1) {
-            if !self.ignore.contains(&i) && useful_lines.contains(&i) {
+            if !self.ignore.contains(&Lines::Line(i)) && useful_lines.contains(&i) {
                 self.cover.insert(i);
             }
         }
@@ -105,15 +124,17 @@ impl LineAnalysis {
 
     /// Shows whether the line should be ignored by tarpaulin
     pub fn should_ignore(&self, line: usize) -> bool {
-        self.ignore.contains(&line)
+        self.ignore.contains(&Lines::Line(line)) || self.ignore.contains(&Lines::All)
     }
     
     /// Adds a line to the list of lines to ignore
     fn add_to_ignore(&mut self, lines: &[usize]) {
-        for l in lines {
-            self.ignore.insert(*l);
-            if self.cover.contains(l) {
-                self.cover.remove(l);
+        if !self.ignore.contains(&Lines::All) {
+            for l in lines {
+                self.ignore.insert(Lines::Line(*l));
+                if self.cover.contains(l) {
+                    self.cover.remove(l);
+                }
             }
         }
     }
@@ -134,11 +155,26 @@ fn is_target_folder(entry: &DirEntry, root: &Path) -> bool {
 /// Returns a list of files and line numbers to ignore (not indexes!)
 pub fn get_line_analysis(project: &Workspace, config: &Config) -> HashMap<PathBuf, LineAnalysis> {
     let mut result: HashMap<PathBuf, LineAnalysis> = HashMap::new();
+    
+    let mut ignored_files: HashSet<PathBuf> = HashSet::new();
+
     let walker = WalkDir::new(project.root()).into_iter();
     for e in walker.filter_entry(|e| !is_target_folder(e, project.root()))
                    .filter_map(|e| e.ok())
                    .filter(|e| is_source_file(e)) {
-        analyse_package(e.path(), project.root(), &config, &mut result); 
+        if !ignored_files.contains(e.path()) {
+            analyse_package(e.path(), project.root(), &config, &mut result, &mut ignored_files); 
+        } else {
+            let mut analysis = LineAnalysis::new();
+            analysis.ignore_all();
+            result.insert(e.path().to_path_buf(), analysis);
+            ignored_files.remove(e.path());
+        }
+    } 
+    for e in &ignored_files {
+        let mut analysis = LineAnalysis::new();
+        analysis.ignore_all();
+        result.insert(e.to_path_buf(), analysis);
     }
     result
 }
@@ -166,8 +202,15 @@ fn analyse_lib_rs(file: &Path, result: &mut HashMap<PathBuf, LineAnalysis>) {
 /// Provides context to the source analysis stage including the tarpaulin
 /// config and the source code being analysed.
 struct Context<'a> {
+    /// Program config
     config: &'a Config,
-    file_contents: &'a str
+    /// Contents of the source file
+    file_contents: &'a str,
+    /// path to the file being analysed
+    file: &'a Path,
+    /// Other parts of context are immutable like tarpaulin config and users
+    /// source code. This is discovered during hence use of interior mutability
+    ignore_mods: RefCell<HashSet<PathBuf>>
 }
 
 
@@ -175,7 +218,8 @@ struct Context<'a> {
 fn analyse_package(path: &Path, 
                    root: &Path,
                    config:&Config, 
-                   result: &mut HashMap<PathBuf, LineAnalysis>) {
+                   result: &mut HashMap<PathBuf, LineAnalysis>,
+                   filtered_files: &mut HashSet<PathBuf>) {
 
     if let Some(file) = path.to_str() {
         let skip_cause_test = config.ignore_tests && 
@@ -189,15 +233,30 @@ fn analyse_package(path: &Path,
                 let file = parse_file(&content);
                 if let Ok(file) = file {
                     let mut analysis = LineAnalysis::new();
-                    let ctx = Context {
+                    let mut ctx = Context {
                         config,
                         file_contents: &content,
+                        file: path,
+                        ignore_mods: RefCell::new(HashSet::new()),
                     };
 
                     find_ignorable_lines(&content, &mut analysis);
                     process_items(&file.items, &ctx, &mut analysis);
                     // Check there's no conflict!
                     result.insert(path.to_path_buf(), analysis);
+
+                    let mut ignored_files = ctx.ignore_mods.into_inner();
+                    for f in ignored_files.drain() {
+                        if f.is_file() {
+                            filtered_files.insert(f);
+                        } else {
+                            let walker = WalkDir::new(f).into_iter();
+                            for e in walker.filter_map(|e| e.ok())
+                                           .filter(|e| is_source_file(e)) {
+                                filtered_files.insert(e.path().to_path_buf());
+                            }
+                        }
+                    }
                     // This could probably be done with the DWARF if I could find a discriminating factor
                     // to why lib.rs:1 shows up as a real line!
                     if path.ends_with("src/lib.rs") {
@@ -313,6 +372,17 @@ fn visit_mod(module: &ItemMod, analysis: &mut LineAnalysis, ctx: &Context) {
         if let Some((_, ref items)) = module.content {
             process_items(items, ctx, analysis);
         }
+    } else {
+        // Get the file or directory name of the module
+        let mut p = if let Some(parent) = ctx.file.parent() {
+            parent.join(module.ident.to_string()) 
+        } else {
+            PathBuf::from(module.ident.to_string())
+        };
+        if !p.exists() { 
+            p.set_extension("rs");
+        }
+        ctx.ignore_mods.borrow_mut().insert(p);                           
     }
 }
 
@@ -357,7 +427,8 @@ fn visit_fn(func: &ItemFn, analysis: &mut LineAnalysis, ctx: &Context) {
             return
         }
         visit_generics(&func.decl.generics, analysis);
-        analysis.ignore.remove(&func.decl.fn_token.span().start().line);
+        let line_number = func.decl.fn_token.span().start().line;
+        analysis.ignore.remove(&Lines::Line(line_number));
         // Ignore multiple lines of fn decl 
         let decl_start = func.decl.fn_token.0.start().line+1;
         let stmts_start = func.block.span().start().line;
@@ -365,6 +436,7 @@ fn visit_fn(func: &ItemFn, analysis: &mut LineAnalysis, ctx: &Context) {
         analysis.add_to_ignore(&lines);
     }
 }
+
 
 fn check_attr_list(attrs: &[Attribute], ctx: &Context) -> bool {
     let mut check_cover = true;
@@ -427,7 +499,7 @@ fn visit_trait(trait_item: &ItemTrait, analysis: &mut LineAnalysis, ctx: &Contex
                     if let Some(ref block) = i.default {
                         analysis.cover_span(item.span(), Some(ctx.file_contents));
                         visit_generics(&i.sig.decl.generics, analysis);
-                        analysis.ignore.remove(&i.sig.span().start().line);
+                        analysis.ignore.remove(&Lines::Line(i.sig.span().start().line));
                         
                         // Ignore multiple lines of fn decl 
                         let decl_start = i.sig.decl.fn_token.0.start().line+1;
@@ -465,7 +537,7 @@ fn visit_impl(impl_blk: &ItemImpl, analysis: &mut LineAnalysis, ctx: &Context) {
                     }
                     
                     visit_generics(&i.sig.decl.generics, analysis);
-                    analysis.ignore.remove(&i.span().start().line);
+                    analysis.ignore.remove(&Lines::Line(i.span().start().line));
                     
                     // Ignore multiple lines of fn decl 
                     let decl_start = i.sig.decl.fn_token.0.start().line+1;
@@ -803,32 +875,38 @@ mod tests {
         let ctx = Context {
             config: &config,
             file_contents: "fn test() {\nwriteln!(#\"test\n\ttest\n\ttest\"#);\n}\n",
+            file: Path::new(""),
+            ignore_mods: RefCell::new(HashSet::new()),
         };
         let parser = parse_file(ctx.file_contents).unwrap();
         process_items(&parser.items, &ctx, &mut lines);
         assert!(lines.ignore.len() > 1);
-        assert!(lines.ignore.contains(&3));
-        assert!(lines.ignore.contains(&4));
+        assert!(lines.ignore.contains(&Lines::Line(3)));
+        assert!(lines.ignore.contains(&Lines::Line(4)));
         
         let ctx = Context {
             config: &config,
             file_contents: "fn test() {\nwrite(\"test\ntest\ntest\");\n}\nfn write(s:&str){}",
+            file: Path::new(""),
+            ignore_mods: RefCell::new(HashSet::new()),
         };
         let parser = parse_file(ctx.file_contents).unwrap();
         let mut lines = LineAnalysis::new();
         process_items(&parser.items, &ctx, &mut lines);
         assert!(lines.ignore.len() > 1);
-        assert!(lines.ignore.contains(&3));
-        assert!(lines.ignore.contains(&4));
+        assert!(lines.ignore.contains(&Lines::Line(3)));
+        assert!(lines.ignore.contains(&Lines::Line(4)));
         
         let mut lines = LineAnalysis::new();
         let ctx = Context {
             config: &config,
             file_contents: "\n\nfn test() {\nwriteln!(\n#\"test\"#\n);\n}\n",
+            file: Path::new(""),
+            ignore_mods: RefCell::new(HashSet::new()),
         };
         let parser = parse_file(ctx.file_contents).unwrap();
         process_items(&parser.items, &ctx, &mut lines);
-        assert!(lines.ignore.contains(&5));
+        assert!(lines.ignore.contains(&Lines::Line(5)));
     }
 
     #[test]
@@ -838,24 +916,28 @@ mod tests {
         let ctx = Context {
             config: &config,
             file_contents: "#[derive(Debug)]\npub struct Struct {\npub i: i32,\nj:String,\n}",
+            file: Path::new(""),
+            ignore_mods: RefCell::new(HashSet::new()),
         };
         let parser = parse_file(ctx.file_contents).unwrap();
         process_items(&parser.items, &ctx, &mut lines);
         
         assert!(lines.ignore.len()> 3);
-        assert!(lines.ignore.contains(&1)); 
-        assert!(lines.ignore.contains(&3)); 
-        assert!(lines.ignore.contains(&4)); 
+        assert!(lines.ignore.contains(&Lines::Line(1))); 
+        assert!(lines.ignore.contains(&Lines::Line(3))); 
+        assert!(lines.ignore.contains(&Lines::Line(4))); 
         
         let ctx = Context {
             config: &config,
             file_contents: "#[derive(Debug)]\npub struct Struct (\n i32\n);",
+            file: Path::new(""),
+            ignore_mods: RefCell::new(HashSet::new()),
         };
         let parser = parse_file(ctx.file_contents).unwrap();
         process_items(&parser.items, &ctx, &mut lines);
         
         assert!(!lines.ignore.is_empty());
-        assert!(lines.ignore.contains(&3)); 
+        assert!(lines.ignore.contains(&Lines::Line(3))); 
     }
 
     #[test]
@@ -865,16 +947,18 @@ mod tests {
         let ctx = Context {
             config: &config,
             file_contents: "#[derive(Debug)]\npub enum E {\nI1,\nI2(u32),\nI3{\nx:u32,\n},\n}",
+            file: Path::new(""),
+            ignore_mods: RefCell::new(HashSet::new()),
         };
         let parser = parse_file(ctx.file_contents).unwrap();
         process_items(&parser.items, &ctx, &mut lines);
         
         assert!(lines.ignore.len()> 3);
-        assert!(lines.ignore.contains(&3)); 
-        assert!(lines.ignore.contains(&4)); 
-        assert!(lines.ignore.contains(&5)); 
-        assert!(lines.ignore.contains(&6)); 
-        assert!(lines.ignore.contains(&7)); 
+        assert!(lines.ignore.contains(&Lines::Line(3))); 
+        assert!(lines.ignore.contains(&Lines::Line(4))); 
+        assert!(lines.ignore.contains(&Lines::Line(5))); 
+        assert!(lines.ignore.contains(&Lines::Line(6))); 
+        assert!(lines.ignore.contains(&Lines::Line(7))); 
     }
 
     #[test]
@@ -890,11 +974,13 @@ mod tests {
                         y:4,
                     }
                 }",
+            file: Path::new(""),
+            ignore_mods: RefCell::new(HashSet::new()),
         };
         let parser = parse_file(ctx.file_contents).unwrap();
         process_items(&parser.items, &ctx, &mut lines);
-        assert!(!lines.ignore.contains(&4));
-        assert!(lines.ignore.contains(&5));
+        assert!(!lines.ignore.contains(&Lines::Line(4)));
+        assert!(lines.ignore.contains(&Lines::Line(5)));
     }
 
     #[test]
@@ -903,29 +989,35 @@ mod tests {
         let ctx = Context {
             config: &config,
             file_contents: "mod foo {\nfn double(x:i32)->i32 {\n x*2\n}\n}",
+            file: Path::new(""),
+            ignore_mods: RefCell::new(HashSet::new()),
         };
         let parser = parse_file(ctx.file_contents).unwrap();
         let mut lines = LineAnalysis::new();
         process_items(&parser.items, &ctx, &mut lines);
-        assert!(!lines.ignore.contains(&3));
+        assert!(!lines.ignore.contains(&Lines::Line(3)));
         
         let mut lines = LineAnalysis::new();
         let ctx = Context {
             config: &config,
             file_contents: "mod foo;",
+            file: Path::new(""),
+            ignore_mods: RefCell::new(HashSet::new()),
         };
         let parser = parse_file(ctx.file_contents).unwrap();
         process_items(&parser.items, &ctx, &mut lines);
-        assert!(lines.ignore.contains(&1));
+        assert!(lines.ignore.contains(&Lines::Line(1)));
         
         let mut lines = LineAnalysis::new();
         let ctx = Context {
             config: &config,
             file_contents: "mod foo{}",
+            file: Path::new(""),
+            ignore_mods: RefCell::new(HashSet::new()),
         };
         let parser = parse_file(ctx.file_contents).unwrap();
         process_items(&parser.items, &ctx, &mut lines);
-        assert!(lines.ignore.contains(&1));
+        assert!(lines.ignore.contains(&Lines::Line(1)));
     }
 
     #[test]
@@ -935,22 +1027,26 @@ mod tests {
         let ctx = Context {
             config: &config,
             file_contents: "\n\nfn unused() {\nunimplemented!();\n}",
+            file: Path::new(""),
+            ignore_mods: RefCell::new(HashSet::new()),
         };
         let parser = parse_file(ctx.file_contents).unwrap();
         process_items(&parser.items, &ctx, &mut lines);
         
         // Braces should be ignored so number could be higher
         assert!(lines.ignore.len() >= 1);
-        assert!(lines.ignore.contains(&4));
+        assert!(lines.ignore.contains(&Lines::Line(4)));
         let mut lines = LineAnalysis::new();
         let ctx = Context {
             config: &config,
             file_contents: "\n\nfn unused() {\nunreachable!();\n}",
+            file: Path::new(""),
+            ignore_mods: RefCell::new(HashSet::new()),
         };
         let parser = parse_file(ctx.file_contents).unwrap();
         process_items(&parser.items, &ctx, &mut lines);
         assert!(lines.ignore.len() >= 1);
-        assert!(lines.ignore.contains(&4));
+        assert!(lines.ignore.contains(&Lines::Line(4)));
         
         let mut lines = LineAnalysis::new();
         let ctx = Context {
@@ -961,20 +1057,24 @@ mod tests {
                     2 => 7,
                     _ => unreachable!(),
                 }
-            }"
+            }",
+            file: Path::new(""),
+            ignore_mods: RefCell::new(HashSet::new()),
         };
         let parser = parse_file(ctx.file_contents).unwrap();
         process_items(&parser.items, &ctx, &mut lines);
-        assert!(lines.ignore.contains(&5));
+        assert!(lines.ignore.contains(&Lines::Line(5)));
         
         let mut lines = LineAnalysis::new();
         let ctx = Context {
             config: &config,
             file_contents: "fn unused() {\nprintln!(\"text\");\n}",
+            file: Path::new(""),
+            ignore_mods: RefCell::new(HashSet::new()),
         };
         let parser = parse_file(ctx.file_contents).unwrap();
         process_items(&parser.items, &ctx, &mut lines);
-        assert!(!lines.ignore.contains(&2));
+        assert!(!lines.ignore.contains(&Lines::Line(2)));
     }
    
     #[test]
@@ -987,38 +1087,46 @@ mod tests {
         let ctx = Context {
             config: &config,
             file_contents: "#[cfg(test)]\nmod tests {\n fn boo(){\nassert!(true);\n}\n}",
+            file: Path::new(""),
+            ignore_mods: RefCell::new(HashSet::new()),
         };
         let parser = parse_file(ctx.file_contents).unwrap();
         process_items(&parser.items, &ctx, &mut lines);
-        assert!(!lines.ignore.contains(&4));
+        assert!(!lines.ignore.contains(&Lines::Line(4)));
         
         let ctx = Context {
             config: &igconfig,
             file_contents: "#[cfg(test)]\nmod tests {\n fn boo(){\nassert!(true);\n}\n}",
+            file: Path::new(""),
+            ignore_mods: RefCell::new(HashSet::new()),
         };
 
         let mut lines = LineAnalysis::new();
         process_items(&parser.items, &ctx, &mut lines);
-        assert!(lines.ignore.contains(&4));
+        assert!(lines.ignore.contains(&Lines::Line(4)));
 
         let ctx = Context {
             config: &config,
             file_contents: "#[test]\nfn mytest() { \n assert!(true);\n}",
+            file: Path::new(""),
+            ignore_mods: RefCell::new(HashSet::new()),
         };
         let parser = parse_file(ctx.file_contents).unwrap();
         let mut lines = LineAnalysis::new();
         process_items(&parser.items, &ctx, &mut lines);
-        assert!(!lines.ignore.contains(&2));
-        assert!(!lines.ignore.contains(&3));
+        assert!(!lines.ignore.contains(&Lines::Line(2)));
+        assert!(!lines.ignore.contains(&Lines::Line(3)));
 
         let ctx = Context {
             config: &igconfig,
             file_contents: "#[test]\nfn mytest() { \n assert!(true);\n}",
+            file: Path::new(""),
+            ignore_mods: RefCell::new(HashSet::new()),
         };
         let mut lines = LineAnalysis::new();
         process_items(&parser.items, &ctx, &mut lines);
-        assert!(lines.ignore.contains(&2));
-        assert!(lines.ignore.contains(&3));
+        assert!(lines.ignore.contains(&Lines::Line(2)));
+        assert!(lines.ignore.contains(&Lines::Line(3)));
     }
 
 
@@ -1036,12 +1144,14 @@ mod tests {
                     assert!(true);
                 }
             }",
+            file: Path::new(""),
+            ignore_mods: RefCell::new(HashSet::new()),
         };
         let parser = parse_file(ctx.file_contents).unwrap();
         process_items(&parser.items, &ctx, &mut lines);
-        assert!(lines.ignore.contains(&2));
-        assert!(lines.ignore.contains(&3));
-        assert!(lines.ignore.contains(&4));
+        assert!(lines.ignore.contains(&Lines::Line(2)));
+        assert!(lines.ignore.contains(&Lines::Line(3)));
+        assert!(lines.ignore.contains(&Lines::Line(4)));
         
         let config = Config::default();
 
@@ -1054,11 +1164,13 @@ mod tests {
                     assert!(true);
                 }
             }",
+            file: Path::new(""),
+            ignore_mods: RefCell::new(HashSet::new()),
         };
         let parser = parse_file(ctx.file_contents).unwrap();
         process_items(&parser.items, &ctx, &mut lines);
-        assert!(!lines.ignore.contains(&3));
-        assert!(!lines.ignore.contains(&4));
+        assert!(!lines.ignore.contains(&Lines::Line(3)));
+        assert!(!lines.ignore.contains(&Lines::Line(4)));
     }
 
 
@@ -1071,10 +1183,12 @@ mod tests {
             file_contents: "fn boop<T>() -> T  where T:Default {
                 T::default()
             }",
+            file: Path::new(""),
+            ignore_mods: RefCell::new(HashSet::new()),
         };
         let parser = parse_file(ctx.file_contents).unwrap();
         process_items(&parser.items, &ctx, &mut lines);
-        assert!(!lines.ignore.contains(&1));
+        assert!(!lines.ignore.contains(&Lines::Line(1)));
         
         let mut lines = LineAnalysis::new();
         let ctx = Context {
@@ -1083,10 +1197,12 @@ mod tests {
                 where T:Default {
                     T::default()
                 }",
+            file: Path::new(""),
+            ignore_mods: RefCell::new(HashSet::new()),
         };
         let parser = parse_file(ctx.file_contents).unwrap();
         process_items(&parser.items, &ctx, &mut lines);
-        assert!(lines.ignore.contains(&2));
+        assert!(lines.ignore.contains(&Lines::Line(2)));
         
         let mut lines = LineAnalysis::new();
         let ctx = Context {
@@ -1097,10 +1213,12 @@ mod tests {
                     T::default()
                 }
             }",
+            file: Path::new(""),
+            ignore_mods: RefCell::new(HashSet::new()),
         };
         let parser = parse_file(ctx.file_contents).unwrap();
         process_items(&parser.items, &ctx, &mut lines);
-        assert!(lines.ignore.contains(&3));
+        assert!(lines.ignore.contains(&Lines::Line(3)));
     }
 
 
@@ -1111,20 +1229,24 @@ mod tests {
         let ctx = Context {
             config: &config,
             file_contents: "#[derive(Debug)]\nstruct T;",
+            file: Path::new(""),
+            ignore_mods: RefCell::new(HashSet::new()),
         };
         let parser = parse_file(ctx.file_contents).unwrap();
         process_items(&parser.items, &ctx, &mut lines);
-        assert!(lines.ignore.contains(&1));
+        assert!(lines.ignore.contains(&Lines::Line(1)));
 
 
         let mut lines = LineAnalysis::new();
         let ctx = Context {
             config: &config,
             file_contents: "\n#[derive(Copy, Eq)]\nunion x { x:i32, y:f32}",
+            file: Path::new(""),
+            ignore_mods: RefCell::new(HashSet::new()),
         };
         let parser = parse_file(ctx.file_contents).unwrap();
         process_items(&parser.items, &ctx, &mut lines);
-        assert!(lines.ignore.contains(&2));
+        assert!(lines.ignore.contains(&Lines::Line(2)));
     }
 
     #[test]
@@ -1134,20 +1256,24 @@ mod tests {
         let ctx = Context {
             config: &config, 
             file_contents: "fn unsafe_fn() {\n let x=1;\nunsafe {\nprintln!(\"{}\", x);\n}\n}",
+            file: Path::new(""),
+            ignore_mods: RefCell::new(HashSet::new()),
         };
         let parser = parse_file(ctx.file_contents).unwrap();
         process_items(&parser.items, &ctx, &mut lines);
-        assert!(lines.ignore.contains(&3));
-        assert!(!lines.ignore.contains(&4));
+        assert!(lines.ignore.contains(&Lines::Line(3)));
+        assert!(!lines.ignore.contains(&Lines::Line(4)));
         
         let mut lines = LineAnalysis::new();
         let ctx = Context {
             config: &config, 
             file_contents: "fn unsafe_fn() {\n let x=1;\nunsafe {println!(\"{}\", x);}\n}",
+            file: Path::new(""),
+            ignore_mods: RefCell::new(HashSet::new()),
         };
         let parser = parse_file(ctx.file_contents).unwrap();
         process_items(&parser.items, &ctx, &mut lines);
-        assert!(!lines.ignore.contains(&3));
+        assert!(!lines.ignore.contains(&Lines::Line(3)));
     }
 
     #[test]
@@ -1162,6 +1288,8 @@ mod tests {
                     println!(\"hello world\");
                 }
             }",
+            file: Path::new(""),
+            ignore_mods: RefCell::new(HashSet::new()),
         };
         let parser = parse_file(ctx.file_contents).unwrap();
         process_items(&parser.items, &ctx, &mut lines);
@@ -1179,6 +1307,8 @@ mod tests {
                     }
                 }
             }",
+            file: Path::new(""),
+            ignore_mods: RefCell::new(HashSet::new()),
         };
         let parser = parse_file(ctx.file_contents).unwrap();
         process_items(&parser.items, &ctx, &mut lines);
@@ -1196,6 +1326,8 @@ mod tests {
                     println!(\"hello world\");
                     }
                 }",
+            file: Path::new(""),
+            ignore_mods: RefCell::new(HashSet::new()),
         };
         let parser = parse_file(ctx.file_contents).unwrap();
         process_items(&parser.items, &ctx, &mut lines);
@@ -1231,11 +1363,13 @@ mod tests {
                     &get_name()                             
                 );                                          //20
             }",
+            file: Path::new(""),
+            ignore_mods: RefCell::new(HashSet::new()),
         };
         let parser = parse_file(ctx.file_contents).unwrap();
         process_items(&parser.items, &ctx, &mut lines);
-        assert!(lines.ignore.contains(&15));
-        assert!(!lines.ignore.contains(&19));
+        assert!(lines.ignore.contains(&Lines::Line(15)));
+        assert!(!lines.ignore.contains(&Lines::Line(19)));
     }
 
     #[test]
@@ -1245,12 +1379,14 @@ mod tests {
         let ctx = Context {
             config: &config, 
             file_contents: "use std::collections::HashMap;
-            use std::{ffi::CString, os::raw::c_char};"
+            use std::{ffi::CString, os::raw::c_char};",
+            file: Path::new(""),
+            ignore_mods: RefCell::new(HashSet::new()),
         };
         let parser = parse_file(ctx.file_contents).unwrap();
         process_items(&parser.items, &ctx, &mut lines);
-        assert!(lines.ignore.contains(&1));
-        assert!(lines.ignore.contains(&2));
+        assert!(lines.ignore.contains(&Lines::Line(1)));
+        assert!(lines.ignore.contains(&Lines::Line(2)));
     }
 
     #[test]
@@ -1267,7 +1403,9 @@ mod tests {
                      None of us should
                      */
                     println!(\"But I will\");
-                }"
+                }",
+            file: Path::new(""),
+            ignore_mods: RefCell::new(HashSet::new()),
         };
         let parser = parse_file(ctx.file_contents).unwrap();
         process_items(&parser.items, &ctx, &mut lines);
@@ -1295,14 +1433,16 @@ mod tests {
             fn covered() {
                 println!(\"hell world\");
             }
-            "
+            ",
+            file: Path::new(""),
+            ignore_mods: RefCell::new(HashSet::new()),
         };
         let parser = parse_file(ctx.file_contents).unwrap();
         process_items(&parser.items, &ctx, &mut lines);
-        assert!(lines.ignore.contains(&2));
-        assert!(lines.ignore.contains(&3));
-        assert!(!lines.ignore.contains(&7));
-        assert!(!lines.ignore.contains(&8));
+        assert!(lines.ignore.contains(&Lines::Line(2)));
+        assert!(lines.ignore.contains(&Lines::Line(3)));
+        assert!(!lines.ignore.contains(&Lines::Line(7)));
+        assert!(!lines.ignore.contains(&Lines::Line(8)));
         
         let mut lines = LineAnalysis::new();
         let ctx = Context {
@@ -1318,14 +1458,16 @@ mod tests {
                     println!(\"hell world\");
                 }
             }
-            "
+            ",
+            file: Path::new(""),
+            ignore_mods: RefCell::new(HashSet::new()),
         };
         let parser = parse_file(ctx.file_contents).unwrap();
         process_items(&parser.items, &ctx, &mut lines);
-        assert!(lines.ignore.contains(&3));
-        assert!(lines.ignore.contains(&4));
-        assert!(lines.ignore.contains(&8));
-        assert!(lines.ignore.contains(&9));
+        assert!(lines.ignore.contains(&Lines::Line(3)));
+        assert!(lines.ignore.contains(&Lines::Line(4)));
+        assert!(lines.ignore.contains(&Lines::Line(8)));
+        assert!(lines.ignore.contains(&Lines::Line(9)));
     }
 
 
@@ -1346,14 +1488,16 @@ mod tests {
                         println!(\"hell world\");
                     }
                 }
-            "
+            ",
+            file: Path::new(""),
+            ignore_mods: RefCell::new(HashSet::new()),
         };
         let parser = parse_file(ctx.file_contents).unwrap();
         process_items(&parser.items, &ctx, &mut lines);
-        assert!(lines.ignore.contains(&3));
-        assert!(lines.ignore.contains(&4));
-        assert!(lines.ignore.contains(&8));
-        assert!(lines.ignore.contains(&9));
+        assert!(lines.ignore.contains(&Lines::Line(3)));
+        assert!(lines.ignore.contains(&Lines::Line(4)));
+        assert!(lines.ignore.contains(&Lines::Line(8)));
+        assert!(lines.ignore.contains(&Lines::Line(9)));
         
         let mut lines = LineAnalysis::new();
         let ctx = Context {
@@ -1368,14 +1512,16 @@ mod tests {
                         println!(\"hell world\");
                     }
                 }
-            "
+            ",
+            file: Path::new(""),
+            ignore_mods: RefCell::new(HashSet::new()),
         };
         let parser = parse_file(ctx.file_contents).unwrap();
         process_items(&parser.items, &ctx, &mut lines);
-        assert!(!lines.ignore.contains(&2));
-        assert!(!lines.ignore.contains(&3));
-        assert!(lines.ignore.contains(&7));
-        assert!(lines.ignore.contains(&8));
+        assert!(!lines.ignore.contains(&Lines::Line(2)));
+        assert!(!lines.ignore.contains(&Lines::Line(3)));
+        assert!(lines.ignore.contains(&Lines::Line(7)));
+        assert!(lines.ignore.contains(&Lines::Line(8)));
     }
     
    
@@ -1397,14 +1543,16 @@ mod tests {
                         println!(\"hell world\");
                     }
                 }
-            "
+            ",
+            file: Path::new(""),
+            ignore_mods: RefCell::new(HashSet::new()),
         };
         let parser = parse_file(ctx.file_contents).unwrap();
         process_items(&parser.items, &ctx, &mut lines);
-        assert!(lines.ignore.contains(&4));
-        assert!(lines.ignore.contains(&5));
-        assert!(lines.ignore.contains(&9));
-        assert!(lines.ignore.contains(&10));
+        assert!(lines.ignore.contains(&Lines::Line(4)));
+        assert!(lines.ignore.contains(&Lines::Line(5)));
+        assert!(lines.ignore.contains(&Lines::Line(9)));
+        assert!(lines.ignore.contains(&Lines::Line(10)));
         
         let mut lines = LineAnalysis::new();
         let ctx = Context {
@@ -1421,14 +1569,16 @@ mod tests {
                         println!(\"hell world\");
                     }
                 }
-            "
+            ",
+            file: Path::new(""),
+            ignore_mods: RefCell::new(HashSet::new()),
         };
         let parser = parse_file(ctx.file_contents).unwrap();
         process_items(&parser.items, &ctx, &mut lines);
-        assert!(!lines.ignore.contains(&3));
-        assert!(!lines.ignore.contains(&4));
-        assert!(lines.ignore.contains(&9));
-        assert!(lines.ignore.contains(&10));
+        assert!(!lines.ignore.contains(&Lines::Line(3)));
+        assert!(!lines.ignore.contains(&Lines::Line(4)));
+        assert!(lines.ignore.contains(&Lines::Line(9)));
+        assert!(lines.ignore.contains(&Lines::Line(10)));
     }
     
     
@@ -1446,11 +1596,13 @@ mod tests {
                         unreachable!();
                     },
                 }
-            }"
+            }",
+            file: Path::new(""),
+            ignore_mods: RefCell::new(HashSet::new()),
         };
         let parser = parse_file(ctx.file_contents).unwrap();
         process_items(&parser.items, &ctx, &mut lines);
-        assert!(lines.ignore.contains(&6));
+        assert!(lines.ignore.contains(&Lines::Line(6)));
     }
 
     #[test]
@@ -1465,11 +1617,13 @@ mod tests {
                     2 => 7,
                     _ => panic!(),
                 }
-            }"
+            }",
+            file: Path::new(""),
+            ignore_mods: RefCell::new(HashSet::new()),
         };
         let parser = parse_file(ctx.file_contents).unwrap();
         process_items(&parser.items, &ctx, &mut lines);
-        assert!(!lines.ignore.contains(&5));
+        assert!(!lines.ignore.contains(&Lines::Line(5)));
         
         let mut config = Config::default();
         config.ignore_panics = true;
@@ -1482,12 +1636,14 @@ mod tests {
                     2 => 7,
                     _ => panic!(),
                 }
-            }"
+            }",
+            file: Path::new(""),
+            ignore_mods: RefCell::new(HashSet::new()),
         };
         
         let parser = parse_file(ctx.file_contents).unwrap();
         process_items(&parser.items, &ctx, &mut lines);
-        assert!(lines.ignore.contains(&5));
+        assert!(lines.ignore.contains(&Lines::Line(5)));
     }
 
     #[test]
@@ -1512,11 +1668,13 @@ mod tests {
                         }
                     }
                 }
-            }"
+            }",
+            file: Path::new(""),
+            ignore_mods: RefCell::new(HashSet::new()),
         };
         let parser = parse_file(ctx.file_contents).unwrap();
         process_items(&parser.items, &ctx, &mut lines);
-        assert!(lines.ignore.contains(&9));
+        assert!(lines.ignore.contains(&Lines::Line(9)));
     }
 
     #[test]
@@ -1529,12 +1687,14 @@ mod tests {
                 y:u32,
                 z:u32) {
                 println!(\"{}:{}:{}\",x,y,z);
-            }"
+            }",
+            file: Path::new(""),
+            ignore_mods: RefCell::new(HashSet::new()),
         };
         let parser = parse_file(ctx.file_contents).unwrap();
         process_items(&parser.items, &ctx, &mut lines);
-        assert!(lines.ignore.contains(&2));
-        assert!(lines.ignore.contains(&3));
+        assert!(lines.ignore.contains(&Lines::Line(2)));
+        assert!(lines.ignore.contains(&Lines::Line(3)));
         
         let mut lines = LineAnalysis::new();
         let ctx = Context {
@@ -1546,12 +1706,14 @@ mod tests {
                     z:u32) {
                     println!(\"{}:{}:{}\",x,y,z);
                 }
-            }"
+            }",
+            file: Path::new(""),
+            ignore_mods: RefCell::new(HashSet::new()),
         };
         let parser = parse_file(ctx.file_contents).unwrap();
         process_items(&parser.items, &ctx, &mut lines);
-        assert!(lines.ignore.contains(&4));
-        assert!(lines.ignore.contains(&5));
+        assert!(lines.ignore.contains(&Lines::Line(4)));
+        assert!(lines.ignore.contains(&Lines::Line(5)));
         
         let mut lines = LineAnalysis::new();
         let ctx = Context {
@@ -1562,12 +1724,14 @@ mod tests {
                     z:u32) {
                     println!(\"{}:{}:{}\",x,y,z);
                 }
-            }"
+            }",
+            file: Path::new(""),
+            ignore_mods: RefCell::new(HashSet::new()),
         };
         let parser = parse_file(ctx.file_contents).unwrap();
         process_items(&parser.items, &ctx, &mut lines);
-        assert!(lines.ignore.contains(&3));
-        assert!(lines.ignore.contains(&4));
+        assert!(lines.ignore.contains(&Lines::Line(3)));
+        assert!(lines.ignore.contains(&Lines::Line(4)));
     }
 
     #[test]
@@ -1580,14 +1744,16 @@ mod tests {
             fn empty_match(x: Void) -> u32 {
                 match x {
                 }
-            }"
+            }",
+            file: Path::new(""),
+            ignore_mods: RefCell::new(HashSet::new()),
         };
         let parser = parse_file(ctx.file_contents).unwrap();
         process_items(&parser.items, &ctx, &mut lines);
-        assert!(lines.ignore.contains(&2));
-        assert!(lines.ignore.contains(&3));
-        assert!(lines.ignore.contains(&4));
-        assert!(lines.ignore.contains(&5));
+        assert!(lines.ignore.contains(&Lines::Line(2)));
+        assert!(lines.ignore.contains(&Lines::Line(3)));
+        assert!(lines.ignore.contains(&Lines::Line(4)));
+        assert!(lines.ignore.contains(&Lines::Line(5)));
 
         let mut lines = LineAnalysis::new();
         let ctx = Context {
@@ -1603,16 +1769,18 @@ mod tests {
                 } else {
                     call();
                 }
-            }"
+            }",
+            file: Path::new(""),
+            ignore_mods: RefCell::new(HashSet::new()),
         };
         let parser = parse_file(ctx.file_contents).unwrap();
         process_items(&parser.items, &ctx, &mut lines);
-        assert!(lines.ignore.contains(&3));
-        assert!(lines.ignore.contains(&4));
-        assert!(lines.ignore.contains(&5));
-        assert!(lines.ignore.contains(&6));
-        assert!(lines.ignore.contains(&7));
-        assert!(lines.ignore.contains(&8));
+        assert!(lines.ignore.contains(&Lines::Line(3)));
+        assert!(lines.ignore.contains(&Lines::Line(4)));
+        assert!(lines.ignore.contains(&Lines::Line(5)));
+        assert!(lines.ignore.contains(&Lines::Line(6)));
+        assert!(lines.ignore.contains(&Lines::Line(7)));
+        assert!(lines.ignore.contains(&Lines::Line(8)));
 
         let mut lines = LineAnalysis::new();
         let ctx = Context {
@@ -1623,17 +1791,19 @@ mod tests {
 					bar();
 				}
 				unreachable!();
-			}"
+			}",
+            file: Path::new(""),
+            ignore_mods: RefCell::new(HashSet::new()),
         };
         let parser = parse_file(ctx.file_contents).unwrap();
         process_items(&parser.items, &ctx, &mut lines);
-        assert!(lines.ignore.contains(&1));
-        assert!(lines.ignore.contains(&2));
-        assert!(lines.ignore.contains(&3));
-        assert!(lines.ignore.contains(&4));
-        assert!(lines.ignore.contains(&5));
-        assert!(lines.ignore.contains(&6));
-        assert!(lines.ignore.contains(&7));
+        assert!(lines.ignore.contains(&Lines::Line(1)));
+        assert!(lines.ignore.contains(&Lines::Line(2)));
+        assert!(lines.ignore.contains(&Lines::Line(3)));
+        assert!(lines.ignore.contains(&Lines::Line(4)));
+        assert!(lines.ignore.contains(&Lines::Line(5)));
+        assert!(lines.ignore.contains(&Lines::Line(6)));
+        assert!(lines.ignore.contains(&Lines::Line(7)));
     }
 
 }
