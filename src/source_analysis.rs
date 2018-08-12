@@ -47,7 +47,7 @@ impl SourceAnalysisQuery for HashMap<PathBuf, LineAnalysis> {
 
     fn should_ignore(&self, path: &Path, l:&usize) -> bool {
         if self.contains_key(path) {
-            self.get(path).unwrap().ignore.contains(&Lines::Line(*l))
+            self.get(path).unwrap().should_ignore(*l)
         } else {
             false
         }
@@ -62,6 +62,12 @@ impl LineAnalysis {
             ignore: HashSet::new(),
             cover: HashSet::new()
         }
+    }
+
+    pub fn ignore_all(&mut self) {
+        self.ignore.clear();
+        self.cover.clear();
+        self.ignore.insert(Lines::All);
     }
 
     /// Adds the lines of the provided span to the ignore set
@@ -156,7 +162,19 @@ pub fn get_line_analysis(project: &Workspace, config: &Config) -> HashMap<PathBu
     for e in walker.filter_entry(|e| !is_target_folder(e, project.root()))
                    .filter_map(|e| e.ok())
                    .filter(|e| is_source_file(e)) {
-        analyse_package(e.path(), project.root(), &config, &mut result); 
+        if !ignored_files.contains(e.path()) {
+            analyse_package(e.path(), project.root(), &config, &mut result, &mut ignored_files); 
+        } else {
+            let mut analysis = LineAnalysis::new();
+            analysis.ignore_all();
+            result.insert(e.path().to_path_buf(), analysis);
+            ignored_files.remove(e.path());
+        }
+    } 
+    for e in &ignored_files {
+        let mut analysis = LineAnalysis::new();
+        analysis.ignore_all();
+        result.insert(e.to_path_buf(), analysis);
     }
     result
 }
@@ -200,7 +218,8 @@ struct Context<'a> {
 fn analyse_package(path: &Path, 
                    root: &Path,
                    config:&Config, 
-                   result: &mut HashMap<PathBuf, LineAnalysis>) {
+                   result: &mut HashMap<PathBuf, LineAnalysis>,
+                   filtered_files: &mut HashSet<PathBuf>) {
 
     if let Some(file) = path.to_str() {
         let skip_cause_test = config.ignore_tests && 
@@ -225,6 +244,19 @@ fn analyse_package(path: &Path,
                     process_items(&file.items, &ctx, &mut analysis);
                     // Check there's no conflict!
                     result.insert(path.to_path_buf(), analysis);
+
+                    let mut ignored_files = ctx.ignore_mods.into_inner();
+                    for f in ignored_files.drain() {
+                        if f.is_file() {
+                            filtered_files.insert(f);
+                        } else {
+                            let walker = WalkDir::new(f).into_iter();
+                            for e in walker.filter_map(|e| e.ok())
+                                           .filter(|e| is_source_file(e)) {
+                                filtered_files.insert(e.path().to_path_buf());
+                            }
+                        }
+                    }
                     // This could probably be done with the DWARF if I could find a discriminating factor
                     // to why lib.rs:1 shows up as a real line!
                     if path.ends_with("src/lib.rs") {
@@ -336,14 +368,21 @@ fn visit_mod(module: &ItemMod, analysis: &mut LineAnalysis, ctx: &Context) {
             }
         }
     }
-    //TODO here it goes
     if check_insides {
         if let Some((_, ref items)) = module.content {
             process_items(items, ctx, analysis);
         }
     } else {
-        ctx.ignore_mods.borrow_mut().insert(ctx.file.join(module.ident.to_string()));                           
-
+        // Get the file or directory name of the module
+        let mut p = if let Some(parent) = ctx.file.parent() {
+            parent.join(module.ident.to_string()) 
+        } else {
+            PathBuf::from(module.ident.to_string())
+        };
+        if !p.exists() { 
+            p.set_extension("rs");
+        }
+        ctx.ignore_mods.borrow_mut().insert(p);                           
     }
 }
 
