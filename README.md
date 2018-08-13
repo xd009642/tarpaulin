@@ -130,7 +130,9 @@ for your coverage reporting site of choice.
 
 We recommend taking the minimal rust .travis.yml, installing the libssl-dev
 dependency tarpaulin has and then running Tarpaulin with the version of 
-rustc you require.
+rustc you require. Tarpaulin is installed in `before_cache` to allow it to be cached
+and prevent having to reinstall every Travis run. You can also replace `cargo test`
+with a verbose run of tarpaulin to see the test results as well as coverage output.
 
 For codecov.io you'll need to export CODECOV_TOKEN are instructions on this in
 the settings of your codecov project.
@@ -151,6 +153,12 @@ rust:
 matrix:
   allow_failures:
     - rust: nightly
+
+before_cache: |
+  if [[ "$TRAVIS_RUST_VERSION" == stable ]]; then
+    RUSTFLAGS="--cfg procmacro2_semver_exempt" cargo install cargo-tarpaulin
+  fi
+
 script:
 - cargo clean
 - cargo build
@@ -158,7 +166,6 @@ script:
 
 after_success: |
   if [[ "$TRAVIS_RUST_VERSION" == stable ]]; then
-    RUSTFLAGS="--cfg procmacro2_semver_exempt" cargo install cargo-tarpaulin 
     # Uncomment the following line for coveralls.io
     # cargo tarpaulin --ciserver travis-ci --coveralls $TRAVIS_JOB_ID
 
