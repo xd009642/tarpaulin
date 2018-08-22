@@ -50,8 +50,8 @@ use traces::*;
 
 
 pub fn run(config: &Config) -> Result<(), i32> {
-    let (result, tp) = launch_tarpaulin(&config)?;
-    report_coverage(&config, &result);
+    let (result, tp) = launch_tarpaulin(config)?;
+    report_coverage(config, &result);
     if tp {
         Ok(())
     } else {
@@ -114,13 +114,13 @@ pub fn launch_tarpaulin(config: &Config) -> Result<(TraceMap, bool), i32> {
                 if config.verbose {
                     println!("Processing {}", name);
                 }
-                if let Some((res, tp)) = get_test_coverage(&workspace, package, path.as_path(), &config, false) {
+                if let Some((res, tp)) = get_test_coverage(&workspace, package, path.as_path(), config, false) {
                     result.merge(&res);
                     test_passed &= tp;
                 }
                 if config.run_ignored {
                     if let Some((res, tp)) = get_test_coverage(&workspace, package, path.as_path(),
-                                                         &config, true) {
+                                                         config, true) {
                         result.merge(&res);
                         test_passed &= tp;
                     }

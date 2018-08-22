@@ -9,6 +9,7 @@ use regex::{Regex};
 
 use self::parse::*;
 
+
 mod parse;
 mod types;
 
@@ -97,34 +98,36 @@ impl<'a> From<&'a ArgMatches<'a>> for Config {
 
 impl Config {
 
-    /// Determine whether to send data to coveralls
+    #[inline]
     pub fn is_coveralls(&self) -> bool {
         self.coveralls.is_some()
     }
 
+    #[inline]
     pub fn exclude_path(&self, path: &Path) -> bool {
-        let path = self.strip_project_path(path);
+        let project = self.strip_project_path(path);
+
         self.excluded_files.iter()
-                           .any(|x| x.is_match(path.to_str().unwrap_or("")))
+            .any(|x| x.is_match(project.to_str().unwrap_or("")))
     }
 
-    /// Strips the directory the project manifest is in from the path. Provides a
-    /// nicer path for printing to the user.
+    /// Strips the directory the project manifest is in from the path.
+    /// Provides a nicer path for printing to the user.
     ///
+    #[inline]
     pub fn strip_project_path(&self, path: &Path) -> PathBuf {
-        if let Some(root) = self.manifest.parent() {
-            path_relative_from(path, root).unwrap_or_else(|| path.to_path_buf())
-        } else {
-            path.to_path_buf()
-        }
+        self.manifest.parent()
+            .and_then(|x| path_relative_from(path, x))
+            .unwrap_or_else(|| path.to_path_buf())
     }
 }
+
 
 /// Gets the relative path from one directory to another, if it exists.
 /// Credit to brson from this commit from 2015
 /// https://github.com/rust-lang/rust/pull/23283/files
 ///
-pub(crate) fn path_relative_from(path: &Path, base: &Path) -> Option<PathBuf> {
+fn path_relative_from(path: &Path, base: &Path) -> Option<PathBuf> {
     use std::path::Component;
 
     if path.is_absolute() != base.is_absolute() {
@@ -136,7 +139,8 @@ pub(crate) fn path_relative_from(path: &Path, base: &Path) -> Option<PathBuf> {
     } else {
         let mut ita = path.components();
         let mut itb = base.components();
-        let mut comps: Vec<Component> = vec![];
+        let mut comps = vec![];
+
         loop {
             match (ita.next(), itb.next()) {
                 (None, None) => break,
@@ -163,6 +167,7 @@ pub(crate) fn path_relative_from(path: &Path, base: &Path) -> Option<PathBuf> {
         Some(comps.iter().map(|c| c.as_os_str()).collect())
     }
 }
+
 
 #[cfg(test)]
 mod tests {
@@ -235,3 +240,4 @@ mod tests {
         assert_eq!(rel_path.unwrap().to_str().unwrap(), "../../../b/rel/path", "Wrong relative path");
     }
 }
+
