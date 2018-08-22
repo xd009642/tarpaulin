@@ -16,14 +16,14 @@ use config::Config;
 #[derive(Debug, Copy, Clone, Eq, PartialEq)]
 pub enum TestState {
     /// Start state. Wait for test to appear and track time to enable timeout
-    Start { 
-        start_time: Instant, 
+    Start {
+        start_time: Instant,
     },
-    /// Initialise: once test process appears instrument 
+    /// Initialise: once test process appears instrument
     Initialise ,
     /// Waiting for breakpoint to be hit or test to end
-    Waiting { 
-        start_time: Instant, 
+    Waiting {
+        start_time: Instant,
     },
     /// Test process stopped, check coverage
     Stopped,
@@ -34,13 +34,13 @@ pub enum TestState {
     /// Test exited normally. Includes the exit code of the test executable.
     End(i32),
     /// An error occurred that indicates no future runs will succeed such as
-    /// PIE issues in OS. 
+    /// PIE issues in OS.
     Abort,
 }
 
-/// Tracing a process on an OS will have platform specific code. 
+/// Tracing a process on an OS will have platform specific code.
 /// Structs containing the platform specific datastructures should
-/// provide this trait with an implementation of the handling of 
+/// provide this trait with an implementation of the handling of
 /// the given states.
 pub trait StateData {
     /// Starts the tracing. Returns None while waiting for
@@ -48,7 +48,7 @@ pub trait StateData {
     fn start(&mut self) -> Option<TestState>;
     /// Initialises test for tracing returns next state
     fn init(&mut self) -> TestState;
-    /// Waits for notification from test executable that there's 
+    /// Waits for notification from test executable that there's
     /// something to do. Selects the next appropriate state if there's
     /// something to do otherwise None
     fn wait(&mut self) -> Option<TestState>;
@@ -78,7 +78,7 @@ impl TestState {
     fn wait_state() -> TestState {
         TestState::Waiting{start_time: Instant::now()}
     }
-    
+
     /// Updates the state machine state
     pub fn step<T:StateData>(self, data: &mut T, config: &Config) -> TestState {
         match self {
@@ -94,7 +94,7 @@ impl TestState {
             },
             TestState::Initialise => {
                 data.init()
-            },  
+            },
             TestState::Waiting{start_time} => {
                 if let Some(s) =data.wait() {
                     s
@@ -119,7 +119,7 @@ impl TestState {
                 TestState::End(-1)
             },
             _ => {
-                // Unhandled 
+                // Unhandled
                 if config.verbose {
                     println!("Tarpaulin error: unhandled test state");
                 }
@@ -130,8 +130,8 @@ impl TestState {
 }
 
 
-pub fn create_state_machine<'a>(test: Pid, 
-                                traces: &'a mut TraceMap, 
+pub fn create_state_machine<'a>(test: Pid,
+                                traces: &'a mut TraceMap,
                                 config: &'a Config) -> (TestState, LinuxData<'a>) {
     let mut data = LinuxData::new(traces, config);
     data.parent = test;
@@ -163,7 +163,7 @@ pub struct LinuxData<'a> {
 
 
 impl <'a> StateData for LinuxData<'a> {
-    
+
     fn start(&mut self) -> Option<TestState> {
         match waitpid(self.current, Some(WaitPidFlag::WNOHANG)) {
             Ok(WaitStatus::StillAlive) => None,
@@ -299,12 +299,12 @@ impl <'a> StateData for LinuxData<'a> {
             },
             WaitStatus::Exited(child, ec) => {
                 for ref mut value in self.breakpoints.values_mut() {
-                    value.thread_killed(child); 
+                    value.thread_killed(child);
                 }
                 if child == self.parent {
                     TestState::End(ec)
                 } else {
-                    // Process may have already been destroyed. This is just incase 
+                    // Process may have already been destroyed. This is just incase
                     let _ = continue_exec(self.parent, None);
                     TestState::wait_state()
                 }
@@ -334,13 +334,13 @@ impl <'a>LinuxData<'a> {
             config,
             error_message:None,
             thread_count: 0,
-            force_disable_hit_count: !config.no_count
+            force_disable_hit_count: config.count
         }
     }
 
     fn handle_ptrace_event(&mut self, child: Pid, sig: Signal, event: i32) -> Result<TestState> {
         use nix::libc::*;
-        
+
         if sig == Signal::SIGTRAP {
             match event {
                 PTRACE_EVENT_CLONE => {
@@ -379,10 +379,10 @@ impl <'a>LinuxData<'a> {
             let rip = (rip - 1) as u64;
             if  self.breakpoints.contains_key(&rip) {
                 let bp = &mut self.breakpoints.get_mut(&rip).unwrap();
-                let enable = (!self.config.no_count) && (self.thread_count < 2);
+                let enable = self.config.count && self.thread_count < 2;
                 if !enable && self.force_disable_hit_count {
                     println!("Code is mulithreaded, disabling hit count");
-                    println!("Results may be improved by using the '--no-count' option when running tarpaulin");
+                    println!("Results may be improved by not using the '--count' option when running tarpaulin");
                     self.force_disable_hit_count = false;
                 }
                 // Don't reenable if multithreaded as can't yet sort out segfault issue
@@ -400,7 +400,7 @@ impl <'a>LinuxData<'a> {
                             *x += 1;
                         }
                     }
-                } 
+                }
             } else {
                 continue_exec(self.current, None)?;
             }
@@ -414,7 +414,7 @@ impl <'a>LinuxData<'a> {
     fn handle_signaled(&mut self) -> Result<TestState> {
         match self.wait {
             WaitStatus::Signaled(child, Signal::SIGTRAP, true) => {
-                continue_exec(child, None)?; 
+                continue_exec(child, None)?;
                 Ok(TestState::wait_state())
             },
             _ => {
@@ -424,3 +424,4 @@ impl <'a>LinuxData<'a> {
         }
     }
 }
+
