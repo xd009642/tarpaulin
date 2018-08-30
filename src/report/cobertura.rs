@@ -13,10 +13,10 @@ use config::Config;
 
 
 fn write_header<T:Write>(writer: &mut Writer<T>, config: &Config) -> Result<usize> {
-    
+
     writer.write_event(Event::Start(BytesStart::borrowed(b"sources", b"sources".len())))?;
     writer.write_event(Event::Start(BytesStart::borrowed(b"source", b"source".len())))?;
-    
+
     let parent_folder = match config.manifest.parent() {
         Some(s) => s.to_str().unwrap_or_default(),
         None => "",
@@ -28,20 +28,20 @@ fn write_header<T:Write>(writer: &mut Writer<T>, config: &Config) -> Result<usiz
 
 
 /// Input only from single source file
-fn write_class<T:Write>(writer: &mut Writer<T>, 
-                        manifest_path: &Path, 
+fn write_class<T:Write>(writer: &mut Writer<T>,
+                        manifest_path: &Path,
                         filename: &Path,
                         coverage: &TraceMap) ->Result<usize> {
     if !coverage.is_empty() {
         let covered = coverage.covered_in_path(filename);
         let covered = (covered as f32)/(coverage.coverable_in_path(filename) as f32);
-        
+
         let tidy_filename = match filename.strip_prefix(manifest_path) {
             Ok(p) => p,
             _ => filename,
         };
         let name = filename.file_stem().unwrap_or_default().to_str().unwrap_or_default();
-        
+
         let mut class = BytesStart::owned(b"class".to_vec(), b"class".len());
         class.push_attribute(("name", name));
         class.push_attribute(("filename", tidy_filename.to_str().unwrap_or_default()));
@@ -72,7 +72,7 @@ fn write_class<T:Write>(writer: &mut Writer<T>,
 }
 
 /// Input only tracer data from a single source folder
-fn write_package<T:Write>(mut writer: &mut Writer<T>, 
+fn write_package<T:Write>(mut writer: &mut Writer<T>,
                           package: &Path,
                           manifest_path: &Path,
                           package_name: &str,
@@ -100,9 +100,9 @@ fn write_package<T:Write>(mut writer: &mut Writer<T>,
 
 pub fn export(coverage_data: &TraceMap, config: &Config) {
     let mut file = File::create("cobertura.xml").unwrap();
-    let mut writer = Writer::new(Cursor::new(Vec::new()));    
+    let mut writer = Writer::new(Cursor::new(Vec::new()));
     writer.write_event(Event::Decl(BytesDecl::new(b"1.0", None, None))).unwrap();
-    // Construct cobertura xml 
+    // Construct cobertura xml
     let line_rate = coverage_data.coverage_percentage();
     let mut cov = BytesStart::owned(b"coverage".to_vec(), b"coverage".len());
     cov.push_attribute(("line-rate", line_rate.to_string().as_ref()));
@@ -119,7 +119,7 @@ pub fn export(coverage_data: &TraceMap, config: &Config) {
     let _ = write_header(&mut writer, &config);
     // other data
     writer.write_event(Event::Start(BytesStart::borrowed(b"packages", b"packages".len()))).unwrap();
-    
+
     let mut folder_set: HashSet<&Path> = HashSet::new();
     for t in &coverage_data.files() {
         let parent = match t.parent() {

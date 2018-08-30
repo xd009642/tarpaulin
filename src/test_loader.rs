@@ -93,7 +93,7 @@ fn generate_func_desc<R, Offset>(die: &DebuggingInformationEntry<R, Offset>,
         } else {
             FunctionType::Standard
         };
-    } 
+    }
     Ok((low, high, func_type))
 }
 
@@ -113,7 +113,7 @@ fn get_entry_points<R, Offset>(debug_info: &CompilationUnitHeader<R, Offset>,
     while let Ok(Some((_, node))) = cursor.next_dfs() {
         // Function DIE
         if node.tag() == DW_TAG_subprogram {
-            
+
             if let Ok(fd) = generate_func_desc(node, debug_str) {
                 result.push(fd);
             }
@@ -132,7 +132,7 @@ fn get_addresses_from_program<R, Offset>(prog: IncompleteLineNumberProgram<R>,
     let ( cprog, seq) = prog.sequences()?;
     for s in seq {
         let mut temp_map: HashMap<SourceLocation, TracerData> = HashMap::new();
-        let mut sm = cprog.resume_from(&s);   
+        let mut sm = cprog.resume_from(&s);
          while let Ok(Some((header, &ln_row))) = sm.next_row() {
              // If this row isn't useful move on
             if !ln_row.is_stmt() || ln_row.line().is_none() {
@@ -140,7 +140,7 @@ fn get_addresses_from_program<R, Offset>(prog: IncompleteLineNumberProgram<R>,
             }
             if let Some(file) = ln_row.file(header) {
                 let mut path = PathBuf::new();
-                
+
                 if let Some(dir) = file.directory(header) {
                     if let Ok(temp) = dir.to_string() {
                         path.push(temp.as_ref());
@@ -162,7 +162,7 @@ fn get_addresses_from_program<R, Offset>(prog: IncompleteLineNumberProgram<R>,
                     if let Some(file) = ln_row.file(header) {
                         let line = ln_row.line().unwrap();
                         let file = file.path_name();
-                         
+
                         if let Ok(file) = file.to_string() {
                             path.push(file.as_ref());
                             if !path.is_file() {
@@ -229,14 +229,14 @@ fn get_line_addresses(endian: RunTimeEndian,
         };
         let entries = get_entry_points(&cu, &abbr, &debug_strings)
             .iter()
-            .map(|&(a, b, c)| { 
+            .map(|&(a, b, c)| {
                 match c {
                     FunctionType::Test => (a, LineType::TestEntry(b)),
                     FunctionType::Standard => (a, LineType::FunctionEntry(b)),
                     FunctionType::Generated => (a, LineType::TestMain),
                 }
             }).collect::<Vec<_>>();
-        
+
         if let Ok(Some((_, root))) = cu.entries(&abbr).next_dfs() {
             let offset = match root.attr_value(DW_AT_stmt_list) {
                 Ok(Some(AttributeValue::DebugLineRef(o))) => o,
@@ -250,7 +250,7 @@ fn get_line_addresses(endian: RunTimeEndian,
                 }
             }
             else {
-                // Deduplicate addresses 
+                // Deduplicate addresses
                 for v in temp_map.values_mut() {
                     v.dedup_by_key(|x| x.address);
                 }
@@ -297,11 +297,11 @@ fn get_line_addresses(endian: RunTimeEndian,
 pub fn generate_tracemap(project: &Workspace, test: &Path, config: &Config) -> io::Result<TraceMap> {
     let manifest = project.root();
     let file = File::open(test)?;
-    let file = unsafe { 
+    let file = unsafe {
         MmapOptions::new().map(&file)?
     };
     if let Ok(obj) = OFile::parse(&*file) {
-        let analysis = get_line_analysis(project, config); 
+        let analysis = get_line_analysis(project, config);
         let endian = if obj.is_little_endian() {
             RunTimeEndian::Little
         } else {

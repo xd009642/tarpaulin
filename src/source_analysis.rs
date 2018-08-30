@@ -21,7 +21,7 @@ pub enum Lines {
 /// in question as this is expected to be maintained by the user.
 #[derive(Clone, Debug)]
 pub struct LineAnalysis {
-    /// This represents lines that should be ignored in coverage 
+    /// This represents lines that should be ignored in coverage
     /// but may be identifed as coverable in the DWARF tables
     pub ignore: HashSet<Lines>,
     /// This represents lines that should be included in coverage
@@ -111,7 +111,7 @@ impl LineAnalysis {
                     true
                 };
                 if is_code && !SINGLE_LINE.is_match(line) {
-                    useful_lines.insert(i+1);    
+                    useful_lines.insert(i+1);
                 }
             }
         }
@@ -126,7 +126,7 @@ impl LineAnalysis {
     pub fn should_ignore(&self, line: usize) -> bool {
         self.ignore.contains(&Lines::Line(line)) || self.ignore.contains(&Lines::All)
     }
-    
+
     /// Adds a line to the list of lines to ignore
     fn add_to_ignore(&mut self, lines: &[usize]) {
         if !self.ignore.contains(&Lines::All) {
@@ -155,7 +155,7 @@ fn is_target_folder(entry: &DirEntry, root: &Path) -> bool {
 /// Returns a list of files and line numbers to ignore (not indexes!)
 pub fn get_line_analysis(project: &Workspace, config: &Config) -> HashMap<PathBuf, LineAnalysis> {
     let mut result: HashMap<PathBuf, LineAnalysis> = HashMap::new();
-    
+
     let mut ignored_files: HashSet<PathBuf> = HashSet::new();
 
     let walker = WalkDir::new(project.root()).into_iter();
@@ -163,14 +163,14 @@ pub fn get_line_analysis(project: &Workspace, config: &Config) -> HashMap<PathBu
                    .filter_map(|e| e.ok())
                    .filter(|e| is_source_file(e)) {
         if !ignored_files.contains(e.path()) {
-            analyse_package(e.path(), project.root(), &config, &mut result, &mut ignored_files); 
+            analyse_package(e.path(), project.root(), &config, &mut result, &mut ignored_files);
         } else {
             let mut analysis = LineAnalysis::new();
             analysis.ignore_all();
             result.insert(e.path().to_path_buf(), analysis);
             ignored_files.remove(e.path());
         }
-    } 
+    }
     for e in &ignored_files {
         let mut analysis = LineAnalysis::new();
         analysis.ignore_all();
@@ -194,7 +194,7 @@ fn analyse_lib_rs(file: &Path, result: &mut HashMap<PathBuf, LineAnalysis>) {
                     l.add_to_ignore(&[1]);
                     result.insert(file, l);
                 }
-            }   
+            }
         }
     }
 }
@@ -215,18 +215,18 @@ struct Context<'a> {
 
 
 /// Analyses a package of the target crate.
-fn analyse_package(path: &Path, 
+fn analyse_package(path: &Path,
                    root: &Path,
-                   config:&Config, 
+                   config:&Config,
                    result: &mut HashMap<PathBuf, LineAnalysis>,
                    filtered_files: &mut HashSet<PathBuf>) {
 
     if let Some(file) = path.to_str() {
-        let skip_cause_test = config.ignore_tests && 
+        let skip_cause_test = config.ignore_tests &&
                               path.starts_with(root.join("tests"));
         let skip_cause_example = path.starts_with(root.join("examples"));
         if !(skip_cause_test || skip_cause_example)  {
-            let file = File::open(file); 
+            let file = File::open(file);
             if let Ok(mut file) =  file {
                 let mut content = String::new();
                 let _ = file.read_to_string(&mut content);
@@ -306,7 +306,7 @@ fn process_items(items: &[Item], ctx: &Context, analysis: &mut LineAnalysis) -> 
                 }
             },
             _ =>{}
-        } 
+        }
     }
     res
 }
@@ -337,7 +337,7 @@ fn process_statements(stmts: &[Stmt], ctx: &Context, analysis: &mut LineAnalysis
 
 
 fn visit_mod(module: &ItemMod, analysis: &mut LineAnalysis, ctx: &Context) {
-    analysis.ignore_span(module.mod_token.0); 
+    analysis.ignore_span(module.mod_token.0);
     let mut check_insides = true;
     for attr in &module.attrs {
         if let Some(x) = attr.interpret_meta() {
@@ -375,14 +375,14 @@ fn visit_mod(module: &ItemMod, analysis: &mut LineAnalysis, ctx: &Context) {
     } else {
         // Get the file or directory name of the module
         let mut p = if let Some(parent) = ctx.file.parent() {
-            parent.join(module.ident.to_string()) 
+            parent.join(module.ident.to_string())
         } else {
             PathBuf::from(module.ident.to_string())
         };
-        if !p.exists() { 
+        if !p.exists() {
             p.set_extension("rs");
         }
-        ctx.ignore_mods.borrow_mut().insert(p);                           
+        ctx.ignore_mods.borrow_mut().insert(p);
     }
 }
 
@@ -429,7 +429,7 @@ fn visit_fn(func: &ItemFn, analysis: &mut LineAnalysis, ctx: &Context) {
         visit_generics(&func.decl.generics, analysis);
         let line_number = func.decl.fn_token.span().start().line;
         analysis.ignore.remove(&Lines::Line(line_number));
-        // Ignore multiple lines of fn decl 
+        // Ignore multiple lines of fn decl
         let decl_start = func.decl.fn_token.0.start().line+1;
         let stmts_start = func.block.span().start().line;
         let lines = (decl_start..(stmts_start+1)).collect::<Vec<_>>();
@@ -486,7 +486,7 @@ fn check_cfg_attr(attr: &Meta) -> bool {
             ignore_span = skip_match;
         }
     }
-    ignore_span 
+    ignore_span
 }
 
 
@@ -500,8 +500,8 @@ fn visit_trait(trait_item: &ItemTrait, analysis: &mut LineAnalysis, ctx: &Contex
                         analysis.cover_span(item.span(), Some(ctx.file_contents));
                         visit_generics(&i.sig.decl.generics, analysis);
                         analysis.ignore.remove(&Lines::Line(i.sig.span().start().line));
-                        
-                        // Ignore multiple lines of fn decl 
+
+                        // Ignore multiple lines of fn decl
                         let decl_start = i.sig.decl.fn_token.0.start().line+1;
                         let stmts_start = block.span().start().line;
                         let lines = (decl_start..(stmts_start+1)).collect::<Vec<_>>();
@@ -535,11 +535,11 @@ fn visit_impl(impl_blk: &ItemImpl, analysis: &mut LineAnalysis, ctx: &Context) {
                         analysis.ignore_span(i.span());
                         return
                     }
-                    
+
                     visit_generics(&i.sig.decl.generics, analysis);
                     analysis.ignore.remove(&Lines::Line(i.span().start().line));
-                    
-                    // Ignore multiple lines of fn decl 
+
+                    // Ignore multiple lines of fn decl
                     let decl_start = i.sig.decl.fn_token.0.start().line+1;
                     let stmts_start = i.block.span().start().line;
                     let lines = (decl_start..(stmts_start+1)).collect::<Vec<_>>();
@@ -792,7 +792,7 @@ fn visit_struct_expr(structure: &ExprStruct, analysis: &mut LineAnalysis) -> Sub
         };
         match first.expr {
             Expr::Lit(_) | Expr::Path(_) => {},
-            _=>{ 
+            _=>{
                 cover.insert(span.start().line);
             },
         }
@@ -812,7 +812,7 @@ fn visit_macro_call(mac: &Macro, ctx: &Context, analysis: &mut LineAnalysis) -> 
     if let Some(End(ref name)) = mac.path.segments.last() {
         let unreachable = name.ident == "unreachable";
         let standard_ignores =  name.ident == "unimplemented" || name.ident == "include";
-        let ignore_panic =  ctx.config.ignore_panics && name.ident == "panic"; 
+        let ignore_panic =  ctx.config.ignore_panics && name.ident == "panic";
         if standard_ignores || ignore_panic || unreachable {
             analysis.ignore_span(mac.span());
             skip = true;
@@ -820,7 +820,7 @@ fn visit_macro_call(mac: &Macro, ctx: &Context, analysis: &mut LineAnalysis) -> 
         if unreachable {
             return SubResult::Unreachable
         }
-        
+
     }
     if !skip {
         let lines = process_mac_args(&mac.tts);
@@ -839,7 +839,7 @@ fn process_mac_args(tokens: &TokenStream) -> HashSet<usize> {
         let t = token.span();
         match token {
             TokenTree::Literal(_) | TokenTree::Punct{..} => {},
-            _ => { 
+            _ => {
                 for i in t.start().line..(t.end().line+1) {
                     cover.insert(i);
                 }
@@ -860,7 +860,7 @@ mod tests {
         let mut la = LineAnalysis::new();
         assert!(!la.should_ignore(0));
         assert!(!la.should_ignore(10));
-        
+
         la.add_to_ignore(&[3,4, 10]);
         assert!(la.should_ignore(3));
         assert!(la.should_ignore(4));
@@ -868,7 +868,7 @@ mod tests {
         assert!(!la.should_ignore(1));
     }
 
-    #[test] 
+    #[test]
     fn filter_str_literals() {
         let mut lines = LineAnalysis::new();
         let config = Config::default();
@@ -883,7 +883,7 @@ mod tests {
         assert!(lines.ignore.len() > 1);
         assert!(lines.ignore.contains(&Lines::Line(3)));
         assert!(lines.ignore.contains(&Lines::Line(4)));
-        
+
         let ctx = Context {
             config: &config,
             file_contents: "fn test() {\nwrite(\"test\ntest\ntest\");\n}\nfn write(s:&str){}",
@@ -896,7 +896,7 @@ mod tests {
         assert!(lines.ignore.len() > 1);
         assert!(lines.ignore.contains(&Lines::Line(3)));
         assert!(lines.ignore.contains(&Lines::Line(4)));
-        
+
         let mut lines = LineAnalysis::new();
         let ctx = Context {
             config: &config,
@@ -921,12 +921,12 @@ mod tests {
         };
         let parser = parse_file(ctx.file_contents).unwrap();
         process_items(&parser.items, &ctx, &mut lines);
-        
+
         assert!(lines.ignore.len()> 3);
-        assert!(lines.ignore.contains(&Lines::Line(1))); 
-        assert!(lines.ignore.contains(&Lines::Line(3))); 
-        assert!(lines.ignore.contains(&Lines::Line(4))); 
-        
+        assert!(lines.ignore.contains(&Lines::Line(1)));
+        assert!(lines.ignore.contains(&Lines::Line(3)));
+        assert!(lines.ignore.contains(&Lines::Line(4)));
+
         let ctx = Context {
             config: &config,
             file_contents: "#[derive(Debug)]\npub struct Struct (\n i32\n);",
@@ -935,9 +935,9 @@ mod tests {
         };
         let parser = parse_file(ctx.file_contents).unwrap();
         process_items(&parser.items, &ctx, &mut lines);
-        
+
         assert!(!lines.ignore.is_empty());
-        assert!(lines.ignore.contains(&Lines::Line(3))); 
+        assert!(lines.ignore.contains(&Lines::Line(3)));
     }
 
     #[test]
@@ -952,13 +952,13 @@ mod tests {
         };
         let parser = parse_file(ctx.file_contents).unwrap();
         process_items(&parser.items, &ctx, &mut lines);
-        
+
         assert!(lines.ignore.len()> 3);
-        assert!(lines.ignore.contains(&Lines::Line(3))); 
-        assert!(lines.ignore.contains(&Lines::Line(4))); 
-        assert!(lines.ignore.contains(&Lines::Line(5))); 
-        assert!(lines.ignore.contains(&Lines::Line(6))); 
-        assert!(lines.ignore.contains(&Lines::Line(7))); 
+        assert!(lines.ignore.contains(&Lines::Line(3)));
+        assert!(lines.ignore.contains(&Lines::Line(4)));
+        assert!(lines.ignore.contains(&Lines::Line(5)));
+        assert!(lines.ignore.contains(&Lines::Line(6)));
+        assert!(lines.ignore.contains(&Lines::Line(7)));
     }
 
     #[test]
@@ -996,7 +996,7 @@ mod tests {
         let mut lines = LineAnalysis::new();
         process_items(&parser.items, &ctx, &mut lines);
         assert!(!lines.ignore.contains(&Lines::Line(3)));
-        
+
         let mut lines = LineAnalysis::new();
         let ctx = Context {
             config: &config,
@@ -1007,7 +1007,7 @@ mod tests {
         let parser = parse_file(ctx.file_contents).unwrap();
         process_items(&parser.items, &ctx, &mut lines);
         assert!(lines.ignore.contains(&Lines::Line(1)));
-        
+
         let mut lines = LineAnalysis::new();
         let ctx = Context {
             config: &config,
@@ -1032,7 +1032,7 @@ mod tests {
         };
         let parser = parse_file(ctx.file_contents).unwrap();
         process_items(&parser.items, &ctx, &mut lines);
-        
+
         // Braces should be ignored so number could be higher
         assert!(lines.ignore.len() >= 1);
         assert!(lines.ignore.contains(&Lines::Line(4)));
@@ -1047,10 +1047,10 @@ mod tests {
         process_items(&parser.items, &ctx, &mut lines);
         assert!(lines.ignore.len() >= 1);
         assert!(lines.ignore.contains(&Lines::Line(4)));
-        
+
         let mut lines = LineAnalysis::new();
         let ctx = Context {
-            config: &config, 
+            config: &config,
             file_contents: "fn unreachable_match(x: u32) -> u32 {
                 match x {
                     1 => 5,
@@ -1064,7 +1064,7 @@ mod tests {
         let parser = parse_file(ctx.file_contents).unwrap();
         process_items(&parser.items, &ctx, &mut lines);
         assert!(lines.ignore.contains(&Lines::Line(5)));
-        
+
         let mut lines = LineAnalysis::new();
         let ctx = Context {
             config: &config,
@@ -1076,7 +1076,7 @@ mod tests {
         process_items(&parser.items, &ctx, &mut lines);
         assert!(!lines.ignore.contains(&Lines::Line(2)));
     }
-   
+
     #[test]
     fn filter_tests() {
         let config = Config::default();
@@ -1093,7 +1093,7 @@ mod tests {
         let parser = parse_file(ctx.file_contents).unwrap();
         process_items(&parser.items, &ctx, &mut lines);
         assert!(!lines.ignore.contains(&Lines::Line(4)));
-        
+
         let ctx = Context {
             config: &igconfig,
             file_contents: "#[cfg(test)]\nmod tests {\n fn boo(){\nassert!(true);\n}\n}",
@@ -1138,7 +1138,7 @@ mod tests {
         let mut lines = LineAnalysis::new();
         let ctx = Context {
             config: &config,
-            file_contents: "trait Thing { 
+            file_contents: "trait Thing {
                 #[cfg(test)]
                 fn boo(){
                     assert!(true);
@@ -1152,13 +1152,13 @@ mod tests {
         assert!(lines.ignore.contains(&Lines::Line(2)));
         assert!(lines.ignore.contains(&Lines::Line(3)));
         assert!(lines.ignore.contains(&Lines::Line(4)));
-        
+
         let config = Config::default();
 
         let mut lines = LineAnalysis::new();
         let ctx = Context {
             config: &config,
-            file_contents: "trait Thing { 
+            file_contents: "trait Thing {
                 #[cfg(test)]
                 fn boo(){
                     assert!(true);
@@ -1189,11 +1189,11 @@ mod tests {
         let parser = parse_file(ctx.file_contents).unwrap();
         process_items(&parser.items, &ctx, &mut lines);
         assert!(!lines.ignore.contains(&Lines::Line(1)));
-        
+
         let mut lines = LineAnalysis::new();
         let ctx = Context {
             config: &config,
-            file_contents: "fn boop<T>() -> T 
+            file_contents: "fn boop<T>() -> T
                 where T:Default {
                     T::default()
                 }",
@@ -1203,12 +1203,12 @@ mod tests {
         let parser = parse_file(ctx.file_contents).unwrap();
         process_items(&parser.items, &ctx, &mut lines);
         assert!(lines.ignore.contains(&Lines::Line(2)));
-        
+
         let mut lines = LineAnalysis::new();
         let ctx = Context {
             config: &config,
             file_contents: "trait foof {
-                fn boop<T>() -> T 
+                fn boop<T>() -> T
                 where T:Default {
                     T::default()
                 }
@@ -1254,7 +1254,7 @@ mod tests {
         let config = Config::default();
         let mut lines = LineAnalysis::new();
         let ctx = Context {
-            config: &config, 
+            config: &config,
             file_contents: "fn unsafe_fn() {\n let x=1;\nunsafe {\nprintln!(\"{}\", x);\n}\n}",
             file: Path::new(""),
             ignore_mods: RefCell::new(HashSet::new()),
@@ -1263,10 +1263,10 @@ mod tests {
         process_items(&parser.items, &ctx, &mut lines);
         assert!(lines.ignore.contains(&Lines::Line(3)));
         assert!(!lines.ignore.contains(&Lines::Line(4)));
-        
+
         let mut lines = LineAnalysis::new();
         let ctx = Context {
-            config: &config, 
+            config: &config,
             file_contents: "fn unsafe_fn() {\n let x=1;\nunsafe {println!(\"{}\", x);}\n}",
             file: Path::new(""),
             ignore_mods: RefCell::new(HashSet::new()),
@@ -1281,7 +1281,7 @@ mod tests {
         let config = Config::default();
         let mut lines = LineAnalysis::new();
         let ctx = Context {
-            config: &config, 
+            config: &config,
             file_contents: "struct GenericStruct<T>(T);
             impl<T> GenericStruct<T> {
                 fn hw(&self) {
@@ -1298,11 +1298,11 @@ mod tests {
 
         let mut lines = LineAnalysis::new();
         let ctx = Context {
-            config: &config, 
+            config: &config,
             file_contents: "struct GenericStruct<T>{v:Vec<T>}
             impl<T> Default for GenericStruct<T> {
                 fn default() -> Self {
-                    T { 
+                    T {
                         v: vec![],
                     }
                 }
@@ -1320,7 +1320,7 @@ mod tests {
         let config = Config::default();
         let mut lines = LineAnalysis::new();
         let ctx = Context {
-            config: &config, 
+            config: &config,
             file_contents: "trait Thing {
                 fn hw(&self) {
                     println!(\"hello world\");
@@ -1341,26 +1341,26 @@ mod tests {
         let config = Config::default();
         let mut lines = LineAnalysis::new();
         let ctx = Context {
-            config: &config, 
-            file_contents: "struct Thing;                   
-            impl Thing{                                     
-                fn hw(&self, name: &str) {                  
-                    println!(\"hello {}\", name);           
+            config: &config,
+            file_contents: "struct Thing;
+            impl Thing{
+                fn hw(&self, name: &str) {
+                    println!(\"hello {}\", name);
                 }                                           //5
-            }                                               
-                                                            
-            fn get_name() -> String {                       
-                return \"Daniel\".to_string()               
+            }
+
+            fn get_name() -> String {
+                return \"Daniel\".to_string()
             }                                               //10
-                                                            
-            fn main() {                                     
-                let s=Thing{};                              
-                s.hw(                                       
+
+            fn main() {
+                let s=Thing{};
+                s.hw(
                     \"Paul\"                                //15
-                );                                          
-                                                            
-                s.hw(                                       
-                    &get_name()                             
+                );
+
+                s.hw(
+                    &get_name()
                 );                                          //20
             }",
             file: Path::new(""),
@@ -1377,7 +1377,7 @@ mod tests {
         let config = Config::default();
         let mut lines = LineAnalysis::new();
         let ctx = Context {
-            config: &config, 
+            config: &config,
             file_contents: "use std::collections::HashMap;
             use std::{ffi::CString, os::raw::c_char};",
             file: Path::new(""),
@@ -1394,10 +1394,10 @@ mod tests {
         let config = Config::default();
         let mut lines = LineAnalysis::new();
         let ctx = Context {
-            config: &config, 
+            config: &config,
             file_contents: "#[inline]
                 fn inline_func() {
-                    // I shouldn't be covered 
+                    // I shouldn't be covered
                     println!(\"I should\");
                     /*
                      None of us should
@@ -1423,12 +1423,12 @@ mod tests {
         let config = Config::default();
         let mut lines = LineAnalysis::new();
         let ctx = Context {
-            config: &config, 
+            config: &config,
             file_contents: "#[cfg_attr(tarpaulin, skip)]
                 fn skipped() {
                     println!(\"Hello world\");
                 }
-            
+
             #[cfg_attr(tarpaulin, not_a_thing)]
             fn covered() {
                 println!(\"hell world\");
@@ -1443,16 +1443,16 @@ mod tests {
         assert!(lines.ignore.contains(&Lines::Line(3)));
         assert!(!lines.ignore.contains(&Lines::Line(7)));
         assert!(!lines.ignore.contains(&Lines::Line(8)));
-        
+
         let mut lines = LineAnalysis::new();
         let ctx = Context {
-            config: &config, 
+            config: &config,
             file_contents: "#[cfg_attr(tarpaulin, skip)]
             mod ignore_all {
                 fn skipped() {
                     println!(\"Hello world\");
                 }
-                
+
                 #[cfg_attr(tarpaulin, not_a_thing)]
                 fn covered() {
                     println!(\"hell world\");
@@ -1476,14 +1476,14 @@ mod tests {
         let config = Config::default();
         let mut lines = LineAnalysis::new();
         let ctx = Context {
-            config: &config, 
+            config: &config,
             file_contents: "#[cfg_attr(tarpaulin, skip)]
                 trait Foo {
                     fn bar() {
                         println!(\"Hello world\");
                     }
-                
-                    
+
+
                     fn not_covered() {
                         println!(\"hell world\");
                     }
@@ -1498,16 +1498,16 @@ mod tests {
         assert!(lines.ignore.contains(&Lines::Line(4)));
         assert!(lines.ignore.contains(&Lines::Line(8)));
         assert!(lines.ignore.contains(&Lines::Line(9)));
-        
+
         let mut lines = LineAnalysis::new();
         let ctx = Context {
-            config: &config, 
+            config: &config,
             file_contents: "trait Foo {
                     fn bar() {
                         println!(\"Hello world\");
                     }
-                
-                    #[cfg_attr(tarpaulin, skip)] 
+
+                    #[cfg_attr(tarpaulin, skip)]
                     fn not_covered() {
                         println!(\"hell world\");
                     }
@@ -1523,22 +1523,22 @@ mod tests {
         assert!(lines.ignore.contains(&Lines::Line(7)));
         assert!(lines.ignore.contains(&Lines::Line(8)));
     }
-    
-   
+
+
     #[test]
     fn tarpaulin_skip_impl_attrs() {
         let config = Config::default();
         let mut lines = LineAnalysis::new();
         let ctx = Context {
-            config: &config, 
+            config: &config,
             file_contents: "struct Foo;
                 #[cfg_attr(tarpaulin, skip)]
                 impl Foo {
                     fn bar() {
                         println!(\"Hello world\");
                     }
-                
-                    
+
+
                     fn not_covered() {
                         println!(\"hell world\");
                     }
@@ -1553,17 +1553,17 @@ mod tests {
         assert!(lines.ignore.contains(&Lines::Line(5)));
         assert!(lines.ignore.contains(&Lines::Line(9)));
         assert!(lines.ignore.contains(&Lines::Line(10)));
-        
+
         let mut lines = LineAnalysis::new();
         let ctx = Context {
-            config: &config, 
+            config: &config,
             file_contents: "struct Foo;
                 impl Foo {
                     fn bar() {
                         println!(\"Hello world\");
                     }
-                
-                    
+
+
                     #[cfg_attr(tarpaulin, skip)]
                     fn not_covered() {
                         println!(\"hell world\");
@@ -1580,19 +1580,19 @@ mod tests {
         assert!(lines.ignore.contains(&Lines::Line(9)));
         assert!(lines.ignore.contains(&Lines::Line(10)));
     }
-    
-    
+
+
     #[test]
     fn filter_block_contents() {
         let config = Config::default();
         let mut lines = LineAnalysis::new();
         let ctx = Context {
-            config: &config, 
+            config: &config,
             file_contents: "fn unreachable_match(x: u32) -> u32 {
                 match x {
                     1 => 5,
                     2 => 7,
-                    _ => { 
+                    _ => {
                         unreachable!();
                     },
                 }
@@ -1610,7 +1610,7 @@ mod tests {
         let config = Config::default();
         let mut lines = LineAnalysis::new();
         let ctx = Context {
-            config: &config, 
+            config: &config,
             file_contents: "fn unreachable_match(x: u32) -> u32 {
                 match x {
                     1 => 5,
@@ -1624,12 +1624,12 @@ mod tests {
         let parser = parse_file(ctx.file_contents).unwrap();
         process_items(&parser.items, &ctx, &mut lines);
         assert!(!lines.ignore.contains(&Lines::Line(5)));
-        
+
         let mut config = Config::default();
         config.ignore_panics = true;
         let mut lines = LineAnalysis::new();
         let ctx = Context {
-            config: &config, 
+            config: &config,
             file_contents: "fn unreachable_match(x: u32) -> u32 {
                 match x {
                     1 => 5,
@@ -1640,7 +1640,7 @@ mod tests {
             file: Path::new(""),
             ignore_mods: RefCell::new(HashSet::new()),
         };
-        
+
         let parser = parse_file(ctx.file_contents).unwrap();
         process_items(&parser.items, &ctx, &mut lines);
         assert!(lines.ignore.contains(&Lines::Line(5)));
@@ -1651,14 +1651,14 @@ mod tests {
         let config = Config::default();
         let mut lines = LineAnalysis::new();
         let ctx = Context {
-            config: &config, 
+            config: &config,
             file_contents: "fn block() {
                 {
                     loop {
                         for i in 1..2 {
                             if false {
                                 while let Some(x) = Some(6) {
-                                    while false { 
+                                    while false {
                                         if let Ok(y) = Ok(4) {
                                             unreachable!();
                                         }
@@ -1682,7 +1682,7 @@ mod tests {
         let config = Config::default();
         let mut lines = LineAnalysis::new();
         let ctx = Context {
-            config: &config, 
+            config: &config,
             file_contents: "fn print_it(x:u32,
                 y:u32,
                 z:u32) {
@@ -1695,10 +1695,10 @@ mod tests {
         process_items(&parser.items, &ctx, &mut lines);
         assert!(lines.ignore.contains(&Lines::Line(2)));
         assert!(lines.ignore.contains(&Lines::Line(3)));
-        
+
         let mut lines = LineAnalysis::new();
         let ctx = Context {
-            config: &config, 
+            config: &config,
             file_contents: "struct Boo;
             impl Boo {
                 fn print_it(x:u32,
@@ -1714,7 +1714,7 @@ mod tests {
         process_items(&parser.items, &ctx, &mut lines);
         assert!(lines.ignore.contains(&Lines::Line(4)));
         assert!(lines.ignore.contains(&Lines::Line(5)));
-        
+
         let mut lines = LineAnalysis::new();
         let ctx = Context {
             config: &config,
@@ -1739,7 +1739,7 @@ mod tests {
         let config = Config::default();
         let mut lines = LineAnalysis::new();
         let ctx = Context {
-            config: &config, 
+            config: &config,
             file_contents: "enum Void {}
             fn empty_match(x: Void) -> u32 {
                 match x {

@@ -31,7 +31,7 @@ impl<'a> Add for &'a LogicState {
 pub enum CoverageStat {
     /// Line coverage data (whether line has been hit)
     Line(u64),
-    /// Branch coverage data (whether branch has been true and false 
+    /// Branch coverage data (whether branch has been true and false
     Branch(LogicState),
     /// Condition coverage data (each boolean subcondition true and false)
     Condition(Vec<LogicState>),
@@ -69,7 +69,7 @@ impl Display for CoverageStat {
 pub struct Trace {
     /// Line the trace is on in the file
     pub line: u64,
-    /// Optional address showing location in the test artefact 
+    /// Optional address showing location in the test artefact
     pub address: Option<u64>,
     /// Length of the instruction (useful to get entire condition/branch)
     pub length: usize,
@@ -149,12 +149,12 @@ pub struct TraceMap {
 }
 
 impl TraceMap {
-    /// Create a new TraceMap 
+    /// Create a new TraceMap
     pub fn new() -> TraceMap {
         TraceMap {
             traces: BTreeMap::new(),
         }
-    } 
+    }
 
     /// Returns true if there are no traces
     pub fn is_empty(&self) -> bool {
@@ -166,7 +166,7 @@ impl TraceMap {
         self.traces.iter()
     }
 
-    /// Merges the results of one tracemap into the current one. 
+    /// Merges the results of one tracemap into the current one.
     /// This adds records which are missing and adds the statistics gathered to
     /// existing records
     pub fn merge(&mut self, other: &TraceMap) {
@@ -213,10 +213,10 @@ impl TraceMap {
                 let mut first = true;
                 values.retain(|x| {
                     let res = x.line != *d;
-                    if !res { 
+                    if !res {
                         if first {
                             first = false;
-                            true 
+                            true
                         }else {
                             false
                         }
@@ -253,7 +253,7 @@ impl TraceMap {
             .find(|x| x.address == Some(address))
             .map(|x| *x)
     }
-    
+
     /// Gets a mutable reference to a trace at a given address
     /// Returns None if there is no trace at that address
     pub fn get_trace_mut(&mut self, address: u64) -> Option<&mut Trace> {
@@ -264,7 +264,7 @@ impl TraceMap {
         }
         None
     }
-    
+
     /// Returns true if the location described by file and line number is present
     /// in the tracemap
     pub fn contains_location(&self, file: &Path, line: u64) -> bool {
@@ -275,7 +275,7 @@ impl TraceMap {
     }
 
     /// Gets all traces below a certain path
-    pub fn get_child_traces(&self, root: &Path) -> Vec<&Trace> { 
+    pub fn get_child_traces(&self, root: &Path) -> Vec<&Trace> {
         self.traces.iter()
                    .filter(|&(ref k, _)| k.starts_with(root))
                    .flat_map(|(_, ref v)| v.iter())
@@ -320,12 +320,12 @@ impl TraceMap {
 
     /// Give the total amount of coverable points in the code. This will vary
     /// based on the statistics available for line coverage it will be total
-    /// line whereas for condition or decision it will count the number of 
+    /// line whereas for condition or decision it will count the number of
     /// conditions available
     pub fn total_coverable(&self) -> usize {
         amount_coverable(self.all_traces().as_slice())
     }
-    
+
     /// From all the coverable data return the amount covered
     pub fn total_covered(&self) -> usize {
         amount_covered(self.all_traces().as_slice())
@@ -377,16 +377,16 @@ mod tests {
         let mut t2 = TraceMap::new();
 
         let a_trace = Trace {
-            line: 1, 
-            address: Some(5), 
-            length: 0, 
+            line: 1,
+            address: Some(5),
+            length: 0,
             stats: CoverageStat::Line(1)
         };
         t1.add_trace(Path::new("file.rs"), a_trace.clone());
         t2.add_trace(Path::new("file.rs"), Trace {
-            line: 1, 
-            address: None, 
-            length: 0, 
+            line: 1,
+            address: None,
+            length: 0,
             stats: CoverageStat::Line(2)
         });
 
@@ -405,16 +405,16 @@ mod tests {
         let mut t2 = TraceMap::new();
 
         let a_trace = Trace {
-            line: 1, 
-            address: Some(5), 
-            length: 0, 
+            line: 1,
+            address: Some(5),
+            length: 0,
             stats: CoverageStat::Line(1)
         };
         t1.add_trace(Path::new("file.rs"), a_trace.clone());
         t2.add_trace(Path::new("file.rs"), Trace {
-            line: 2, 
-            address: None, 
-            length: 0, 
+            line: 2,
+            address: None,
+            length: 0,
             stats: CoverageStat::Line(2)
         });
 
@@ -432,15 +432,15 @@ mod tests {
         let mut t2 = TraceMap::new();
 
         t1.add_trace(Path::new("file.rs"), Trace {
-            line: 2, 
-            address: Some(1), 
-            length: 0, 
+            line: 2,
+            address: Some(1),
+            length: 0,
             stats: CoverageStat::Line(5)
         });
         t2.add_trace(Path::new("file.rs"), Trace {
-            line: 2, 
-            address: Some(1), 
-            length: 0, 
+            line: 2,
+            address: Some(1),
+            length: 0,
             stats: CoverageStat::Line(2)
         });
         t1.merge(&t2);
