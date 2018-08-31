@@ -10,9 +10,9 @@ const RIP: u8 = 128;
 
 pub fn trace_children(pid: Pid) -> Result<()> {
     //TODO need to check support.
-    let options: Options = Options::PTRACE_O_TRACESYSGOOD | 
-        Options::PTRACE_O_TRACEEXEC | Options::PTRACE_O_TRACEEXIT | 
-        Options::PTRACE_O_TRACECLONE | Options::PTRACE_O_TRACEFORK | 
+    let options: Options = Options::PTRACE_O_TRACESYSGOOD |
+        Options::PTRACE_O_TRACEEXEC | Options::PTRACE_O_TRACEEXIT |
+        Options::PTRACE_O_TRACECLONE | Options::PTRACE_O_TRACEFORK |
         Options::PTRACE_O_TRACEVFORK;
     setoptions(pid, options)
 }
@@ -41,7 +41,7 @@ pub fn read_address(pid: Pid, address:u64) -> Result<c_long> {
 
 #[allow(deprecated)]
 pub fn write_to_address(pid: Pid,
-                        address: u64, 
+                        address: u64,
                         data: i64) -> Result<c_long> {
     unsafe {
         ptrace(Request::PTRACE_POKEDATA, pid, address as * mut c_void, data as * mut c_void)

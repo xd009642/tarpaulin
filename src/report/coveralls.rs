@@ -12,18 +12,18 @@ pub fn export(coverage_data: &TraceMap, config: &Config) {
             }),
             _ => Identity::RepoToken(key.clone()),
         };
-        let mut report = CoverallsReport::new(id);        
+        let mut report = CoverallsReport::new(id);
         for file in &coverage_data.files() {
             let rel_path = config.strip_project_path(file);
             let mut lines: HashMap<usize, usize> = HashMap::new();
             let fcov = coverage_data.get_child_traces(file);
-            
+
             for c in &fcov {
                 match c.stats {
                     CoverageStat::Line(hits) => {
                         lines.insert(c.line as usize, hits as usize);
                     },
-                    _ => { 
+                    _ => {
                         println!("Support for coverage statistic not implemented or supported for coveralls.io");
                     },
                 }
