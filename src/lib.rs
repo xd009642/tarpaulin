@@ -67,17 +67,23 @@ pub fn launch_tarpaulin(config: &Config) -> Result<(TraceMap, bool), i32> {
     } else {
         Some(true)
     };
-    // This shouldn't fail so no checking the error.
-    let _ = cargo_config.configure(0u32, flag_quiet, &None, false, false, &[]);
+
+    cargo_config.configure(0u32, flag_quiet, &None, false, false, &[]).unwrap();
     
     let workspace = Workspace::new(config.manifest.as_path(), &cargo_config).map_err(|_| 1i32)?;
     
     setup_environment();
-        
-    let mut copt = ops::CompileOptions::default(&cargo_config, ops::CompileMode::Test);
+
+    let mut copt = if config.binary.is_none() {
+        ops::CompileOptions::default(&cargo_config, ops::CompileMode::Test)
+    } else {
+        ops::CompileOptions::default(&cargo_config, ops::CompileMode::Build)
+    };
+
     if let ops::CompileFilter::Default{ref mut required_features_filterable} = copt.filter {
         *required_features_filterable = true;
     }
+
     copt.features = config.features.as_slice();
     copt.all_features = config.all_features;
     copt.spec = match ops::Packages::from_flags(workspace.is_virtual(), config.all, &config.exclude, &config.packages) {
@@ -109,23 +115,39 @@ pub fn launch_tarpaulin(config: &Config) -> Result<(TraceMap, bool), i32> {
     let mut test_passed = true;
     match compilation {
         Ok(comp) => {
-            for &(ref package, ref _target_kind, ref name, ref path) in &comp.tests {
-                if config.verbose {
-                    println!("Processing {}", name);
-                }
-                if let Some((res, tp)) = get_test_coverage(&workspace, package, path.as_path(), &config, false) {
-                    result.merge(&res);
-                    test_passed &= tp;
-                }
-                if config.run_ignored {
-                    if let Some((res, tp)) = get_test_coverage(&workspace, package, path.as_path(),
-                                                         &config, true) {
+            if let Some(ref binary) = config.binary.as_ref() {
+                for ref path in &comp.binaries {
+                    if path.file_stem().map(|x| x == &binary[..]).unwrap_or(false) {
+                        continue;
+                    }
+
+                    if config.verbose {
+                        println!("Processing {}", binary);
+                    }
+
+                    if let Some((res, tp)) = get_test_coverage(&workspace, None, path, &config, false) {
                         result.merge(&res);
                         test_passed &= tp;
                     }
                 }
+            } else {
+                for &(ref package, ref _target_kind, ref name, ref path) in &comp.tests {
+                    if config.verbose {
+                        println!("Processing {}", name);
+                    }
+                    if let Some((res, tp)) = get_test_coverage(&workspace, Some(package), path.as_path(), &config, false) {
+                        result.merge(&res);
+                        test_passed &= tp;
+                    }
+                    if config.run_ignored {
+                        if let Some((res, tp)) = get_test_coverage(&workspace, Some(package), path.as_path(), &config, true) {
+                            result.merge(&res);
+                            test_passed &= tp;
+                        }
+                    }
+                }
+                result.dedup();
             }
-            result.dedup();
             Ok((result, test_passed))
         },
         Err(e) => {
@@ -234,7 +256,7 @@ pub fn report_coverage(config: &Config, result: &TraceMap) {
 
 /// Returns the coverage statistics for a test executable in the given workspace
 pub fn get_test_coverage(project: &Workspace, 
-                         package: &Package,
+                         package: Option<&Package>,
                          test: &Path, 
                          config: &Config, 
                          ignored: bool) -> Option<(TraceMap, bool)> {
@@ -297,7 +319,7 @@ fn collect_coverage(project: &Workspace,
 }
 
 /// Launches the test executable
-fn execute_test(test: &Path, package: &Package, ignored: bool, config: &Config) {
+fn execute_test(test: &Path, package: Option<&Package>, ignored: bool, config: &Config) {
     let exec_path = CString::new(test.to_str().unwrap()).unwrap();
     match personality::disable_aslr() {
         Ok(_) => {},
@@ -305,8 +327,10 @@ fn execute_test(test: &Path, package: &Package, ignored: bool, config: &Config) 
     }
     request_trace().expect("Failed to trace");
     println!("running {}", test.display());
-    if let Some(parent) = package.manifest_path().parent() {
-        let _ = env::set_current_dir(parent);
+    if let Some(package) = package {
+        if let Some(parent) = package.manifest_path().parent() {
+            let _ = env::set_current_dir(parent);
+        }
     }
     
     let mut envars: Vec<CString> = vec![CString::new("RUST_TEST_THREADS=1").unwrap()];
