@@ -85,6 +85,8 @@ pub struct Config {
     pub varargs: Vec<String>,
     /// Duration to wait before a timeout occurs
     pub test_timeout: Duration,
+    /// Test binary to run
+    pub binary: Option<String>,
 }
 
 impl Config {
@@ -161,6 +163,9 @@ impl Config {
         } else {
             60u64
         };
+
+        let binary = args.value_of("binary").map(|x| x.to_owned());
+
         Config{
             manifest: root,
             run_ignored: ignored,
@@ -184,6 +189,7 @@ impl Config {
             excluded_files: ex_files,
             test_timeout: Duration::from_secs(timeout),
             varargs,
+            binary
         }
     }
 
