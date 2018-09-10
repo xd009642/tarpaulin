@@ -337,14 +337,14 @@ fn process_statements(stmts: &[Stmt], ctx: &Context, analysis: &mut LineAnalysis
 
 
 fn visit_mod(module: &ItemMod, analysis: &mut LineAnalysis, ctx: &Context) {
-    analysis.ignore_span(module.mod_token.0);
+    analysis.ignore_span(module.mod_token.span());
     let mut check_insides = true;
     for attr in &module.attrs {
         if let Some(x) = attr.interpret_meta() {
             if check_cfg_attr(&x) {
                 analysis.ignore_span(module.span());
                 if let Some((ref braces, _)) = module.content {
-                    analysis.ignore_span(braces.0);
+                    analysis.ignore_span(braces.span);
                 }
                 check_insides = false;
                 break;
@@ -357,9 +357,9 @@ fn visit_mod(module: &ItemMod, analysis: &mut LineAnalysis, ctx: &Context) {
                         if let NestedMeta::Meta(Meta::Word(ref i)) = *nested {
                             if i == "test" {
                                 check_insides = false;
-                                analysis.ignore_span(module.mod_token.0);
+                                analysis.ignore_span(module.mod_token.span());
                                 if let Some((ref braces, _)) = module.content {
-                                    analysis.ignore_span(braces.0);
+                                    analysis.ignore_span(braces.span);
                                 }
                             }
                         }
@@ -398,7 +398,7 @@ fn visit_fn(func: &ItemFn, analysis: &mut LineAnalysis, ctx: &Context) {
             if id == "test" {
                 test_func = true;
             } else if id == "derive" {
-                analysis.ignore_span(attr.bracket_token.0);
+                analysis.ignore_span(attr.bracket_token.span);
             } else if id == "inline" {
                 is_inline = true;
             } else if id == "ignore" {
@@ -418,7 +418,7 @@ fn visit_fn(func: &ItemFn, analysis: &mut LineAnalysis, ctx: &Context) {
     } else {
         if is_inline {
             // We need to force cover!
-            analysis.cover_span(func.block.brace_token.0, Some(ctx.file_contents));
+            analysis.cover_span(func.block.brace_token.span, Some(ctx.file_contents));
         }
         if let SubResult::Unreachable = process_statements(&func.block.stmts, ctx, analysis) {
             // if the whole body of the function is unreachable, that means the function itself
@@ -430,7 +430,7 @@ fn visit_fn(func: &ItemFn, analysis: &mut LineAnalysis, ctx: &Context) {
         let line_number = func.decl.fn_token.span().start().line;
         analysis.ignore.remove(&Lines::Line(line_number));
         // Ignore multiple lines of fn decl
-        let decl_start = func.decl.fn_token.0.start().line+1;
+        let decl_start = func.decl.fn_token.span().start().line+1;
         let stmts_start = func.block.span().start().line;
         let lines = (decl_start..(stmts_start+1)).collect::<Vec<_>>();
         analysis.add_to_ignore(&lines);
@@ -502,7 +502,7 @@ fn visit_trait(trait_item: &ItemTrait, analysis: &mut LineAnalysis, ctx: &Contex
                         analysis.ignore.remove(&Lines::Line(i.sig.span().start().line));
 
                         // Ignore multiple lines of fn decl
-                        let decl_start = i.sig.decl.fn_token.0.start().line+1;
+                        let decl_start = i.sig.decl.fn_token.span().start().line+1;
                         let stmts_start = block.span().start().line;
                         let lines = (decl_start..(stmts_start+1)).collect::<Vec<_>>();
                         analysis.add_to_ignore(&lines);
@@ -540,7 +540,7 @@ fn visit_impl(impl_blk: &ItemImpl, analysis: &mut LineAnalysis, ctx: &Context) {
                     analysis.ignore.remove(&Lines::Line(i.span().start().line));
 
                     // Ignore multiple lines of fn decl
-                    let decl_start = i.sig.decl.fn_token.0.start().line+1;
+                    let decl_start = i.sig.decl.fn_token.span().start().line+1;
                     let stmts_start = i.block.span().start().line;
                     let lines = (decl_start..(stmts_start+1)).collect::<Vec<_>>();
                     analysis.add_to_ignore(&lines);
@@ -576,9 +576,7 @@ fn process_expr(expr: &Expr, ctx: &Context, analysis: &mut LineAnalysis) -> SubR
         Expr::Match(ref m) => visit_match(&m, ctx, analysis),
         Expr::Block(ref b) => visit_block(&b.block, ctx, analysis),
         Expr::If(ref i) => visit_if(&i, ctx, analysis),
-        Expr::IfLet(ref i) => visit_if_let(&i, ctx, analysis),
         Expr::While(ref w) => visit_while(&w, ctx, analysis),
-        Expr::WhileLet(ref w) => visit_while_let(&w, ctx, analysis),
         Expr::ForLoop(ref f) => visit_for(&f, ctx, analysis),
         Expr::Loop(ref l) => visit_loop(&l, ctx, analysis),
         // don't try to compute unreachability on other things
@@ -641,44 +639,12 @@ fn visit_if(if_block: &ExprIf, ctx: &Context, analysis: &mut LineAnalysis) -> Su
 }
 
 
-fn visit_if_let(if_let: &ExprIfLet, ctx: &Context, analysis: &mut LineAnalysis) -> SubResult {
-    // an if let expression is unreachable iff both its branches are unreachable
-    let mut reachable_arm = false;
-    if let SubResult::Ok = visit_block(&if_let.then_branch, ctx, analysis) {
-        reachable_arm = true;
-    }
-    if let Some((_ ,ref else_block)) = if_let.else_branch {
-        if let SubResult::Ok = process_expr(&else_block, ctx, analysis) {
-            reachable_arm = true;
-        }
-    } else {
-        // an empty else branch is reachable
-        reachable_arm = true;
-    }
-    if !reachable_arm {
-        analysis.ignore_span(if_let.span());
-        SubResult::Unreachable
-    } else {
-        SubResult::Ok
-    }
-}
 
 
 fn visit_while(whl: &ExprWhile, ctx: &Context, analysis: &mut LineAnalysis) -> SubResult {
     // a while block is unreachable iff its body is
     if let SubResult::Unreachable = visit_block(&whl.body, ctx, analysis) {
         analysis.ignore_span(whl.span());
-        SubResult::Unreachable
-    } else {
-        SubResult::Ok
-    }
-}
-
-
-fn visit_while_let(while_let: &ExprWhileLet, ctx: &Context, analysis: &mut LineAnalysis) -> SubResult {
-    // a while block is unreachable iff its body is
-    if let SubResult::Unreachable = visit_block(&while_let.body, ctx, analysis) {
-        analysis.ignore_span(while_let.span());
         SubResult::Unreachable
     } else {
         SubResult::Ok
@@ -750,11 +716,11 @@ fn visit_methodcall(meth: &ExprMethodCall, analysis: &mut LineAnalysis) -> SubRe
 
 
 fn visit_unsafe_block(unsafe_expr: &ExprUnsafe, ctx: &Context, analysis: &mut LineAnalysis) -> SubResult {
-    let u_line = unsafe_expr.unsafe_token.0.start().line;
+    let u_line = unsafe_expr.unsafe_token.span().start().line;
 
     let blk = &unsafe_expr.block;
-    if u_line != blk.brace_token.0.start().line || blk.stmts.is_empty()  {
-        analysis.ignore_span(unsafe_expr.unsafe_token.0);
+    if u_line != blk.brace_token.span.start().line || blk.stmts.is_empty()  {
+        analysis.ignore_span(unsafe_expr.unsafe_token.span());
     } else if let Some(ref first_stmt) = blk.stmts.get(0) {
         let s = match **first_stmt {
             Stmt::Local(ref l) => l.span(),
@@ -763,15 +729,15 @@ fn visit_unsafe_block(unsafe_expr: &ExprUnsafe, ctx: &Context, analysis: &mut Li
             Stmt::Semi(ref e, _) => e.span(),
         };
         if u_line != s.start().line {
-            analysis.ignore_span(unsafe_expr.unsafe_token.0);
+            analysis.ignore_span(unsafe_expr.unsafe_token.span());
         }
         if let SubResult::Unreachable = process_statements(&blk.stmts, ctx, analysis) {
             analysis.ignore_span(unsafe_expr.span());
             return SubResult::Unreachable;
         }
     } else {
-        analysis.ignore_span(unsafe_expr.unsafe_token.0);
-        analysis.ignore_span(blk.brace_token.0);
+        analysis.ignore_span(unsafe_expr.unsafe_token.span());
+        analysis.ignore_span(blk.brace_token.span);
     }
     SubResult::Ok
 }
