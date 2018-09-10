@@ -10,19 +10,14 @@ env:
     global:
         - CRATE_NAME=cargo-tarpaulin
 rust:
-- stable
-- beta
 - nightly
-matrix:
-  allow_failures:
-  - rust: nightly
 script:
 - cargo clean
 - RUST_BACKTRACE=1 cargo build
 - cargo test
 after_success: |
     test $TRAVIS_BRANCH = develop &&
-    test $TRAVIS_RUST_VERSION = stable &&
+    test $TRAVIS_RUST_VERSION = nightly &&
     ./ci/trigger_docker_build.sh
 before_deploy:
     - cargo package
@@ -38,5 +33,5 @@ deploy:
   skip_cleanup: true
   on:
     repo: xd009642/tarpaulin
-    condition: $TRAVIS_RUST_VERSION = stable
+    condition: $TRAVIS_RUST_VERSION = nightly
     tags: true
