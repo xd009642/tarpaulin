@@ -22,10 +22,10 @@ extern crate walkdir;
 use std::env;
 use std::io;
 use std::ffi::CString;
-use std::path::Path;
+use std::path::{Path, PathBuf};
 use nix::unistd::*;
-use cargo::util::Config as CargoConfig;
-use cargo::core::{Workspace, Package};
+use cargo::util::{homedir, Config as CargoConfig};
+use cargo::core::{Workspace, Package, compiler::CompileMode, Shell};
 use cargo::ops;
 
 
@@ -62,26 +62,41 @@ pub fn run(config: &Config) -> Result<(), i32> {
 
 /// Launches tarpaulin with the given configuration.
 pub fn launch_tarpaulin(config: &Config) -> Result<(TraceMap, bool), i32> {
-    let mut cargo_config = CargoConfig::default().unwrap();
+    let cwd = match config.manifest.parent() {
+        Some(p) => p.to_path_buf(),
+        None => PathBuf::new(),
+    };
+    let home = match homedir(&cwd) {
+        Some(h) => h,
+        None => {
+            println!("Warning failed to find home directory.");
+            PathBuf::new()
+        },
+    };
+    let mut cargo_config = CargoConfig::new(Shell::new(), cwd, home);
     let flag_quiet = if config.verbose {
         None
     } else {
         Some(true)
     };
     // This shouldn't fail so no checking the error.
-    let _ = cargo_config.configure(0u32, flag_quiet, &None, false, false, &[]);
-
-    let workspace = Workspace::new(config.manifest.as_path(), &cargo_config).map_err(|_| 1i32)?;
-
+    let _ = cargo_config.configure(0u32, flag_quiet, &None, false, false, &None, &[]);
+    
+    let workspace = Workspace::new(config.manifest.as_path(), &cargo_config)
+        .map_err(|_| 1i32)?;
+    
     setup_environment();
 
-    let mut copt = ops::CompileOptions::default(&cargo_config, ops::CompileMode::Test);
+    let mut copt = ops::CompileOptions::new(&cargo_config, CompileMode::Test)
+        .map_err(|_| 1i32)?;
     if let ops::CompileFilter::Default{ref mut required_features_filterable} = copt.filter {
         *required_features_filterable = true;
     }
-    copt.features = config.features.as_slice();
+    copt.features = config.features.clone();
     copt.all_features = config.all_features;
-    copt.spec = match ops::Packages::from_flags(workspace.is_virtual(), config.all, &config.exclude, &config.packages) {
+    copt.spec = match ops::Packages::from_flags(config.all, 
+                                                config.exclude.clone(), 
+                                                config.packages.clone()) {
         Ok(spec) => spec,
         Err(e) => {
             println!("Error getting Packages from workspace {}", e);
@@ -98,9 +113,10 @@ pub fn launch_tarpaulin(config: &Config) -> Result<(TraceMap, bool), i32> {
         // Clean isn't expected to fail and if it does it likely won't have an effect
         let clean_opt = ops::CleanOptions {
             config: &cargo_config,
-            spec: &[],
+            spec: vec![],
             target: None,
             release: false,
+            doc: false,
         };
         let _ = ops::clean(&workspace, &clean_opt);
     }
