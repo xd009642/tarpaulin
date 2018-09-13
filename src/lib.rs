@@ -16,15 +16,16 @@ extern crate serde;
 extern crate serde_json;
 extern crate quick_xml;
 extern crate regex;
+extern crate void;
 extern crate walkdir;
 
 use std::env;
 use std::io;
 use std::ffi::CString;
-use std::path::Path;
+use std::path::{Path, PathBuf};
 use nix::unistd::*;
-use cargo::util::Config as CargoConfig;
-use cargo::core::{Workspace, Package};
+use cargo::util::{homedir, Config as CargoConfig};
+use cargo::core::{Workspace, Package, compiler::CompileMode, Shell};
 use cargo::ops;
 
 
@@ -49,8 +50,8 @@ use traces::*;
 
 
 pub fn run(config: &Config) -> Result<(), i32> {
-    let (result, tp) = launch_tarpaulin(&config)?;
-    report_coverage(&config, &result);
+    let (result, tp) = launch_tarpaulin(config)?;
+    report_coverage(config, &result);
     if tp {
         Ok(())
     } else {
@@ -61,28 +62,43 @@ pub fn run(config: &Config) -> Result<(), i32> {
 
 /// Launches tarpaulin with the given configuration.
 pub fn launch_tarpaulin(config: &Config) -> Result<(TraceMap, bool), i32> {
-    let mut cargo_config = CargoConfig::default().unwrap();
+    let cwd = match config.manifest.parent() {
+        Some(p) => p.to_path_buf(),
+        None => PathBuf::new(),
+    };
+    let home = match homedir(&cwd) {
+        Some(h) => h,
+        None => {
+            println!("Warning failed to find home directory.");
+            PathBuf::new()
+        },
+    };
+    let mut cargo_config = CargoConfig::new(Shell::new(), cwd, home);
     let flag_quiet = if config.verbose {
         None
     } else {
         Some(true)
     };
     // This shouldn't fail so no checking the error.
-    let _ = cargo_config.configure(0u32, flag_quiet, &None, false, false, &[]);
+    let _ = cargo_config.configure(0u32, flag_quiet, &None, false, false, &None, &[]);
     
-    let workspace = Workspace::new(config.manifest.as_path(), &cargo_config).map_err(|_| 1i32)?;
+    let workspace = Workspace::new(config.manifest.as_path(), &cargo_config)
+        .map_err(|_| 1i32)?;
     
     setup_environment();
-        
-    let mut copt = ops::CompileOptions::default(&cargo_config, ops::CompileMode::Test);
+
+    let mut copt = ops::CompileOptions::new(&cargo_config, CompileMode::Test)
+        .map_err(|_| 1i32)?;
     if let ops::CompileFilter::Default{ref mut required_features_filterable} = copt.filter {
         *required_features_filterable = true;
     }
-    copt.features = config.features.as_slice();
+    copt.features = config.features.clone();
     copt.all_features = config.all_features;
-    copt.spec = match ops::Packages::from_flags(workspace.is_virtual(), config.all, &config.exclude, &config.packages) {
+    copt.spec = match ops::Packages::from_flags(config.all, 
+                                                config.exclude.clone(), 
+                                                config.packages.clone()) {
         Ok(spec) => spec,
-        Err(e) => { 
+        Err(e) => {
             println!("Error getting Packages from workspace {}", e);
             return Err(-1)
         }
@@ -97,9 +113,10 @@ pub fn launch_tarpaulin(config: &Config) -> Result<(TraceMap, bool), i32> {
         // Clean isn't expected to fail and if it does it likely won't have an effect
         let clean_opt = ops::CleanOptions {
             config: &cargo_config,
-            spec: &[],
+            spec: vec![],
             target: None,
             release: false,
+            doc: false,
         };
         let _ = ops::clean(&workspace, &clean_opt);
     }
@@ -113,13 +130,13 @@ pub fn launch_tarpaulin(config: &Config) -> Result<(TraceMap, bool), i32> {
                 if config.verbose {
                     println!("Processing {}", name);
                 }
-                if let Some((res, tp)) = get_test_coverage(&workspace, package, path.as_path(), &config, false) {
+                if let Some((res, tp)) = get_test_coverage(&workspace, package, path.as_path(), config, false) {
                     result.merge(&res);
                     test_passed &= tp;
                 }
                 if config.run_ignored {
                     if let Some((res, tp)) = get_test_coverage(&workspace, package, path.as_path(),
-                                                         &config, true) {
+                                                         config, true) {
                         result.merge(&res);
                         test_passed &= tp;
                     }
@@ -209,7 +226,7 @@ pub fn report_coverage(config: &Config, result: &TraceMap) {
         }
         let percent = result.coverage_percentage() * 100.0f64;
         // Put file filtering here
-        println!("\n{:.2}% coverage, {}/{} lines covered", percent, 
+        println!("\n{:.2}% coverage, {}/{} lines covered", percent,
                  result.total_covered(), result.total_coverable());
         if config.is_coveralls() {
             report::coveralls::export(result, config);
@@ -233,14 +250,14 @@ pub fn report_coverage(config: &Config, result: &TraceMap) {
 }
 
 /// Returns the coverage statistics for a test executable in the given workspace
-pub fn get_test_coverage(project: &Workspace, 
+pub fn get_test_coverage(project: &Workspace,
                          package: &Package,
-                         test: &Path, 
-                         config: &Config, 
+                         test: &Path,
+                         config: &Config,
                          ignored: bool) -> Option<(TraceMap, bool)> {
     if !test.exists() {
         return None;
-    } 
+    }
     match fork() {
         Ok(ForkResult::Parent{ child }) => {
             match collect_coverage(project, test, child, config) {
@@ -258,7 +275,7 @@ pub fn get_test_coverage(project: &Workspace,
             execute_test(test, package, ignored, config);
             None
         }
-        Err(err) => { 
+        Err(err) => {
             println!("Failed to run {}", test.display());
             println!("Error {}", err);
             None
@@ -268,8 +285,8 @@ pub fn get_test_coverage(project: &Workspace,
 }
 
 /// Collects the coverage data from the launched test
-fn collect_coverage(project: &Workspace, 
-                    test_path: &Path, 
+fn collect_coverage(project: &Workspace,
+                    test_path: &Path,
                     test: Pid,
                     config: &Config) -> io::Result<(TraceMap, bool)> {
     let mut test_passed = false;
@@ -308,7 +325,7 @@ fn execute_test(test: &Path, package: &Package, ignored: bool, config: &Config) 
     if let Some(parent) = package.manifest_path().parent() {
         let _ = env::set_current_dir(parent);
     }
-    
+
     let mut envars: Vec<CString> = vec![CString::new("RUST_TEST_THREADS=1").unwrap()];
     for (key, value) in env::vars() {
         let mut temp = String::new();

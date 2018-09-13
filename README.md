@@ -1,6 +1,6 @@
 # Tarpaulin
 
-[![Build Status](https://travis-ci.org/xd009642/tarpaulin.svg?branch=master)](https://travis-ci.org/xd009642/tarpaulin) [![Latest Version](https://img.shields.io/crates/v/cargo-tarpaulin.svg)](https://crates.io/crates/cargo-tarpaulin)  [![License:MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT) [![Docker](https://img.shields.io/docker/automated/xd009642/tarpaulin.svg)](https://hub.docker.com/r/xd009642/tarpaulin/)
+[![Build Status](https://travis-ci.org/xd009642/tarpaulin.svg?branch=master)](https://travis-ci.org/xd009642/tarpaulin)[![Latest Version](https://img.shields.io/crates/v/cargo-tarpaulin.svg)](https://crates.io/crates/cargo-tarpaulin)[![License:MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)[![Docker](https://img.shields.io/docker/automated/xd009642/tarpaulin.svg)](https://hub.docker.com/r/xd009642/tarpaulin/)
 
 Tarpaulin is designed to be a code coverage reporting tool for the Cargo build
 system, named for a waterproof cloth used to cover cargo on a ship. Currently,
@@ -17,6 +17,10 @@ popular CI tools like Travis.
 
 It can also be run in Docker, which is useful for when you don't use Linux but
 want to run it locally, e.g. during development. See below for how to do that.
+
+**Due to unstable features in syn and issues with no packaging tarpaulin with
+the Cargo.lock file tarpaulin is now a nightly only crate. Replace all calls to
+`cargo tarpaulin` with `cargo +nightly tarpaulin`**
 
 ## Features
 
@@ -130,7 +134,9 @@ for your coverage reporting site of choice.
 
 We recommend taking the minimal rust .travis.yml, installing the libssl-dev
 dependency tarpaulin has and then running Tarpaulin with the version of 
-rustc you require.
+rustc you require. Tarpaulin is installed in `before_cache` to allow it to be cached
+and prevent having to reinstall every Travis run. You can also replace `cargo test`
+with a verbose run of tarpaulin to see the test results as well as coverage output.
 
 For codecov.io you'll need to export CODECOV_TOKEN are instructions on this in
 the settings of your codecov project.
@@ -151,6 +157,12 @@ rust:
 matrix:
   allow_failures:
     - rust: nightly
+
+before_cache: |
+  if [[ "$TRAVIS_RUST_VERSION" == stable ]]; then
+    RUSTFLAGS="--cfg procmacro2_semver_exempt" cargo install cargo-tarpaulin
+  fi
+
 script:
 - cargo clean
 - cargo build
@@ -158,7 +170,6 @@ script:
 
 after_success: |
   if [[ "$TRAVIS_RUST_VERSION" == stable ]]; then
-    RUSTFLAGS="--cfg procmacro2_semver_exempt" cargo install cargo-tarpaulin 
     # Uncomment the following line for coveralls.io
     # cargo tarpaulin --ciserver travis-ci --coveralls $TRAVIS_JOB_ID
 

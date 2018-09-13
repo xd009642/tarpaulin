@@ -9,31 +9,31 @@ const INT: u64 = 0xCC;
 
 
 /// Breakpoint construct used to monitor program execution. As tarpaulin is an
-/// automated process, this will likely have less functionality than most 
+/// automated process, this will likely have less functionality than most
 /// breakpoint implementations.
 #[derive(Debug)]
-pub struct Breakpoint { 
+pub struct Breakpoint {
     /// Program counter
     pub pc: u64,
-    /// Bottom byte of address data. 
+    /// Bottom byte of address data.
     /// This is replaced to enable the interrupt. Rest of data is never changed.
     data: u8,
-    /// Reading from memory with ptrace gives addresses aligned to bytes. 
+    /// Reading from memory with ptrace gives addresses aligned to bytes.
     /// We therefore need to know the shift to place the breakpoint in the right place
     shift: u64,
-    /// Map of the state of the breakpoint on each thread/process 
+    /// Map of the state of the breakpoint on each thread/process
     is_running: HashMap<Pid, bool>
 }
 
 impl Breakpoint {
-    /// Creates a new breakpoint for the given process and program counter. 
+    /// Creates a new breakpoint for the given process and program counter.
     pub fn new(pid:Pid, pc:u64) ->Result<Breakpoint> {
         let aligned = pc & !0x7u64;
         let data = read_address(pid, aligned)?;
         let shift = 8 * (pc - aligned);
         let data = ((data >> shift) & 0xFF) as u8;
-        
-        let mut b = Breakpoint{ 
+
+        let mut b = Breakpoint{
             pc,
             data,
             shift,
@@ -57,7 +57,7 @@ impl Breakpoint {
             write_to_address(pid, self.aligned_address(), intdata)
         }
     }
-    
+
     fn disable(&self, pid: Pid) -> Result<c_long> {
         // I require the bit fiddlin this end.
         let data = read_address(pid, self.aligned_address())?;
