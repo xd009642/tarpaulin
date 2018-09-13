@@ -1,9 +1,6 @@
 # Tarpaulin
 
-[![Build Status](https://travis-ci.org/xd009642/tarpaulin.svg?branch=master)](https://travis-ci.org/xd009642/tarpaulin) 
-[![Latest Version](https://img.shields.io/crates/v/cargo-tarpaulin.svg)](https://crates.io/crates/cargo-tarpaulin)  
-[![License:MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT) 
-[![Docker](https://img.shields.io/docker/automated/xd009642/tarpaulin.svg)](https://hub.docker.com/r/xd009642/tarpaulin/)
+[![Build Status](https://travis-ci.org/xd009642/tarpaulin.svg?branch=master)](https://travis-ci.org/xd009642/tarpaulin)[![Latest Version](https://img.shields.io/crates/v/cargo-tarpaulin.svg)](https://crates.io/crates/cargo-tarpaulin)[![License:MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)[![Docker](https://img.shields.io/docker/automated/xd009642/tarpaulin.svg)](https://hub.docker.com/r/xd009642/tarpaulin/)
 
 Tarpaulin is designed to be a code coverage reporting tool for the Cargo build
 system, named for a waterproof cloth used to cover cargo on a ship. Currently,
@@ -22,7 +19,8 @@ It can also be run in Docker, which is useful for when you don't use Linux but
 want to run it locally, e.g. during development. See below for how to do that.
 
 **Due to unstable features in syn and issues with no packaging tarpaulin with
-the Cargo.lock file tarpaulin is now a nightly only crate**
+the Cargo.lock file tarpaulin is now a nightly only crate. Replace all calls to
+`cargo tarpaulin` with `cargo +nightly tarpaulin`**
 
 ## Features
 
