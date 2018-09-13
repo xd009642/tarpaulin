@@ -22,10 +22,10 @@ extern crate walkdir;
 use std::env;
 use std::io;
 use std::ffi::CString;
-use std::path::Path;
+use std::path::{Path, PathBuf};
 use nix::unistd::*;
-use cargo::util::Config as CargoConfig;
-use cargo::core::{Workspace, Package, compiler::CompileMode};
+use cargo::util::{homedir, Config as CargoConfig};
+use cargo::core::{Workspace, Package, compiler::CompileMode, Shell};
 use cargo::ops;
 
 
@@ -62,7 +62,18 @@ pub fn run(config: &Config) -> Result<(), i32> {
 
 /// Launches tarpaulin with the given configuration.
 pub fn launch_tarpaulin(config: &Config) -> Result<(TraceMap, bool), i32> {
-    let mut cargo_config = CargoConfig::default().unwrap();
+    let cwd = match config.manifest.parent() {
+        Some(p) => p.to_path_buf(),
+        None => PathBuf::new(),
+    };
+    let home = match homedir(&cwd) {
+        Some(h) => h,
+        None => {
+            println!("Warning failed to find home directory.");
+            PathBuf::new()
+        },
+    };
+    let mut cargo_config = CargoConfig::new(Shell::new(), cwd, home);
     let flag_quiet = if config.verbose {
         None
     } else {
@@ -70,7 +81,7 @@ pub fn launch_tarpaulin(config: &Config) -> Result<(TraceMap, bool), i32> {
     };
     // This shouldn't fail so no checking the error.
     let _ = cargo_config.configure(0u32, flag_quiet, &None, false, false, &None, &[]);
-
+    
     let workspace = Workspace::new(config.manifest.as_path(), &cargo_config)
         .map_err(|_| 1i32)?;
     

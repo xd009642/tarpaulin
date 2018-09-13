@@ -162,7 +162,6 @@ fn get_addresses_from_program<R, Offset>(prog: IncompleteLineNumberProgram<R>,
                     if let Some(file) = ln_row.file(header) {
                         let line = ln_row.line().unwrap();
                         let file = file.path_name();
-
                         if let Ok(file) = file.to_string() {
                             path.push(file.as_ref());
                             if !path.is_file() {

@@ -17,12 +17,16 @@ fn incorrect_manifest_path() {
 #[test]
 fn simple_project_coverage() {
     let mut config = Config::default();
+    config.verbose = true;
     config.test_timeout = Duration::from_secs(60);
     let mut test_dir = env::current_dir().unwrap();
     test_dir.push("tests");
     test_dir.push("data");
     test_dir.push("simple_project");
-    config.manifest = test_dir.join("Cargo.toml");
+    env::set_current_dir(test_dir.clone()).unwrap();
+    config.manifest = test_dir.clone();
+    config.manifest.push("Cargo.toml");
+    
     let (res, tp) = launch_tarpaulin(&config).unwrap();
     assert!(tp);
     let unused_file = test_dir.join("src/unused.rs");
