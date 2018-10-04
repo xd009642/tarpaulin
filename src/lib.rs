@@ -79,6 +79,7 @@ pub fn launch_tarpaulin(config: &Config) -> Result<(TraceMap, bool), i32> {
     } else {
         Some(true)
     };
+    cargo::core::enable_nightly_features();
     // This shouldn't fail so no checking the error.
     let _ = cargo_config.configure(0u32, flag_quiet, &None, false, false, &None, &[]);
     
@@ -86,7 +87,7 @@ pub fn launch_tarpaulin(config: &Config) -> Result<(TraceMap, bool), i32> {
         .map_err(|_| 1i32)?;
     
     setup_environment();
-
+    
     let mut copt = ops::CompileOptions::new(&cargo_config, CompileMode::Test)
         .map_err(|_| 1i32)?;
     if let ops::CompileFilter::Default{ref mut required_features_filterable} = copt.filter {

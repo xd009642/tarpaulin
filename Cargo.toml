@@ -2,7 +2,7 @@ cargo-features = ["publish-lockfile"]
 
 [package]
 name = "cargo-tarpaulin"
-version = "0.6.7"
+version = "0.6.8"
 authors = ["Daniel McKenna <danielmckenna93@gmail.com>"]
 description = "Cargo-Tarpaulin is a tool to determine code coverage achieved via tests"
 repository = "https://github.com/xd009642/tarpaulin"
@@ -16,22 +16,22 @@ publish-lockfile = true
 name = "cargo-tarpaulin"
 
 [dependencies]
-cargo = "0.29"
+cargo = "0.30"
 clap = "2.31.2"
 coveralls-api = "0.3.3"
 fallible-iterator = "0.1.4"
 gimli = "0.16.1"
 lazy_static = "1.0"
 libc = "0.2.40"
-memmap = "0.6.2"
+memmap = "0.7.0"
 nix = "0.11.0"
 object = "0.10"
-proc-macro2 = "0.4.19"
-quick-xml = "0.12.3"
+proc-macro2 = "0.4.20"
+quick-xml = "0.13.0"
 regex = "1.0"
 rustc-demangle = "0.1.7"
 serde = "1.0"
 serde_json = "1.0"
-syn = { version = "0.15.3", features = ["full"]}
+syn = { version = "0.15.8", features = ["full"]}
 void = "1.0"
 walkdir = "2.2.5"
