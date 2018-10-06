@@ -95,6 +95,7 @@ pub fn launch_tarpaulin(config: &Config) -> Result<(TraceMap, bool), i32> {
     }
     copt.features = config.features.clone();
     copt.all_features = config.all_features;
+    copt.no_default_features = config.no_default_features;
     copt.spec = match ops::Packages::from_flags(config.all, 
                                                 config.exclude.clone(), 
                                                 config.packages.clone()) {
