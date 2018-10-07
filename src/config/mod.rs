@@ -50,6 +50,8 @@ pub struct Config {
     pub forward_signals: bool,
     /// Include all available features in target build
     pub all_features: bool,
+    /// Do not include default features in target build
+    pub no_default_features: bool,
     /// Features to include in the target project build
     pub features: Vec<String>,
     /// Build all packages in the workspace
@@ -85,6 +87,7 @@ impl<'a> From<&'a ArgMatches<'a>> for Config {
             report_uri:         get_report_uri(args),
             forward_signals:    args.is_present("forward"),
             all_features:       args.is_present("all-features"),
+            no_default_features: args.is_present("no-default-features"),
             features:           get_list(args, "features"),
             all:                args.is_present("all"),
             packages:           get_list(args, "packages"),

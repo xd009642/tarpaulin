@@ -49,6 +49,7 @@ fn main() {
                  --forward -f 'Forwards unexpected signals to test. Tarpaulin will still take signals it is expecting.'
                  --coveralls [KEY]  'Coveralls key, either the repo token, or if you're using travis use $TRAVIS_JOB_ID and specify travis-{ci|pro} in --ciserver'
                  --report-uri [URI] 'URI to send report to, only used if the option --coveralls is used'
+                 --no-default-features 'Do not include default features'
                  --features [FEATURE]... 'Features to be included in the target project'
                  --all-features 'Build all available features'
                  --all        'Build all packages in the workspace'
