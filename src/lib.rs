@@ -84,7 +84,10 @@ pub fn launch_tarpaulin(config: &Config) -> Result<(TraceMap, bool), i32> {
     let _ = cargo_config.configure(0u32, flag_quiet, &None, false, false, &None, &[]);
     
     let workspace = Workspace::new(config.manifest.as_path(), &cargo_config)
-        .map_err(|_| 1i32)?;
+        .map_err(|e| {
+            println!("Cargo error: {}", e);
+            1i32
+        })?;
     
     setup_environment();
     
