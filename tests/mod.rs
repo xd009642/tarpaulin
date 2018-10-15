@@ -57,3 +57,8 @@ fn array_coverage() {
 fn lets_coverage() {
     check_percentage("lets", 1.0f64);
 }
+
+#[test]
+fn struct_expr_coverage() {
+    check_percentage("structs", 1.0f64);
+}
