@@ -14,7 +14,7 @@ rust:
 script:
 - cargo clean
 - RUST_BACKTRACE=1 cargo build
-- cargo test
+- cargo test -- --test-threads 1
 after_success: |
     test $TRAVIS_BRANCH = develop &&
     test $TRAVIS_RUST_VERSION = nightly &&
