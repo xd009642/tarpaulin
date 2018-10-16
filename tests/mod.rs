@@ -62,3 +62,8 @@ fn lets_coverage() {
 fn struct_expr_coverage() {
     check_percentage("structs", 1.0f64);
 }
+
+#[test]
+fn ifelse_expr_coverage() {
+    check_percentage("ifelse", 1.0f64);
+}
