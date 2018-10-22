@@ -96,7 +96,7 @@ impl Breakpoint {
 
     /// Steps past the current breakpoint.
     /// For more advanced coverage may interrogate the variables of a branch.
-    fn step(&mut self, pid: Pid) -> Result<c_long> {
+    fn step(&mut self, pid: Pid) -> Result<()> {
         // Remove the breakpoint, reset the program counter to step before it
         // hit the breakpoint then step to execute the original instruction.
         self.disable(pid)?;
