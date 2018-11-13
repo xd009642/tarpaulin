@@ -10,7 +10,7 @@ extern crate clap;
 
 use std::path::Path;
 use clap::{App, Arg, SubCommand, ArgSettings};
-use cargo_tarpaulin::run;
+use cargo_tarpaulin::{run, RunError};
 use cargo_tarpaulin::config::*;
 
 
@@ -28,7 +28,7 @@ travis-ci, travis-pro, circle-ci, semaphore, jenkins and codeship.
 If you are interfacing with coveralls.io or another site you can \
 also specify a name that they will recognise. Refer to their documentation for this.";
 
-fn main() {
+fn main() -> Result<(), RunError> {
     let args = App::new("cargo-tarpaulin")
         .author("Daniel McKenna, <danielmckenna93@gmail.com>")
         .about("Tool to analyse test coverage of cargo projects")
@@ -74,11 +74,14 @@ fn main() {
 
     let args = args.subcommand_matches("tarpaulin").unwrap_or(&args);
     let config = Config::from(args);
-    match run(&config) {
+    let res = run(&config);
+    println!("Tarpaulin finished");
+    res
+    /*match run(&config) {
         Ok(()) => println!("Tarpaulin finished"),
         Err(e) => {
             println!("Error during run");
             std::process::exit(e);
         },
-    }
+    }*/
 }
