@@ -26,10 +26,8 @@ pub fn continue_exec(pid: Pid, sig: Option<Signal>) -> Result<()> {
 }
 
 #[allow(deprecated)]
-pub fn single_step(pid: Pid) -> Result<c_long> {
-    unsafe {
-        ptrace(Request::PTRACE_SINGLESTEP, pid, ptr::null_mut(), ptr::null_mut())
-    }
+pub fn single_step(pid: Pid) -> Result<()> {
+    step(pid, None)
 }
 
 #[allow(deprecated)]

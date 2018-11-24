@@ -19,8 +19,7 @@ extern crate regex;
 extern crate void;
 extern crate walkdir;
 
-use std::env;
-use std::io;
+use std::{env, io};
 use std::ffi::CString;
 use std::path::{Path, PathBuf};
 use nix::unistd::*;
@@ -48,20 +47,36 @@ use statemachine::*;
 use traces::*;
 
 
+/// Error states that could be returned from tarpaulin
+#[derive(Clone, Copy, PartialEq, Eq, Debug)]
+pub enum RunError {
+    /// Error in cargo manifests
+    Manifest,
+    /// Cargo failed to run
+    Cargo,
+    /// Error trying to resolve package configuration in manifest
+    Packages,
+    /// Tests failed to compile
+    TestCompileFailed,
+    /// Test failed during run
+    TestRuntimeFail,
+    
+}
 
-pub fn run(config: &Config) -> Result<(), i32> {
+
+pub fn run(config: &Config) -> Result<(), RunError> {
     let (result, tp) = launch_tarpaulin(config)?;
     report_coverage(config, &result);
     if tp {
         Ok(())
     } else {
-        println!("Tarpaulin ran successfully. Failure in tests.");
-        Err(-1)
+        println!("Tarpaulin ran successfully");
+        Err(RunError::TestRuntimeFail)
     }
 }
 
 /// Launches tarpaulin with the given configuration.
-pub fn launch_tarpaulin(config: &Config) -> Result<(TraceMap, bool), i32> {
+pub fn launch_tarpaulin(config: &Config) -> Result<(TraceMap, bool), RunError> {
     let cwd = match config.manifest.parent() {
         Some(p) => p.to_path_buf(),
         None => PathBuf::new(),
@@ -84,24 +99,28 @@ pub fn launch_tarpaulin(config: &Config) -> Result<(TraceMap, bool), i32> {
     let _ = cargo_config.configure(0u32, flag_quiet, &None, false, false, &None, &[]);
     
     let workspace = Workspace::new(config.manifest.as_path(), &cargo_config)
-        .map_err(|_| 1i32)?;
+        .map_err(|e| {
+            println!("Cargo error: {}", e);
+            RunError::Manifest
+        })?;
     
     setup_environment();
     
     let mut copt = ops::CompileOptions::new(&cargo_config, CompileMode::Test)
-        .map_err(|_| 1i32)?;
+        .map_err(|_| RunError::Cargo)?;
     if let ops::CompileFilter::Default{ref mut required_features_filterable} = copt.filter {
         *required_features_filterable = true;
     }
     copt.features = config.features.clone();
     copt.all_features = config.all_features;
+    copt.no_default_features = config.no_default_features;
     copt.spec = match ops::Packages::from_flags(config.all, 
                                                 config.exclude.clone(), 
                                                 config.packages.clone()) {
         Ok(spec) => spec,
         Err(e) => {
             println!("Error getting Packages from workspace {}", e);
-            return Err(-1)
+            return Err(RunError::Packages)
         }
     };
     if config.verbose {
@@ -150,7 +169,7 @@ pub fn launch_tarpaulin(config: &Config) -> Result<(TraceMap, bool), i32> {
             if config.verbose{
                 println!("Error: failed to compile: {}", e);
             }
-            Err(-1)
+            Err(RunError::TestCompileFailed)
         },
     }
 }

@@ -7,18 +7,13 @@ use std::env;
 use std::time::Duration;
 
 
-#[test]
-fn incorrect_manifest_path() {
-    let mut config = Config::default();
-    config.manifest.push("__invalid_dir__");
-    assert!(launch_tarpaulin(&config).is_err());
-}
 
 #[test]
 fn simple_project_coverage() {
     let mut config = Config::default();
     config.verbose = true;
     config.test_timeout = Duration::from_secs(60);
+    let restore_dir = env::current_dir().unwrap();
     let mut test_dir = env::current_dir().unwrap();
     test_dir.push("tests");
     test_dir.push("data");
@@ -28,6 +23,7 @@ fn simple_project_coverage() {
     config.manifest.push("Cargo.toml");
     
     let (res, tp) = launch_tarpaulin(&config).unwrap();
+    env::set_current_dir(restore_dir).unwrap();
     assert!(tp);
     let unused_file = test_dir.join("src/unused.rs");
     let unused_hits = res.covered_in_path(&unused_file);
@@ -55,14 +51,3 @@ fn simple_project_coverage() {
     }
 }
 
-#[test]
-fn proc_macro_link() {
-    let mut config = Config::default();
-    config.test_timeout = Duration::from_secs(60);
-    let mut test_dir = env::current_dir().unwrap();
-    test_dir.push("tests");
-    test_dir.push("data");
-    test_dir.push("proc_macro");
-    config.manifest = test_dir.join("Cargo.toml");
-    assert!(launch_tarpaulin(&config).is_ok());
-}

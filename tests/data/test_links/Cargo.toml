@@ -1,7 +1,0 @@
-[package]
-name = "test_links"
-version = "0.1.0"
-authors = ["Daniel McKenna <danielmckenna93@gmail.com>"]
-
-[dependencies]
-[workspace]
