@@ -49,7 +49,7 @@ Tarpaulin is a command-line program, you install it into your linux development
 environment with cargo install:
 
 ```text
-RUSTFLAGS="--cfg procmacro2_semver_exempt" cargo install cargo-tarpaulin
+RUSTFLAGS="--cfg procmacro2_semver_exempt" cargo +nightly install cargo-tarpaulin
 ```
 
 Because of the `syn` dependency you need the following `RUSTFLAGS` to enable
