@@ -17,10 +17,8 @@ main() {
 
     test -f Cargo.lock || cargo generate-lockfile
 
-    # TODO Update this to build the artifacts that matter to you
     cargo build --release 
 
-    # TODO Update this to package the right artifacts
     cp target/release/cargo-tarpaulin $stage/
 
     cd $stage
