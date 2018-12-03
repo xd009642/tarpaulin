@@ -1,5 +1,4 @@
 use std::collections::HashMap;
-use nix::libc::c_long;
 use nix::unistd::Pid;
 use nix::{Result, Error};
 use ptrace_control::*;
@@ -27,7 +26,7 @@ pub struct Breakpoint {
 
 impl Breakpoint {
     /// Creates a new breakpoint for the given process and program counter.
-    pub fn new(pid:Pid, pc:u64) ->Result<Breakpoint> {
+    pub fn new(pid:Pid, pc:u64) -> Result<Breakpoint> {
         let aligned = pc & !0x7u64;
         let data = read_address(pid, aligned)?;
         let shift = 8 * (pc - aligned);
@@ -46,7 +45,7 @@ impl Breakpoint {
     }
 
     /// Attaches the current breakpoint.
-    pub fn enable(&mut self, pid: Pid) -> Result<c_long> {
+    pub fn enable(&mut self, pid: Pid) -> Result<()> {
         let data  = read_address(pid, self.aligned_address())?;
         self.is_running.insert(pid, true);
         let mut intdata = data & (!(0xFFu64 << self.shift) as i64);
@@ -58,7 +57,7 @@ impl Breakpoint {
         }
     }
 
-    fn disable(&self, pid: Pid) -> Result<c_long> {
+    fn disable(&self, pid: Pid) -> Result<()> {
         // I require the bit fiddlin this end.
         let data = read_address(pid, self.aligned_address())?;
         let mut orgdata = data & (!(0xFFu64 << self.shift) as i64);
