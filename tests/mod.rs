@@ -80,3 +80,8 @@ fn returns_expr_coverage() {
 fn loops_expr_coverage() {
     check_percentage("loops", 1.0f64, true);
 }
+
+#[test]
+fn loops_assigns_coverage() {
+    check_percentage("assigns", 1.0f64, true);
+}
