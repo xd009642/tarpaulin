@@ -139,13 +139,13 @@ fn get_addresses_from_program<R, Offset>(prog: IncompleteLineNumberProgram<R>,
                 continue;
             }
             if let Some(file) = ln_row.file(header) {
-                let mut path = PathBuf::new();
-
+                let mut path = project.to_path_buf();
                 if let Some(dir) = file.directory(header) {
                     if let Ok(temp) = dir.to_string() {
                         path.push(temp.as_ref());
                     }
                 }
+                
                 if let Ok(p) = path.canonicalize() {
                     path = p;
                 }
@@ -157,6 +157,7 @@ fn get_addresses_from_program<R, Offset>(prog: IncompleteLineNumberProgram<R>,
                 } else {
                     path.starts_with(project.join("target"))
                 };
+                
                 // Source is part of project so we cover it.
                 if !is_target && path.starts_with(project) {
                     if let Some(file) = ln_row.file(header) {

@@ -18,9 +18,10 @@ popular CI tools like Travis.
 It can also be run in Docker, which is useful for when you don't use Linux but
 want to run it locally, e.g. during development. See below for how to do that.
 
-**Due to unstable features in syn and issues with no packaging tarpaulin with
-the Cargo.lock file tarpaulin is now a nightly only crate. Replace all calls to
-`cargo tarpaulin` with `cargo +nightly tarpaulin`**
+**Due to unstable features in syn and issues with not packaging tarpaulin with
+the Cargo.lock file tarpaulin is now a nightly only crate. If you don't run
+nightly by default replace all calls to `cargo tarpaulin` with 
+`cargo +nightly tarpaulin`**
 
 ## Features
 
@@ -75,33 +76,30 @@ output correctly reports the lines the test hits.
 ```text
 cargo tarpaulin -v
 Running Tarpaulin
-    Finished dev [unoptimized + debuginfo] target(s) in 0.0 secs
+Cleaning project
+Building project
+   Compiling simple_project v0.1.0 (/home/xd009642/code/rust/tarpaulin/tests/data/simple_project)
+    Finished dev [unoptimized + debuginfo] target(s) in 0.31s                                            
 Processing simple_project
 Launching test
+running /home/xd009642/code/rust/tarpaulin/tests/data/simple_project/target/debug/deps/simple_project-a387d41cf984eb4b
 
 running 1 test
 test tests::bad_test ... ok
 
-test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out
 
 Coverage Results
-src/unused.rs:4 - hits: 0
-src/unused.rs:5 - hits: 0
-src/unused.rs:6 - hits: 0
-src/unused.rs:7 - hits: 0
-src/lib.rs:4 - hits: 1
-src/lib.rs:5 - hits: 1
-src/lib.rs:6 - hits: 0
-src/lib.rs:8 - hits: 1
-src/lib.rs:10 - hits: 1
-src/lib.rs:21 - hits: 1
-src/lib.rs:22 - hits: 1
-src/lib.rs:23 - hits: 1
 
-src/lib.rs: 7/8
-src/unused.rs: 0/4
+Uncovered Lines:
+src/lib.rs: 6
+src/unused.rs: 4-6
 
-58.33% coverage, 7/12 lines covered
+Tested/Total Lines:
+src/lib.rs: 5/6
+src/unused.rs: 0/3
+
+55.56% coverage, 5/9 lines covered
 Tarpaulin finished
 ```
 

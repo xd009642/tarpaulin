@@ -320,7 +320,7 @@ impl TraceMap {
 
     /// Give the total amount of coverable points in the code. This will vary
     /// based on the statistics available for line coverage it will be total
-    /// line whereas for condition or decision it will count the number of
+    /// lines whereas for condition or decision it will count the number of
     /// conditions available
     pub fn total_coverable(&self) -> usize {
         amount_coverable(self.all_traces().as_slice())

@@ -6,7 +6,7 @@ use std::env;
 use std::time::Duration;
 
 
-pub fn check_percentage(project_name: &str, minimum_coverage: f64) {
+pub fn check_percentage(project_name: &str, minimum_coverage: f64, has_lines: bool) {
     let mut config = Config::default();
     config.verbose = true;
     config.test_timeout = Duration::from_secs(60);
@@ -24,6 +24,9 @@ pub fn check_percentage(project_name: &str, minimum_coverage: f64) {
     env::set_current_dir(restore_dir).unwrap();
     assert!(tp);
     assert!(res.coverage_percentage() >= minimum_coverage);
+    if has_lines {
+        assert!(res.total_coverable() > 0);
+    }
 }
 
 
@@ -50,30 +53,30 @@ fn proc_macro_link() {
 
 #[test]
 fn array_coverage() {
-    check_percentage("arrays", 1.0f64);
+    check_percentage("arrays", 1.0f64, true);
 }
 
 #[test]
 fn lets_coverage() {
-    check_percentage("lets", 1.0f64);
+    check_percentage("lets", 1.0f64, true);
 }
 
 #[test]
 fn struct_expr_coverage() {
-    check_percentage("structs", 1.0f64);
+    check_percentage("structs", 1.0f64, true);
 }
 
 #[test]
 fn ifelse_expr_coverage() {
-    check_percentage("ifelse", 1.0f64);
+    check_percentage("ifelse", 1.0f64, true);
 }
 
 #[test]
 fn returns_expr_coverage() {
-    check_percentage("returns", 1.0f64);
+    check_percentage("returns", 1.0f64, true);
 }
 
 #[test]
 fn loops_expr_coverage() {
-    check_percentage("loops", 1.0f64);
+    check_percentage("loops", 1.0f64, true);
 }
