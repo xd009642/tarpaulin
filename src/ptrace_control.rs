@@ -3,7 +3,8 @@ use nix::sys::signal::Signal;
 use nix::sys::ptrace::*;
 use nix::libc::{c_void, c_long};
 use nix::unistd::Pid;
-use nix::Result;
+use nix::{Error, Result};
+use nix::errno::Errno;
 
 const RIP: u8 = 128;
 
@@ -30,26 +31,25 @@ pub fn single_step(pid: Pid) -> Result<()> {
     step(pid, None)
 }
 
-#[allow(deprecated)]
 pub fn read_address(pid: Pid, address:u64) -> Result<c_long> {
-    unsafe {
-        ptrace(Request::PTRACE_PEEKDATA, pid, address as * mut c_void, ptr::null_mut())
-    }
+    read(pid, address as AddressType)
 }
 
-#[allow(deprecated)]
 pub fn write_to_address(pid: Pid,
                         address: u64,
-                        data: i64) -> Result<c_long> {
-    unsafe {
-        ptrace(Request::PTRACE_POKEDATA, pid, address as * mut c_void, data as * mut c_void)
-    }
+                        data: i64) -> Result<()> {
+    write(pid, address as AddressType, data as * mut c_void)
 }
 
 #[allow(deprecated)]
 pub fn current_instruction_pointer(pid: Pid) -> Result<c_long> {
-    unsafe {
-        ptrace(Request::PTRACE_PEEKUSER, pid, RIP as * mut c_void, ptr::null_mut())
+    let ret = unsafe {
+        Errno::clear();
+        libc::ptrace(Request::PTRACE_PEEKUSER as RequestType, libc::pid_t::from(pid), RIP as * mut c_void, ptr::null_mut() as * mut c_void)
+    };
+    match Errno::result(ret) {
+        Ok(..) | Err(Error::Sys(Errno::UnknownErrno)) => Ok(ret),
+        err @ Err(..) => err,
     }
 }
 
