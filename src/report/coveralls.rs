@@ -2,8 +2,9 @@ use std::collections::HashMap;
 use coveralls_api::*;
 use traces::{TraceMap, CoverageStat};
 use config::Config;
+use errors::RunError;
 
-pub fn export(coverage_data: &TraceMap, config: &Config) {
+pub fn export(coverage_data: &TraceMap, config: &Config) -> Result<(), RunError> {
     if let Some(ref key) = config.coveralls {
         let id = match config.ci_tool {
             Some(ref service) => Identity::ServiceToken(Service {
@@ -24,7 +25,7 @@ pub fn export(coverage_data: &TraceMap, config: &Config) {
                         lines.insert(c.line as usize, hits as usize);
                     },
                     _ => {
-                        println!("Support for coverage statistic not implemented or supported for coveralls.io");
+                        info!("Support for coverage statistic not implemented or supported for coveralls.io");
                     },
                 }
             }
@@ -35,22 +36,21 @@ pub fn export(coverage_data: &TraceMap, config: &Config) {
 
         let res = match config.report_uri {
             Some(ref uri) => {
-                println!("Sending report to endpoint: {}", uri);
+                info!("Sending report to endpoint: {}", uri);
                 report.send_to_endpoint(uri)
             },
             None => {
-                println!("Sending coverage data to coveralls.io");
+                info!("Sending coverage data to coveralls.io");
                 report.send_to_coveralls()
             }
         };
 
-        if config.verbose {
-            match res {
-                Ok(_) => {},
-                Err(e) => println!("Coveralls send failed. {}", e),
-            }
+        match res {
+            Ok(_) => Ok(()),
+            Err(e) => Err(RunError::CovReport(format!("Coveralls send failed. {}", e))),
         }
+
     } else {
-        panic!("No coveralls key specified.");
+        Err(RunError::CovReport("No coveralls key specified.".to_string()))
     }
 }

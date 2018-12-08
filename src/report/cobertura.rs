@@ -59,7 +59,7 @@ fn write_class<T:Write>(writer: &mut Writer<T>,
                     line.push_attribute(("hits", hit.to_string().as_ref()));
                 },
                 _ => {
-                    println!("Coverage statistic currently not implemented for cobertura");
+                    info!("Coverage statistic currently not implemented for cobertura");
                 },
             }
             writer.write_event(Event::Empty(line))?;

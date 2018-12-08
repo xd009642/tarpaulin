@@ -4,13 +4,12 @@ use nix::Error as NixErr;
 use nix::sys::wait::*;
 use nix::sys::signal::Signal;
 use nix::errno::Errno;
-use nix::Result;
 use nix::unistd::Pid;
 use breakpoint::*;
 use traces::*;
 use ptrace_control::*;
 use config::Config;
-
+use errors::RunError;
 
 
 #[derive(Debug, Copy, Clone, Eq, PartialEq)]
@@ -27,8 +26,6 @@ pub enum TestState {
     },
     /// Test process stopped, check coverage
     Stopped,
-    /// Process timed out
-    Timeout,
     /// Unrecoverable error occurred
     Unrecoverable,
     /// Test exited normally. Includes the exit code of the test executable.
@@ -80,50 +77,48 @@ impl TestState {
     }
 
     /// Updates the state machine state
-    pub fn step<T:StateData>(self, data: &mut T, config: &Config) -> TestState {
+    pub fn step<T:StateData>(self, data: &mut T, config: &Config) -> Result<TestState, RunError> {
         match self {
             TestState::Start{start_time} => {
                 if let Some(s) = data.start() {
-                    s
+                    Ok(s)
                 } else if start_time.elapsed() >= config.test_timeout {
-                    println!("Error: Timed out when starting test");
-                    TestState::Timeout
+                    Err(RunError::TestRuntimeFail("Error: Timed out when starting test".to_string()))
                 } else {
-                    TestState::Start{start_time}
+                    Ok(TestState::Start{start_time})
                 }
             },
             TestState::Initialise => {
-                data.init()
+                Ok(data.init())
             },
             TestState::Waiting{start_time} => {
                 if let Some(s) =data.wait() {
-                    s
+                    Ok(s)
                 } else if start_time.elapsed() >= config.test_timeout {
-                    println!("Error: Timed out waiting for test response");
-                    TestState::Timeout
+                    Err(RunError::TestRuntimeFail("Error: Timed out waiting for test response".to_string()))
                 } else {
-                    TestState::Waiting{start_time}
+                    Ok(TestState::Waiting{start_time})
                 }
             },
             TestState::Stopped => {
-                data.stop()
+                Ok(data.stop())
             },
             TestState::Timeout => {
                 data.cleanup();
                 // Test hasn't ran all the way through. Report as error
-                TestState::End(-1)
+                Ok(TestState::End(-1))
             },
             TestState::Unrecoverable => {
                 data.cleanup();
                 // We've gone wrong somewhere. Better report it as an issue
-                TestState::End(-1)
+                Ok(TestState::End(-1))
             },
             _ => {
                 // Unhandled
                 if config.verbose {
                     println!("Tarpaulin error: unhandled test state");
                 }
-                TestState::End(-1)
+                Ok(TestState::End(-1))
             }
         }
     }
@@ -338,7 +333,7 @@ impl <'a>LinuxData<'a> {
         }
     }
 
-    fn handle_ptrace_event(&mut self, child: Pid, sig: Signal, event: i32) -> Result<TestState> {
+    fn handle_ptrace_event(&mut self, child: Pid, sig: Signal, event: i32) -> Result<TestState, RunError> {
         use nix::libc::*;
 
         if sig == Signal::SIGTRAP {
@@ -374,7 +369,7 @@ impl <'a>LinuxData<'a> {
         }
     }
 
-    fn collect_coverage_data(&mut self) -> Result<TestState> {
+    fn collect_coverage_data(&mut self) -> Result<TestState, RunError> {
         if let Ok(rip) = current_instruction_pointer(self.current) {
             let rip = (rip - 1) as u64;
             if  self.breakpoints.contains_key(&rip) {
@@ -411,15 +406,14 @@ impl <'a>LinuxData<'a> {
     }
 
 
-    fn handle_signaled(&mut self) -> Result<TestState> {
+    fn handle_signaled(&mut self) -> Result<TestState, RunError> {
         match self.wait {
             WaitStatus::Signaled(child, Signal::SIGTRAP, true) => {
                 continue_exec(child, None)?;
                 Ok(TestState::wait_state())
             },
             _ => {
-                self.error_message = Some("Unexpected stop".to_string());
-                Ok(TestState::Unrecoverable)
+                Err(RunError::StateMachine("Unexpected stop".to_string()))
             },
         }
     }
