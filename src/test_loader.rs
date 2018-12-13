@@ -252,6 +252,7 @@ fn get_line_addresses(
             };
             let prog = debug_line.program(offset, addr_size, None, None)?;
             let mut temp_map: HashMap<SourceLocation, Vec<TracerData>> = HashMap::new();
+
             if let Err(e) = get_addresses_from_program(prog, &entries, project, &mut temp_map) {
                 debug!("Potential issue reading test addresses {}", e);
             } else {
@@ -318,14 +319,23 @@ fn get_line_addresses(
     Ok(result)
 }
 
-pub fn generate_tracemap(
-    project: &Workspace,
-    test: &Path,
-    config: &Config,
-) -> io::Result<TraceMap> {
+#[cfg(target_os = "linux")]
+fn open_symbols_file(test: &Path) -> io::Result<File> {
+    File::open(test)
+}
+
+#[cfg(target_os = "macos")]
+fn open_symbols_file(test: &Path) -> io::Result<File> {
+    let d_sym = test.with_extension("dSYM");
+    File::open(&d_sym)
+}
+
+pub fn generate_tracemap(project: &Workspace, test: &Path, config: &Config) -> io::Result<TraceMap> {
     let manifest = project.root();
-    let file = File::open(test)?;
-    let file = unsafe { MmapOptions::new().map(&file)? };
+    let file = open_symbols_file(test)?;
+    let file = unsafe {
+        MmapOptions::new().map(&file)?
+    };
     if let Ok(obj) = OFile::parse(&*file) {
         let analysis = get_line_analysis(project, config);
         let endian = if obj.is_little_endian() {
