@@ -205,8 +205,7 @@ pub fn report_coverage(config: &Config, result: &TraceMap) -> Result<(), RunErro
     if !result.is_empty() {
         info!("Coverage Results:");
         if config.verbose {
-
-            info!("Uncovered Lines:");
+            println!("|| Uncovered Lines:");
             for (ref key, ref value) in result.iter() {
                 let path = config.strip_project_path(key);
                 let mut uncovered_lines = vec![];
@@ -224,18 +223,18 @@ pub fn report_coverage(config: &Config, result: &TraceMap) -> Result<(), RunErro
                     .fold((vec![], vec![]), accumulate_lines);
                 let (groups, _) = accumulate_lines((groups, last_group), u64::max_value());
                 if ! groups.is_empty() {
-                    info!("{}: {}", path.display(), groups.join(", "));
+                    println!("|| {}: {}", path.display(), groups.join(", "));
                 }
             }
         }
-        info!("Tested/Total Lines:");
+        println!("|| Tested/Total Lines:");
         for file in result.files() {
             let path = config.strip_project_path(file);
-            info!("{}: {}/{}", path.display(), result.covered_in_path(&file), result.coverable_in_path(&file));
+            println!("|| {}: {}/{}", path.display(), result.covered_in_path(&file), result.coverable_in_path(&file));
         }
         let percent = result.coverage_percentage() * 100.0f64;
         // Put file filtering here
-        info!("\n{:.2}% coverage, {}/{} lines covered", percent,
+        println!("|| \n{:.2}% coverage, {}/{} lines covered", percent,
                  result.total_covered(), result.total_coverable());
         if config.is_coveralls() {
             report::coveralls::export(result, config)?;
