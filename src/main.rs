@@ -11,9 +11,10 @@ extern crate env_logger;
 #[macro_use]
 extern crate log;
 
+use std::io::Write;
 use std::path::Path;
 use clap::{App, Arg, SubCommand, ArgSettings};
-use env_logger::Builder;
+use env_logger::{Builder, fmt::Color};
 use cargo_tarpaulin::run;
 use cargo_tarpaulin::config::*;
 
@@ -35,7 +36,13 @@ fn set_up_logging(verbose: bool) {
         builder.filter_module("cargo_tarpaulin", log::LevelFilter::Info);
     }
 
-    builder.default_format_timestamp(false).init();
+    builder
+        .default_format_timestamp(false)
+        .format(|buf, record| {
+            let level_style = buf.default_level_style(record.level());
+            writeln!(buf, "[{} tarpaulin] {}", level_style.value(record.level()), record.args())
+        })
+        .init();
 }
 
 const CI_SERVER_HELP: &'static str =
