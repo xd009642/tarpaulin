@@ -26,14 +26,8 @@ pub enum TestState {
     },
     /// Test process stopped, check coverage
     Stopped,
-    /// Unrecoverable error occurred
-    Unrecoverable,
     /// Test exited normally. Includes the exit code of the test executable.
     End(i32),
-    /// An error occurred that indicates no future runs will succeed such as
-    /// PIE issues in OS.
-    Abort,
-    Timeout,
 }
 
 /// Tracing a process on an OS will have platform specific code.
@@ -43,18 +37,16 @@ pub enum TestState {
 pub trait StateData {
     /// Starts the tracing. Returns None while waiting for
     /// start. Statemachine then checks timeout
-    fn start(&mut self) -> Option<TestState>;
+    fn start(&mut self) -> Result<TestState, RunError>;
     /// Initialises test for tracing returns next state
-    fn init(&mut self) -> TestState;
+    fn init(&mut self) -> Result<TestState, RunError>;
     /// Waits for notification from test executable that there's
     /// something to do. Selects the next appropriate state if there's
     /// something to do otherwise None
-    fn wait(&mut self) -> Option<TestState>;
+    fn wait(&mut self) -> Result<Option<TestState>, RunError>;
     /// Handle a stop in the test executable. Coverage data will
     /// be collected here as well as other OS specific functions
-    fn stop(&mut self) -> TestState;
-    /// Cleanup the system state - killing processes etc
-    fn cleanup(&mut self);
+    fn stop(&mut self) -> Result<TestState, RunError>;
 }
 
 
@@ -62,7 +54,7 @@ impl TestState {
     /// Convenience function used to check if the test has finished or errored
     pub fn is_finished(self) -> bool {
         match self {
-            TestState::End(_) | TestState::Unrecoverable | TestState::Abort => true,
+            TestState::End(_) => true,
             _ => false,
         }
     }
@@ -81,38 +73,27 @@ impl TestState {
     pub fn step<T:StateData>(self, data: &mut T, config: &Config) -> Result<TestState, RunError> {
         match self {
             TestState::Start{start_time} => {
-                if let Some(s) = data.start() {
-                    Ok(s)
-                } else if start_time.elapsed() >= config.test_timeout {
+                data.start()?;
+
+                if start_time.elapsed() >= config.test_timeout {
                     Err(RunError::TestRuntime("Error: Timed out when starting test".to_string()))
                 } else {
                     Ok(TestState::Start{start_time})
                 }
             },
             TestState::Initialise => {
-                Ok(data.init())
+                data.init()
             },
             TestState::Waiting{start_time} => {
-                if let Some(s) =data.wait() {
-                    Ok(s)
-                } else if start_time.elapsed() >= config.test_timeout {
+                data.wait()?;
+                if start_time.elapsed() >= config.test_timeout {
                     Err(RunError::TestRuntime("Error: Timed out waiting for test response".to_string()))
                 } else {
                     Ok(TestState::Waiting{start_time})
                 }
             },
             TestState::Stopped => {
-                Ok(data.stop())
-            },
-            TestState::Timeout => {
-                data.cleanup();
-                // Test hasn't ran all the way through. Report as error
-                Ok(TestState::End(-1))
-            },
-            TestState::Unrecoverable => {
-                data.cleanup();
-                // We've gone wrong somewhere. Better report it as an issue
-                Ok(TestState::End(-1))
+                data.stop()
             },
             _ => {
                 // Unhandled
@@ -149,8 +130,6 @@ pub struct LinuxData<'a> {
     traces: &'a mut TraceMap,
     /// Program config
     config: &'a Config,
-    /// Used to store error for user in the event something goes wrong
-    pub error_message: Option<String>,
     /// Thread count. Hopefully getting rid of in future
     thread_count: isize,
     /// Used to show anomalies noticed so hit counts disabled
@@ -160,33 +139,30 @@ pub struct LinuxData<'a> {
 
 impl <'a> StateData for LinuxData<'a> {
 
-    fn start(&mut self) -> Option<TestState> {
+    fn start(&mut self) -> Result<TestState, RunError> {
         match waitpid(self.current, Some(WaitPidFlag::WNOHANG)) {
-            Ok(WaitStatus::StillAlive) => None,
+            //TODO: Which TestState is correct here?
+            //Ok(WaitStatus::StillAlive) => Ok(None),
             Ok(sig @ WaitStatus::Stopped(_, Signal::SIGTRAP)) => {
                 if let WaitStatus::Stopped(child, _) = sig {
                     self.current = child;
                 }
                 self.wait = sig;
-                Some(TestState::Initialise)
+                Ok(TestState::Initialise)
             },
             Ok(_) => {
-                println!("Unexpected signal when starting test");
-                None
+                Err(RunError::TestRuntime("Unexpected signal when starting test".to_string()))
             },
             Err(e) => {
-                println!("Error when starting test: {}", e);
-                Some(TestState::Unrecoverable)
+                Err(RunError::TestRuntime(format!("Error when starting test: {}", e)))
             },
         }
     }
 
 
-    fn init(&mut self) -> TestState {
-        if trace_children(self.current).is_err() {
-            println!("Failed to trace child threads");
-        }
-        let mut instrumented = true;
+    fn init(&mut self) -> Result<TestState, RunError> {
+        //TODO: is this recoverable?
+        trace_children(self.current)?;
         for trace in self.traces.all_traces() {
             if let Some(addr) = trace.address {
                 match Breakpoint::new(self.current, addr) {
@@ -194,87 +170,76 @@ impl <'a> StateData for LinuxData<'a> {
                         let _ = self.breakpoints.insert(addr, bp);
                     },
                     Err(e) if e==NixErr::Sys(Errno::EIO) => {
-                        println!("ERROR: Tarpaulin cannot find code addresses \
+                        return Err(RunError::TestRuntime("ERROR: Tarpaulin cannot find code addresses \
                                   check that pie is disabled for your linker. \
                                   If linking with gcc try adding -C link-args=-no-pie \
-                                  to your rust flags");
-                        instrumented = false;
-                        break;
+                                  to your rust flags".to_string()));
                     }
                     Err(NixErr::UnsupportedOperation) => {
-                        if self.config.verbose {
-                            println!("Instrumentation address clash, ignoring 0x{:x}", addr);
-                        }
+                        debug!("Instrumentation address clash, ignoring 0x{:x}", addr);
                     },
                     Err(_) => {
-                        self.error_message = Some("Failed to instrument test executable".to_string());
+                        return Err(RunError::TestRuntime("Failed to instrument test executable".to_string()));
                     },
                 }
             }
         }
-        if !instrumented {
-            TestState::Abort
+
+        if continue_exec(self.parent, None).is_ok() {
+            return Ok(TestState::wait_state());
         }
-        else if continue_exec(self.parent, None).is_ok() {
-            TestState::wait_state()
-        } else {
-            TestState::Unrecoverable
-        }
+
+        //TODO: Is this correct?
+        Ok(TestState::start_state())
     }
 
 
-    fn wait(&mut self) -> Option<TestState> {
+    fn wait(&mut self) -> Result<Option<TestState>, RunError> {
         let wait = waitpid(Pid::from_raw(-1), Some(WaitPidFlag::WNOHANG | WaitPidFlag::__WALL));
         match wait {
             Ok(WaitStatus::StillAlive) => {
                 self.wait = WaitStatus::StillAlive;
-                None
+                Ok(None)
             },
             Ok(s) => {
                 self.wait = s;
-                Some(TestState::Stopped)
+                Ok(Some(TestState::Stopped))
             },
             Err(_) => {
-                self.error_message = Some("An error occurred while waiting for response from test".to_string());
-                Some(TestState::Unrecoverable)
+                //TODO: Better error message!
+                Err(RunError::TestRuntime("An error occurred while waiting for response from test".to_string()))
             },
         }
     }
 
 
-    fn stop(&mut self) -> TestState {
+    fn stop(&mut self) -> Result<TestState, RunError> {
         match self.wait {
             WaitStatus::PtraceEvent(c,s,e) => {
                 match self.handle_ptrace_event(c, s, e) {
-                    Ok(s) => s,
+                    Ok(s) => Ok(s),
                     Err(e) => {
-                        let msg = format!("Error occurred when handling ptrace event: {}", e);
-                        self.error_message = Some(msg);
-                        TestState::Unrecoverable
+                        Err(RunError::TestRuntime(format!("Error occurred when handling ptrace event: {}", e)))
                     },
                 }
             },
             WaitStatus::Stopped(c, Signal::SIGTRAP) => {
                 self.current = c;
                 match self.collect_coverage_data() {
-                    Ok(s) => s,
+                    Ok(s) => Ok(s),
                     Err(e) => {
-                        self.error_message = Some(format!("Error when collecting coverage: {}", e));
-                        TestState::Unrecoverable
+                        Err(RunError::TestRuntime(format!("Error when collecting coverage: {}", e)))
                     }
                 }
             },
             WaitStatus::Stopped(child, Signal::SIGSTOP) => {
-                if continue_exec(child, None).is_ok() {
-                    TestState::wait_state()
-                } else {
-                    self.error_message = Some("Error processing SIGSTOP".to_string());
-                    TestState::Unrecoverable
+                match continue_exec(child, None) {
+                    Ok(_) => Ok(TestState::wait_state()),
+                    Err(e) => Err(RunError::TestRuntime(format!("Error processing SIGSTOP: {}", e.to_string())))
                 }
             },
             WaitStatus::Stopped(_, Signal::SIGSEGV) => {
-                self.error_message = Some("Error a segfault occured when executing test".to_string());
-                TestState::Unrecoverable
+                Err(RunError::TestRuntime("A segfault occurred while executing tests".to_string()))
             },
             WaitStatus::Stopped(c, s) => {
                 let sig = if self.config.forward_signals {
@@ -283,14 +248,13 @@ impl <'a> StateData for LinuxData<'a> {
                     None
                 };
                 let _ = continue_exec(c, sig);
-                TestState::wait_state()
+                Ok(TestState::wait_state())
             },
             WaitStatus::Signaled(_,_,_) => {
                 if let Ok(s) = self.handle_signaled() {
-                    s
+                   Ok(s)
                 } else {
-                    self.error_message = Some("Error attempting to handle tarpaulin being signaled".to_string());
-                    TestState::Unrecoverable
+                    Err(RunError::TestRuntime("Attempting to handle tarpaulin being signaled".to_string()))
                 }
             },
             WaitStatus::Exited(child, ec) => {
@@ -298,22 +262,15 @@ impl <'a> StateData for LinuxData<'a> {
                     value.thread_killed(child);
                 }
                 if child == self.parent {
-                    TestState::End(ec)
+                    Ok(TestState::End(ec))
                 } else {
                     // Process may have already been destroyed. This is just incase
                     let _ = continue_exec(self.parent, None);
-                    TestState::wait_state()
+                    Ok(TestState::wait_state())
                 }
             },
-            _ => TestState::Unrecoverable,
-        }
-    }
-
-
-    fn cleanup(&mut self)  {
-        if let Some(ref e) = self.error_message {
-            println!("An error occurred during run. Coverage results may be inaccurate.");
-            println!("{}", e);
+            //TODO: Seriously, improve this.
+            _ => Err(RunError::TestRuntime("Something went wrong stopping the tests!".to_string()))
         }
     }
 }
@@ -328,7 +285,6 @@ impl <'a>LinuxData<'a> {
             breakpoints: HashMap::new(),
             traces,
             config,
-            error_message:None,
             thread_count: 0,
             force_disable_hit_count: config.count
         }
@@ -345,8 +301,7 @@ impl <'a>LinuxData<'a> {
                         continue_exec(child, None)?;
                         Ok(TestState::wait_state())
                     } else {
-                        self.error_message = Some("Error occurred upon test executable thread creation".to_string());
-                        Ok(TestState::Unrecoverable)
+                        Err(RunError::TestRuntime("Error occurred upon test executable thread creation".to_string()))
                     }
                 },
                 PTRACE_EVENT_FORK | PTRACE_EVENT_VFORK => {
@@ -362,11 +317,11 @@ impl <'a>LinuxData<'a> {
                     continue_exec(child, None)?;
                     Ok(TestState::wait_state())
                 },
-                _ => Ok(TestState::Unrecoverable)
+                //TODO: Correct error message?
+                _ => Err(RunError::TestRuntime("Something went wrong!".to_string()))
             }
         } else {
-            self.error_message = Some("Unexpected ptrace event".to_string());
-            Ok(TestState::Unrecoverable)
+            Err(RunError::TestRuntime("Unexpected ptrace event".to_string()))
         }
     }
 

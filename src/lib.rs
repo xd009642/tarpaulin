@@ -315,13 +315,6 @@ fn collect_coverage(project: &Workspace,
                 break;
             }
         }
-        if data.error_message.is_some() {
-            return Err(RunError::TestCoverage(data.error_message.clone().unwrap()));
-        }
-        if state == TestState::Abort  {
-            // TODO: Needs better error message!
-            return Err(RunError::TestCoverage("Can't collect coverage data".to_string()));
-        }
     }
     Ok(traces)
 }
