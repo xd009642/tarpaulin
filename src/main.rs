@@ -14,7 +14,7 @@ extern crate log;
 use std::io::Write;
 use std::path::Path;
 use clap::{App, Arg, SubCommand, ArgSettings};
-use env_logger::{Builder, fmt::Color};
+use env_logger::Builder;
 use cargo_tarpaulin::run;
 use cargo_tarpaulin::config::*;
 

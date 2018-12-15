@@ -157,7 +157,7 @@ pub fn launch_tarpaulin(config: &Config) -> Result<TraceMap, RunError> {
             Ok(result)
         },
         Err(e) => {
-            Err(RunError::TestCompileFailed(e.to_string()))
+            Err(RunError::TestCompile(e.to_string()))
         },
     }
 }
@@ -332,7 +332,7 @@ fn execute_test(test: &Path, package: &Package, ignored: bool, config: &Config) 
     let exec_path = CString::new(test.to_str().unwrap()).unwrap();
     match personality::disable_aslr() {
         Ok(_) => {},
-        Err(e) => return Err(RunError::TestRuntimeFail(format!("ASLR disable failed: {}", e))),
+        Err(e) => return Err(RunError::TestRuntime(format!("ASLR disable failed: {}", e))),
     }
     match request_trace() {
         Ok(_) => {},

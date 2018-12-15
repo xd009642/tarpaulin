@@ -14,10 +14,10 @@ pub enum RunError {
     Packages(String),
     /// Tests failed to compile
     #[fail(display="Failed to compile tests! Error: {}", _0)]
-    TestCompileFailed(String),
+    TestCompile(String),
     /// Test failed during run
     #[fail(display="Failed to run tests! Error: {}", _0)]
-    TestRuntimeFail(String),
+    TestRuntime(String),
     /// Failed to parse
     #[fail(display="Error while parsing: {}", _0)]
     Parse(std::io::Error),

@@ -33,6 +33,7 @@ pub enum TestState {
     /// An error occurred that indicates no future runs will succeed such as
     /// PIE issues in OS.
     Abort,
+    Timeout,
 }
 
 /// Tracing a process on an OS will have platform specific code.
@@ -83,7 +84,7 @@ impl TestState {
                 if let Some(s) = data.start() {
                     Ok(s)
                 } else if start_time.elapsed() >= config.test_timeout {
-                    Err(RunError::TestRuntimeFail("Error: Timed out when starting test".to_string()))
+                    Err(RunError::TestRuntime("Error: Timed out when starting test".to_string()))
                 } else {
                     Ok(TestState::Start{start_time})
                 }
@@ -95,7 +96,7 @@ impl TestState {
                 if let Some(s) =data.wait() {
                     Ok(s)
                 } else if start_time.elapsed() >= config.test_timeout {
-                    Err(RunError::TestRuntimeFail("Error: Timed out waiting for test response".to_string()))
+                    Err(RunError::TestRuntime("Error: Timed out waiting for test response".to_string()))
                 } else {
                     Ok(TestState::Waiting{start_time})
                 }
