@@ -178,10 +178,9 @@ pub fn launch_tarpaulin(config: &Config) -> Result<(TraceMap, bool), RunError> {
 
 fn setup_environment(config: &Config) {
     let rustflags = "RUSTFLAGS";
-    let mut value = " -C relocation-model=dynamic-no-pic -C link-dead-code -C opt-level=0 ".to_string();
-    let mut value = " -C relocation-model=dynamic-no-pic -C link-dead-code -C debuginfo=2 ".to_string();
+    let mut value = " -C relocation-model=dynamic-no-pic -C link-dead-code -C opt-level=0 -C debuginfo=2 ".to_string();
     if config.release {
-        value = format!("{}-C opt-level=0 -C debug-assertions=off ", value);
+        value = format!("{}-C debug-assertions=off ", value);
     }
     if let Ok(vtemp) = env::var(rustflags) {
         value.push_str(vtemp.as_ref());
