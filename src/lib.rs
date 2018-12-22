@@ -104,7 +104,7 @@ pub fn launch_tarpaulin(config: &Config) -> Result<(TraceMap, bool), RunError> {
             RunError::Manifest
         })?;
     
-    setup_environment();
+    setup_environment(&config);
     
     let mut copt = ops::CompileOptions::new(&cargo_config, CompileMode::Test)
         .map_err(|_| RunError::Cargo)?;
@@ -114,6 +114,7 @@ pub fn launch_tarpaulin(config: &Config) -> Result<(TraceMap, bool), RunError> {
     copt.features = config.features.clone();
     copt.all_features = config.all_features;
     copt.no_default_features = config.no_default_features;
+    copt.build_config.release = config.release;
     copt.spec = match ops::Packages::from_flags(config.all, 
                                                 config.exclude.clone(), 
                                                 config.packages.clone()) {
@@ -175,9 +176,12 @@ pub fn launch_tarpaulin(config: &Config) -> Result<(TraceMap, bool), RunError> {
 }
 
 
-fn setup_environment() {
+fn setup_environment(config: &Config) {
     let rustflags = "RUSTFLAGS";
-    let mut value = " -C relocation-model=dynamic-no-pic -C link-dead-code -C opt-level=0 ".to_string();
+    let mut value = " -C relocation-model=dynamic-no-pic -C link-dead-code -C opt-level=0 -C debuginfo=2 ".to_string();
+    if config.release {
+        value = format!("{}-C debug-assertions=off ", value);
+    }
     if let Ok(vtemp) = env::var(rustflags) {
         value.push_str(vtemp.as_ref());
     }

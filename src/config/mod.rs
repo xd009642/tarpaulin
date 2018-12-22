@@ -66,6 +66,8 @@ pub struct Config {
     pub varargs: Vec<String>,
     /// Duration to wait before a timeout occurs
     pub test_timeout: Duration,
+    /// Build in release mode
+    pub release: bool,
 }
 
 impl<'a> From<&'a ArgMatches<'a>> for Config {
@@ -95,6 +97,7 @@ impl<'a> From<&'a ArgMatches<'a>> for Config {
             excluded_files:     get_excluded(args),
             varargs:            get_list(args, "args"),
             test_timeout:       get_timeout(args),
+            release:            args.is_present("release"),
         }
     }
 }
