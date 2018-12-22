@@ -56,7 +56,8 @@ fn main() -> Result<(), RunError> {
                  --packages -p [PACKAGE]... 'Package id specifications for which package should be build. See cargo help pkgid for more info'
                  --exclude -e [PACKAGE]... 'Package id specifications to exclude from coverage. See cargo help pkgid for more info'
                  --exclude-files [FILE]... 'Exclude given files from coverage results has * wildcard'
-                 --timeout -t [SECONDS] 'Integer for the maximum time in seconds without response from test before timeout (default is 1 minute).'")
+                 --timeout -t [SECONDS] 'Integer for the maximum time in seconds without response from test before timeout (default is 1 minute).'
+                 --release   'Build tests in release mode. Will deactivate optimizations.'")
             .args(&[
                 Arg::from_usage("--out -o [FMT]   'Output format of coverage report'")
                     .possible_values(&OutputFile::variants())
