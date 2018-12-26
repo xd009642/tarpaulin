@@ -127,7 +127,7 @@ pub fn launch_tarpaulin(config: &Config) -> Result<(TraceMap, bool), RunError> {
     if config.verbose {
         println!("Running Tarpaulin");
     }
-    if !config.skip_clean {
+    if config.force_clean {
         if config.verbose {
             println!("Cleaning project");
         }
