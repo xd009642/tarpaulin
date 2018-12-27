@@ -25,8 +25,8 @@ pub struct Config {
     pub ignore_tests: bool,
     /// Ignore panic macros in code.
     pub ignore_panics: bool,
-    /// Flag to skip the clean step when preparing the target project
-    pub skip_clean: bool,
+    /// Flag to add a clean step when preparing the target project
+    pub force_clean: bool,
     /// Verbose flag for printing information to the user
     pub verbose: bool,
     /// Flag to count hits in coverage
@@ -78,7 +78,7 @@ impl<'a> From<&'a ArgMatches<'a>> for Config {
             run_ignored:        args.is_present("ignored"),
             ignore_tests:       args.is_present("ignore-tests"),
             ignore_panics:      args.is_present("ignore-panics"),
-            skip_clean:         args.is_present("skip-clean"),
+            force_clean:        args.is_present("force-clean"),
             verbose:            args.is_present("verbose"),
             count:              args.is_present("count"),
             line_coverage:      get_line_cov(args),

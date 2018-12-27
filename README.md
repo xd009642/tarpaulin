@@ -76,7 +76,6 @@ output correctly reports the lines the test hits.
 ```text
 cargo tarpaulin -v
 Running Tarpaulin
-Cleaning project
 Building project
    Compiling simple_project v0.1.0 (/home/xd009642/code/rust/tarpaulin/tests/data/simple_project)
     Finished dev [unoptimized + debuginfo] target(s) in 0.31s                                            
