@@ -44,7 +44,7 @@ fn main() -> Result<(), RunError> {
                  --count   'Counts the number of hits during coverage'
                  --ignored -i 'Run ignored tests as well'
                  --line -l    'Line coverage'
-                 --skip-clean 'Skips the clean stage to reduce build times, may affect coverage results'
+                 --force-clean 'Adds a clean stage to work around cargo bugs that may affect coverage results'
                  --branch -b  'Branch coverage: NOT IMPLEMENTED'
                  --forward -f 'Forwards unexpected signals to test. Tarpaulin will still take signals it is expecting.'
                  --coveralls [KEY]  'Coveralls key, either the repo token, or if you're using travis use $TRAVIS_JOB_ID and specify travis-{ci|pro} in --ciserver'
@@ -56,7 +56,8 @@ fn main() -> Result<(), RunError> {
                  --packages -p [PACKAGE]... 'Package id specifications for which package should be build. See cargo help pkgid for more info'
                  --exclude -e [PACKAGE]... 'Package id specifications to exclude from coverage. See cargo help pkgid for more info'
                  --exclude-files [FILE]... 'Exclude given files from coverage results has * wildcard'
-                 --timeout -t [SECONDS] 'Integer for the maximum time in seconds without response from test before timeout (default is 1 minute).'")
+                 --timeout -t [SECONDS] 'Integer for the maximum time in seconds without response from test before timeout (default is 1 minute).'
+                 --release   'Build in release mode.'")
             .args(&[
                 Arg::from_usage("--out -o [FMT]   'Output format of coverage report'")
                     .possible_values(&OutputFile::variants())

@@ -7,7 +7,8 @@ RUN apt-get update && \
 COPY . /opt/tarpaulin/
 
 RUN cd /opt/tarpaulin/ && \
-    cargo install && \
+    sed -i -e 's/^\(^.*publish-lockfile.*$\)/#\1/' Cargo.toml && \
+    RUSTFLAGS="--cfg procmacro2_semver_exempt" cargo install --path . && \
     rm -rf /opt/tarpaulin/ && \
     rm -rf /usr/local/cargo/registry/
 

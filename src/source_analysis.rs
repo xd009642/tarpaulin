@@ -579,6 +579,7 @@ fn process_expr(expr: &Expr, ctx: &Context, analysis: &mut LineAnalysis) -> SubR
         Expr::While(ref w) => visit_while(&w, ctx, analysis),
         Expr::ForLoop(ref f) => visit_for(&f, ctx, analysis),
         Expr::Loop(ref l) => visit_loop(&l, ctx, analysis),
+        Expr::Return(ref r) => visit_return(&r, ctx, analysis),
         // don't try to compute unreachability on other things
         _ => SubResult::Ok,
     };
@@ -588,6 +589,17 @@ fn process_expr(expr: &Expr, ctx: &Context, analysis: &mut LineAnalysis) -> SubR
     res
 }
 
+fn visit_return(ret: &ExprReturn, ctx: &Context, analysis: &mut LineAnalysis) -> SubResult {
+    let check_cover = check_attr_list(&ret.attrs, ctx);
+    if check_cover {
+        for a in &ret.attrs {
+            analysis.ignore_span(a.span());
+        }
+    } else {
+        analysis.ignore_span(ret.span());
+    }
+    SubResult::Ok
+}   
 
 fn visit_block(block: &Block, ctx: &Context, analysis: &mut LineAnalysis) -> SubResult {
     if let SubResult::Unreachable = process_statements(&block.stmts, ctx, analysis) {

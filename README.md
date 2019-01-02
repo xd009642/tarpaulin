@@ -76,7 +76,6 @@ output correctly reports the lines the test hits.
 ```text
 cargo tarpaulin -v
 Running Tarpaulin
-Cleaning project
 Building project
    Compiling simple_project v0.1.0 (/home/xd009642/code/rust/tarpaulin/tests/data/simple_project)
     Finished dev [unoptimized + debuginfo] target(s) in 0.31s                                            
@@ -139,6 +138,11 @@ with a verbose run of tarpaulin to see the test results as well as coverage outp
 For codecov.io you'll need to export CODECOV_TOKEN are instructions on this in
 the settings of your codecov project.
 
+Because of the use of nightly proc-macro features you'll need to reinstall
+tarpaulin each time unless you're keeping to a specific nightly version. If you
+are keeping to a specific nightly you can remove the `-f` flag in the example
+travis file.
+
 ```yml
 language: rust
 sudo: required
@@ -158,7 +162,7 @@ matrix:
 
 before_cache: |
   if [[ "$TRAVIS_RUST_VERSION" == nightly ]]; then
-    RUSTFLAGS="--cfg procmacro2_semver_exempt" cargo install cargo-tarpaulin
+    RUSTFLAGS="--cfg procmacro2_semver_exempt" cargo install cargo-tarpaulin -f
   fi
 
 script:
