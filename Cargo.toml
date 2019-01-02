@@ -16,7 +16,7 @@ publish-lockfile = true
 name = "cargo-tarpaulin"
 
 [dependencies]
-cargo = "0.31"
+cargo = "0.32"
 clap = "2.31.2"
 coveralls-api = "0.3.3"
 fallible-iterator = "0.1.4"
