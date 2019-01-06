@@ -60,7 +60,7 @@ pub enum RunError {
     TestCompileFailed,
     /// Test failed during run
     TestRuntimeFail,
-    
+
 }
 
 
@@ -97,15 +97,15 @@ pub fn launch_tarpaulin(config: &Config) -> Result<(TraceMap, bool), RunError> {
     cargo::core::enable_nightly_features();
     // This shouldn't fail so no checking the error.
     let _ = cargo_config.configure(0u32, flag_quiet, &None, false, false, &None, &[]);
-    
+
     let workspace = Workspace::new(config.manifest.as_path(), &cargo_config)
         .map_err(|e| {
             println!("Cargo error: {}", e);
             RunError::Manifest
         })?;
-    
+
     setup_environment(&config);
-    
+
     let mut copt = ops::CompileOptions::new(&cargo_config, CompileMode::Test)
         .map_err(|_| RunError::Cargo)?;
     if let ops::CompileFilter::Default{ref mut required_features_filterable} = copt.filter {
@@ -115,8 +115,8 @@ pub fn launch_tarpaulin(config: &Config) -> Result<(TraceMap, bool), RunError> {
     copt.all_features = config.all_features;
     copt.no_default_features = config.no_default_features;
     copt.build_config.release = config.release;
-    copt.spec = match ops::Packages::from_flags(config.all, 
-                                                config.exclude.clone(), 
+    copt.spec = match ops::Packages::from_flags(config.all,
+                                                config.exclude.clone(),
                                                 config.packages.clone()) {
         Ok(spec) => spec,
         Err(e) => {
