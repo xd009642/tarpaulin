@@ -599,7 +599,7 @@ fn visit_return(ret: &ExprReturn, ctx: &Context, analysis: &mut LineAnalysis) ->
         analysis.ignore_span(ret.span());
     }
     SubResult::Ok
-}   
+}
 
 fn visit_block(block: &Block, ctx: &Context, analysis: &mut LineAnalysis) -> SubResult {
     if let SubResult::Unreachable = process_statements(&block.stmts, ctx, analysis) {
