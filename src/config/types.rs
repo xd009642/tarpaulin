@@ -12,6 +12,7 @@ arg_enum! {
         Toml,
         Stdout,
         Xml,
+        Html,
     }
 }
 

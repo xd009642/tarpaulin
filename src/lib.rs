@@ -262,6 +262,9 @@ pub fn report_coverage(config: &Config, result: &TraceMap) {
                 OutputFile::Xml => {
                     report::cobertura::export(result, config);
                 },
+                OutputFile::Html => {
+                    report::html::export(result, config);
+                },
                 _ => {
                     println!("Format currently unsupported");
                 },

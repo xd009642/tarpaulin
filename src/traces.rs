@@ -4,10 +4,11 @@ use std::path::{PathBuf, Path};
 use std::fmt::{Display, Formatter, Result};
 use std::ops::Add;
 use std::cmp::{Ord, Ordering};
+use serde::Serialize;
 
 
 /// Used to track the state of logical conditions
-#[derive(Debug, Clone, Copy, Default, Hash, PartialEq, Eq, PartialOrd)]
+#[derive(Debug, Clone, Copy, Default, Hash, PartialEq, Eq, PartialOrd, Serialize)]
 pub struct LogicState {
     /// Whether the condition has been observed as true
     pub been_true: bool,
@@ -27,7 +28,7 @@ impl<'a> Add for &'a LogicState {
 }
 
 /// Shows what type of coverage data is being collected by a given trace
-#[derive(Debug, Clone, Hash, PartialEq, Eq, PartialOrd)]
+#[derive(Debug, Clone, Hash, PartialEq, Eq, PartialOrd, Serialize)]
 pub enum CoverageStat {
     /// Line coverage data (whether line has been hit)
     Line(u64),
@@ -65,7 +66,7 @@ impl Display for CoverageStat {
 }
 
 
-#[derive(Debug, Clone, Hash, PartialEq, Eq, PartialOrd)]
+#[derive(Debug, Clone, Hash, PartialEq, Eq, PartialOrd, Serialize)]
 pub struct Trace {
     /// Line the trace is on in the file
     pub line: u64,
