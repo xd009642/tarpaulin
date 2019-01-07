@@ -1,13 +1,12 @@
 use std::fs::{read_to_string, File};
 use std::io::Write;
-use std::path::PathBuf;
 use serde::{Serialize};
 use traces::{TraceMap, Trace};
 use config::Config;
 
 #[derive(Serialize)]
 struct SourceFile {
-    pub path: PathBuf,
+    pub path: Vec<String>,
     pub content: String,
     pub traces: Vec<Trace>,
     pub covered: usize,
@@ -23,7 +22,7 @@ pub fn export(coverage_data: &TraceMap, _config: &Config) {
     let mut report = CoverageReport { files: Vec::new() };
     for (path, traces) in coverage_data.iter() {
         report.files.push(SourceFile {
-            path: path.clone(),
+            path: path.components().map(|c| c.as_os_str().to_string_lossy().to_string()).collect(),
             content: read_to_string(path).expect("Source file exists and is a text"),
             traces: traces.clone(),
             covered: coverage_data.covered_in_path(path),
