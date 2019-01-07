@@ -53,13 +53,15 @@ function findFolders(files) {
         parent: [...file.parent, file.path[0]],
     }));
 
+    const children = findFolders(filesInFolder); // recursion
+
     return {
       is_folder: true,
       path: [folder],
       parent: files[0].parent,
-      children: findFolders(filesInFolder), // recursion
-      covered: filesInFolder.reduce((sum, file) => sum + file.covered, 0),
-      coverable: filesInFolder.reduce((sum, file) => sum + file.coverable, 0),
+      children,
+      covered: children.reduce((sum, file) => sum + file.covered, 0),
+      coverable: children.reduce((sum, file) => sum + file.coverable, 0),
     };
   });
 
@@ -74,9 +76,17 @@ class App extends React.Component {
     super(...args);
 
     const commonPath = findCommonPath(data.files);
-    let files = data.files.map(file => ({...file, path: file.path.slice(commonPath.length), parent: commonPath}));
+    const files = data.files.map(file => ({...file, path: file.path.slice(commonPath.length), parent: commonPath}));
+    const children = findFolders(files);
 
-    data = {is_folder: true, children: findFolders(files), path: commonPath, parent: []};
+    data = {
+      is_folder: true,
+      children,
+      path: commonPath,
+      parent: [],
+      covered: children.reduce((sum, file) => sum + file.covered, 0),
+      coverable: children.reduce((sum, file) => sum + file.coverable, 0),
+    };
 
     this.state = {
       commonPath,
