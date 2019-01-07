@@ -23,14 +23,14 @@ pub fn export(coverage_data: &TraceMap, _config: &Config) {
     for (path, traces) in coverage_data.iter() {
         report.files.push(SourceFile {
             path: path.components().map(|c| c.as_os_str().to_string_lossy().to_string()).collect(),
-            content: read_to_string(path).expect("Source file exists and is a text"),
+            content: read_to_string(path).expect("Unable to read source file to string"),
             traces: traces.clone(),
             covered: coverage_data.covered_in_path(path),
             coverable: coverage_data.coverable_in_path(path),
         });
     }
 
-    let mut file = File::create("tarpaulin-report.html").expect("File is writable");
+    let mut file = File::create("tarpaulin-report.html").expect("File is not writable");
     write!(file, r##"<!doctype html>
 <html>
 <head>
@@ -46,7 +46,7 @@ pub fn export(coverage_data: &TraceMap, _config: &Config) {
 </body>
 </html>"##,
         include_str!("report_viewer.css"),
-        serde_json::to_string(&report).expect("Report is serializable"),
+        serde_json::to_string(&report).expect("Report isn't serializable"),
         include_str!("report_viewer.js")
-    ).expect("Report is written");
+    ).expect("Failed to write Html report");
 }
