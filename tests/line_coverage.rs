@@ -1,12 +1,8 @@
-extern crate cargo_tarpaulin;
-
-use cargo_tarpaulin::launch_tarpaulin;
 use cargo_tarpaulin::config::Config;
+use cargo_tarpaulin::launch_tarpaulin;
 use cargo_tarpaulin::traces::CoverageStat;
 use std::env;
 use std::time::Duration;
-
-
 
 #[test]
 fn simple_project_coverage() {
@@ -21,19 +17,19 @@ fn simple_project_coverage() {
     env::set_current_dir(test_dir.clone()).unwrap();
     config.manifest = test_dir.clone();
     config.manifest.push("Cargo.toml");
-    
-    let (res, tp) = launch_tarpaulin(&config).unwrap();
+
+    let res = launch_tarpaulin(&config).unwrap();
     env::set_current_dir(restore_dir).unwrap();
-    assert!(tp);
     let unused_file = test_dir.join("src/unused.rs");
     let unused_hits = res.covered_in_path(&unused_file);
     let unused_lines = res.coverable_in_path(&unused_file);
     assert_eq!(unused_hits, 0);
     assert_eq!(unused_lines, 3);
-    let unused_hits = res.get_child_traces(&unused_file)
-                         .iter()
-                         .map(|x| x.line)
-                         .collect::<Vec<_>>();
+    let unused_hits = res
+        .get_child_traces(&unused_file)
+        .iter()
+        .map(|x| x.line)
+        .collect::<Vec<_>>();
 
     assert_eq!(unused_hits.len(), 3);
     assert!(unused_hits.contains(&4));
@@ -50,4 +46,3 @@ fn simple_project_coverage() {
         }
     }
 }
-

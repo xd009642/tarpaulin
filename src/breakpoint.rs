@@ -1,11 +1,10 @@
-use std::collections::HashMap;
+use crate::ptrace_control::*;
 use nix::unistd::Pid;
-use nix::{Result, Error};
-use ptrace_control::*;
+use nix::{Error, Result};
+use std::collections::HashMap;
 
 #[cfg(any(target_arch = "x86", target_arch = "x86_64"))]
 const INT: u64 = 0xCC;
-
 
 /// Breakpoint construct used to monitor program execution. As tarpaulin is an
 /// automated process, this will likely have less functionality than most
@@ -21,18 +20,18 @@ pub struct Breakpoint {
     /// We therefore need to know the shift to place the breakpoint in the right place
     shift: u64,
     /// Map of the state of the breakpoint on each thread/process
-    is_running: HashMap<Pid, bool>
+    is_running: HashMap<Pid, bool>,
 }
 
 impl Breakpoint {
     /// Creates a new breakpoint for the given process and program counter.
-    pub fn new(pid:Pid, pc:u64) -> Result<Breakpoint> {
+    pub fn new(pid: Pid, pc: u64) -> Result<Breakpoint> {
         let aligned = pc & !0x7u64;
         let data = read_address(pid, aligned)?;
         let shift = 8 * (pc - aligned);
         let data = ((data >> shift) & 0xFF) as u8;
 
-        let mut b = Breakpoint{
+        let mut b = Breakpoint {
             pc,
             data,
             shift,
@@ -40,13 +39,13 @@ impl Breakpoint {
         };
         match b.enable(pid) {
             Ok(_) => Ok(b),
-            Err(e) => Err(e)
+            Err(e) => Err(e),
         }
     }
 
     /// Attaches the current breakpoint.
     pub fn enable(&mut self, pid: Pid) -> Result<()> {
-        let data  = read_address(pid, self.aligned_address())?;
+        let data = read_address(pid, self.aligned_address())?;
         self.is_running.insert(pid, true);
         let mut intdata = data & (!(0xFFu64 << self.shift) as i64);
         intdata |= (INT << self.shift) as i64;

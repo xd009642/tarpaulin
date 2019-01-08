@@ -1,18 +1,10 @@
-extern crate cargo_tarpaulin;
-extern crate nix;
-extern crate gimli;
-extern crate object;
-extern crate memmap;
-extern crate fallible_iterator;
-extern crate rustc_demangle;
-#[macro_use]
-extern crate clap;
-
-use std::path::Path;
-use clap::{App, Arg, SubCommand, ArgSettings};
-use cargo_tarpaulin::{run, RunError};
 use cargo_tarpaulin::config::*;
-
+use cargo_tarpaulin::run;
+use clap::{crate_version, App, Arg, ArgSettings, SubCommand};
+use env_logger::Builder;
+use log::error;
+use std::io::Write;
+use std::path::Path;
 
 fn is_dir(d: String) -> Result<(), String> {
     if Path::new(&d).is_dir() {
@@ -22,13 +14,36 @@ fn is_dir(d: String) -> Result<(), String> {
     }
 }
 
-const CI_SERVER_HELP: &'static str =
-"Name of service, supported services are:
+fn set_up_logging(verbose: bool) {
+    let mut builder = Builder::new();
+
+    // NOTE: This overwrites RUST_LOG
+    if verbose {
+        builder.filter_module("cargo_tarpaulin", log::LevelFilter::Debug);
+    } else {
+        builder.filter_module("cargo_tarpaulin", log::LevelFilter::Info);
+    }
+
+    builder
+        .default_format_timestamp(false)
+        .format(|buf, record| {
+            let level_style = buf.default_level_style(record.level());
+            writeln!(
+                buf,
+                "[{} tarpaulin] {}",
+                level_style.value(record.level()),
+                record.args()
+            )
+        })
+        .init();
+}
+
+const CI_SERVER_HELP: &'static str = "Name of service, supported services are:
 travis-ci, travis-pro, circle-ci, semaphore, jenkins and codeship.
 If you are interfacing with coveralls.io or another site you can \
 also specify a name that they will recognise. Refer to their documentation for this.";
 
-fn main() -> Result<(), RunError> {
+fn main() {
     let args = App::new("cargo-tarpaulin")
         .author("Daniel McKenna, <danielmckenna93@gmail.com>")
         .about("Tool to analyse test coverage of cargo projects")
@@ -75,14 +90,12 @@ fn main() -> Result<(), RunError> {
 
     let args = args.subcommand_matches("tarpaulin").unwrap_or(&args);
     let config = Config::from(args);
-    let res = run(&config);
-    println!("Tarpaulin finished");
-    res
-    /*match run(&config) {
-        Ok(()) => println!("Tarpaulin finished"),
-        Err(e) => {
-            println!("Error during run");
-            std::process::exit(e);
-        },
-    }*/
+
+    set_up_logging(config.verbose);
+
+    // Since this is the last function we run and don't do any error mitigations (other than
+    // printing the error to the user it's fine to unwrap here
+    run(&config)
+        .map_err(|e| error!("{}", e.to_string()))
+        .unwrap_or_default();
 }

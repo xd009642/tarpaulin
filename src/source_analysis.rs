@@ -1,14 +1,21 @@
-use std::path::{PathBuf, Path};
-use std::cell::RefCell;
-use std::collections::{HashSet, HashMap};
-use std::fs::File;
-use std::ffi::OsStr;
-use std::io::{Read, BufReader, BufRead};
+use crate::config::Config;
 use cargo::core::Workspace;
-use syn::{*, punctuated::{Pair::End, Pair}, spanned::Spanned, punctuated::Punctuated, token::Comma};
-use proc_macro2::{Span, TokenTree, TokenStream};
+use lazy_static::lazy_static;
+use proc_macro2::{Span, TokenStream, TokenTree};
 use regex::Regex;
-use config::Config;
+use std::cell::RefCell;
+use std::collections::{HashMap, HashSet};
+use std::ffi::OsStr;
+use std::fs::File;
+use std::io::{BufRead, BufReader, Read};
+use std::path::{Path, PathBuf};
+use syn::{
+    punctuated::Punctuated,
+    punctuated::{Pair, Pair::End},
+    spanned::Spanned,
+    token::Comma,
+    *,
+};
 use walkdir::{DirEntry, WalkDir};
 
 #[derive(Copy, Clone, Debug, Eq, PartialEq, Hash)]
@@ -34,25 +41,23 @@ pub struct LineAnalysis {
 /// an easy way to get the information back. For the container used implement
 /// this trait
 pub trait SourceAnalysisQuery {
-    fn should_ignore(&self, path: &Path, l:&usize) -> bool;
+    fn should_ignore(&self, path: &Path, l: &usize) -> bool;
 }
 
-#[derive(Copy,Clone,Debug)]
+#[derive(Copy, Clone, Debug)]
 enum SubResult {
     Ok,
-    Unreachable
+    Unreachable,
 }
 
 impl SourceAnalysisQuery for HashMap<PathBuf, LineAnalysis> {
-
-    fn should_ignore(&self, path: &Path, l:&usize) -> bool {
+    fn should_ignore(&self, path: &Path, l: &usize) -> bool {
         if self.contains_key(path) {
             self.get(path).unwrap().should_ignore(*l)
         } else {
             false
         }
     }
-
 }
 
 impl LineAnalysis {
@@ -60,7 +65,7 @@ impl LineAnalysis {
     fn new() -> LineAnalysis {
         LineAnalysis {
             ignore: HashSet::new(),
-            cover: HashSet::new()
+            cover: HashSet::new(),
         }
     }
 
@@ -74,7 +79,7 @@ impl LineAnalysis {
     pub fn ignore_span(&mut self, span: Span) {
         // If we're already ignoring everything no need to ignore this span
         if !self.ignore.contains(&Lines::All) {
-            for i in span.start().line..(span.end().line+1) {
+            for i in span.start().line..(span.end().line + 1) {
                 self.ignore.insert(Lines::Line(i));
                 if self.cover.contains(&i) {
                     self.cover.remove(&i);
@@ -111,11 +116,11 @@ impl LineAnalysis {
                     true
                 };
                 if is_code && !SINGLE_LINE.is_match(line) {
-                    useful_lines.insert(i+1);
+                    useful_lines.insert(i + 1);
                 }
             }
         }
-        for i in span.start().line..(span.end().line +1) {
+        for i in span.start().line..(span.end().line + 1) {
             if !self.ignore.contains(&Lines::Line(i)) && useful_lines.contains(&i) {
                 self.cover.insert(i);
             }
@@ -140,12 +145,10 @@ impl LineAnalysis {
     }
 }
 
-
 fn is_source_file(entry: &DirEntry) -> bool {
     let p = entry.path();
     p.extension() == Some(OsStr::new("rs"))
 }
-
 
 fn is_target_folder(entry: &DirEntry, root: &Path) -> bool {
     let target = root.join("target");
@@ -159,11 +162,19 @@ pub fn get_line_analysis(project: &Workspace, config: &Config) -> HashMap<PathBu
     let mut ignored_files: HashSet<PathBuf> = HashSet::new();
 
     let walker = WalkDir::new(project.root()).into_iter();
-    for e in walker.filter_entry(|e| !is_target_folder(e, project.root()))
-                   .filter_map(|e| e.ok())
-                   .filter(|e| is_source_file(e)) {
+    for e in walker
+        .filter_entry(|e| !is_target_folder(e, project.root()))
+        .filter_map(|e| e.ok())
+        .filter(|e| is_source_file(e))
+    {
         if !ignored_files.contains(e.path()) {
-            analyse_package(e.path(), project.root(), &config, &mut result, &mut ignored_files);
+            analyse_package(
+                e.path(),
+                project.root(),
+                &config,
+                &mut result,
+                &mut ignored_files,
+            );
         } else {
             let mut analysis = LineAnalysis::new();
             analysis.ignore_all();
@@ -182,7 +193,7 @@ pub fn get_line_analysis(project: &Workspace, config: &Config) -> HashMap<PathBu
 /// Analyse the crates lib.rs for some common false positives
 fn analyse_lib_rs(file: &Path, result: &mut HashMap<PathBuf, LineAnalysis>) {
     if let Ok(f) = File::open(file) {
-        let mut read_file = BufReader::new(f);
+        let read_file = BufReader::new(f);
         if let Some(Ok(first)) = read_file.lines().nth(0) {
             if !(first.starts_with("pub") || first.starts_with("fn")) {
                 let file = file.to_path_buf();
@@ -210,30 +221,29 @@ struct Context<'a> {
     file: &'a Path,
     /// Other parts of context are immutable like tarpaulin config and users
     /// source code. This is discovered during hence use of interior mutability
-    ignore_mods: RefCell<HashSet<PathBuf>>
+    ignore_mods: RefCell<HashSet<PathBuf>>,
 }
 
-
 /// Analyses a package of the target crate.
-fn analyse_package(path: &Path,
-                   root: &Path,
-                   config:&Config,
-                   result: &mut HashMap<PathBuf, LineAnalysis>,
-                   filtered_files: &mut HashSet<PathBuf>) {
-
+fn analyse_package(
+    path: &Path,
+    root: &Path,
+    config: &Config,
+    result: &mut HashMap<PathBuf, LineAnalysis>,
+    filtered_files: &mut HashSet<PathBuf>,
+) {
     if let Some(file) = path.to_str() {
-        let skip_cause_test = config.ignore_tests &&
-                              path.starts_with(root.join("tests"));
+        let skip_cause_test = config.ignore_tests && path.starts_with(root.join("tests"));
         let skip_cause_example = path.starts_with(root.join("examples"));
-        if !(skip_cause_test || skip_cause_example)  {
+        if !(skip_cause_test || skip_cause_example) {
             let file = File::open(file);
-            if let Ok(mut file) =  file {
+            if let Ok(mut file) = file {
                 let mut content = String::new();
                 let _ = file.read_to_string(&mut content);
                 let file = parse_file(&content);
                 if let Ok(file) = file {
                     let mut analysis = LineAnalysis::new();
-                    let mut ctx = Context {
+                    let ctx = Context {
                         config,
                         file_contents: &content,
                         file: path,
@@ -251,8 +261,7 @@ fn analyse_package(path: &Path,
                             filtered_files.insert(f);
                         } else {
                             let walker = WalkDir::new(f).into_iter();
-                            for e in walker.filter_map(|e| e.ok())
-                                           .filter(|e| is_source_file(e)) {
+                            for e in walker.filter_map(|e| e.ok()).filter(|e| is_source_file(e)) {
                                 filtered_files.insert(e.path().to_path_buf());
                             }
                         }
@@ -272,14 +281,14 @@ fn analyse_package(path: &Path,
 /// These are often things like close braces, semi colons that may regiser as
 /// false positives.
 fn find_ignorable_lines(content: &str, analysis: &mut LineAnalysis) {
-    let lines = content.lines()
-                       .enumerate()
-                       .filter(|&(_, x)| !x.chars().any(|x| !"(){}[]?;\t ,".contains(x)))
-                       .map(|(i, _)| i+1)
-                       .collect::<Vec<usize>>();
+    let lines = content
+        .lines()
+        .enumerate()
+        .filter(|&(_, x)| !x.chars().any(|x| !"(){}[]?;\t ,".contains(x)))
+        .map(|(i, _)| i + 1)
+        .collect::<Vec<usize>>();
     analysis.add_to_ignore(&lines);
 }
-
 
 fn process_items(items: &[Item], ctx: &Context, analysis: &mut LineAnalysis) -> SubResult {
     let mut res = SubResult::Ok;
@@ -291,26 +300,25 @@ fn process_items(items: &[Item], ctx: &Context, analysis: &mut LineAnalysis) -> 
             Item::Fn(ref i) => visit_fn(&i, analysis, ctx),
             Item::Struct(ref i) => {
                 analysis.ignore_span(i.span());
-            },
+            }
             Item::Enum(ref i) => {
                 analysis.ignore_span(i.span());
             }
             Item::Union(ref i) => {
                 analysis.ignore_span(i.span());
-            },
+            }
             Item::Trait(ref i) => visit_trait(&i, analysis, ctx),
             Item::Impl(ref i) => visit_impl(&i, analysis, ctx),
             Item::Macro(ref i) => {
                 if let SubResult::Unreachable = visit_macro_call(&i.mac, ctx, analysis) {
                     res = SubResult::Unreachable;
                 }
-            },
-            _ =>{}
+            }
+            _ => {}
         }
     }
     res
 }
-
 
 fn process_statements(stmts: &[Stmt], ctx: &Context, analysis: &mut LineAnalysis) -> SubResult {
     // in a list of statements, if any of them is unreachable, the whole list is
@@ -319,8 +327,7 @@ fn process_statements(stmts: &[Stmt], ctx: &Context, analysis: &mut LineAnalysis
     for stmt in stmts.iter() {
         let res = match *stmt {
             Stmt::Item(ref i) => process_items(&[i.clone()], ctx, analysis),
-            Stmt::Expr(ref i)
-            | Stmt::Semi(ref i, _) => process_expr(&i, ctx, analysis),
+            Stmt::Expr(ref i) | Stmt::Semi(ref i, _) => process_expr(&i, ctx, analysis),
             _ => SubResult::Ok,
         };
         if let SubResult::Unreachable = res {
@@ -334,7 +341,6 @@ fn process_statements(stmts: &[Stmt], ctx: &Context, analysis: &mut LineAnalysis
         SubResult::Ok
     }
 }
-
 
 fn visit_mod(module: &ItemMod, analysis: &mut LineAnalysis, ctx: &Context) {
     analysis.ignore_span(module.mod_token.span());
@@ -386,7 +392,6 @@ fn visit_mod(module: &ItemMod, analysis: &mut LineAnalysis, ctx: &Context) {
     }
 }
 
-
 fn visit_fn(func: &ItemFn, analysis: &mut LineAnalysis, ctx: &Context) {
     let mut test_func = false;
     let mut ignored_attr = false;
@@ -424,19 +429,18 @@ fn visit_fn(func: &ItemFn, analysis: &mut LineAnalysis, ctx: &Context) {
             // if the whole body of the function is unreachable, that means the function itself
             // cannot be called, so is unreachable as a whole
             analysis.ignore_span(func.span());
-            return
+            return;
         }
         visit_generics(&func.decl.generics, analysis);
         let line_number = func.decl.fn_token.span().start().line;
         analysis.ignore.remove(&Lines::Line(line_number));
         // Ignore multiple lines of fn decl
-        let decl_start = func.decl.fn_token.span().start().line+1;
+        let decl_start = func.decl.fn_token.span().start().line + 1;
         let stmts_start = func.block.span().start().line;
-        let lines = (decl_start..(stmts_start+1)).collect::<Vec<_>>();
+        let lines = (decl_start..(stmts_start + 1)).collect::<Vec<_>>();
         analysis.add_to_ignore(&lines);
     }
 }
-
 
 fn check_attr_list(attrs: &[Attribute], ctx: &Context) -> bool {
     let mut check_cover = true;
@@ -444,7 +448,7 @@ fn check_attr_list(attrs: &[Attribute], ctx: &Context) -> bool {
         if let Some(x) = attr.interpret_meta() {
             if check_cfg_attr(&x) {
                 check_cover = false;
-            } else if ctx.config.ignore_tests &&  x.name() == "cfg" {
+            } else if ctx.config.ignore_tests && x.name() == "cfg" {
                 if let Meta::List(ref ml) = x {
                     let mut skip = false;
                     for c in &ml.nested {
@@ -476,7 +480,7 @@ fn check_cfg_attr(attr: &Meta) -> bool {
                 match p {
                     NestedMeta::Meta(Meta::Word(ref i)) => {
                         skip_match = i == x;
-                    },
+                    }
                     _ => skip_match = false,
                 }
                 if !skip_match {
@@ -489,7 +493,6 @@ fn check_cfg_attr(attr: &Meta) -> bool {
     ignore_span
 }
 
-
 fn visit_trait(trait_item: &ItemTrait, analysis: &mut LineAnalysis, ctx: &Context) {
     let check_cover = check_attr_list(&trait_item.attrs, ctx);
     if check_cover {
@@ -499,12 +502,14 @@ fn visit_trait(trait_item: &ItemTrait, analysis: &mut LineAnalysis, ctx: &Contex
                     if let Some(ref block) = i.default {
                         analysis.cover_span(item.span(), Some(ctx.file_contents));
                         visit_generics(&i.sig.decl.generics, analysis);
-                        analysis.ignore.remove(&Lines::Line(i.sig.span().start().line));
+                        analysis
+                            .ignore
+                            .remove(&Lines::Line(i.sig.span().start().line));
 
                         // Ignore multiple lines of fn decl
-                        let decl_start = i.sig.decl.fn_token.span().start().line+1;
+                        let decl_start = i.sig.decl.fn_token.span().start().line + 1;
                         let stmts_start = block.span().start().line;
-                        let lines = (decl_start..(stmts_start+1)).collect::<Vec<_>>();
+                        let lines = (decl_start..(stmts_start + 1)).collect::<Vec<_>>();
                         analysis.add_to_ignore(&lines);
                     }
                 } else {
@@ -521,7 +526,6 @@ fn visit_trait(trait_item: &ItemTrait, analysis: &mut LineAnalysis, ctx: &Contex
     }
 }
 
-
 fn visit_impl(impl_blk: &ItemImpl, analysis: &mut LineAnalysis, ctx: &Context) {
     let check_cover = check_attr_list(&impl_blk.attrs, ctx);
     if check_cover {
@@ -529,20 +533,22 @@ fn visit_impl(impl_blk: &ItemImpl, analysis: &mut LineAnalysis, ctx: &Context) {
             if let ImplItem::Method(ref i) = *item {
                 if check_attr_list(&i.attrs, ctx) {
                     analysis.cover_span(i.span(), Some(ctx.file_contents));
-                    if let SubResult::Unreachable = process_statements(&i.block.stmts, ctx, analysis) {
+                    if let SubResult::Unreachable =
+                        process_statements(&i.block.stmts, ctx, analysis)
+                    {
                         // if the body of this method is unreachable, this means that the method
                         // cannot be called, and is unreachable
                         analysis.ignore_span(i.span());
-                        return
+                        return;
                     }
 
                     visit_generics(&i.sig.decl.generics, analysis);
                     analysis.ignore.remove(&Lines::Line(i.span().start().line));
 
                     // Ignore multiple lines of fn decl
-                    let decl_start = i.sig.decl.fn_token.span().start().line+1;
+                    let decl_start = i.sig.decl.fn_token.span().start().line + 1;
                     let stmts_start = i.block.span().start().line;
-                    let lines = (decl_start..(stmts_start+1)).collect::<Vec<_>>();
+                    let lines = (decl_start..(stmts_start + 1)).collect::<Vec<_>>();
                     analysis.add_to_ignore(&lines);
                 } else {
                     analysis.ignore_span(item.span());
@@ -558,13 +564,11 @@ fn visit_impl(impl_blk: &ItemImpl, analysis: &mut LineAnalysis, ctx: &Context) {
     }
 }
 
-
 fn visit_generics(generics: &Generics, analysis: &mut LineAnalysis) {
     if let Some(ref wh) = generics.where_clause {
         analysis.ignore_span(wh.span());
     }
 }
-
 
 fn process_expr(expr: &Expr, ctx: &Context, analysis: &mut LineAnalysis) -> SubResult {
     let res = match *expr {
@@ -599,7 +603,7 @@ fn visit_return(ret: &ExprReturn, ctx: &Context, analysis: &mut LineAnalysis) ->
         analysis.ignore_span(ret.span());
     }
     SubResult::Ok
-}   
+}
 
 fn visit_block(block: &Block, ctx: &Context, analysis: &mut LineAnalysis) -> SubResult {
     if let SubResult::Unreachable = process_statements(&block.stmts, ctx, analysis) {
@@ -609,7 +613,6 @@ fn visit_block(block: &Block, ctx: &Context, analysis: &mut LineAnalysis) -> Sub
         SubResult::Ok
     }
 }
-
 
 fn visit_match(mat: &ExprMatch, ctx: &Context, analysis: &mut LineAnalysis) -> SubResult {
     // a match with some arms is unreachable iff all its arms are unreachable
@@ -627,14 +630,13 @@ fn visit_match(mat: &ExprMatch, ctx: &Context, analysis: &mut LineAnalysis) -> S
     }
 }
 
-
 fn visit_if(if_block: &ExprIf, ctx: &Context, analysis: &mut LineAnalysis) -> SubResult {
     // an if expression is unreachable iff both its branches are unreachable
     let mut reachable_arm = false;
     if let SubResult::Ok = visit_block(&if_block.then_branch, ctx, analysis) {
         reachable_arm = true;
     }
-    if let Some((_ ,ref else_block)) = if_block.else_branch {
+    if let Some((_, ref else_block)) = if_block.else_branch {
         if let SubResult::Ok = process_expr(&else_block, ctx, analysis) {
             reachable_arm = true;
         }
@@ -650,9 +652,6 @@ fn visit_if(if_block: &ExprIf, ctx: &Context, analysis: &mut LineAnalysis) -> Su
     }
 }
 
-
-
-
 fn visit_while(whl: &ExprWhile, ctx: &Context, analysis: &mut LineAnalysis) -> SubResult {
     // a while block is unreachable iff its body is
     if let SubResult::Unreachable = visit_block(&whl.body, ctx, analysis) {
@@ -662,7 +661,6 @@ fn visit_while(whl: &ExprWhile, ctx: &Context, analysis: &mut LineAnalysis) -> S
         SubResult::Ok
     }
 }
-
 
 fn visit_for(for_loop: &ExprForLoop, ctx: &Context, analysis: &mut LineAnalysis) -> SubResult {
     // a for block is unreachable iff its body is
@@ -674,7 +672,6 @@ fn visit_for(for_loop: &ExprForLoop, ctx: &Context, analysis: &mut LineAnalysis)
     }
 }
 
-
 fn visit_loop(loopex: &ExprLoop, ctx: &Context, analysis: &mut LineAnalysis) -> SubResult {
     // a loop block is unreachable iff its body is
     if let SubResult::Unreachable = visit_block(&loopex.body, ctx, analysis) {
@@ -685,15 +682,14 @@ fn visit_loop(loopex: &ExprLoop, ctx: &Context, analysis: &mut LineAnalysis) -> 
     }
 }
 
-
 fn get_coverable_args(args: &Punctuated<Expr, Comma>) -> HashSet<usize> {
-    let mut lines:HashSet<usize> = HashSet::new();
+    let mut lines: HashSet<usize> = HashSet::new();
     for a in args.iter() {
         let s = a.span();
         match *a {
-            Expr::Lit(_) => {},
+            Expr::Lit(_) => {}
             _ => {
-                for i in s.start().line..(s.end().line+1) {
+                for i in s.start().line..(s.end().line + 1) {
                     lines.insert(i);
                 }
             }
@@ -702,36 +698,39 @@ fn get_coverable_args(args: &Punctuated<Expr, Comma>) -> HashSet<usize> {
     lines
 }
 
-
-fn visit_callable(call: &ExprCall, analysis: &mut LineAnalysis ) -> SubResult {
+fn visit_callable(call: &ExprCall, analysis: &mut LineAnalysis) -> SubResult {
     let start = call.span().start().line + 1;
     let end = call.span().end().line + 1;
     let lines = get_coverable_args(&call.args);
-    let lines = (start..end).filter(|x| !lines.contains(&x))
-                            .collect::<Vec<_>>();
+    let lines = (start..end)
+        .filter(|x| !lines.contains(&x))
+        .collect::<Vec<_>>();
     analysis.add_to_ignore(&lines);
     // We can't guess if a callable would actually be unreachable
     SubResult::Ok
 }
 
-
 fn visit_methodcall(meth: &ExprMethodCall, analysis: &mut LineAnalysis) -> SubResult {
     let start = meth.span().start().line + 1;
     let end = meth.span().end().line + 1;
     let lines = get_coverable_args(&meth.args);
-    let lines = (start..end).filter(|x| !lines.contains(&x))
-                            .collect::<Vec<_>>();
+    let lines = (start..end)
+        .filter(|x| !lines.contains(&x))
+        .collect::<Vec<_>>();
     analysis.add_to_ignore(&lines);
     // We can't guess if a method would actually be unreachable
     SubResult::Ok
 }
 
-
-fn visit_unsafe_block(unsafe_expr: &ExprUnsafe, ctx: &Context, analysis: &mut LineAnalysis) -> SubResult {
+fn visit_unsafe_block(
+    unsafe_expr: &ExprUnsafe,
+    ctx: &Context,
+    analysis: &mut LineAnalysis,
+) -> SubResult {
     let u_line = unsafe_expr.unsafe_token.span().start().line;
 
     let blk = &unsafe_expr.block;
-    if u_line != blk.brace_token.span.start().line || blk.stmts.is_empty()  {
+    if u_line != blk.brace_token.span.start().line || blk.stmts.is_empty() {
         analysis.ignore_span(unsafe_expr.unsafe_token.span());
     } else if let Some(ref first_stmt) = blk.stmts.get(0) {
         let s = match **first_stmt {
@@ -754,34 +753,33 @@ fn visit_unsafe_block(unsafe_expr: &ExprUnsafe, ctx: &Context, analysis: &mut Li
     SubResult::Ok
 }
 
-
 fn visit_struct_expr(structure: &ExprStruct, analysis: &mut LineAnalysis) -> SubResult {
     let mut cover: HashSet<usize> = HashSet::new();
     let start = structure.span().start().line;
     let end = structure.span().end().line;
     for field in structure.fields.pairs() {
         let first = match field {
-            Pair::Punctuated(t, _) => {t},
-            Pair::End(t) => {t},
+            Pair::Punctuated(t, _) => t,
+            Pair::End(t) => t,
         };
         let span = match first.member {
             Member::Named(ref i) => i.span(),
             Member::Unnamed(ref i) => i.span,
         };
         match first.expr {
-            Expr::Lit(_) | Expr::Path(_) => {},
-            _=>{
+            Expr::Lit(_) | Expr::Path(_) => {}
+            _ => {
                 cover.insert(span.start().line);
-            },
+            }
         }
     }
-    let x = (start..(end+1)).filter(|x| !cover.contains(&x))
-                            .collect::<Vec<usize>>();
+    let x = (start..(end + 1))
+        .filter(|x| !cover.contains(&x))
+        .collect::<Vec<usize>>();
     analysis.add_to_ignore(&x);
     // struct expressions are never unreachable by themselves
     SubResult::Ok
 }
-
 
 fn visit_macro_call(mac: &Macro, ctx: &Context, analysis: &mut LineAnalysis) -> SubResult {
     let mut skip = false;
@@ -789,26 +787,25 @@ fn visit_macro_call(mac: &Macro, ctx: &Context, analysis: &mut LineAnalysis) -> 
     let end = mac.span().end().line + 1;
     if let Some(End(ref name)) = mac.path.segments.last() {
         let unreachable = name.ident == "unreachable";
-        let standard_ignores =  name.ident == "unimplemented" || name.ident == "include";
-        let ignore_panic =  ctx.config.ignore_panics && name.ident == "panic";
+        let standard_ignores = name.ident == "unimplemented" || name.ident == "include";
+        let ignore_panic = ctx.config.ignore_panics && name.ident == "panic";
         if standard_ignores || ignore_panic || unreachable {
             analysis.ignore_span(mac.span());
             skip = true;
         }
         if unreachable {
-            return SubResult::Unreachable
+            return SubResult::Unreachable;
         }
-
     }
     if !skip {
         let lines = process_mac_args(&mac.tts);
-        let lines = (start..end).filter(|x| !lines.contains(&x))
-                                .collect::<Vec<_>>();
+        let lines = (start..end)
+            .filter(|x| !lines.contains(&x))
+            .collect::<Vec<_>>();
         analysis.add_to_ignore(&lines);
     }
     SubResult::Ok
 }
-
 
 fn process_mac_args(tokens: &TokenStream) -> HashSet<usize> {
     let mut cover: HashSet<usize> = HashSet::new();
@@ -816,17 +813,16 @@ fn process_mac_args(tokens: &TokenStream) -> HashSet<usize> {
     for token in tokens.clone() {
         let t = token.span();
         match token {
-            TokenTree::Literal(_) | TokenTree::Punct{..} => {},
+            TokenTree::Literal(_) | TokenTree::Punct { .. } => {}
             _ => {
-                for i in t.start().line..(t.end().line+1) {
+                for i in t.start().line..(t.end().line + 1) {
                     cover.insert(i);
                 }
-            },
+            }
         }
     }
     cover
 }
-
 
 #[cfg(test)]
 mod tests {
@@ -839,7 +835,7 @@ mod tests {
         assert!(!la.should_ignore(0));
         assert!(!la.should_ignore(10));
 
-        la.add_to_ignore(&[3,4, 10]);
+        la.add_to_ignore(&[3, 4, 10]);
         assert!(la.should_ignore(3));
         assert!(la.should_ignore(4));
         assert!(la.should_ignore(10));
@@ -900,7 +896,7 @@ mod tests {
         let parser = parse_file(ctx.file_contents).unwrap();
         process_items(&parser.items, &ctx, &mut lines);
 
-        assert!(lines.ignore.len()> 3);
+        assert!(lines.ignore.len() > 3);
         assert!(lines.ignore.contains(&Lines::Line(1)));
         assert!(lines.ignore.contains(&Lines::Line(3)));
         assert!(lines.ignore.contains(&Lines::Line(4)));
@@ -931,7 +927,7 @@ mod tests {
         let parser = parse_file(ctx.file_contents).unwrap();
         process_items(&parser.items, &ctx, &mut lines);
 
-        assert!(lines.ignore.len()> 3);
+        assert!(lines.ignore.len() > 3);
         assert!(lines.ignore.contains(&Lines::Line(3)));
         assert!(lines.ignore.contains(&Lines::Line(4)));
         assert!(lines.ignore.contains(&Lines::Line(5)));
@@ -1107,7 +1103,6 @@ mod tests {
         assert!(lines.ignore.contains(&Lines::Line(3)));
     }
 
-
     #[test]
     fn filter_test_utilities() {
         let mut config = Config::default();
@@ -1150,7 +1145,6 @@ mod tests {
         assert!(!lines.ignore.contains(&Lines::Line(3)));
         assert!(!lines.ignore.contains(&Lines::Line(4)));
     }
-
 
     #[test]
     fn filter_where() {
@@ -1199,7 +1193,6 @@ mod tests {
         assert!(lines.ignore.contains(&Lines::Line(3)));
     }
 
-
     #[test]
     fn filter_derives() {
         let config = Config::default();
@@ -1213,7 +1206,6 @@ mod tests {
         let parser = parse_file(ctx.file_contents).unwrap();
         process_items(&parser.items, &ctx, &mut lines);
         assert!(lines.ignore.contains(&Lines::Line(1)));
-
 
         let mut lines = LineAnalysis::new();
         let ctx = Context {
@@ -1311,7 +1303,6 @@ mod tests {
         process_items(&parser.items, &ctx, &mut lines);
         assert!(lines.cover.contains(&2));
         assert!(lines.cover.contains(&3));
-
     }
 
     #[test]
@@ -1395,7 +1386,6 @@ mod tests {
         assert!(lines.cover.contains(&8));
     }
 
-
     #[test]
     fn tarpaulin_skip_attr() {
         let config = Config::default();
@@ -1447,7 +1437,6 @@ mod tests {
         assert!(lines.ignore.contains(&Lines::Line(8)));
         assert!(lines.ignore.contains(&Lines::Line(9)));
     }
-
 
     #[test]
     fn tarpaulin_skip_trait_attrs() {
@@ -1501,7 +1490,6 @@ mod tests {
         assert!(lines.ignore.contains(&Lines::Line(7)));
         assert!(lines.ignore.contains(&Lines::Line(8)));
     }
-
 
     #[test]
     fn tarpaulin_skip_impl_attrs() {
@@ -1558,7 +1546,6 @@ mod tests {
         assert!(lines.ignore.contains(&Lines::Line(9)));
         assert!(lines.ignore.contains(&Lines::Line(10)));
     }
-
 
     #[test]
     fn filter_block_contents() {
