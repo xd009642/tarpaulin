@@ -18,8 +18,11 @@ extern crate quick_xml;
 extern crate regex;
 extern crate void;
 extern crate walkdir;
+extern crate failure;
+#[macro_use]
+extern crate log;
 
-use std::{env, io};
+use std::env;
 use std::ffi::CString;
 use std::path::{Path, PathBuf};
 use nix::unistd::*;
@@ -27,12 +30,12 @@ use cargo::util::{homedir, Config as CargoConfig};
 use cargo::core::{Workspace, Package, compiler::CompileMode, Shell};
 use cargo::ops;
 
-
 pub mod config;
 pub mod test_loader;
 pub mod breakpoint;
 pub mod report;
 pub mod traces;
+pub mod errors;
 mod statemachine;
 mod source_analysis;
 
@@ -41,42 +44,21 @@ mod personality;
 mod ptrace_control;
 
 use config::*;
+use errors::*;
 use test_loader::*;
 use ptrace_control::*;
 use statemachine::*;
 use traces::*;
 
-
-/// Error states that could be returned from tarpaulin
-#[derive(Clone, Copy, PartialEq, Eq, Debug)]
-pub enum RunError {
-    /// Error in cargo manifests
-    Manifest,
-    /// Cargo failed to run
-    Cargo,
-    /// Error trying to resolve package configuration in manifest
-    Packages,
-    /// Tests failed to compile
-    TestCompileFailed,
-    /// Test failed during run
-    TestRuntimeFail,
-
-}
-
-
 pub fn run(config: &Config) -> Result<(), RunError> {
-    let (result, tp) = launch_tarpaulin(config)?;
-    report_coverage(config, &result);
-    if tp {
-        Ok(())
-    } else {
-        println!("Tarpaulin ran successfully");
-        Err(RunError::TestRuntimeFail)
-    }
+    let tracemap = launch_tarpaulin(config)?;
+    report_coverage(config, &tracemap)?;
+
+    Ok(())
 }
 
 /// Launches tarpaulin with the given configuration.
-pub fn launch_tarpaulin(config: &Config) -> Result<(TraceMap, bool), RunError> {
+pub fn launch_tarpaulin(config: &Config) -> Result<TraceMap, RunError> {
     let cwd = match config.manifest.parent() {
         Some(p) => p.to_path_buf(),
         None => PathBuf::new(),
@@ -84,7 +66,7 @@ pub fn launch_tarpaulin(config: &Config) -> Result<(TraceMap, bool), RunError> {
     let home = match homedir(&cwd) {
         Some(h) => h,
         None => {
-            println!("Warning failed to find home directory.");
+            warn!("Warning failed to find home directory.");
             PathBuf::new()
         },
     };
@@ -100,14 +82,13 @@ pub fn launch_tarpaulin(config: &Config) -> Result<(TraceMap, bool), RunError> {
 
     let workspace = Workspace::new(config.manifest.as_path(), &cargo_config)
         .map_err(|e| {
-            println!("Cargo error: {}", e);
-            RunError::Manifest
+            RunError::Manifest(e.to_string())
         })?;
 
     setup_environment(&config);
 
     let mut copt = ops::CompileOptions::new(&cargo_config, CompileMode::Test)
-        .map_err(|_| RunError::Cargo)?;
+        .map_err(|e| RunError::Cargo(e.to_string()))?;
     if let ops::CompileFilter::Default{ref mut required_features_filterable} = copt.filter {
         *required_features_filterable = true;
     }
@@ -120,17 +101,14 @@ pub fn launch_tarpaulin(config: &Config) -> Result<(TraceMap, bool), RunError> {
                                                 config.packages.clone()) {
         Ok(spec) => spec,
         Err(e) => {
-            println!("Error getting Packages from workspace {}", e);
-            return Err(RunError::Packages)
+            return Err(RunError::Packages(e.to_string()));
         }
     };
-    if config.verbose {
-        println!("Running Tarpaulin");
-    }
+
+    info!("Running Tarpaulin");
+
     if config.force_clean {
-        if config.verbose {
-            println!("Cleaning project");
-        }
+        debug!("Cleaning project");
         // Clean isn't expected to fail and if it does it likely won't have an effect
         let clean_opt = ops::CleanOptions {
             config: &cargo_config,
@@ -142,35 +120,27 @@ pub fn launch_tarpaulin(config: &Config) -> Result<(TraceMap, bool), RunError> {
         let _ = ops::clean(&workspace, &clean_opt);
     }
     let mut result = TraceMap::new();
-    println!("Building project");
+    info!("Building project");
     let compilation = ops::compile(&workspace, &copt);
-    let mut test_passed = true;
     match compilation {
         Ok(comp) => {
             for &(ref package, ref _target_kind, ref name, ref path) in &comp.tests {
-                if config.verbose {
-                    println!("Processing {}", name);
-                }
-                if let Some((res, tp)) = get_test_coverage(&workspace, package, path.as_path(), config, false) {
+                debug!("Processing {}", name);
+                if let Some(res) = get_test_coverage(&workspace, package, path.as_path(), config, false)? {
                     result.merge(&res);
-                    test_passed &= tp;
                 }
                 if config.run_ignored {
-                    if let Some((res, tp)) = get_test_coverage(&workspace, package, path.as_path(),
-                                                         config, true) {
+                    if let Some(res) = get_test_coverage(&workspace, package, path.as_path(),
+                                                         config, true)? {
                         result.merge(&res);
-                        test_passed &= tp;
                     }
                 }
             }
             result.dedup();
-            Ok((result, test_passed))
+            Ok(result)
         },
         Err(e) => {
-            if config.verbose{
-                println!("Error: failed to compile: {}", e);
-            }
-            Err(RunError::TestCompileFailed)
+            Err(RunError::TestCompile(e.to_string()))
         },
     }
 }
@@ -214,13 +184,11 @@ fn accumulate_lines((mut acc, mut group): (Vec<String>, Vec<u64>), next: u64) ->
 
 /// Reports the test coverage using the users preferred method. See config.rs
 /// or help text for details.
-pub fn report_coverage(config: &Config, result: &TraceMap) {
+pub fn report_coverage(config: &Config, result: &TraceMap) -> Result<(), RunError> {
     if !result.is_empty() {
-        println!("Coverage Results");
+        info!("Coverage Results:");
         if config.verbose {
-
-            println!();
-            println!("Uncovered Lines:");
+            println!("|| Uncovered Lines:");
             for (ref key, ref value) in result.iter() {
                 let path = config.strip_project_path(key);
                 let mut uncovered_lines = vec![];
@@ -238,42 +206,42 @@ pub fn report_coverage(config: &Config, result: &TraceMap) {
                     .fold((vec![], vec![]), accumulate_lines);
                 let (groups, _) = accumulate_lines((groups, last_group), u64::max_value());
                 if ! groups.is_empty() {
-                    println!("{}: {}", path.display(), groups.join(", "));
+                    println!("|| {}: {}", path.display(), groups.join(", "));
                 }
             }
-            println!();
         }
-        println!("Tested/Total Lines:");
+        println!("|| Tested/Total Lines:");
         for file in result.files() {
             let path = config.strip_project_path(file);
-            println!("{}: {}/{}", path.display(), result.covered_in_path(&file), result.coverable_in_path(&file));
+            println!("|| {}: {}/{}", path.display(), result.covered_in_path(&file), result.coverable_in_path(&file));
         }
         let percent = result.coverage_percentage() * 100.0f64;
         // Put file filtering here
-        println!("\n{:.2}% coverage, {}/{} lines covered", percent,
+        println!("|| \n{:.2}% coverage, {}/{} lines covered", percent,
                  result.total_covered(), result.total_coverable());
         if config.is_coveralls() {
-            report::coveralls::export(result, config);
-            println!("Coverage data sent");
+            report::coveralls::export(result, config)?;
+            info!("Coverage data sent");
         }
 
         for g in &config.generate {
             match *g {
                 OutputFile::Xml => {
-                    report::cobertura::export(result, config);
+                    report::cobertura::export(result, config)?;
                 },
                 OutputFile::Html => {
-                    report::html::export(result, config);
+                    report::html::export(result, config)?;
                 },
                 _ => {
-                    println!("Format currently unsupported");
+                    return Err(RunError::OutFormat("Format currently unsupported".to_string()));
                 },
             }
         }
-    } else {
-        println!("No coverage results collected.");
-    }
 
+        Ok(())
+    } else {
+        Err(RunError::CovReport("No coverage results collected.".to_string()))
+    }
 }
 
 /// Returns the coverage statistics for a test executable in the given workspace
@@ -281,31 +249,28 @@ pub fn get_test_coverage(project: &Workspace,
                          package: &Package,
                          test: &Path,
                          config: &Config,
-                         ignored: bool) -> Option<(TraceMap, bool)> {
+                         ignored: bool) -> Result<Option<TraceMap>, RunError> {
     if !test.exists() {
-        return None;
+        return Ok(None);
     }
     match fork() {
         Ok(ForkResult::Parent{ child }) => {
             match collect_coverage(project, test, child, config) {
                 Ok(t) => {
-                    Some(t)
+                    Ok(Some(t))
                 },
                 Err(e) => {
-                    println!("Error occurred: {}", e);
-                    None
+                    Err(RunError::TestCoverage(e.to_string()))
                 },
             }
         }
         Ok(ForkResult::Child) => {
-            println!("Launching test");
-            execute_test(test, package, ignored, config);
-            None
+            info!("Launching test");
+            execute_test(test, package, ignored, config)?;
+            Ok(None)
         }
         Err(err) => {
-            println!("Failed to run {}", test.display());
-            println!("Error {}", err);
-            None
+            Err(RunError::TestCoverage(format!("Failed to run test {}, Error: {}", test.display(), err.to_string())))
         }
     }
 
@@ -315,40 +280,40 @@ pub fn get_test_coverage(project: &Workspace,
 fn collect_coverage(project: &Workspace,
                     test_path: &Path,
                     test: Pid,
-                    config: &Config) -> io::Result<(TraceMap, bool)> {
-    let mut test_passed = false;
+                    config: &Config) -> Result<TraceMap, RunError> {
     let mut traces = generate_tracemap(project, test_path, config)?;
     {
         let (mut state, mut data) = create_state_machine(test, &mut traces, config);
         loop {
-            state = state.step(&mut data, config);
+            //TODO: Well, this is ugly
+            let state_var = state.step(&mut data, config);
+            state = state_var?;
             if state.is_finished() {
                 if let TestState::End(i) = state {
-                    test_passed = i==0;
+                    if i != 0 {
+                        // TODO: Needs a better error message!
+                        return Err(RunError::TestCoverage("Failed to run tests!".to_string()));
+                    }
                 }
                 break;
             }
         }
-        if let Some(m) = data.error_message {
-            println!("{}", m);
-        }
-        if state == TestState::Abort  {
-            println!("Can't collect coverage data. Exiting");
-            std::process::exit(1);
-        }
     }
-    Ok((traces, test_passed))
+    Ok(traces)
 }
 
 /// Launches the test executable
-fn execute_test(test: &Path, package: &Package, ignored: bool, config: &Config) {
+fn execute_test(test: &Path, package: &Package, ignored: bool, config: &Config) -> Result<(), RunError> {
     let exec_path = CString::new(test.to_str().unwrap()).unwrap();
     match personality::disable_aslr() {
         Ok(_) => {},
-        Err(e) => println!("ASLR disable failed: {}", e),
+        Err(e) => return Err(RunError::TestRuntime(format!("ASLR disable failed: {}", e))),
     }
-    request_trace().expect("Failed to trace");
-    println!("running {}", test.display());
+    match request_trace() {
+        Ok(_) => {},
+        Err(e) => return Err(RunError::Trace(e.to_string()))
+    }
+    info!("running {}", test.display());
     if let Some(parent) = package.manifest_path().parent() {
         let _ = env::set_current_dir(parent);
     }
@@ -376,5 +341,7 @@ fn execute_test(test: &Path, package: &Package, ignored: bool, config: &Config) 
     }
     execve(&exec_path, &argv, envars.as_slice())
         .unwrap();
+
+    Ok(())
 }
 

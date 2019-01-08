@@ -72,7 +72,7 @@ pub(super) fn get_excluded(args: &ArgMatches) -> Vec<Regex> {
             files.push(re);
         }
         else {
-            eprintln!("Invalid regex: {}", temp_str);
+            error!("Invalid regex: {}", temp_str);
         }
     }
 

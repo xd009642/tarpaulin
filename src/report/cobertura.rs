@@ -6,13 +6,12 @@ use std::io::Cursor;
 use std::collections::HashSet;
 use quick_xml::Writer;
 use quick_xml::events::{Event, BytesEnd, BytesStart, BytesDecl};
-use quick_xml::Result;
 use traces::{TraceMap, CoverageStat};
 use config::Config;
+use errors::*;
 
 
-
-fn write_header<T:Write>(writer: &mut Writer<T>, config: &Config) -> Result<usize> {
+fn write_header<T:Write>(writer: &mut Writer<T>, config: &Config) -> Result<usize, RunError> {
 
     writer.write_event(Event::Start(BytesStart::borrowed(b"sources", b"sources".len())))?;
     writer.write_event(Event::Start(BytesStart::borrowed(b"source", b"source".len())))?;
@@ -23,7 +22,7 @@ fn write_header<T:Write>(writer: &mut Writer<T>, config: &Config) -> Result<usiz
     };
     writer.write(parent_folder.as_bytes()).unwrap();
     writer.write_event(Event::End(BytesEnd::borrowed(b"source")))?;
-    writer.write_event(Event::End(BytesEnd::borrowed(b"sources")))
+    Ok(writer.write_event(Event::End(BytesEnd::borrowed(b"sources")))?)
 }
 
 
@@ -31,7 +30,7 @@ fn write_header<T:Write>(writer: &mut Writer<T>, config: &Config) -> Result<usiz
 fn write_class<T:Write>(writer: &mut Writer<T>,
                         manifest_path: &Path,
                         filename: &Path,
-                        coverage: &TraceMap) ->Result<usize> {
+                        coverage: &TraceMap) ->Result<usize, RunError> {
     if !coverage.is_empty() {
         let covered = coverage.covered_in_path(filename);
         let covered = (covered as f32)/(coverage.coverable_in_path(filename) as f32);
@@ -59,13 +58,13 @@ fn write_class<T:Write>(writer: &mut Writer<T>,
                     line.push_attribute(("hits", hit.to_string().as_ref()));
                 },
                 _ => {
-                    println!("Coverage statistic currently not implemented for cobertura");
+                    info!("Coverage statistic currently not implemented for cobertura");
                 },
             }
             writer.write_event(Event::Empty(line))?;
         }
         writer.write_event(Event::End(BytesEnd::borrowed(b"lines")))?;
-        writer.write_event(Event::End(BytesEnd::borrowed(b"class")))
+        Ok(writer.write_event(Event::End(BytesEnd::borrowed(b"class")))?)
     } else {
         Ok(0)
     }
@@ -76,7 +75,7 @@ fn write_package<T:Write>(mut writer: &mut Writer<T>,
                           package: &Path,
                           manifest_path: &Path,
                           package_name: &str,
-                          coverage: &TraceMap) -> Result<usize> {
+                          coverage: &TraceMap) -> Result<usize, RunError> {
     let covered = coverage.covered_in_path(package);
     let covered = (covered as f32)/(coverage.coverable_in_path(package) as f32);
 
@@ -95,10 +94,10 @@ fn write_package<T:Write>(mut writer: &mut Writer<T>,
     }
 
     writer.write_event(Event::End(BytesEnd::borrowed(b"classes")))?;
-    writer.write_event(Event::End(BytesEnd::borrowed(b"package")))
+    Ok(writer.write_event(Event::End(BytesEnd::borrowed(b"package")))?)
 }
 
-pub fn export(coverage_data: &TraceMap, config: &Config) {
+pub fn export(coverage_data: &TraceMap, config: &Config) -> Result<(), RunError> {
     let mut file = File::create("cobertura.xml").unwrap();
     let mut writer = Writer::new(Cursor::new(Vec::new()));
     writer.write_event(Event::Decl(BytesDecl::new(b"1.0", None, None))).unwrap();
@@ -141,5 +140,5 @@ pub fn export(coverage_data: &TraceMap, config: &Config) {
     writer.write_event(Event::End(BytesEnd::borrowed(b"packages"))).unwrap();
     writer.write_event(Event::End(BytesEnd::borrowed(b"coverage"))).unwrap();
     let result = writer.into_inner().into_inner();
-    file.write_all(&result).unwrap();
+    Ok(file.write_all(&result)?)
 }

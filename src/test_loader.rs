@@ -245,9 +245,7 @@ fn get_line_addresses(endian: RunTimeEndian,
             let prog = debug_line.program(offset, addr_size, None, None)?;
             let mut temp_map : HashMap<SourceLocation, Vec<TracerData>> = HashMap::new();
             if let Err(e) = get_addresses_from_program(prog, &entries, project, &mut temp_map) {
-                if config.verbose {
-                    println!("Potential issue reading test addresses {}", e);
-                }
+                debug!("Potential issue reading test addresses {}", e);
             }
             else {
                 // Deduplicate addresses
