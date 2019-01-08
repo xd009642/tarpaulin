@@ -38,6 +38,10 @@ pub enum RunError {
     //TODO: Better error message!
     #[fail(display="{}", _0)]
     NixError(nix::Error),
+    #[fail(display="Failed to generate HTML report! Error: {}", _0)]
+    Html(String),
+    #[fail(display="Failed to generate XML report! Error: {}", _0)]
+    XML(quick_xml::Error),
 }
 
 impl From<std::io::Error> for RunError {
@@ -49,5 +53,11 @@ impl From<std::io::Error> for RunError {
 impl From<nix::Error> for RunError {
     fn from(e: nix::Error) -> Self {
         RunError::NixError(e)
+    }
+}
+
+impl From<quick_xml::Error> for RunError {
+    fn from(e: quick_xml::Error) -> Self {
+        RunError::XML(e)
     }
 }

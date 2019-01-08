@@ -50,23 +50,6 @@ use ptrace_control::*;
 use statemachine::*;
 use traces::*;
 
-
-/// Error states that could be returned from tarpaulin
-#[derive(Clone, Copy, PartialEq, Eq, Debug)]
-pub enum RunError {
-    /// Error in cargo manifests
-    Manifest,
-    /// Cargo failed to run
-    Cargo,
-    /// Error trying to resolve package configuration in manifest
-    Packages,
-    /// Tests failed to compile
-    TestCompileFailed,
-    /// Test failed during run
-    TestRuntimeFail,
-
-}
-
 pub fn run(config: &Config) -> Result<(), RunError> {
     let tracemap = launch_tarpaulin(config)?;
     report_coverage(config, &tracemap)?;
@@ -244,10 +227,10 @@ pub fn report_coverage(config: &Config, result: &TraceMap) -> Result<(), RunErro
         for g in &config.generate {
             match *g {
                 OutputFile::Xml => {
-                    report::cobertura::export(result, config);
+                    report::cobertura::export(result, config)?;
                 },
                 OutputFile::Html => {
-                    report::html::export(result, config);
+                    report::html::export(result, config)?;
                 },
                 _ => {
                     return Err(RunError::OutFormat("Format currently unsupported".to_string()));
