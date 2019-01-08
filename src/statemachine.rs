@@ -161,7 +161,6 @@ impl <'a> StateData for LinuxData<'a> {
 
 
     fn init(&mut self) -> Result<TestState, RunError> {
-        //TODO: is this recoverable?
         trace_children(self.current)?;
         for trace in self.traces.all_traces() {
             if let Some(addr) = trace.address {
@@ -187,10 +186,9 @@ impl <'a> StateData for LinuxData<'a> {
 
         if continue_exec(self.parent, None).is_ok() {
             return Ok(TestState::wait_state());
+        } else {
+            Err(RunError::TestRuntime("Test didn't launch correctly".to_string()))
         }
-
-        //TODO: Is this correct?
-        Ok(TestState::start_state())
     }
 
 
@@ -205,9 +203,8 @@ impl <'a> StateData for LinuxData<'a> {
                 self.wait = s;
                 Ok(Some(TestState::Stopped))
             },
-            Err(_) => {
-                //TODO: Better error message!
-                Err(RunError::TestRuntime("An error occurred while waiting for response from test".to_string()))
+            Err(e) => {
+                Err(RunError::TestRuntime(format!("An error occurred while waiting for response from test: {}", e)))
             },
         }
     }
@@ -317,11 +314,10 @@ impl <'a>LinuxData<'a> {
                     continue_exec(child, None)?;
                     Ok(TestState::wait_state())
                 },
-                //TODO: Correct error message?
-                _ => Err(RunError::TestRuntime("Something went wrong!".to_string()))
+                _ => Err(RunError::TestRuntime(format!("Unrecognised ptrace event {}", event)))
             }
         } else {
-            Err(RunError::TestRuntime("Unexpected ptrace event".to_string()))
+            Err(RunError::TestRuntime("Unexpected signal".to_string()))
         }
     }
 
