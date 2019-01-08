@@ -10,7 +10,7 @@ pub enum RunError {
     #[fail(display="Cargo failed to run! Error: {}", _0)]
     Cargo(String),
     /// Error trying to resolve package configuration in manifest
-    #[fail(display="Failed to resolve package configuration in manifest! Error: {}", _0)]
+    #[fail(display="Failed to resolve package in manifest! Error: {}", _0)]
     Packages(String),
     /// Tests failed to compile
     #[fail(display="Failed to compile tests! Error: {}", _0)]

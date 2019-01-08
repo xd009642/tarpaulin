@@ -19,7 +19,7 @@ pub enum TestState {
         start_time: Instant,
     },
     /// Initialise: once test process appears instrument
-    Initialise ,
+    Initialise,
     /// Waiting for breakpoint to be hit or test to end
     Waiting {
         start_time: Instant,
@@ -37,7 +37,7 @@ pub enum TestState {
 pub trait StateData {
     /// Starts the tracing. Returns None while waiting for
     /// start. Statemachine then checks timeout
-    fn start(&mut self) -> Result<TestState, RunError>;
+    fn start(&mut self) -> Result<Option<TestState>, RunError>;
     /// Initialises test for tracing returns next state
     fn init(&mut self) -> Result<TestState, RunError>;
     /// Waits for notification from test executable that there's
@@ -73,9 +73,9 @@ impl TestState {
     pub fn step<T:StateData>(self, data: &mut T, config: &Config) -> Result<TestState, RunError> {
         match self {
             TestState::Start{start_time} => {
-                data.start()?;
-
-                if start_time.elapsed() >= config.test_timeout {
+                if let Some(s) = data.start()? {
+                    Ok(s)
+                } else if start_time.elapsed() >= config.test_timeout {
                     Err(RunError::TestRuntime("Error: Timed out when starting test".to_string()))
                 } else {
                     Ok(TestState::Start{start_time})
@@ -85,8 +85,9 @@ impl TestState {
                 data.init()
             },
             TestState::Waiting{start_time} => {
-                data.wait()?;
-                if start_time.elapsed() >= config.test_timeout {
+                if let Some(s) = data.wait()? {
+                    Ok(s)
+                } else if start_time.elapsed() >= config.test_timeout {
                     Err(RunError::TestRuntime("Error: Timed out waiting for test response".to_string()))
                 } else {
                     Ok(TestState::Waiting{start_time})
@@ -139,16 +140,15 @@ pub struct LinuxData<'a> {
 
 impl <'a> StateData for LinuxData<'a> {
 
-    fn start(&mut self) -> Result<TestState, RunError> {
+    fn start(&mut self) -> Result<Option<TestState>, RunError> {
         match waitpid(self.current, Some(WaitPidFlag::WNOHANG)) {
-            //TODO: Which TestState is correct here?
-            //Ok(WaitStatus::StillAlive) => Ok(None),
+            Ok(WaitStatus::StillAlive) => Ok(None),
             Ok(sig @ WaitStatus::Stopped(_, Signal::SIGTRAP)) => {
                 if let WaitStatus::Stopped(child, _) = sig {
                     self.current = child;
                 }
                 self.wait = sig;
-                Ok(TestState::Initialise)
+                Ok(Some(TestState::Initialise))
             },
             Ok(_) => {
                 Err(RunError::TestRuntime("Unexpected signal when starting test".to_string()))
