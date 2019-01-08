@@ -1,11 +1,10 @@
-use std::collections::{BTreeMap, HashMap};
+use serde::Serialize;
+use std::cmp::{Ord, Ordering};
 use std::collections::btree_map::Iter;
-use std::path::{PathBuf, Path};
+use std::collections::{BTreeMap, HashMap};
 use std::fmt::{Display, Formatter, Result};
 use std::ops::Add;
-use std::cmp::{Ord, Ordering};
-use serde::Serialize;
-
+use std::path::{Path, PathBuf};
 
 /// Used to track the state of logical conditions
 #[derive(Debug, Clone, Copy, Default, Hash, PartialEq, Eq, PartialOrd, Serialize)]
@@ -43,12 +42,10 @@ impl Add for CoverageStat {
 
     fn add(self, other: CoverageStat) -> CoverageStat {
         match (self, other) {
-            (CoverageStat::Line(ref l), CoverageStat::Line(ref r)) => {
-                CoverageStat::Line(l+r)
-            },
+            (CoverageStat::Line(ref l), CoverageStat::Line(ref r)) => CoverageStat::Line(l + r),
             (CoverageStat::Branch(ref l), CoverageStat::Branch(ref r)) => {
                 CoverageStat::Branch(l + r)
-            },
+            }
             t => t.0,
         }
     }
@@ -57,14 +54,11 @@ impl Add for CoverageStat {
 impl Display for CoverageStat {
     fn fmt(&self, f: &mut Formatter) -> Result {
         match *self {
-            CoverageStat::Line(x) => {
-                write!(f, "hits: {}", x)
-            },
+            CoverageStat::Line(x) => write!(f, "hits: {}", x),
             _ => write!(f, ""),
         }
     }
 }
-
 
 #[derive(Debug, Clone, Hash, PartialEq, Eq, PartialOrd, Serialize)]
 pub struct Trace {
@@ -77,7 +71,6 @@ pub struct Trace {
     /// Coverage stats
     pub stats: CoverageStat,
 }
-
 
 /// Implemented to allow Traces to be sorted by line number
 impl Ord for Trace {
@@ -105,13 +98,9 @@ pub fn amount_coverable(traces: &[&Trace]) -> usize {
     let mut result = 0usize;
     for t in traces {
         result += match t.stats {
-            CoverageStat::Branch(_) => {
-                2usize
-            },
-            CoverageStat::Condition(ref x) => {
-                x.len() * 2usize
-            }
-            _ => 1usize
+            CoverageStat::Branch(_) => 2usize,
+            CoverageStat::Condition(ref x) => x.len() * 2usize,
+            _ => 1usize,
         };
     }
     result
@@ -122,16 +111,11 @@ pub fn amount_covered(traces: &[&Trace]) -> usize {
     let mut result = 0usize;
     for t in traces {
         result += match t.stats {
-            CoverageStat::Branch(ref x) => {
-                (x.been_true as usize) + (x.been_false as usize)
-            },
-            CoverageStat::Condition(ref x) => {
-                x.iter()
-                 .fold(0, |acc, ref x| acc + (x.been_true as usize) + (x.been_false as usize))
-            }
-            CoverageStat::Line(ref x) => {
-                (*x > 0) as usize
-            }
+            CoverageStat::Branch(ref x) => (x.been_true as usize) + (x.been_false as usize),
+            CoverageStat::Condition(ref x) => x.iter().fold(0, |acc, ref x| {
+                acc + (x.been_true as usize) + (x.been_false as usize)
+            }),
+            CoverageStat::Line(ref x) => (*x > 0) as usize,
         };
     }
     result
@@ -171,15 +155,17 @@ impl TraceMap {
     /// This adds records which are missing and adds the statistics gathered to
     /// existing records
     pub fn merge(&mut self, other: &TraceMap) {
-        for (k,  values) in other.iter() {
+        for (k, values) in other.iter() {
             if !self.traces.contains_key(k) {
                 self.traces.insert(k.to_path_buf(), values.to_vec());
             } else {
                 let mut existing = self.traces.get_mut(k).unwrap();
                 for ref v in values.iter() {
                     let mut added = false;
-                    if let Some(ref mut t) = existing.iter_mut()
-                                                     .find(|ref x| x.line == v.line && x.address == v.address) {
+                    if let Some(ref mut t) = existing
+                        .iter_mut()
+                        .find(|ref x| x.line == v.line && x.address == v.address)
+                    {
                         t.stats = t.stats.clone() + v.stats.clone();
                         added = true;
                     }
@@ -203,11 +189,12 @@ impl TraceMap {
             // Duplicated traces need cleaning up. Maintain a list of them!
             let mut dirty: Vec<u64> = Vec::new();
             for v in values.iter() {
-                lines.entry(v.line)
+                lines
+                    .entry(v.line)
                     .and_modify(|e| {
-                         dirty.push(v.line);
-                         *e = e.clone() + v.stats.clone();
-                     })
+                        dirty.push(v.line);
+                        *e = e.clone() + v.stats.clone();
+                    })
                     .or_insert_with(|| v.stats.clone());
             }
             for d in &dirty {
@@ -218,7 +205,7 @@ impl TraceMap {
                         if first {
                             first = false;
                             true
-                        }else {
+                        } else {
                             false
                         }
                     } else {
@@ -226,7 +213,7 @@ impl TraceMap {
                     }
                 });
                 if let Some(new_stat) = lines.remove(&d) {
-                    if let Some(ref mut t) = values.iter_mut().find(|x| x.line==*d) {
+                    if let Some(ref mut t) = values.iter_mut().find(|x| x.line == *d) {
                         t.stats = new_stat;
                     }
                 }
@@ -277,10 +264,11 @@ impl TraceMap {
 
     /// Gets all traces below a certain path
     pub fn get_child_traces(&self, root: &Path) -> Vec<&Trace> {
-        self.traces.iter()
-                   .filter(|&(ref k, _)| k.starts_with(root))
-                   .flat_map(|(_, ref v)| v.iter())
-                   .collect()
+        self.traces
+            .iter()
+            .filter(|&(ref k, _)| k.starts_with(root))
+            .flat_map(|(_, ref v)| v.iter())
+            .collect()
     }
 
     /// Gets all traces in folder, doesn't go into other folders for that you
@@ -289,10 +277,11 @@ impl TraceMap {
         if root.is_file() {
             self.get_child_traces(root)
         } else {
-            self.traces.iter()
-                       .filter(|&(ref k, _)| k.parent() == Some(root))
-                       .flat_map(|(_, ref v)| v.iter())
-                       .collect()
+            self.traces
+                .iter()
+                .filter(|&(ref k, _)| k.parent() == Some(root))
+                .flat_map(|(_, ref v)| v.iter())
+                .collect()
         }
     }
 
@@ -303,13 +292,15 @@ impl TraceMap {
 
     /// Gets a vector of all the traces to mutate
     fn all_traces_mut(&mut self) -> Vec<&mut Trace> {
-        self.traces.values_mut().flat_map(|x| x.iter_mut()).collect()
+        self.traces
+            .values_mut()
+            .flat_map(|x| x.iter_mut())
+            .collect()
     }
 
     pub fn files(&self) -> Vec<&PathBuf> {
         self.traces.keys().collect()
     }
-
 
     pub fn coverable_in_path(&self, path: &Path) -> usize {
         amount_coverable(self.get_child_traces(path).as_slice())
@@ -336,7 +327,6 @@ impl TraceMap {
     pub fn coverage_percentage(&self) -> f64 {
         coverage_percentage(self.all_traces().as_slice())
     }
-
 }
 
 #[cfg(test)]
@@ -358,18 +348,30 @@ mod tests {
         assert_eq!(&yy, &CoverageStat::Line(10));
         assert_eq!(&zy, &CoverageStat::Line(12));
 
-        let tf = LogicState{been_true:true, been_false:true};
-        let t = LogicState{been_true:true, been_false:false};
-        let f = LogicState{been_true:false, been_false:true};
-        let n = LogicState{been_true:false, been_false:false};
+        let tf = LogicState {
+            been_true: true,
+            been_false: true,
+        };
+        let t = LogicState {
+            been_true: true,
+            been_false: false,
+        };
+        let f = LogicState {
+            been_true: false,
+            been_false: true,
+        };
+        let n = LogicState {
+            been_true: false,
+            been_false: false,
+        };
 
-        assert_eq!(&t+&f, tf);
-        assert_eq!(&t+&t, t);
-        assert_eq!(&tf+&f, tf);
-        assert_eq!(&tf+&t, tf);
-        assert_eq!(&t+&n, t);
-        assert_eq!(&n+&f, f);
-        assert_eq!(&n+&n,n);
+        assert_eq!(&t + &f, tf);
+        assert_eq!(&t + &t, t);
+        assert_eq!(&tf + &f, tf);
+        assert_eq!(&tf + &t, tf);
+        assert_eq!(&t + &n, t);
+        assert_eq!(&n + &f, f);
+        assert_eq!(&n + &n, n);
     }
 
     #[test]
@@ -381,15 +383,18 @@ mod tests {
             line: 1,
             address: Some(5),
             length: 0,
-            stats: CoverageStat::Line(1)
+            stats: CoverageStat::Line(1),
         };
         t1.add_trace(Path::new("file.rs"), a_trace.clone());
-        t2.add_trace(Path::new("file.rs"), Trace {
-            line: 1,
-            address: None,
-            length: 0,
-            stats: CoverageStat::Line(2)
-        });
+        t2.add_trace(
+            Path::new("file.rs"),
+            Trace {
+                line: 1,
+                address: None,
+                length: 0,
+                stats: CoverageStat::Line(2),
+            },
+        );
 
         t1.merge(&t2);
         assert_eq!(t1.all_traces().len(), 2);
@@ -409,15 +414,18 @@ mod tests {
             line: 1,
             address: Some(5),
             length: 0,
-            stats: CoverageStat::Line(1)
+            stats: CoverageStat::Line(1),
         };
         t1.add_trace(Path::new("file.rs"), a_trace.clone());
-        t2.add_trace(Path::new("file.rs"), Trace {
-            line: 2,
-            address: None,
-            length: 0,
-            stats: CoverageStat::Line(2)
-        });
+        t2.add_trace(
+            Path::new("file.rs"),
+            Trace {
+                line: 2,
+                address: None,
+                length: 0,
+                stats: CoverageStat::Line(2),
+            },
+        );
 
         t1.merge(&t2);
         assert_eq!(t1.all_traces().len(), 2);
@@ -432,34 +440,46 @@ mod tests {
         let mut t1 = TraceMap::new();
         let mut t2 = TraceMap::new();
 
-        t1.add_trace(Path::new("file.rs"), Trace {
-            line: 2,
-            address: Some(1),
-            length: 0,
-            stats: CoverageStat::Line(5)
-        });
-        t2.add_trace(Path::new("file.rs"), Trace {
-            line: 2,
-            address: Some(1),
-            length: 0,
-            stats: CoverageStat::Line(2)
-        });
+        t1.add_trace(
+            Path::new("file.rs"),
+            Trace {
+                line: 2,
+                address: Some(1),
+                length: 0,
+                stats: CoverageStat::Line(5),
+            },
+        );
+        t2.add_trace(
+            Path::new("file.rs"),
+            Trace {
+                line: 2,
+                address: Some(1),
+                length: 0,
+                stats: CoverageStat::Line(2),
+            },
+        );
         t1.merge(&t2);
         assert_eq!(t1.all_traces().len(), 1);
-        assert_eq!(t1.get_trace(1), Some(&Trace {
-            line: 2,
-            address: Some(1),
-            length: 0,
-            stats: CoverageStat::Line(7)
-        }));
+        assert_eq!(
+            t1.get_trace(1),
+            Some(&Trace {
+                line: 2,
+                address: Some(1),
+                length: 0,
+                stats: CoverageStat::Line(7)
+            })
+        );
         // Deduplicating should have no effect.
         t1.dedup();
         assert_eq!(t1.all_traces().len(), 1);
-        assert_eq!(t1.get_trace(1), Some(&Trace {
-            line: 2,
-            address: Some(1),
-            length: 0,
-            stats: CoverageStat::Line(7)
-        }));
+        assert_eq!(
+            t1.get_trace(1),
+            Some(&Trace {
+                line: 2,
+                address: Some(1),
+                length: 0,
+                stats: CoverageStat::Line(7)
+            })
+        );
     }
 }

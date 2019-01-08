@@ -1,18 +1,16 @@
 pub use self::types::*;
 
-use std::path::{PathBuf, Path};
-use std::time::{Duration};
+use std::path::{Path, PathBuf};
+use std::time::Duration;
 
-use clap::{ArgMatches};
-use coveralls_api::{CiService};
-use regex::{Regex};
+use clap::ArgMatches;
+use coveralls_api::CiService;
+use regex::Regex;
 
 use self::parse::*;
 
-
 mod parse;
 mod types;
-
 
 /// Specifies the current configuration tarpaulin is using.
 #[derive(Debug, Default)]
@@ -71,39 +69,37 @@ pub struct Config {
 }
 
 impl<'a> From<&'a ArgMatches<'a>> for Config {
-
     fn from(args: &'a ArgMatches<'a>) -> Self {
         Config {
-            manifest:           get_manifest(args),
-            run_ignored:        args.is_present("ignored"),
-            ignore_tests:       args.is_present("ignore-tests"),
-            ignore_panics:      args.is_present("ignore-panics"),
-            force_clean:        args.is_present("force-clean"),
-            verbose:            args.is_present("verbose"),
-            count:              args.is_present("count"),
-            line_coverage:      get_line_cov(args),
-            branch_coverage:    get_branch_cov(args),
-            generate:           get_outputs(args),
-            coveralls:          get_coveralls(args),
-            ci_tool:            get_ci(args),
-            report_uri:         get_report_uri(args),
-            forward_signals:    args.is_present("forward"),
-            all_features:       args.is_present("all-features"),
+            manifest: get_manifest(args),
+            run_ignored: args.is_present("ignored"),
+            ignore_tests: args.is_present("ignore-tests"),
+            ignore_panics: args.is_present("ignore-panics"),
+            force_clean: args.is_present("force-clean"),
+            verbose: args.is_present("verbose"),
+            count: args.is_present("count"),
+            line_coverage: get_line_cov(args),
+            branch_coverage: get_branch_cov(args),
+            generate: get_outputs(args),
+            coveralls: get_coveralls(args),
+            ci_tool: get_ci(args),
+            report_uri: get_report_uri(args),
+            forward_signals: args.is_present("forward"),
+            all_features: args.is_present("all-features"),
             no_default_features: args.is_present("no-default-features"),
-            features:           get_list(args, "features"),
-            all:                args.is_present("all"),
-            packages:           get_list(args, "packages"),
-            exclude:            get_list(args, "exclude"),
-            excluded_files:     get_excluded(args),
-            varargs:            get_list(args, "args"),
-            test_timeout:       get_timeout(args),
-            release:            args.is_present("release"),
+            features: get_list(args, "features"),
+            all: args.is_present("all"),
+            packages: get_list(args, "packages"),
+            exclude: get_list(args, "exclude"),
+            excluded_files: get_excluded(args),
+            varargs: get_list(args, "args"),
+            test_timeout: get_timeout(args),
+            release: args.is_present("release"),
         }
     }
 }
 
 impl Config {
-
     #[inline]
     pub fn is_coveralls(&self) -> bool {
         self.coveralls.is_some()
@@ -113,7 +109,8 @@ impl Config {
     pub fn exclude_path(&self, path: &Path) -> bool {
         let project = self.strip_project_path(path);
 
-        self.excluded_files.iter()
+        self.excluded_files
+            .iter()
             .any(|x| x.is_match(project.to_str().unwrap_or("")))
     }
 
@@ -122,12 +119,12 @@ impl Config {
     ///
     #[inline]
     pub fn strip_project_path(&self, path: &Path) -> PathBuf {
-        self.manifest.parent()
+        self.manifest
+            .parent()
             .and_then(|x| path_relative_from(path, x))
             .unwrap_or_else(|| path.to_path_buf())
     }
 }
-
 
 /// Gets the relative path from one directory to another, if it exists.
 /// Credit to brson from this commit from 2015
@@ -174,12 +171,10 @@ fn path_relative_from(path: &Path, base: &Path) -> Option<PathBuf> {
     }
 }
 
-
 #[cfg(test)]
 mod tests {
     use super::*;
     use clap::App;
-
 
     #[test]
     fn exclude_paths() {
@@ -194,7 +189,6 @@ mod tests {
         assert!(conf.exclude_path(Path::new("module.rs")));
     }
 
-
     #[test]
     fn no_exclusions() {
         let matches = App::new("tarpaulin")
@@ -207,7 +201,6 @@ mod tests {
         assert!(!conf.exclude_path(Path::new("unrelated.rs")));
         assert!(!conf.exclude_path(Path::new("module.rs")));
     }
-
 
     #[test]
     fn exclude_exact_file() {
@@ -229,7 +222,11 @@ mod tests {
 
         let rel_path = path_relative_from(path_b, path_a);
         assert!(rel_path.is_some());
-        assert_eq!(rel_path.unwrap().to_str().unwrap(), "../../../b/rel/path", "Wrong relative path");
+        assert_eq!(
+            rel_path.unwrap().to_str().unwrap(),
+            "../../../b/rel/path",
+            "Wrong relative path"
+        );
 
         let path_a = Path::new("/this/should/not/form/a/rel/path/");
         let path_b = Path::new("./this/should/not/form/a/rel/path/");
@@ -237,13 +234,15 @@ mod tests {
         let rel_path = path_relative_from(path_b, path_a);
         assert_eq!(rel_path, None, "Did not expect relative path");
 
-
         let path_a = Path::new("./this/should/form/a/rel/path/");
         let path_b = Path::new("./this/should/form/b/rel/path/");
 
         let rel_path = path_relative_from(path_b, path_a);
         assert!(rel_path.is_some());
-        assert_eq!(rel_path.unwrap().to_str().unwrap(), "../../../b/rel/path", "Wrong relative path");
+        assert_eq!(
+            rel_path.unwrap().to_str().unwrap(),
+            "../../../b/rel/path",
+            "Wrong relative path"
+        );
     }
 }
-

@@ -1,9 +1,9 @@
-use std::fs::{read_to_string, File};
-use std::io::Write;
-use serde::{Serialize};
-use traces::{TraceMap, Trace};
 use config::Config;
 use errors::*;
+use serde::Serialize;
+use std::fs::{read_to_string, File};
+use std::io::Write;
+use traces::{Trace, TraceMap};
 
 #[derive(Serialize)]
 struct SourceFile {
@@ -24,11 +24,19 @@ pub fn export(coverage_data: &TraceMap, _config: &Config) -> Result<(), RunError
     for (path, traces) in coverage_data.iter() {
         let content = match read_to_string(path) {
             Ok(k) => k,
-            Err(e) => return Err(RunError::Html(format!("Unable to read source file to string: {}", e.to_string()))),
+            Err(e) => {
+                return Err(RunError::Html(format!(
+                    "Unable to read source file to string: {}",
+                    e.to_string()
+                )))
+            }
         };
 
         report.files.push(SourceFile {
-            path: path.components().map(|c| c.as_os_str().to_string_lossy().to_string()).collect(),
+            path: path
+                .components()
+                .map(|c| c.as_os_str().to_string_lossy().to_string())
+                .collect(),
             content,
             traces: traces.clone(),
             covered: coverage_data.covered_in_path(path),
@@ -38,15 +46,25 @@ pub fn export(coverage_data: &TraceMap, _config: &Config) -> Result<(), RunError
 
     let mut file = match File::create("tarpaulin-report.html") {
         Ok(k) => k,
-        Err(e) => return Err(RunError::Html(format!("File is not writeable: {}", e.to_string()))),
+        Err(e) => {
+            return Err(RunError::Html(format!(
+                "File is not writeable: {}",
+                e.to_string()
+            )))
+        }
     };
 
     let report_json = match serde_json::to_string(&report) {
         Ok(k) => k,
-        Err(e) => return Err(RunError::Html(format!("Report isn't serializable: {}", e.to_string()))),
+        Err(e) => {
+            return Err(RunError::Html(format!(
+                "Report isn't serializable: {}",
+                e.to_string()
+            )))
+        }
     };
 
-     let html_write = match write!(file, r##"<!doctype html>
+    let html_write = match write!(file, r##"<!doctype html>
 <html>
 <head>
     <meta charset="utf-8">

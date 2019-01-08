@@ -1,15 +1,15 @@
-use std::collections::HashMap;
-use coveralls_api::*;
-use traces::{TraceMap, CoverageStat};
 use config::Config;
+use coveralls_api::*;
 use errors::RunError;
+use std::collections::HashMap;
+use traces::{CoverageStat, TraceMap};
 
 pub fn export(coverage_data: &TraceMap, config: &Config) -> Result<(), RunError> {
     if let Some(ref key) = config.coveralls {
         let id = match config.ci_tool {
             Some(ref service) => Identity::ServiceToken(Service {
                 service_name: service.clone(),
-                service_job_id: key.clone()
+                service_job_id: key.clone(),
             }),
             _ => Identity::RepoToken(key.clone()),
         };
@@ -23,10 +23,10 @@ pub fn export(coverage_data: &TraceMap, config: &Config) -> Result<(), RunError>
                 match c.stats {
                     CoverageStat::Line(hits) => {
                         lines.insert(c.line as usize, hits as usize);
-                    },
+                    }
                     _ => {
                         info!("Support for coverage statistic not implemented or supported for coveralls.io");
-                    },
+                    }
                 }
             }
             if let Ok(source) = Source::new(&rel_path, file, &lines, &None, false) {
@@ -38,7 +38,7 @@ pub fn export(coverage_data: &TraceMap, config: &Config) -> Result<(), RunError>
             Some(ref uri) => {
                 info!("Sending report to endpoint: {}", uri);
                 report.send_to_endpoint(uri)
-            },
+            }
             None => {
                 info!("Sending coverage data to coveralls.io");
                 report.send_to_coveralls()
@@ -49,8 +49,9 @@ pub fn export(coverage_data: &TraceMap, config: &Config) -> Result<(), RunError>
             Ok(_) => Ok(()),
             Err(e) => Err(RunError::CovReport(format!("Coveralls send failed. {}", e))),
         }
-
     } else {
-        Err(RunError::CovReport("No coveralls key specified.".to_string()))
+        Err(RunError::CovReport(
+            "No coveralls key specified.".to_string(),
+        ))
     }
 }

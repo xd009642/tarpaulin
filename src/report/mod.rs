@@ -1,6 +1,6 @@
-use test_loader::TracerData;
 use config::Config;
 use serde::Serialize;
+use test_loader::TracerData;
 
 pub mod cobertura;
 pub mod coveralls;
@@ -10,5 +10,4 @@ pub mod html;
 pub trait Report<Out: Serialize> {
     /// Export coverage report
     fn export(coverage_data: &[TracerData], config: &Config);
-
 }

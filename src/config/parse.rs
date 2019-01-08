@@ -1,18 +1,16 @@
 use std::env;
-use std::path::{PathBuf};
-use std::time::{Duration};
+use std::path::PathBuf;
+use std::time::Duration;
 
-use clap::{ArgMatches};
-use coveralls_api::{CiService};
-use regex::{Regex};
+use clap::ArgMatches;
+use coveralls_api::CiService;
+use regex::Regex;
 
 use super::types::*;
-
 
 pub(super) fn get_list(args: &ArgMatches, key: &str) -> Vec<String> {
     args.values_of_lossy(key).unwrap_or_else(Vec::new)
 }
-
 
 pub(super) fn get_line_cov(args: &ArgMatches) -> bool {
     let cover_lines = args.is_present("line");
@@ -21,14 +19,12 @@ pub(super) fn get_line_cov(args: &ArgMatches) -> bool {
     cover_lines || !(cover_lines || cover_branches)
 }
 
-
 pub(super) fn get_branch_cov(args: &ArgMatches) -> bool {
     let cover_lines = args.is_present("line");
     let cover_branches = args.is_present("branch");
 
     cover_branches || !(cover_lines || cover_branches)
 }
-
 
 pub(super) fn get_manifest(args: &ArgMatches) -> PathBuf {
     let mut manifest = env::current_dir().unwrap();
@@ -41,26 +37,21 @@ pub(super) fn get_manifest(args: &ArgMatches) -> PathBuf {
     manifest.canonicalize().unwrap_or(manifest)
 }
 
-
 pub(super) fn get_ci(args: &ArgMatches) -> Option<CiService> {
     value_t!(args, "ciserver", Ci).map(|x| x.0).ok()
 }
-
 
 pub(super) fn get_coveralls(args: &ArgMatches) -> Option<String> {
     args.value_of("coveralls").map(ToString::to_string)
 }
 
-
 pub(super) fn get_report_uri(args: &ArgMatches) -> Option<String> {
     args.value_of("report-uri").map(ToString::to_string)
 }
 
-
 pub(super) fn get_outputs(args: &ArgMatches) -> Vec<OutputFile> {
     values_t!(args.values_of("out"), OutputFile).unwrap_or(vec![])
 }
-
 
 pub(super) fn get_excluded(args: &ArgMatches) -> Vec<Regex> {
     let mut files = vec![];
@@ -70,8 +61,7 @@ pub(super) fn get_excluded(args: &ArgMatches) -> Vec<Regex> {
 
         if let Ok(re) = Regex::new(s) {
             files.push(re);
-        }
-        else {
+        } else {
             error!("Invalid regex: {}", temp_str);
         }
     }
@@ -79,14 +69,11 @@ pub(super) fn get_excluded(args: &ArgMatches) -> Vec<Regex> {
     files
 }
 
-
 pub(super) fn get_timeout(args: &ArgMatches) -> Duration {
     if args.is_present("timeout") {
         let duration = value_t!(args.value_of("timeout"), u64).unwrap_or(60);
         Duration::from_secs(duration)
-    }
-    else {
+    } else {
         Duration::from_secs(60)
     }
 }
-

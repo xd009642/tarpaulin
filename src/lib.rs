@@ -1,43 +1,43 @@
-extern crate nix;
 extern crate cargo;
-extern crate gimli;
-extern crate object;
-extern crate memmap;
 extern crate coveralls_api;
 extern crate fallible_iterator;
+extern crate gimli;
+extern crate memmap;
+extern crate nix;
+extern crate object;
+extern crate proc_macro2;
 extern crate rustc_demangle;
 extern crate syn;
-extern crate proc_macro2;
 #[macro_use]
 extern crate clap;
 #[macro_use]
 extern crate lazy_static;
-extern crate serde;
-extern crate serde_json;
+extern crate failure;
 extern crate quick_xml;
 extern crate regex;
+extern crate serde;
+extern crate serde_json;
 extern crate void;
 extern crate walkdir;
-extern crate failure;
 #[macro_use]
 extern crate log;
 
+use cargo::core::{compiler::CompileMode, Package, Shell, Workspace};
+use cargo::ops;
+use cargo::util::{homedir, Config as CargoConfig};
+use nix::unistd::*;
 use std::env;
 use std::ffi::CString;
 use std::path::{Path, PathBuf};
-use nix::unistd::*;
-use cargo::util::{homedir, Config as CargoConfig};
-use cargo::core::{Workspace, Package, compiler::CompileMode, Shell};
-use cargo::ops;
 
-pub mod config;
-pub mod test_loader;
 pub mod breakpoint;
-pub mod report;
-pub mod traces;
+pub mod config;
 pub mod errors;
-mod statemachine;
+pub mod report;
 mod source_analysis;
+mod statemachine;
+pub mod test_loader;
+pub mod traces;
 
 /// Should be unnecessary with a future nix crate release.
 mod personality;
@@ -45,9 +45,9 @@ mod ptrace_control;
 
 use config::*;
 use errors::*;
-use test_loader::*;
 use ptrace_control::*;
 use statemachine::*;
+use test_loader::*;
 use traces::*;
 
 pub fn run(config: &Config) -> Result<(), RunError> {
@@ -68,37 +68,36 @@ pub fn launch_tarpaulin(config: &Config) -> Result<TraceMap, RunError> {
         None => {
             warn!("Warning failed to find home directory.");
             PathBuf::new()
-        },
+        }
     };
     let mut cargo_config = CargoConfig::new(Shell::new(), cwd, home);
-    let flag_quiet = if config.verbose {
-        None
-    } else {
-        Some(true)
-    };
+    let flag_quiet = if config.verbose { None } else { Some(true) };
     cargo::core::enable_nightly_features();
     // This shouldn't fail so no checking the error.
     let _ = cargo_config.configure(0u32, flag_quiet, &None, false, false, &None, &[]);
 
     let workspace = Workspace::new(config.manifest.as_path(), &cargo_config)
-        .map_err(|e| {
-            RunError::Manifest(e.to_string())
-        })?;
+        .map_err(|e| RunError::Manifest(e.to_string()))?;
 
     setup_environment(&config);
 
     let mut copt = ops::CompileOptions::new(&cargo_config, CompileMode::Test)
         .map_err(|e| RunError::Cargo(e.to_string()))?;
-    if let ops::CompileFilter::Default{ref mut required_features_filterable} = copt.filter {
+    if let ops::CompileFilter::Default {
+        ref mut required_features_filterable,
+    } = copt.filter
+    {
         *required_features_filterable = true;
     }
     copt.features = config.features.clone();
     copt.all_features = config.all_features;
     copt.no_default_features = config.no_default_features;
     copt.build_config.release = config.release;
-    copt.spec = match ops::Packages::from_flags(config.all,
-                                                config.exclude.clone(),
-                                                config.packages.clone()) {
+    copt.spec = match ops::Packages::from_flags(
+        config.all,
+        config.exclude.clone(),
+        config.packages.clone(),
+    ) {
         Ok(spec) => spec,
         Err(e) => {
             return Err(RunError::Packages(e.to_string()));
@@ -126,29 +125,31 @@ pub fn launch_tarpaulin(config: &Config) -> Result<TraceMap, RunError> {
         Ok(comp) => {
             for &(ref package, ref _target_kind, ref name, ref path) in &comp.tests {
                 debug!("Processing {}", name);
-                if let Some(res) = get_test_coverage(&workspace, package, path.as_path(), config, false)? {
+                if let Some(res) =
+                    get_test_coverage(&workspace, package, path.as_path(), config, false)?
+                {
                     result.merge(&res);
                 }
                 if config.run_ignored {
-                    if let Some(res) = get_test_coverage(&workspace, package, path.as_path(),
-                                                         config, true)? {
+                    if let Some(res) =
+                        get_test_coverage(&workspace, package, path.as_path(), config, true)?
+                    {
                         result.merge(&res);
                     }
                 }
             }
             result.dedup();
             Ok(result)
-        },
-        Err(e) => {
-            Err(RunError::TestCompile(e.to_string()))
-        },
+        }
+        Err(e) => Err(RunError::TestCompile(e.to_string())),
     }
 }
 
-
 fn setup_environment(config: &Config) {
     let rustflags = "RUSTFLAGS";
-    let mut value = " -C relocation-model=dynamic-no-pic -C link-dead-code -C opt-level=0 -C debuginfo=2 ".to_string();
+    let mut value =
+        " -C relocation-model=dynamic-no-pic -C link-dead-code -C opt-level=0 -C debuginfo=2 "
+            .to_string();
     if config.release {
         value = format!("{}-C debug-assertions=off ", value);
     }
@@ -158,7 +159,10 @@ fn setup_environment(config: &Config) {
     env::set_var(rustflags, value);
 }
 
-fn accumulate_lines((mut acc, mut group): (Vec<String>, Vec<u64>), next: u64) -> (Vec<String>, Vec<u64>) {
+fn accumulate_lines(
+    (mut acc, mut group): (Vec<String>, Vec<u64>),
+    next: u64,
+) -> (Vec<String>, Vec<u64>) {
     if let Some(last) = group.last().cloned() {
         if next == last + 1 {
             group.push(next);
@@ -167,12 +171,11 @@ fn accumulate_lines((mut acc, mut group): (Vec<String>, Vec<u64>), next: u64) ->
             match (group.first(), group.last()) {
                 (Some(first), Some(last)) if first == last => {
                     acc.push(format!("{}", first));
-                },
+                }
                 (Some(first), Some(last)) => {
                     acc.push(format!("{}-{}", first, last));
-                },
-                (Some(_), None) |
-                (None, _) => (),
+                }
+                (Some(_), None) | (None, _) => (),
             };
             (acc, vec![next])
         }
@@ -196,16 +199,16 @@ pub fn report_coverage(config: &Config, result: &TraceMap) -> Result<(), RunErro
                     match v.stats {
                         traces::CoverageStat::Line(count) if count == 0 => {
                             uncovered_lines.push(v.line);
-                        },
+                        }
                         _ => (),
                     }
                 }
                 uncovered_lines.sort();
-                let (groups, last_group) =
-                    uncovered_lines.into_iter()
+                let (groups, last_group) = uncovered_lines
+                    .into_iter()
                     .fold((vec![], vec![]), accumulate_lines);
                 let (groups, _) = accumulate_lines((groups, last_group), u64::max_value());
-                if ! groups.is_empty() {
+                if !groups.is_empty() {
                     println!("|| {}: {}", path.display(), groups.join(", "));
                 }
             }
@@ -213,12 +216,21 @@ pub fn report_coverage(config: &Config, result: &TraceMap) -> Result<(), RunErro
         println!("|| Tested/Total Lines:");
         for file in result.files() {
             let path = config.strip_project_path(file);
-            println!("|| {}: {}/{}", path.display(), result.covered_in_path(&file), result.coverable_in_path(&file));
+            println!(
+                "|| {}: {}/{}",
+                path.display(),
+                result.covered_in_path(&file),
+                result.coverable_in_path(&file)
+            );
         }
         let percent = result.coverage_percentage() * 100.0f64;
         // Put file filtering here
-        println!("|| \n{:.2}% coverage, {}/{} lines covered", percent,
-                 result.total_covered(), result.total_coverable());
+        println!(
+            "|| \n{:.2}% coverage, {}/{} lines covered",
+            percent,
+            result.total_covered(),
+            result.total_coverable()
+        );
         if config.is_coveralls() {
             report::coveralls::export(result, config)?;
             info!("Coverage data sent");
@@ -228,59 +240,62 @@ pub fn report_coverage(config: &Config, result: &TraceMap) -> Result<(), RunErro
             match *g {
                 OutputFile::Xml => {
                     report::cobertura::export(result, config)?;
-                },
+                }
                 OutputFile::Html => {
                     report::html::export(result, config)?;
-                },
+                }
                 _ => {
-                    return Err(RunError::OutFormat("Format currently unsupported".to_string()));
-                },
+                    return Err(RunError::OutFormat(
+                        "Format currently unsupported".to_string(),
+                    ));
+                }
             }
         }
 
         Ok(())
     } else {
-        Err(RunError::CovReport("No coverage results collected.".to_string()))
+        Err(RunError::CovReport(
+            "No coverage results collected.".to_string(),
+        ))
     }
 }
 
 /// Returns the coverage statistics for a test executable in the given workspace
-pub fn get_test_coverage(project: &Workspace,
-                         package: &Package,
-                         test: &Path,
-                         config: &Config,
-                         ignored: bool) -> Result<Option<TraceMap>, RunError> {
+pub fn get_test_coverage(
+    project: &Workspace,
+    package: &Package,
+    test: &Path,
+    config: &Config,
+    ignored: bool,
+) -> Result<Option<TraceMap>, RunError> {
     if !test.exists() {
         return Ok(None);
     }
     match fork() {
-        Ok(ForkResult::Parent{ child }) => {
-            match collect_coverage(project, test, child, config) {
-                Ok(t) => {
-                    Ok(Some(t))
-                },
-                Err(e) => {
-                    Err(RunError::TestCoverage(e.to_string()))
-                },
-            }
-        }
+        Ok(ForkResult::Parent { child }) => match collect_coverage(project, test, child, config) {
+            Ok(t) => Ok(Some(t)),
+            Err(e) => Err(RunError::TestCoverage(e.to_string())),
+        },
         Ok(ForkResult::Child) => {
             info!("Launching test");
             execute_test(test, package, ignored, config)?;
             Ok(None)
         }
-        Err(err) => {
-            Err(RunError::TestCoverage(format!("Failed to run test {}, Error: {}", test.display(), err.to_string())))
-        }
+        Err(err) => Err(RunError::TestCoverage(format!(
+            "Failed to run test {}, Error: {}",
+            test.display(),
+            err.to_string()
+        ))),
     }
-
 }
 
 /// Collects the coverage data from the launched test
-fn collect_coverage(project: &Workspace,
-                    test_path: &Path,
-                    test: Pid,
-                    config: &Config) -> Result<TraceMap, RunError> {
+fn collect_coverage(
+    project: &Workspace,
+    test_path: &Path,
+    test: Pid,
+    config: &Config,
+) -> Result<TraceMap, RunError> {
     let mut traces = generate_tracemap(project, test_path, config)?;
     {
         let (mut state, mut data) = create_state_machine(test, &mut traces, config);
@@ -289,7 +304,9 @@ fn collect_coverage(project: &Workspace,
             if state.is_finished() {
                 if let TestState::End(i) = state {
                     if i != 0 {
-                        return Err(RunError::TestCoverage("Test binary exited with non-zero return code".to_string()));
+                        return Err(RunError::TestCoverage(
+                            "Test binary exited with non-zero return code".to_string(),
+                        ));
                     }
                 }
                 break;
@@ -300,15 +317,20 @@ fn collect_coverage(project: &Workspace,
 }
 
 /// Launches the test executable
-fn execute_test(test: &Path, package: &Package, ignored: bool, config: &Config) -> Result<(), RunError> {
+fn execute_test(
+    test: &Path,
+    package: &Package,
+    ignored: bool,
+    config: &Config,
+) -> Result<(), RunError> {
     let exec_path = CString::new(test.to_str().unwrap()).unwrap();
     match personality::disable_aslr() {
-        Ok(_) => {},
+        Ok(_) => {}
         Err(e) => return Err(RunError::TestRuntime(format!("ASLR disable failed: {}", e))),
     }
     match request_trace() {
-        Ok(_) => {},
-        Err(e) => return Err(RunError::Trace(e.to_string()))
+        Ok(_) => {}
+        Err(e) => return Err(RunError::Trace(e.to_string())),
     }
     info!("running {}", test.display());
     if let Some(parent) = package.manifest_path().parent() {
@@ -336,9 +358,7 @@ fn execute_test(test: &Path, package: &Package, ignored: bool, config: &Config) 
     for s in &config.varargs {
         argv.push(CString::new(s.as_bytes()).unwrap_or_default());
     }
-    execve(&exec_path, &argv, envars.as_slice())
-        .unwrap();
+    execve(&exec_path, &argv, envars.as_slice()).unwrap();
 
     Ok(())
 }
-
