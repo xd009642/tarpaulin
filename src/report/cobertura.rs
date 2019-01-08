@@ -1,5 +1,7 @@
-use config::Config;
-use errors::*;
+use crate::config::Config;
+use crate::errors::*;
+use crate::traces::{CoverageStat, TraceMap};
+use log::info;
 use quick_xml::events::{BytesDecl, BytesEnd, BytesStart, Event};
 use quick_xml::Writer;
 use std::collections::HashSet;
@@ -8,7 +10,6 @@ use std::io::prelude::*;
 use std::io::Cursor;
 use std::path::Path;
 use std::time::{SystemTime, UNIX_EPOCH};
-use traces::{CoverageStat, TraceMap};
 
 fn write_header<T: Write>(writer: &mut Writer<T>, config: &Config) -> Result<usize, RunError> {
     writer.write_event(Event::Start(BytesStart::borrowed(

@@ -1,12 +1,11 @@
+use crate::config::types::*;
+use clap::{value_t, values_t, ArgMatches};
+use coveralls_api::CiService;
+use log::error;
+use regex::Regex;
 use std::env;
 use std::path::PathBuf;
 use std::time::Duration;
-
-use clap::ArgMatches;
-use coveralls_api::CiService;
-use regex::Regex;
-
-use super::types::*;
 
 pub(super) fn get_list(args: &ArgMatches, key: &str) -> Vec<String> {
     args.values_of_lossy(key).unwrap_or_else(Vec::new)

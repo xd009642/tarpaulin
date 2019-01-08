@@ -1,20 +1,8 @@
-extern crate cargo_tarpaulin;
-extern crate fallible_iterator;
-extern crate gimli;
-extern crate memmap;
-extern crate nix;
-extern crate object;
-extern crate rustc_demangle;
-#[macro_use]
-extern crate clap;
-extern crate env_logger;
-#[macro_use]
-extern crate log;
-
 use cargo_tarpaulin::config::*;
 use cargo_tarpaulin::run;
-use clap::{App, Arg, ArgSettings, SubCommand};
+use clap::{crate_version, App, Arg, ArgSettings, SubCommand};
 use env_logger::Builder;
+use log::error;
 use std::io::Write;
 use std::path::Path;
 

@@ -1,5 +1,9 @@
+use crate::config::Config;
+use crate::source_analysis::*;
+use crate::traces::*;
 use cargo::core::Workspace;
 use gimli::*;
+use log::debug;
 use memmap::MmapOptions;
 use object::{File as OFile, Object};
 use rustc_demangle::demangle;
@@ -7,10 +11,6 @@ use std::collections::HashMap;
 use std::fs::File;
 use std::io;
 use std::path::{Path, PathBuf};
-
-use config::Config;
-use source_analysis::*;
-use traces::*;
 
 /// Describes a function as `low_pc`, `high_pc` and bool representing `is_test`.
 type FuncDesc = (u64, u64, FunctionType);
@@ -200,7 +200,7 @@ where
         }
         for (k, v) in &temp_map {
             if result.contains_key(k) {
-                let mut x = result.get_mut(k).unwrap();
+                let x = result.get_mut(k).unwrap();
                 x.push(v.clone());
             } else {
                 result.insert(k.clone(), vec![v.clone()]);

@@ -159,7 +159,7 @@ impl TraceMap {
             if !self.traces.contains_key(k) {
                 self.traces.insert(k.to_path_buf(), values.to_vec());
             } else {
-                let mut existing = self.traces.get_mut(k).unwrap();
+                let existing = self.traces.get_mut(k).unwrap();
                 for ref v in values.iter() {
                     let mut added = false;
                     if let Some(ref mut t) = existing

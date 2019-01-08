@@ -1,5 +1,6 @@
+use crate::config::Config;
 use cargo::core::Workspace;
-use config::Config;
+use lazy_static::lazy_static;
 use proc_macro2::{Span, TokenStream, TokenTree};
 use regex::Regex;
 use std::cell::RefCell;
@@ -192,7 +193,7 @@ pub fn get_line_analysis(project: &Workspace, config: &Config) -> HashMap<PathBu
 /// Analyse the crates lib.rs for some common false positives
 fn analyse_lib_rs(file: &Path, result: &mut HashMap<PathBuf, LineAnalysis>) {
     if let Ok(f) = File::open(file) {
-        let mut read_file = BufReader::new(f);
+        let read_file = BufReader::new(f);
         if let Some(Ok(first)) = read_file.lines().nth(0) {
             if !(first.starts_with("pub") || first.starts_with("fn")) {
                 let file = file.to_path_buf();
@@ -242,7 +243,7 @@ fn analyse_package(
                 let file = parse_file(&content);
                 if let Ok(file) = file {
                     let mut analysis = LineAnalysis::new();
-                    let mut ctx = Context {
+                    let ctx = Context {
                         config,
                         file_contents: &content,
                         file: path,

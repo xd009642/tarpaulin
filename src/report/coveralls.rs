@@ -1,8 +1,9 @@
-use config::Config;
+use crate::config::Config;
+use crate::errors::RunError;
+use crate::traces::{CoverageStat, TraceMap};
 use coveralls_api::*;
-use errors::RunError;
+use log::info;
 use std::collections::HashMap;
-use traces::{CoverageStat, TraceMap};
 
 pub fn export(coverage_data: &TraceMap, config: &Config) -> Result<(), RunError> {
     if let Some(ref key) = config.coveralls {

@@ -1,10 +1,9 @@
-use std::str::FromStr;
-
+use clap::{_clap_count_exprs, arg_enum};
 use coveralls_api::CiService;
+use std::str::FromStr;
 use void::Void;
 
 arg_enum! {
-
     #[derive(Debug)]
     pub enum OutputFile {
         Json,

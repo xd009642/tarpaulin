@@ -11,6 +11,7 @@ license = "MIT/Apache-2.0"
 categories = ["development-tools"]
 keywords = ["cargo", "cargo-subcommand", "testing"]
 #publish-lockfile = true
+edition = "2018"
 
 [[bin]]
 name = "cargo-tarpaulin"

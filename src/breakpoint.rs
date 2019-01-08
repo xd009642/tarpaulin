@@ -1,6 +1,6 @@
+use crate::ptrace_control::*;
 use nix::unistd::Pid;
 use nix::{Error, Result};
-use ptrace_control::*;
 use std::collections::HashMap;
 
 #[cfg(any(target_arch = "x86", target_arch = "x86_64"))]

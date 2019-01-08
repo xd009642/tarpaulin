@@ -1,30 +1,13 @@
-extern crate cargo;
-extern crate coveralls_api;
-extern crate fallible_iterator;
-extern crate gimli;
-extern crate memmap;
-extern crate nix;
-extern crate object;
-extern crate proc_macro2;
-extern crate rustc_demangle;
-extern crate syn;
-#[macro_use]
-extern crate clap;
-#[macro_use]
-extern crate lazy_static;
-extern crate failure;
-extern crate quick_xml;
-extern crate regex;
-extern crate serde;
-extern crate serde_json;
-extern crate void;
-extern crate walkdir;
-#[macro_use]
-extern crate log;
-
+use crate::config::*;
+use crate::errors::*;
+use crate::ptrace_control::*;
+use crate::statemachine::*;
+use crate::test_loader::*;
+use crate::traces::*;
 use cargo::core::{compiler::CompileMode, Package, Shell, Workspace};
 use cargo::ops;
 use cargo::util::{homedir, Config as CargoConfig};
+use log::{debug, info, warn};
 use nix::unistd::*;
 use std::env;
 use std::ffi::CString;
@@ -42,13 +25,6 @@ pub mod traces;
 /// Should be unnecessary with a future nix crate release.
 mod personality;
 mod ptrace_control;
-
-use config::*;
-use errors::*;
-use ptrace_control::*;
-use statemachine::*;
-use test_loader::*;
-use traces::*;
 
 pub fn run(config: &Config) -> Result<(), RunError> {
     let tracemap = launch_tarpaulin(config)?;

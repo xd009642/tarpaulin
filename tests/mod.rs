@@ -1,5 +1,3 @@
-extern crate cargo_tarpaulin;
-
 use cargo_tarpaulin::config::Config;
 use cargo_tarpaulin::launch_tarpaulin;
 use std::env;

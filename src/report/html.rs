@@ -1,9 +1,9 @@
-use config::Config;
-use errors::*;
+use crate::config::Config;
+use crate::errors::*;
+use crate::traces::{Trace, TraceMap};
 use serde::Serialize;
 use std::fs::{read_to_string, File};
 use std::io::Write;
-use traces::{Trace, TraceMap};
 
 #[derive(Serialize)]
 struct SourceFile {

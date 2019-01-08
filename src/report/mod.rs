@@ -1,6 +1,6 @@
-use config::Config;
+use crate::config::Config;
+use crate::test_loader::TracerData;
 use serde::Serialize;
-use test_loader::TracerData;
 
 pub mod cobertura;
 pub mod coveralls;
