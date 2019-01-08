@@ -1,10 +1,7 @@
-extern crate cargo_tarpaulin;
-
-use cargo_tarpaulin::launch_tarpaulin;
 use cargo_tarpaulin::config::Config;
+use cargo_tarpaulin::launch_tarpaulin;
 use std::env;
 use std::time::Duration;
-
 
 pub fn check_percentage(project_name: &str, minimum_coverage: f64, has_lines: bool) {
     let mut config = Config::default();
@@ -18,7 +15,7 @@ pub fn check_percentage(project_name: &str, minimum_coverage: f64, has_lines: bo
     env::set_current_dir(test_dir.clone()).unwrap();
     config.manifest = test_dir.clone();
     config.manifest.push("Cargo.toml");
-    
+
     let res = launch_tarpaulin(&config).unwrap();
 
     env::set_current_dir(restore_dir).unwrap();
@@ -28,15 +25,12 @@ pub fn check_percentage(project_name: &str, minimum_coverage: f64, has_lines: bo
     }
 }
 
-
-
 #[test]
 fn incorrect_manifest_path() {
     let mut config = Config::default();
     config.manifest.push("__invalid_dir__");
     assert!(launch_tarpaulin(&config).is_err());
 }
-
 
 #[test]
 fn proc_macro_link() {

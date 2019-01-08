@@ -1,5 +1,5 @@
-use test_loader::TracerData;
-use config::Config;
+use crate::config::Config;
+use crate::test_loader::TracerData;
 use serde::Serialize;
 
 pub mod cobertura;
@@ -10,5 +10,4 @@ pub mod html;
 pub trait Report<Out: Serialize> {
     /// Export coverage report
     fn export(coverage_data: &[TracerData], config: &Config);
-
 }
