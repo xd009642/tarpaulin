@@ -75,31 +75,27 @@ output correctly reports the lines the test hits.
 
 ```text
 cargo tarpaulin -v
-Running Tarpaulin
-Building project
-   Compiling simple_project v0.1.0 (/home/xd009642/code/rust/tarpaulin/tests/data/simple_project)
-    Finished dev [unoptimized + debuginfo] target(s) in 0.31s                                            
-Processing simple_project
-Launching test
-running /home/xd009642/code/rust/tarpaulin/tests/data/simple_project/target/debug/deps/simple_project-a387d41cf984eb4b
+[INFO tarpaulin] Running Tarpaulin
+[INFO tarpaulin] Building project
+    Finished dev [unoptimized + debuginfo] target(s) in 0.00s                                                                                                                                                      
+[DEBUG tarpaulin] Processing simple_project
+[INFO tarpaulin] Launching test
+[INFO tarpaulin] running /home/xd009642/code/rust/tarpaulin/tests/data/simple_project/target/debug/deps/simple_project-b0accf6671d080e0
 
 running 1 test
 test tests::bad_test ... ok
 
 test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out
 
-Coverage Results
-
-Uncovered Lines:
-src/lib.rs: 6
-src/unused.rs: 4-6
-
-Tested/Total Lines:
-src/lib.rs: 5/6
-src/unused.rs: 0/3
-
+[INFO tarpaulin] Coverage Results:
+|| Uncovered Lines:
+|| src/lib.rs: 6
+|| src/unused.rs: 4-6
+|| Tested/Total Lines:
+|| src/lib.rs: 5/6
+|| src/unused.rs: 0/3
+|| 
 55.56% coverage, 5/9 lines covered
-Tarpaulin finished
 ```
 
 Hint: if using coveralls.io with travis-ci run with the options

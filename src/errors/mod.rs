@@ -32,8 +32,7 @@ pub enum RunError {
     OutFormat(String),
     #[fail(display="{}", _0)]
     IO(std::io::Error),
-    //TODO: Better error message!
-    #[fail(display="{}", _0)]
+    #[fail(display="Error running test: {}", _0)]
     StateMachine(String),
     //TODO: Better error message!
     #[fail(display="{}", _0)]

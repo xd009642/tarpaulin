@@ -285,14 +285,11 @@ fn collect_coverage(project: &Workspace,
     {
         let (mut state, mut data) = create_state_machine(test, &mut traces, config);
         loop {
-            //TODO: Well, this is ugly
-            let state_var = state.step(&mut data, config);
-            state = state_var?;
+            state = state.step(&mut data, config)?;
             if state.is_finished() {
                 if let TestState::End(i) = state {
                     if i != 0 {
-                        // TODO: Needs a better error message!
-                        return Err(RunError::TestCoverage("Failed to run tests!".to_string()));
+                        return Err(RunError::TestCoverage("Test binary exited with non-zero return code".to_string()));
                     }
                 }
                 break;
