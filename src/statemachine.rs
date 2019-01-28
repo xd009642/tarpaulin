@@ -3,7 +3,7 @@ use crate::config::Config;
 use crate::errors::RunError;
 use crate::ptrace_control::*;
 use crate::traces::*;
-use log::debug;
+use log::{debug, warn};
 use nix::errno::Errno;
 use nix::sys::signal::Signal;
 use nix::sys::wait::*;
@@ -275,9 +275,8 @@ impl<'a> StateData for LinuxData<'a> {
                     Ok(TestState::wait_state())
                 }
             }
-            //TODO: Seriously, improve this.
             _ => Err(RunError::TestRuntime(
-                "Something went wrong stopping the tests!".to_string(),
+                "An unexpected signal has been caught by tarpaulin!".to_string(),
             )),
         }
     }
@@ -348,8 +347,8 @@ impl<'a> LinuxData<'a> {
                 let bp = &mut self.breakpoints.get_mut(&rip).unwrap();
                 let enable = self.config.count && self.thread_count < 2;
                 if !enable && self.force_disable_hit_count {
-                    println!("Code is mulithreaded, disabling hit count");
-                    println!("Results may be improved by not using the '--count' option when running tarpaulin");
+                    warn!("Code is mulithreaded, disabling hit count");
+                    warn!("Results may be improved by not using the '--count' option when running tarpaulin");
                     self.force_disable_hit_count = false;
                 }
                 // Don't reenable if multithreaded as can't yet sort out segfault issue
