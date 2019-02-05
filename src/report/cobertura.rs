@@ -221,7 +221,12 @@ impl Report {
 
         writer.write_event(Event::Start(BytesStart::borrowed(classes_tag, classes_tag.len())))?;
         for class in classes {
-            let c = BytesStart::borrowed(class_tag, class_tag.len());
+            let mut c = BytesStart::borrowed(class_tag, class_tag.len());
+            c.push_attribute(("name", class.name.as_ref()));
+            c.push_attribute(("filename", class.file_name.as_ref()));
+            c.push_attribute(("line-rate", class.line_rate.to_string().as_ref()));
+            c.push_attribute(("branch-rate", class.branch_rate.to_string().as_ref()));
+            c.push_attribute(("complexity", class.complexity.to_string().as_ref()));
 
             writer.write_event(Event::Start(c))?;
             writer.write_event(Event::Empty(BytesStart::borrowed(methods_tag, methods_tag.len())))?;
