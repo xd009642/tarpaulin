@@ -1,6 +1,6 @@
 #![allow(dead_code)]
 /// The XML structure for a cobatura report is roughly as follows:
-///
+/// ```xml
 /// <coverage lines-valid="5" lines-covered="0" line-rate="0.0" branches-valid="0" 
 /// branches-covered="0" branch-rate="0.0" version="1.9" timestamp="...">
 ///   <sources>
@@ -37,6 +37,7 @@
 ///     ...
 ///   </packages>
 /// </coverage>
+/// ```
 
 use std::error;
 use std::fmt;
