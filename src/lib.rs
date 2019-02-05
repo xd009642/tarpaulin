@@ -215,7 +215,8 @@ pub fn report_coverage(config: &Config, result: &TraceMap) -> Result<(), RunErro
         for g in &config.generate {
             match *g {
                 OutputFile::Xml => {
-                    report::cobertura::export(result, config)?;
+                    report::cobertura::report(result, config)
+                        .map_err(|e| RunError::XML(e))?;
                 }
                 OutputFile::Html => {
                     report::html::export(result, config)?;
