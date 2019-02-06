@@ -5,6 +5,7 @@ use env_logger::Builder;
 use log::error;
 use std::io::Write;
 use std::path::Path;
+use log::trace;
 
 fn is_dir(d: String) -> Result<(), String> {
     if Path::new(&d).is_dir() {
@@ -14,11 +15,13 @@ fn is_dir(d: String) -> Result<(), String> {
     }
 }
 
-fn set_up_logging(verbose: bool) {
+fn set_up_logging(debug: bool, verbose: bool) {
     let mut builder = Builder::new();
 
     // NOTE: This overwrites RUST_LOG
-    if verbose {
+    if debug {
+        builder.filter_module("cargo_tarpaulin", log::LevelFilter::Trace);
+    } else if verbose {
         builder.filter_module("cargo_tarpaulin", log::LevelFilter::Debug);
     } else {
         builder.filter_module("cargo_tarpaulin", log::LevelFilter::Info);
@@ -53,7 +56,8 @@ fn main() {
             .about("Tool to analyse test coverage of cargo projects")
             .version(concat!("version: ", crate_version!()))
             .args_from_usage(
-                 "--verbose -v 'Show extra output'
+                 "--debug 'Show debug output - this is used for diagnosing issues with tarpaulin'
+                 --verbose -v 'Show extra output'
                  --ignore-tests 'ignore lines of test functions when collecting coverage'
                  --ignore-panics 'ignore panic macros in tests'
                  --count   'Counts the number of hits during coverage'
@@ -91,8 +95,8 @@ fn main() {
     let args = args.subcommand_matches("tarpaulin").unwrap_or(&args);
     let config = Config::from(args);
 
-    set_up_logging(config.verbose);
-
+    set_up_logging(config.debug, config.verbose);
+    trace!("Debug mode activated");
     // Since this is the last function we run and don't do any error mitigations (other than
     // printing the error to the user it's fine to unwrap here
     run(&config)

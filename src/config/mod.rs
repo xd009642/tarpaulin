@@ -27,6 +27,8 @@ pub struct Config {
     pub force_clean: bool,
     /// Verbose flag for printing information to the user
     pub verbose: bool,
+    /// Debug flag for printing internal debugging information to the user
+    pub debug: bool,
     /// Flag to count hits in coverage
     pub count: bool,
     /// Flag specifying to run line coverage (default)
@@ -77,6 +79,7 @@ impl<'a> From<&'a ArgMatches<'a>> for Config {
             ignore_panics: args.is_present("ignore-panics"),
             force_clean: args.is_present("force-clean"),
             verbose: args.is_present("verbose"),
+            debug: args.is_present("debug"),
             count: args.is_present("count"),
             line_coverage: get_line_cov(args),
             branch_coverage: get_branch_cov(args),
