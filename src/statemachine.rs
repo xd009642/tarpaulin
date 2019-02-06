@@ -238,16 +238,21 @@ impl<'a> StateData for LinuxData<'a> {
                     ))),
                 }
             }
-            WaitStatus::Stopped(child, Signal::SIGSTOP) => match continue_exec(child, None) {
-                Ok(_) => Ok(TestState::wait_state()),
-                Err(e) => Err(RunError::TestRuntime(format!(
-                    "Error processing SIGSTOP: {}",
-                    e.to_string()
-                ))),
+            WaitStatus::Stopped(child, Signal::SIGSTOP) => {
+                match continue_exec(child, None) {
+                    Ok(_) => Ok(TestState::wait_state()),
+                    Err(e) => Err(RunError::TestRuntime(format!(
+                        "Error processing SIGSTOP: {}",
+                        e.to_string()
+                    ))),
+                }
             },
             WaitStatus::Stopped(_, Signal::SIGSEGV) => Err(RunError::TestRuntime(
                 "A segfault occurred while executing tests".to_string(),
             )),
+            WaitStatus::Stopped(child, Signal::SIGILL) => {
+                Err(RunError::TestRuntime(format!("Error running test - SIGILL raised in {}", child)))
+            },
             WaitStatus::Stopped(c, s) => {
                 let sig = if self.config.forward_signals {
                     Some(s)
@@ -308,7 +313,6 @@ impl<'a> LinuxData<'a> {
         use nix::libc::*;
 
         if sig == Signal::SIGTRAP {
-            trace!("Handling ptrace event {}", event);
             match event {
                 PTRACE_EVENT_CLONE => {
                     match get_event_data(child) {
@@ -327,14 +331,17 @@ impl<'a> LinuxData<'a> {
                     }
                 }
                 PTRACE_EVENT_FORK | PTRACE_EVENT_VFORK => {
+                    trace!("Caught fork event");
                     continue_exec(child, None)?;
                     Ok(TestState::wait_state())
                 }
                 PTRACE_EVENT_EXEC => {
+                    trace!("Child execed other process - detaching ptrace");
                     detach_child(child)?;
                     Ok(TestState::wait_state())
                 }
                 PTRACE_EVENT_EXIT => {
+                    trace!("Child exiting");
                     self.thread_count -= 1;
                     continue_exec(child, None)?;
                     Ok(TestState::wait_state())
