@@ -3,7 +3,7 @@ use crate::source_analysis::*;
 use crate::traces::*;
 use cargo::core::Workspace;
 use gimli::*;
-use log::debug;
+use log::{debug, trace};
 use memmap::MmapOptions;
 use object::{File as OFile, Object};
 use rustc_demangle::demangle;
@@ -272,6 +272,11 @@ fn get_line_addresses(
                 let mut tracemap = TraceMap::new();
                 for (k, val) in &temp_map {
                     for v in val.iter() {
+                        let rpath = config.strip_project_path(&k.path);
+                        match v.address {
+                            Some(ref a) => trace!("Adding trace at address 0x{:x} in {}:{}", a, rpath.display(), k.line),
+                            None => trace!("Adding trace with no address at {}:{}", rpath.display(), k.line),
+                        }
                         tracemap.add_trace(
                             &k.path,
                             Trace {
@@ -296,6 +301,8 @@ fn get_line_addresses(
             let line = *line as u64;
             if !result.contains_location(file, line) && !line_analysis.should_ignore(line as usize)
             {
+                let rpath = config.strip_project_path(file);
+                trace!("Adding trace for potentially uncoverable line in {}:{}", rpath.display(), line);
                 result.add_trace(
                     file,
                     Trace {

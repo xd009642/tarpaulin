@@ -7,7 +7,7 @@ use crate::traces::*;
 use cargo::core::{compiler::CompileMode, Package, Shell, Workspace};
 use cargo::ops;
 use cargo::util::{homedir, Config as CargoConfig};
-use log::{debug, info, warn};
+use log::{debug, info, warn, trace};
 use nix::unistd::*;
 use std::env;
 use std::ffi::CString;
@@ -275,6 +275,7 @@ fn collect_coverage(
 ) -> Result<TraceMap, RunError> {
     let mut traces = generate_tracemap(project, test_path, config)?;
     {
+        trace!("Test PID is {}", test);
         let (mut state, mut data) = create_state_machine(test, &mut traces, config);
         loop {
             state = state.step(&mut data, config)?;

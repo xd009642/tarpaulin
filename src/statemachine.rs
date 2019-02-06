@@ -3,7 +3,7 @@ use crate::config::Config;
 use crate::errors::RunError;
 use crate::ptrace_control::*;
 use crate::traces::*;
-use log::{debug, warn};
+use log::{debug, warn, trace};
 use nix::errno::Errno;
 use nix::sys::signal::Signal;
 use nix::sys::wait::*;
@@ -145,6 +145,7 @@ impl<'a> StateData for LinuxData<'a> {
                     self.current = child;
                 }
                 self.wait = sig;
+                trace!("Caught inferior transitioning to Initialise state");
                 Ok(Some(TestState::Initialise))
             }
             Ok(_) => Err(RunError::TestRuntime(
@@ -187,7 +188,8 @@ impl<'a> StateData for LinuxData<'a> {
         }
 
         if continue_exec(self.parent, None).is_ok() {
-            return Ok(TestState::wait_state());
+            trace!("Initialised inferior, transitioning to wait state");
+            Ok(TestState::wait_state())
         } else {
             Err(RunError::TestRuntime(
                 "Test didn't launch correctly".to_string(),
@@ -217,6 +219,7 @@ impl<'a> StateData for LinuxData<'a> {
     }
 
     fn stop(&mut self) -> Result<TestState, RunError> {
+        trace!("Caught signal {:?}", self.wait);
         match self.wait {
             WaitStatus::PtraceEvent(c, s, e) => match self.handle_ptrace_event(c, s, e) {
                 Ok(s) => Ok(s),
@@ -305,16 +308,22 @@ impl<'a> LinuxData<'a> {
         use nix::libc::*;
 
         if sig == Signal::SIGTRAP {
+            trace!("Handling ptrace event {}", event);
             match event {
                 PTRACE_EVENT_CLONE => {
-                    if get_event_data(child).is_ok() {
-                        self.thread_count += 1;
-                        continue_exec(child, None)?;
-                        Ok(TestState::wait_state())
-                    } else {
-                        Err(RunError::TestRuntime(
-                            "Error occurred upon test executable thread creation".to_string(),
-                        ))
+                    match get_event_data(child) {
+                        Ok(t) => {
+                            trace!("New thread spawned {}", t);
+                            self.thread_count += 1;
+                            continue_exec(child, None)?;
+                            Ok(TestState::wait_state())
+                        },
+                        Err(e) => {
+                            trace!("Error in clone event {:?}", e);
+                            Err(RunError::TestRuntime(
+                                "Error occurred upon test executable thread creation".to_string(),
+                            ))
+                        }
                     }
                 }
                 PTRACE_EVENT_FORK | PTRACE_EVENT_VFORK => {
@@ -336,6 +345,8 @@ impl<'a> LinuxData<'a> {
                 ))),
             }
         } else {
+            trace!("Unexpected signal with ptrace event {}", event);
+            trace!("Signal: {:?}", sig);
             Err(RunError::TestRuntime("Unexpected signal".to_string()))
         }
     }
@@ -343,6 +354,7 @@ impl<'a> LinuxData<'a> {
     fn collect_coverage_data(&mut self) -> Result<TestState, RunError> {
         if let Ok(rip) = current_instruction_pointer(self.current) {
             let rip = (rip - 1) as u64;
+            trace!("Hit address 0x{:x}", rip);
             if self.breakpoints.contains_key(&rip) {
                 let bp = &mut self.breakpoints.get_mut(&rip).unwrap();
                 let enable = self.config.count && self.thread_count < 2;
@@ -363,6 +375,7 @@ impl<'a> LinuxData<'a> {
                 if updated {
                     if let Some(ref mut t) = self.traces.get_trace_mut(rip) {
                         if let CoverageStat::Line(ref mut x) = t.stats {
+                            trace!("Incrementing hit count for trace");
                             *x += 1;
                         }
                     }
