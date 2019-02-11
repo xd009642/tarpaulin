@@ -55,12 +55,22 @@ fn get_git_info(manifest_path: &Path) -> Result<GitInfo, String> {
 pub fn export(coverage_data: &TraceMap, config: &Config) -> Result<(), RunError> {
     if let Some(ref key) = config.coveralls {
         let id = match config.ci_tool {
-            Some(ref service) => Identity::ServiceToken(Service {
-                service_name: service.clone(),
-                service_job_id: key.clone(),
-            }),
-            _ => Identity::RepoToken(key.clone()),
+            Some(ref service) => Some(Identity::ServiceToken(Service {
+                name: service.clone(),
+                job_id: Some(key.clone()),
+                branch: None,
+                build_url: None,
+                number: None,
+                pull_request: None,
+            })),
+            _ => Identity::best_match(),
         };
+
+        let id = match id {
+            Some(i) => i,
+            None => Identity::RepoToken(key.clone()),
+        };
+
         let mut report = CoverallsReport::new(id);
         for file in &coverage_data.files() {
             let rel_path = config.strip_project_path(file);

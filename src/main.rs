@@ -83,7 +83,7 @@ fn main() {
                     .multiple(true),
                 Arg::from_usage("--root -r [DIR]  'Root directory containing Cargo.toml to use'")
                     .validator(is_dir),
-                Arg::from_usage("--ciserver [SERVICE] 'CI server being used'")
+                Arg::from_usage("--ciserver [SERVICE] 'CI server being used, if unspecified tarpaulin may automatically infer for coveralls uploads'")
                     .help(CI_SERVER_HELP),
                 Arg::with_name("args")
                     .set(ArgSettings::Last)

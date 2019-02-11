@@ -20,7 +20,7 @@ name = "cargo-tarpaulin"
 cargo = "0.33"
 chrono = "0.4"
 clap = "2.31.2"
-coveralls-api = "0.3.3"
+coveralls-api = {git="https://github.com/xd009642/coveralls-api", branch="env-var-support"}
 env_logger = "0.6.0"
 failure = "0.1.3"
 fallible-iterator = "0.1.6"

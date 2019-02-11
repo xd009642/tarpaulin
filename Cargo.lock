@@ -147,7 +147,7 @@ dependencies = [
  "cargo 0.33.0 (registry+https://github.com/rust-lang/crates.io-index)",
  "chrono 0.4.6 (registry+https://github.com/rust-lang/crates.io-index)",
  "clap 2.32.0 (registry+https://github.com/rust-lang/crates.io-index)",
- "coveralls-api 0.3.3 (registry+https://github.com/rust-lang/crates.io-index)",
+ "coveralls-api 0.3.3 (git+https://github.com/xd009642/coveralls-api?branch=env-var-support)",
  "env_logger 0.6.0 (registry+https://github.com/rust-lang/crates.io-index)",
  "failure 0.1.5 (registry+https://github.com/rust-lang/crates.io-index)",
  "fallible-iterator 0.1.6 (registry+https://github.com/rust-lang/crates.io-index)",
@@ -245,7 +245,7 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 [[package]]
 name = "coveralls-api"
 version = "0.3.3"
-source = "registry+https://github.com/rust-lang/crates.io-index"
+source = "git+https://github.com/xd009642/coveralls-api?branch=env-var-support#410ed7153a3a69b120c5af8ffd03c0825be75744"
 dependencies = [
  "curl 0.4.19 (registry+https://github.com/rust-lang/crates.io-index)",
  "deflate 0.7.19 (registry+https://github.com/rust-lang/crates.io-index)",
@@ -1452,7 +1452,7 @@ dependencies = [
 "checksum commoncrypto-sys 0.2.0 (registry+https://github.com/rust-lang/crates.io-index)" = "1fed34f46747aa73dfaa578069fd8279d2818ade2b55f38f22a9401c7f4083e2"
 "checksum core-foundation 0.6.3 (registry+https://github.com/rust-lang/crates.io-index)" = "4e2640d6d0bf22e82bed1b73c6aef8d5dd31e5abe6666c57e6d45e2649f4f887"
 "checksum core-foundation-sys 0.6.2 (registry+https://github.com/rust-lang/crates.io-index)" = "e7ca8a5221364ef15ce201e8ed2f609fc312682a8f4e0e3d4aa5879764e0fa3b"
-"checksum coveralls-api 0.3.3 (registry+https://github.com/rust-lang/crates.io-index)" = "1a7f17235b2f17cec847ea899124e7de0527bacd52452ecbd26d4372b9cad640"
+"checksum coveralls-api 0.3.3 (git+https://github.com/xd009642/coveralls-api?branch=env-var-support)" = "<none>"
 "checksum crates-io 0.21.0 (registry+https://github.com/rust-lang/crates.io-index)" = "af82085c3ecd9dcc570ce7a6890c321000dae5b66ab9f4ff6a617e1f26b8664c"
 "checksum crc 1.8.1 (registry+https://github.com/rust-lang/crates.io-index)" = "d663548de7f5cca343f1e0a48d14dcfb0e9eb4e079ec58883b7251539fa10aeb"
 "checksum crc32fast 1.1.2 (registry+https://github.com/rust-lang/crates.io-index)" = "e91d5240c6975ef33aeb5f148f35275c25eda8e8a5f95abe421978b05b8bf192"
