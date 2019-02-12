@@ -5,6 +5,8 @@ use coveralls_api::*;
 use log::{info, warn};
 use std::collections::HashMap;
 use std::path::Path;
+use std::fs;
+
 
 fn get_git_info(manifest_path: &Path) -> Result<GitInfo, String> {
     let dir_path = manifest_path
@@ -51,6 +53,7 @@ fn get_git_info(manifest_path: &Path) -> Result<GitInfo, String> {
         remotes: Vec::new(),
     })
 }
+
 
 pub fn export(coverage_data: &TraceMap, config: &Config) -> Result<(), RunError> {
     if let Some(ref key) = config.coveralls {
@@ -110,7 +113,14 @@ pub fn export(coverage_data: &TraceMap, config: &Config) -> Result<(), RunError>
                 report.send_to_coveralls()
             }
         };
-
+        if config.debug {
+            if let Ok(text) = serde_json::to_string(&report) {
+                info!("Attempting to write coveralls report to coveralls.json");
+                let _ = fs::write("coveralls.json", text);
+            } else {
+                warn!("Failed to serialise coverage report");
+            }
+        }
         match res {
             Ok(_) => Ok(()),
             Err(e) => Err(RunError::CovReport(format!("Coveralls send failed. {}", e))),
