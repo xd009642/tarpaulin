@@ -69,6 +69,8 @@ pub fn export(coverage_data: &TraceMap, config: &Config) -> Result<(), RunError>
             _ => Identity::best_match(),
         };
 
+        println!("{:?}", id);
+
         let id = match id {
             Some(i) => i,
             None => Identity::RepoToken(key.clone()),
