@@ -58,7 +58,7 @@ fn get_git_info(manifest_path: &Path) -> Result<GitInfo, String> {
 pub fn export(coverage_data: &TraceMap, config: &Config) -> Result<(), RunError> {
     if let Some(ref key) = config.coveralls {
         let id = match config.ci_tool {
-            Some(ref service) => Some(Identity::ServiceToken(Service {
+            Some(ref service) => Some(Identity::ServiceToken(key.clone(), Service {
                 name: service.clone(),
                 job_id: Some(key.clone()),
                 branch: None,
