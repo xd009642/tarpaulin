@@ -58,14 +58,20 @@ fn get_git_info(manifest_path: &Path) -> Result<GitInfo, String> {
 pub fn export(coverage_data: &TraceMap, config: &Config) -> Result<(), RunError> {
     if let Some(ref key) = config.coveralls {
         let id = match config.ci_tool {
-            Some(ref service) => Identity::ServiceToken(key.clone(), Service {
-                name: service.clone(),
-                job_id: Some(key.clone()),
-                branch: None,
-                build_url: None,
-                number: None,
-                pull_request: None,
-            }),
+            Some(ref service) => {
+                let serv_obj = match Service::from_ci(service.clone()) {
+                    Some(s) => s,
+                    None => Service {
+                        name: service.clone(),
+                        job_id: Some(key.clone()),
+                        number: None,
+                        build_url: None,
+                        branch: None,
+                        pull_request: None,
+                    }
+                };
+                Identity::ServiceToken(key.clone(), serv_obj)
+            },
             _ => Identity::best_match_with_token(key.to_string()),
         };
 
