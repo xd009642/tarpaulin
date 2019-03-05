@@ -2,7 +2,7 @@ use crate::config::Config;
 use crate::errors::RunError;
 use crate::traces::{CoverageStat, TraceMap};
 use coveralls_api::*;
-use log::{info, warn};
+use log::{info, warn, trace};
 use std::collections::HashMap;
 use std::path::Path;
 use std::fs;
@@ -139,7 +139,10 @@ pub fn export(coverage_data: &TraceMap, config: &Config) -> Result<(), RunError>
             }
         }
         match res {
-            Ok(_) => Ok(()),
+            Ok(s) => {
+                trace!("Coveralls response {:?}", s);
+                Ok(())
+            },
             Err(e) => Err(RunError::CovReport(format!("Coveralls send failed. {}", e))),
         }
     } else {
