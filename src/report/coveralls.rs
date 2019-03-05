@@ -55,25 +55,41 @@ fn get_git_info(manifest_path: &Path) -> Result<GitInfo, String> {
 }
 
 
+fn get_identity(ci_tool: &Option<CiService>, key: &str) -> Identity {
+    match ci_tool {
+        Some(CiService::Travis) => {
+            let service = Service {
+                name: CiService::Travis,
+                job_id: Some(key.to_string()),
+                number: None,
+                build_url: None,
+                branch: None,
+                pull_request: None,
+            };
+            Identity::ServiceToken(key.to_string(), service)
+        },
+        Some(ref service) => {
+            let service = match Service::from_ci(service.clone()) {
+                Some(s) => s,
+                None => Service {
+                    name: service.clone(),
+                    job_id: Some(key.to_string()),
+                    number: None,
+                    build_url: None,
+                    branch: None,
+                    pull_request: None,
+                }
+            };
+            Identity::ServiceToken(key.to_string(), service)
+        },
+        _ => Identity::best_match_with_token(key.to_string()),
+    }
+}
+
+
 pub fn export(coverage_data: &TraceMap, config: &Config) -> Result<(), RunError> {
     if let Some(ref key) = config.coveralls {
-        let id = match config.ci_tool {
-            Some(ref service) => {
-                let serv_obj = match Service::from_ci(service.clone()) {
-                    Some(s) => s,
-                    None => Service {
-                        name: service.clone(),
-                        job_id: Some(key.clone()),
-                        number: None,
-                        build_url: None,
-                        branch: None,
-                        pull_request: None,
-                    }
-                };
-                Identity::ServiceToken(key.clone(), serv_obj)
-            },
-            _ => Identity::best_match_with_token(key.to_string()),
-        };
+        let id = get_identity(&config.ci_tool, key);
 
         let mut report = CoverallsReport::new(id);
         for file in &coverage_data.files() {
