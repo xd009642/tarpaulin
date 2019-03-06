@@ -66,7 +66,7 @@ fn get_identity(ci_tool: &Option<CiService>, key: &str) -> Identity {
                 branch: None,
                 pull_request: None,
             };
-            Identity::ServiceToken(key.to_string(), service)
+            Identity::ServiceToken(String::new(), service)
         },
         Some(ref service) => {
             let service = match Service::from_ci(service.clone()) {
