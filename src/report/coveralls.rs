@@ -133,6 +133,7 @@ pub fn export(coverage_data: &TraceMap, config: &Config) -> Result<(), RunError>
         if config.debug {
             if let Ok(text) = serde_json::to_string(&report) {
                 info!("Attempting to write coveralls report to coveralls.json");
+                println!("{}", text);
                 let _ = fs::write("coveralls.json", text);
             } else {
                 warn!("Failed to serialise coverage report");
