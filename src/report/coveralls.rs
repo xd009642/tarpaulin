@@ -57,19 +57,8 @@ fn get_git_info(manifest_path: &Path) -> Result<GitInfo, String> {
 
 fn get_identity(ci_tool: &Option<CiService>, key: &str) -> Identity {
     match ci_tool {
-        Some(CiService::Travis) => {
-            let service = Service {
-                name: CiService::Travis,
-                job_id: Some(key.to_string()),
-                number: None,
-                build_url: None,
-                branch: None,
-                pull_request: None,
-            };
-            Identity::ServiceToken(String::new(), service)
-        },
         Some(ref service) => {
-            let service = match Service::from_ci(service.clone()) {
+            let service_object = match Service::from_ci(service.clone()) {
                 Some(s) => s,
                 None => Service {
                     name: service.clone(),
@@ -80,7 +69,12 @@ fn get_identity(ci_tool: &Option<CiService>, key: &str) -> Identity {
                     pull_request: None,
                 }
             };
-            Identity::ServiceToken(key.to_string(), service)
+            let key = if service == &CiService::Travis {
+                String::new()
+            } else {
+                key.to_string()
+            };
+            Identity::ServiceToken(key, service_object)
         },
         _ => Identity::best_match_with_token(key.to_string()),
     }
@@ -133,7 +127,6 @@ pub fn export(coverage_data: &TraceMap, config: &Config) -> Result<(), RunError>
         if config.debug {
             if let Ok(text) = serde_json::to_string(&report) {
                 info!("Attempting to write coveralls report to coveralls.json");
-                println!("{}", text);
                 let _ = fs::write("coveralls.json", text);
             } else {
                 warn!("Failed to serialise coverage report");
