@@ -2,9 +2,11 @@ use crate::config::Config;
 use crate::errors::RunError;
 use crate::traces::{CoverageStat, TraceMap};
 use coveralls_api::*;
-use log::{info, warn};
+use log::{info, warn, trace};
 use std::collections::HashMap;
 use std::path::Path;
+use std::fs;
+
 
 fn get_git_info(manifest_path: &Path) -> Result<GitInfo, String> {
     let dir_path = manifest_path
@@ -52,15 +54,37 @@ fn get_git_info(manifest_path: &Path) -> Result<GitInfo, String> {
     })
 }
 
+
+fn get_identity(ci_tool: &Option<CiService>, key: &str) -> Identity {
+    match ci_tool {
+        Some(ref service) => {
+            let service_object = match Service::from_ci(service.clone()) {
+                Some(s) => s,
+                None => Service {
+                    name: service.clone(),
+                    job_id: Some(key.to_string()),
+                    number: None,
+                    build_url: None,
+                    branch: None,
+                    pull_request: None,
+                }
+            };
+            let key = if service == &CiService::Travis {
+                String::new()
+            } else {
+                key.to_string()
+            };
+            Identity::ServiceToken(key, service_object)
+        },
+        _ => Identity::best_match_with_token(key.to_string()),
+    }
+}
+
+
 pub fn export(coverage_data: &TraceMap, config: &Config) -> Result<(), RunError> {
     if let Some(ref key) = config.coveralls {
-        let id = match config.ci_tool {
-            Some(ref service) => Identity::ServiceToken(Service {
-                service_name: service.clone(),
-                service_job_id: key.clone(),
-            }),
-            _ => Identity::RepoToken(key.clone()),
-        };
+        let id = get_identity(&config.ci_tool, key);
+
         let mut report = CoverallsReport::new(id);
         for file in &coverage_data.files() {
             let rel_path = config.strip_project_path(file);
@@ -100,9 +124,19 @@ pub fn export(coverage_data: &TraceMap, config: &Config) -> Result<(), RunError>
                 report.send_to_coveralls()
             }
         };
-
+        if config.debug {
+            if let Ok(text) = serde_json::to_string(&report) {
+                info!("Attempting to write coveralls report to coveralls.json");
+                let _ = fs::write("coveralls.json", text);
+            } else {
+                warn!("Failed to serialise coverage report");
+            }
+        }
         match res {
-            Ok(_) => Ok(()),
+            Ok(s) => {
+                trace!("Coveralls response {:?}", s);
+                Ok(())
+            },
             Err(e) => Err(RunError::CovReport(format!("Coveralls send failed. {}", e))),
         }
     } else {
