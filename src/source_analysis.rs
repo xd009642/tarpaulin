@@ -575,7 +575,7 @@ fn process_expr(expr: &Expr, ctx: &Context, analysis: &mut LineAnalysis) -> SubR
         Expr::Macro(ref m) => visit_macro_call(&m.mac, ctx, analysis),
         Expr::Struct(ref s) => visit_struct_expr(&s, analysis),
         Expr::Unsafe(ref u) => visit_unsafe_block(&u, ctx, analysis),
-        Expr::Call(ref c) => visit_callable(&c, analysis),
+        Expr::Call(ref c) => visit_callable(&c, ctx, analysis),
         Expr::MethodCall(ref m) => visit_methodcall(&m, analysis),
         Expr::Match(ref m) => visit_match(&m, ctx, analysis),
         Expr::Block(ref b) => visit_block(&b.block, ctx, analysis),
@@ -584,6 +584,8 @@ fn process_expr(expr: &Expr, ctx: &Context, analysis: &mut LineAnalysis) -> SubR
         Expr::ForLoop(ref f) => visit_for(&f, ctx, analysis),
         Expr::Loop(ref l) => visit_loop(&l, ctx, analysis),
         Expr::Return(ref r) => visit_return(&r, ctx, analysis),
+        Expr::Closure(ref c) => visit_closure(&c, ctx, analysis),
+        Expr::Path(ref p) => visit_path(&p, analysis),
         // don't try to compute unreachability on other things
         _ => SubResult::Ok,
     };
@@ -591,6 +593,15 @@ fn process_expr(expr: &Expr, ctx: &Context, analysis: &mut LineAnalysis) -> SubR
         analysis.ignore_span(expr.span());
     }
     res
+}
+
+fn visit_path(path: &ExprPath, analysis: &mut LineAnalysis) -> SubResult {
+    if let Some(Pair::End(path_end)) = path.path.segments.last() {
+        if path_end.ident.to_string() == "unreachable_unchecked" {
+            analysis.ignore_span(path.span());
+        }
+    }
+    SubResult::Ok
 }
 
 fn visit_return(ret: &ExprReturn, ctx: &Context, analysis: &mut LineAnalysis) -> SubResult {
@@ -612,6 +623,14 @@ fn visit_block(block: &Block, ctx: &Context, analysis: &mut LineAnalysis) -> Sub
     } else {
         SubResult::Ok
     }
+}
+
+fn visit_closure(closure: &ExprClosure, ctx: &Context, analysis: &mut LineAnalysis) -> SubResult {
+   
+    process_expr(&closure.body, ctx, analysis);
+    // Even if a closure is "unreachable" it might be part of a chained method
+    // call and I don't want that propagating up.
+    SubResult::Ok
 }
 
 fn visit_match(mat: &ExprMatch, ctx: &Context, analysis: &mut LineAnalysis) -> SubResult {
@@ -698,7 +717,7 @@ fn get_coverable_args(args: &Punctuated<Expr, Comma>) -> HashSet<usize> {
     lines
 }
 
-fn visit_callable(call: &ExprCall, analysis: &mut LineAnalysis) -> SubResult {
+fn visit_callable(call: &ExprCall, ctx: &Context, analysis: &mut LineAnalysis) -> SubResult {
     let start = call.span().start().line + 1;
     let end = call.span().end().line + 1;
     let lines = get_coverable_args(&call.args);
@@ -706,6 +725,8 @@ fn visit_callable(call: &ExprCall, analysis: &mut LineAnalysis) -> SubResult {
         .filter(|x| !lines.contains(&x))
         .collect::<Vec<_>>();
     analysis.add_to_ignore(&lines);
+
+    process_expr(&call.func, ctx, analysis);
     // We can't guess if a callable would actually be unreachable
     SubResult::Ok
 }
@@ -955,6 +976,23 @@ mod tests {
         process_items(&parser.items, &ctx, &mut lines);
         assert!(!lines.ignore.contains(&Lines::Line(4)));
         assert!(lines.ignore.contains(&Lines::Line(5)));
+    }
+
+    #[test]
+    fn filter_unreachable_unchecked() {
+        let config = Config::default();
+        let mut lines = LineAnalysis::new();
+        let ctx = Context {
+            config: &config,
+            file_contents: "fn test() {
+                    core::hint::unreachable_unchecked();
+                }",
+            file: Path::new(""),
+            ignore_mods: RefCell::new(HashSet::new()),
+        };
+        let parser = parse_file(ctx.file_contents).unwrap();
+        process_items(&parser.items, &ctx, &mut lines);
+        assert!(lines.ignore.contains(&Lines::Line(2)));
     }
 
     #[test]
@@ -1384,6 +1422,25 @@ mod tests {
         assert!(!lines.cover.contains(&6));
         assert!(!lines.cover.contains(&7));
         assert!(lines.cover.contains(&8));
+    }
+
+    #[test]
+    fn filter_closure_contents() {
+        let config = Config::default();
+        let mut lines = LineAnalysis::new();
+        let ctx = Context {
+            config: &config,
+            file_contents: "fn inline_func() {
+                    (0..0).iter().foreach(|x| {
+                        unreachable!()
+                        });
+                }",
+            file: Path::new(""),
+            ignore_mods: RefCell::new(HashSet::new()),
+        };
+        let parser = parse_file(ctx.file_contents).unwrap();
+        process_items(&parser.items, &ctx, &mut lines);
+        assert!(!lines.ignore.contains(&Lines::Line(3)));
     }
 
     #[test]
