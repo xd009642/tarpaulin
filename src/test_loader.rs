@@ -275,8 +275,17 @@ fn get_line_addresses(
                     for v in val.iter() {
                         let rpath = config.strip_project_path(&k.path);
                         match v.address {
-                            Some(ref a) => trace!("Adding trace at address 0x{:x} in {}:{}", a, rpath.display(), k.line),
-                            None => trace!("Adding trace with no address at {}:{}", rpath.display(), k.line),
+                            Some(ref a) => trace!(
+                                "Adding trace at address 0x{:x} in {}:{}",
+                                a,
+                                rpath.display(),
+                                k.line
+                            ),
+                            None => trace!(
+                                "Adding trace with no address at {}:{}",
+                                rpath.display(),
+                                k.line
+                            ),
                         }
                         tracemap.add_trace(
                             &k.path,
@@ -303,7 +312,11 @@ fn get_line_addresses(
             if !result.contains_location(file, line) && !line_analysis.should_ignore(line as usize)
             {
                 let rpath = config.strip_project_path(file);
-                trace!("Adding trace for potentially uncoverable line in {}:{}", rpath.display(), line);
+                trace!(
+                    "Adding trace for potentially uncoverable line in {}:{}",
+                    rpath.display(),
+                    line
+                );
                 result.add_trace(
                     file,
                     Trace {
@@ -330,12 +343,14 @@ fn open_symbols_file(test: &Path) -> io::Result<File> {
     File::open(&d_sym)
 }
 
-pub fn generate_tracemap(project: &Workspace, test: &Path, config: &Config) -> io::Result<TraceMap> {
+pub fn generate_tracemap(
+    project: &Workspace,
+    test: &Path,
+    config: &Config,
+) -> io::Result<TraceMap> {
     let manifest = project.root();
     let file = open_symbols_file(test)?;
-    let file = unsafe {
-        MmapOptions::new().map(&file)?
-    };
+    let file = unsafe { MmapOptions::new().map(&file)? };
     if let Ok(obj) = OFile::parse(&*file) {
         let analysis = get_line_analysis(project, config);
         let endian = if obj.is_little_endian() {

@@ -626,7 +626,6 @@ fn visit_block(block: &Block, ctx: &Context, analysis: &mut LineAnalysis) -> Sub
 }
 
 fn visit_closure(closure: &ExprClosure, ctx: &Context, analysis: &mut LineAnalysis) -> SubResult {
-   
     process_expr(&closure.body, ctx, analysis);
     // Even if a closure is "unreachable" it might be part of a chained method
     // call and I don't want that propagating up.

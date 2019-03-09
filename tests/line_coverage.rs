@@ -46,5 +46,4 @@ fn simple_project_coverage() {
             assert_eq!(CoverageStat::Line(1), l.stats);
         }
     }
-
 }

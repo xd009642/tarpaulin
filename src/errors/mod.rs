@@ -1,5 +1,5 @@
-use failure::Fail;
 use crate::report::cobertura;
+use failure::Fail;
 /// Error states that could be returned from tarpaulin
 #[derive(Fail, Debug)]
 pub enum RunError {

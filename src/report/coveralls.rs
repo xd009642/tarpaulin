@@ -2,11 +2,10 @@ use crate::config::Config;
 use crate::errors::RunError;
 use crate::traces::{CoverageStat, TraceMap};
 use coveralls_api::*;
-use log::{info, warn, trace};
+use log::{info, trace, warn};
 use std::collections::HashMap;
-use std::path::Path;
 use std::fs;
-
+use std::path::Path;
 
 fn get_git_info(manifest_path: &Path) -> Result<GitInfo, String> {
     let dir_path = manifest_path
@@ -54,7 +53,6 @@ fn get_git_info(manifest_path: &Path) -> Result<GitInfo, String> {
     })
 }
 
-
 fn get_identity(ci_tool: &Option<CiService>, key: &str) -> Identity {
     match ci_tool {
         Some(ref service) => {
@@ -67,7 +65,7 @@ fn get_identity(ci_tool: &Option<CiService>, key: &str) -> Identity {
                     build_url: None,
                     branch: None,
                     pull_request: None,
-                }
+                },
             };
             let key = if service == &CiService::Travis {
                 String::new()
@@ -75,11 +73,10 @@ fn get_identity(ci_tool: &Option<CiService>, key: &str) -> Identity {
                 key.to_string()
             };
             Identity::ServiceToken(key, service_object)
-        },
+        }
         _ => Identity::best_match_with_token(key.to_string()),
     }
 }
-
 
 pub fn export(coverage_data: &TraceMap, config: &Config) -> Result<(), RunError> {
     if let Some(ref key) = config.coveralls {
@@ -136,7 +133,7 @@ pub fn export(coverage_data: &TraceMap, config: &Config) -> Result<(), RunError>
             Ok(s) => {
                 trace!("Coveralls response {:?}", s);
                 Ok(())
-            },
+            }
             Err(e) => Err(RunError::CovReport(format!("Coveralls send failed. {}", e))),
         }
     } else {

@@ -7,7 +7,7 @@ use crate::traces::*;
 use cargo::core::{compiler::CompileMode, Package, Shell, Workspace};
 use cargo::ops;
 use cargo::util::{homedir, Config as CargoConfig};
-use log::{debug, info, warn, trace};
+use log::{debug, info, trace, warn};
 use nix::unistd::*;
 use std::env;
 use std::ffi::CString;
@@ -29,7 +29,7 @@ mod ptrace_control;
 pub fn run(config: &Config) -> Result<(), RunError> {
     let (tracemap, ret) = launch_tarpaulin(config)?;
     report_coverage(config, &tracemap)?;
-    
+
     if ret == 0 {
         Ok(())
     } else {
@@ -128,7 +128,6 @@ pub fn launch_tarpaulin(config: &Config) -> Result<(TraceMap, i32), RunError> {
     }
 }
 
-
 fn setup_environment(config: &Config) {
     let rustflags = "RUSTFLAGS";
     let mut value =
@@ -142,7 +141,6 @@ fn setup_environment(config: &Config) {
     }
     env::set_var(rustflags, value);
 }
-
 
 fn accumulate_lines(
     (mut acc, mut group): (Vec<String>, Vec<u64>),
@@ -224,8 +222,7 @@ pub fn report_coverage(config: &Config, result: &TraceMap) -> Result<(), RunErro
         for g in &config.generate {
             match *g {
                 OutputFile::Xml => {
-                    report::cobertura::report(result, config)
-                        .map_err(|e| RunError::XML(e))?;
+                    report::cobertura::report(result, config).map_err(|e| RunError::XML(e))?;
                 }
                 OutputFile::Html => {
                     report::html::export(result, config)?;

@@ -3,9 +3,9 @@ use cargo_tarpaulin::run;
 use clap::{crate_version, App, Arg, ArgSettings, SubCommand};
 use env_logger::Builder;
 use log::error;
+use log::trace;
 use std::io::Write;
 use std::path::Path;
-use log::trace;
 
 fn is_dir(d: String) -> Result<(), String> {
     if Path::new(&d).is_dir() {

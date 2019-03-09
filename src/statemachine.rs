@@ -3,7 +3,7 @@ use crate::config::Config;
 use crate::errors::RunError;
 use crate::ptrace_control::*;
 use crate::traces::*;
-use log::{debug, warn, trace};
+use log::{debug, trace, warn};
 use nix::errno::Errno;
 use nix::sys::signal::Signal;
 use nix::sys::wait::*;
@@ -238,21 +238,20 @@ impl<'a> StateData for LinuxData<'a> {
                     ))),
                 }
             }
-            WaitStatus::Stopped(child, Signal::SIGSTOP) => {
-                match continue_exec(child, None) {
-                    Ok(_) => Ok(TestState::wait_state()),
-                    Err(e) => Err(RunError::TestRuntime(format!(
-                        "Error processing SIGSTOP: {}",
-                        e.to_string()
-                    ))),
-                }
+            WaitStatus::Stopped(child, Signal::SIGSTOP) => match continue_exec(child, None) {
+                Ok(_) => Ok(TestState::wait_state()),
+                Err(e) => Err(RunError::TestRuntime(format!(
+                    "Error processing SIGSTOP: {}",
+                    e.to_string()
+                ))),
             },
             WaitStatus::Stopped(_, Signal::SIGSEGV) => Err(RunError::TestRuntime(
                 "A segfault occurred while executing tests".to_string(),
             )),
-            WaitStatus::Stopped(child, Signal::SIGILL) => {
-                Err(RunError::TestRuntime(format!("Error running test - SIGILL raised in {}", child)))
-            },
+            WaitStatus::Stopped(child, Signal::SIGILL) => Err(RunError::TestRuntime(format!(
+                "Error running test - SIGILL raised in {}",
+                child
+            ))),
             WaitStatus::Stopped(c, s) => {
                 let sig = if self.config.forward_signals {
                     Some(s)
@@ -314,22 +313,20 @@ impl<'a> LinuxData<'a> {
 
         if sig == Signal::SIGTRAP {
             match event {
-                PTRACE_EVENT_CLONE => {
-                    match get_event_data(child) {
-                        Ok(t) => {
-                            trace!("New thread spawned {}", t);
-                            self.thread_count += 1;
-                            continue_exec(child, None)?;
-                            Ok(TestState::wait_state())
-                        },
-                        Err(e) => {
-                            trace!("Error in clone event {:?}", e);
-                            Err(RunError::TestRuntime(
-                                "Error occurred upon test executable thread creation".to_string(),
-                            ))
-                        }
+                PTRACE_EVENT_CLONE => match get_event_data(child) {
+                    Ok(t) => {
+                        trace!("New thread spawned {}", t);
+                        self.thread_count += 1;
+                        continue_exec(child, None)?;
+                        Ok(TestState::wait_state())
                     }
-                }
+                    Err(e) => {
+                        trace!("Error in clone event {:?}", e);
+                        Err(RunError::TestRuntime(
+                            "Error occurred upon test executable thread creation".to_string(),
+                        ))
+                    }
+                },
                 PTRACE_EVENT_FORK | PTRACE_EVENT_VFORK => {
                     trace!("Caught fork event");
                     continue_exec(child, None)?;
