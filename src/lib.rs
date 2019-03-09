@@ -140,6 +140,13 @@ fn setup_environment(config: &Config) {
         value.push_str(vtemp.as_ref());
     }
     env::set_var(rustflags, value);
+    // doesn't matter if we don't use it
+    let rustdoc = "RUSTDOCFLAGS";
+    let mut value = "--persist-doctests doctests -Z unstable-options ".to_string();
+    if let Ok(vtemp) = env::var(rustdoc) {
+        value.push_str(vtemp.as_ref());
+    }
+    env::set_var(rustdoc, value);
 }
 
 fn accumulate_lines(

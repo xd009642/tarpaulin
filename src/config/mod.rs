@@ -17,6 +17,8 @@ mod types;
 pub struct Config {
     /// Path to the projects cargo manifest
     pub manifest: PathBuf,
+    /// Types of tests for tarpaulin to collect coverage on
+    pub run_types: Vec<RunType>,
     /// Flag to also run tests with the ignored attribute
     pub run_ignored: bool,
     /// Flag to ignore test functions in coverage statistics
@@ -74,6 +76,7 @@ impl<'a> From<&'a ArgMatches<'a>> for Config {
     fn from(args: &'a ArgMatches<'a>) -> Self {
         Config {
             manifest: get_manifest(args),
+            run_types: get_run_types(args),
             run_ignored: args.is_present("ignored"),
             ignore_tests: args.is_present("ignore-tests"),
             ignore_panics: args.is_present("ignore-panics"),

@@ -4,6 +4,14 @@ use std::str::FromStr;
 use void::Void;
 
 arg_enum! {
+    #[derive(Debug, Copy, Clone, PartialEq, Eq, Ord, PartialOrd)]
+    pub enum RunType {
+        Tests, 
+        DocTests,
+    }
+}
+
+arg_enum! {
     #[derive(Debug)]
     pub enum OutputFile {
         Json,
