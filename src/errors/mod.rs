@@ -18,6 +18,8 @@ pub enum RunError {
     /// Test failed during run
     #[fail(display = "Failed to run tests! Error: {}", _0)]
     TestRuntime(String),
+    #[fail(display = "Test failed during run")]
+    TestFailed,
     /// Failed to parse
     #[fail(display = "Error while parsing: {}", _0)]
     Parse(std::io::Error),

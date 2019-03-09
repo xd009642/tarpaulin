@@ -27,14 +27,18 @@ mod personality;
 mod ptrace_control;
 
 pub fn run(config: &Config) -> Result<(), RunError> {
-    let tracemap = launch_tarpaulin(config)?;
+    let (tracemap, ret) = launch_tarpaulin(config)?;
     report_coverage(config, &tracemap)?;
-
-    Ok(())
+    
+    if ret == 0 {
+        Ok(())
+    } else {
+        Err(RunError::TestFailed)
+    }
 }
 
 /// Launches tarpaulin with the given configuration.
-pub fn launch_tarpaulin(config: &Config) -> Result<TraceMap, RunError> {
+pub fn launch_tarpaulin(config: &Config) -> Result<(TraceMap, i32), RunError> {
     let cwd = match config.manifest.parent() {
         Some(p) => p.to_path_buf(),
         None => PathBuf::new(),
@@ -97,6 +101,7 @@ pub fn launch_tarpaulin(config: &Config) -> Result<TraceMap, RunError> {
     let mut result = TraceMap::new();
     info!("Building project");
     let compilation = ops::compile(&workspace, &copt);
+    let mut return_code = 0i32;
     match compilation {
         Ok(comp) => {
             for &(ref package, ref _target_kind, ref name, ref path) in &comp.tests {
@@ -104,22 +109,25 @@ pub fn launch_tarpaulin(config: &Config) -> Result<TraceMap, RunError> {
                 if let Some(res) =
                     get_test_coverage(&workspace, package, path.as_path(), config, false)?
                 {
-                    result.merge(&res);
+                    result.merge(&res.0);
+                    return_code |= res.1;
                 }
                 if config.run_ignored {
                     if let Some(res) =
                         get_test_coverage(&workspace, package, path.as_path(), config, true)?
                     {
-                        result.merge(&res);
+                        result.merge(&res.0);
+                        return_code |= res.1;
                     }
                 }
             }
             result.dedup();
-            Ok(result)
+            Ok((result, return_code))
         }
         Err(e) => Err(RunError::TestCompile(e.to_string())),
     }
 }
+
 
 fn setup_environment(config: &Config) {
     let rustflags = "RUSTFLAGS";
@@ -134,6 +142,7 @@ fn setup_environment(config: &Config) {
     }
     env::set_var(rustflags, value);
 }
+
 
 fn accumulate_lines(
     (mut acc, mut group): (Vec<String>, Vec<u64>),
@@ -244,7 +253,7 @@ pub fn get_test_coverage(
     test: &Path,
     config: &Config,
     ignored: bool,
-) -> Result<Option<TraceMap>, RunError> {
+) -> Result<Option<(TraceMap, i32)>, RunError> {
     if !test.exists() {
         return Ok(None);
     }
@@ -272,7 +281,8 @@ fn collect_coverage(
     test_path: &Path,
     test: Pid,
     config: &Config,
-) -> Result<TraceMap, RunError> {
+) -> Result<(TraceMap, i32), RunError> {
+    let mut ret_code = 0;
     let mut traces = generate_tracemap(project, test_path, config)?;
     {
         trace!("Test PID is {}", test);
@@ -281,17 +291,13 @@ fn collect_coverage(
             state = state.step(&mut data, config)?;
             if state.is_finished() {
                 if let TestState::End(i) = state {
-                    if i != 0 {
-                        return Err(RunError::TestCoverage(
-                            "Test binary exited with non-zero return code".to_string(),
-                        ));
-                    }
+                    ret_code = i;
                 }
                 break;
             }
         }
     }
-    Ok(traces)
+    Ok((traces, ret_code))
 }
 
 /// Launches the test executable
