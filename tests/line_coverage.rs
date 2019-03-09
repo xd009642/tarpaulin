@@ -18,7 +18,8 @@ fn simple_project_coverage() {
     config.manifest = test_dir.clone();
     config.manifest.push("Cargo.toml");
 
-    let res = launch_tarpaulin(&config).unwrap();
+    let (res, ret) = launch_tarpaulin(&config).unwrap();
+    assert_eq!(ret, 0);
     env::set_current_dir(restore_dir).unwrap();
     let unused_file = test_dir.join("src/unused.rs");
     let unused_hits = res.covered_in_path(&unused_file);
@@ -45,4 +46,5 @@ fn simple_project_coverage() {
             assert_eq!(CoverageStat::Line(1), l.stats);
         }
     }
+
 }

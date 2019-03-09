@@ -16,7 +16,7 @@ pub fn check_percentage(project_name: &str, minimum_coverage: f64, has_lines: bo
     config.manifest = test_dir.clone();
     config.manifest.push("Cargo.toml");
 
-    let res = launch_tarpaulin(&config).unwrap();
+    let (res, _) = launch_tarpaulin(&config).unwrap();
 
     env::set_current_dir(restore_dir).unwrap();
     assert!(res.coverage_percentage() >= minimum_coverage);
