@@ -6,12 +6,14 @@ use crate::test_loader::*;
 use crate::traces::*;
 use cargo::core::{compiler::CompileMode, Package, Shell, Workspace};
 use cargo::ops;
+use cargo::ops::{CompileOptions, CompileFilter, Packages, CleanOptions, clean, compile, TestOptions};
 use cargo::util::{homedir, Config as CargoConfig};
 use log::{debug, info, trace, warn};
 use nix::unistd::*;
 use std::env;
 use std::ffi::CString;
 use std::path::{Path, PathBuf};
+use walkdir::WalkDir;
 
 pub mod breakpoint;
 pub mod config;
@@ -26,6 +28,8 @@ pub mod traces;
 mod personality;
 mod ptrace_control;
 
+static DOCTEST_FOLDER: &str = "target/doctests";
+
 pub fn run(config: &Config) -> Result<(), RunError> {
     let (tracemap, ret) = launch_tarpaulin(config)?;
     report_coverage(config, &tracemap)?;
@@ -39,6 +43,8 @@ pub fn run(config: &Config) -> Result<(), RunError> {
 
 /// Launches tarpaulin with the given configuration.
 pub fn launch_tarpaulin(config: &Config) -> Result<(TraceMap, i32), RunError> {
+    setup_environment(&config);
+    cargo::core::enable_nightly_features();
     let cwd = match config.manifest.parent() {
         Some(p) => p.to_path_buf(),
         None => PathBuf::new(),
@@ -52,69 +58,65 @@ pub fn launch_tarpaulin(config: &Config) -> Result<(TraceMap, i32), RunError> {
     };
     let mut cargo_config = CargoConfig::new(Shell::new(), cwd, home);
     let flag_quiet = if config.verbose { None } else { Some(true) };
-    cargo::core::enable_nightly_features();
+    
     // This shouldn't fail so no checking the error.
     let _ = cargo_config.configure(0u32, flag_quiet, &None, false, false, &None, &[]);
 
     let workspace = Workspace::new(config.manifest.as_path(), &cargo_config)
         .map_err(|e| RunError::Manifest(e.to_string()))?;
 
-    setup_environment(&config);
-
-    let mut copt = ops::CompileOptions::new(&cargo_config, CompileMode::Test)
-        .map_err(|e| RunError::Cargo(e.to_string()))?;
-    if let ops::CompileFilter::Default {
-        ref mut required_features_filterable,
-    } = copt.filter
-    {
-        *required_features_filterable = true;
-    }
-    copt.features = config.features.clone();
-    copt.all_features = config.all_features;
-    copt.no_default_features = config.no_default_features;
-    copt.build_config.release = config.release;
-    copt.spec = match ops::Packages::from_flags(
-        config.all,
-        config.exclude.clone(),
-        config.packages.clone(),
-    ) {
-        Ok(spec) => spec,
-        Err(e) => {
-            return Err(RunError::Packages(e.to_string()));
-        }
-    };
+    let mut compile_options = get_compile_options(&config, &cargo_config)?;
 
     info!("Running Tarpaulin");
 
     if config.force_clean {
         debug!("Cleaning project");
         // Clean isn't expected to fail and if it does it likely won't have an effect
-        let clean_opt = ops::CleanOptions {
+        let clean_opt = CleanOptions {
             config: &cargo_config,
             spec: vec![],
             target: None,
             release: false,
             doc: false,
         };
-        let _ = ops::clean(&workspace, &clean_opt);
+        let _ = clean(&workspace, &clean_opt);
     }
     let mut result = TraceMap::new();
-    info!("Building project");
-    let compilation = ops::compile(&workspace, &copt);
     let mut return_code = 0i32;
+    info!("Building project");
+    for copt in compile_options.drain(..) {
+        let run_result = match copt.build_config.mode {
+            CompileMode::Test => run_tests(&workspace, copt, config),
+            CompileMode::Doctest => run_doctests(&workspace, copt, config),
+            e => { 
+                debug!("Internal tarpaulin error. Unsupported compile mode {:?}", e);
+                Err(RunError::Internal)
+            },
+        }?;
+        result.merge(&run_result.0);
+        return_code |= run_result.1;
+    }
+    result.dedup();
+    Ok((result, return_code))
+}
+
+fn run_tests(workspace: &Workspace, compile_options: CompileOptions, config: &Config) -> Result<(TraceMap, i32), RunError> {
+    let mut result = TraceMap::new();
+    let mut return_code = 0i32;
+    let compilation = compile(&workspace, &compile_options);
     match compilation {
         Ok(comp) => {
-            for &(ref package, ref _target_kind, ref name, ref path) in &comp.tests {
+            for &(ref package, _, ref name, ref path) in &comp.tests {
                 debug!("Processing {}", name);
                 if let Some(res) =
-                    get_test_coverage(&workspace, package, path.as_path(), config, false)?
+                    get_test_coverage(&workspace, Some(package), path.as_path(), config, false)?
                 {
                     result.merge(&res.0);
                     return_code |= res.1;
                 }
                 if config.run_ignored {
                     if let Some(res) =
-                        get_test_coverage(&workspace, package, path.as_path(), config, true)?
+                        get_test_coverage(&workspace, Some(package), path.as_path(), config, true)?
                     {
                         result.merge(&res.0);
                         return_code |= res.1;
@@ -124,15 +126,81 @@ pub fn launch_tarpaulin(config: &Config) -> Result<(TraceMap, i32), RunError> {
             result.dedup();
             Ok((result, return_code))
         }
-        Err(e) => Err(RunError::TestCompile(e.to_string())),
+        Err(e) => return Err(RunError::TestCompile(e.to_string())),
     }
 }
 
+fn run_doctests(workspace: &Workspace, 
+                compile_options: CompileOptions, 
+                config: &Config) -> Result<(TraceMap, i32), RunError> {
+    info!("Running doctests");
+    let mut result = TraceMap::new();
+    let mut return_code = 0i32;
+
+    let opts = TestOptions {
+        no_run: false,
+        no_fail_fast: false,
+        compile_opts: compile_options,
+    };
+    let _ = ops::run_tests(workspace, &opts, &[]);
+    
+    // go over all the doc tests and run them.
+    let doctest_dir = match config.manifest.parent() {
+        Some(p) => p.join(DOCTEST_FOLDER),
+        None => PathBuf::from(DOCTEST_FOLDER)
+    };
+    let walker = WalkDir::new(&doctest_dir).into_iter();
+    for dt in walker.filter_map(|e| e.ok()).filter(|e| e.file_type().is_file()) {
+        if let Some(res) = get_test_coverage(&workspace, None, dt.path(), config, false)?
+        {
+            result.merge(&res.0);
+            return_code |= res.1;
+        }
+        
+    }
+    result.dedup();
+    Ok((result, return_code))
+}
+
+
+fn get_compile_options<'a>(config: &Config, 
+                       cargo_config: &'a CargoConfig) -> Result<Vec<CompileOptions<'a>>, RunError> {
+    let mut result = Vec::new();
+    for run_type in &config.run_types {
+        let mut copt = CompileOptions::new(cargo_config, (*run_type).into())
+            .map_err(|e| RunError::Cargo(e.to_string()))?;
+        if run_type == &RunType::Tests { 
+            if let CompileFilter::Default { ref mut required_features_filterable } = copt.filter
+            {
+                *required_features_filterable = true;
+            }
+        } else if run_type == &RunType::Doctests {
+            copt.filter = CompileFilter::new(true, vec![], false, vec![], false, vec![], false, vec![], false, false);
+        }
+
+        copt.features = config.features.clone();
+        copt.all_features = config.all_features;
+        copt.no_default_features = config.no_default_features;
+        copt.build_config.release = config.release;
+        copt.spec = match Packages::from_flags(
+            config.all,
+            config.exclude.clone(),
+            config.packages.clone(),
+        ) {
+            Ok(spec) => spec,
+            Err(e) => {
+                return Err(RunError::Packages(e.to_string()));
+            }
+        };
+        result.push(copt);
+    }
+    Ok(result)
+}
+
 fn setup_environment(config: &Config) {
+    let common_opts = " -C relocation-model=dynamic-no-pic -C link-dead-code -C opt-level=0 -C debuginfo=2 ";
     let rustflags = "RUSTFLAGS";
-    let mut value =
-        " -C relocation-model=dynamic-no-pic -C link-dead-code -C opt-level=0 -C debuginfo=2 "
-            .to_string();
+    let mut value = common_opts.to_string();
     if config.release {
         value = format!("{}-C debug-assertions=off ", value);
     }
@@ -140,6 +208,13 @@ fn setup_environment(config: &Config) {
         value.push_str(vtemp.as_ref());
     }
     env::set_var(rustflags, value);
+    // doesn't matter if we don't use it
+    let rustdoc = "RUSTDOCFLAGS";
+    let mut value = format!("{} --persist-doctests {} -Z unstable-options ", common_opts, DOCTEST_FOLDER);
+    if let Ok(vtemp) = env::var(rustdoc) {
+        value.push_str(vtemp.as_ref());
+    }
+    env::set_var(rustdoc, value);
 }
 
 fn accumulate_lines(
@@ -246,7 +321,7 @@ pub fn report_coverage(config: &Config, result: &TraceMap) -> Result<(), RunErro
 /// Returns the coverage statistics for a test executable in the given workspace
 pub fn get_test_coverage(
     project: &Workspace,
-    package: &Package,
+    package: Option<&Package>,
     test: &Path,
     config: &Config,
     ignored: bool,
@@ -300,7 +375,7 @@ fn collect_coverage(
 /// Launches the test executable
 fn execute_test(
     test: &Path,
-    package: &Package,
+    package: Option<&Package>,
     ignored: bool,
     config: &Config,
 ) -> Result<(), RunError> {
@@ -314,8 +389,10 @@ fn execute_test(
         Err(e) => return Err(RunError::Trace(e.to_string())),
     }
     info!("running {}", test.display());
-    if let Some(parent) = package.manifest_path().parent() {
-        let _ = env::set_current_dir(parent);
+    if let Some(pack) = package {
+        if let Some(parent) = pack.manifest_path().parent() {
+            let _ = env::set_current_dir(parent);
+        }
     }
 
     let mut envars: Vec<CString> = vec![CString::new("RUST_TEST_THREADS=1").unwrap()];

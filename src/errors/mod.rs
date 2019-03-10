@@ -43,6 +43,8 @@ pub enum RunError {
     Html(String),
     #[fail(display = "Failed to generate XML report! Error: {}", _0)]
     XML(cobertura::Error),
+    #[fail(display = "Tarpaulin experienced an internal error")]
+    Internal,
 }
 
 impl From<std::io::Error> for RunError {
