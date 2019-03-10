@@ -81,61 +81,82 @@ pub fn launch_tarpaulin(config: &Config) -> Result<(TraceMap, i32), RunError> {
     let mut return_code = 0i32;
     info!("Building project");
     for copt in &compile_options {
-        let compilation = compile(&workspace, copt);
-        match compilation {
-            Ok(comp) => {
-                for &(ref package, ref _target_kind, ref name, ref path) in &comp.tests {
-                    debug!("Processing {}", name);
+        let run_result = match copt.build_config.mode {
+            CompileMode::Test => run_tests(&workspace, copt, config),
+            CompileMode::Doctest => run_doctests(copt, config),
+            e => { 
+                debug!("Internal tarpaulin error. Unsupported compile mode {:?}", e);
+                Err(RunError::Internal)
+            },
+        }?;
+        result.merge(&run_result.0);
+        return_code |= run_result.1;
+    }
+    Ok((result, return_code))
+}
+
+fn run_tests(workspace: &Workspace, compile_options: &CompileOptions, config: &Config) -> Result<(TraceMap, i32), RunError> {
+    let mut result = TraceMap::new();
+    let mut return_code = 0i32;
+    let compilation = compile(&workspace, compile_options);
+    match compilation {
+        Ok(comp) => {
+            for &(ref package, _, ref name, ref path) in &comp.tests {
+                debug!("Processing {}", name);
+                if let Some(res) =
+                    get_test_coverage(&workspace, package, path.as_path(), config, false)?
+                {
+                    result.merge(&res.0);
+                    return_code |= res.1;
+                }
+                if config.run_ignored {
                     if let Some(res) =
-                        get_test_coverage(&workspace, package, path.as_path(), config, false)?
+                        get_test_coverage(&workspace, package, path.as_path(), config, true)?
                     {
                         result.merge(&res.0);
                         return_code |= res.1;
                     }
-                    if config.run_ignored {
-                        if let Some(res) =
-                            get_test_coverage(&workspace, package, path.as_path(), config, true)?
-                        {
-                            result.merge(&res.0);
-                            return_code |= res.1;
-                        }
-                    }
                 }
-                result.dedup();
             }
-            Err(e) => return Err(RunError::TestCompile(e.to_string())),
+            result.dedup();
+            Ok((result, return_code))
         }
+        Err(e) => return Err(RunError::TestCompile(e.to_string())),
     }
-    Ok((result, return_code))
+}
+
+fn run_doctests(compile_options: &CompileOptions, config: &Config) -> Result<(TraceMap, i32), RunError> {
+    unimplemented!();
 }
 
 fn get_compile_options<'a>(config: &Config, 
                        cargo_config: &'a CargoConfig) -> Result<Vec<CompileOptions<'a>>, RunError> {
     let mut result = Vec::new();
-
-    let mut copt = CompileOptions::new(cargo_config, CompileMode::Test)
-        .map_err(|e| RunError::Cargo(e.to_string()))?;
-    if let CompileFilter::Default {
-        ref mut required_features_filterable,
-    } = copt.filter
-    {
-        *required_features_filterable = true;
-    }
-    copt.features = config.features.clone();
-    copt.all_features = config.all_features;
-    copt.no_default_features = config.no_default_features;
-    copt.build_config.release = config.release;
-    copt.spec = match Packages::from_flags(
-        config.all,
-        config.exclude.clone(),
-        config.packages.clone(),
-    ) {
-        Ok(spec) => spec,
-        Err(e) => {
-            return Err(RunError::Packages(e.to_string()));
+    for run_type in &config.run_types {
+        let mut copt = CompileOptions::new(cargo_config, (*run_type).into())
+            .map_err(|e| RunError::Cargo(e.to_string()))?;
+        if let CompileFilter::Default {
+            ref mut required_features_filterable,
+        } = copt.filter
+        {
+            *required_features_filterable = true;
         }
-    };
-    result.push(copt);
+        copt.features = config.features.clone();
+        copt.all_features = config.all_features;
+        copt.no_default_features = config.no_default_features;
+        copt.build_config.release = config.release;
+        copt.spec = match Packages::from_flags(
+            config.all,
+            config.exclude.clone(),
+            config.packages.clone(),
+        ) {
+            Ok(spec) => spec,
+            Err(e) => {
+                return Err(RunError::Packages(e.to_string()));
+            }
+        };
+        result.push(copt);
+    }
     Ok(result)
 }
 
