@@ -81,7 +81,7 @@ fn main() {
                 Arg::from_usage("--out -o [FMT]   'Output format of coverage report'")
                     .possible_values(&OutputFile::variants())
                     .multiple(true),
-                Arg::from_usage("--run-type [TYPE] 'Type of the coverage run'")
+                Arg::from_usage("--run-types [TYPE] 'Type of the coverage run'")
                     .possible_values(&RunType::variants())
                     .multiple(true),
                 Arg::from_usage("--root -r [DIR]  'Root directory containing Cargo.toml to use'")

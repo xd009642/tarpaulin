@@ -53,7 +53,7 @@ pub(super) fn get_outputs(args: &ArgMatches) -> Vec<OutputFile> {
 }
 
 pub(super) fn get_run_types(args: &ArgMatches) -> Vec<RunType> {
-    values_t!(args.values_of("run-type"), RunType).unwrap_or(vec![])
+    values_t!(args.values_of("run-types"), RunType).unwrap_or(vec![RunType::Tests])
 }
 
 pub(super) fn get_excluded(args: &ArgMatches) -> Vec<Regex> {
