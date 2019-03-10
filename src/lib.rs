@@ -5,7 +5,8 @@ use crate::statemachine::*;
 use crate::test_loader::*;
 use crate::traces::*;
 use cargo::core::{compiler::CompileMode, Package, Shell, Workspace};
-use cargo::ops::{CompileOptions, CompileFilter, Packages, CleanOptions, clean, compile};
+use cargo::ops;
+use cargo::ops::{CompileOptions, CompileFilter, Packages, CleanOptions, clean, compile, TestOptions};
 use cargo::util::{homedir, Config as CargoConfig};
 use log::{debug, info, trace, warn};
 use nix::unistd::*;
@@ -25,6 +26,8 @@ pub mod traces;
 /// Should be unnecessary with a future nix crate release.
 mod personality;
 mod ptrace_control;
+
+static DOCTEST_FOLDER: &str = "target/doctests";
 
 pub fn run(config: &Config) -> Result<(), RunError> {
     let (tracemap, ret) = launch_tarpaulin(config)?;
@@ -61,7 +64,7 @@ pub fn launch_tarpaulin(config: &Config) -> Result<(TraceMap, i32), RunError> {
     let workspace = Workspace::new(config.manifest.as_path(), &cargo_config)
         .map_err(|e| RunError::Manifest(e.to_string()))?;
 
-    let compile_options = get_compile_options(&config, &cargo_config)?;
+    let mut compile_options = get_compile_options(&config, &cargo_config)?;
 
     info!("Running Tarpaulin");
 
@@ -80,10 +83,10 @@ pub fn launch_tarpaulin(config: &Config) -> Result<(TraceMap, i32), RunError> {
     let mut result = TraceMap::new();
     let mut return_code = 0i32;
     info!("Building project");
-    for copt in &compile_options {
+    for copt in compile_options.drain(..) {
         let run_result = match copt.build_config.mode {
             CompileMode::Test => run_tests(&workspace, copt, config),
-            CompileMode::Doctest => run_doctests(copt, config),
+            CompileMode::Doctest => run_doctests(&workspace, copt, config),
             e => { 
                 debug!("Internal tarpaulin error. Unsupported compile mode {:?}", e);
                 Err(RunError::Internal)
@@ -95,10 +98,10 @@ pub fn launch_tarpaulin(config: &Config) -> Result<(TraceMap, i32), RunError> {
     Ok((result, return_code))
 }
 
-fn run_tests(workspace: &Workspace, compile_options: &CompileOptions, config: &Config) -> Result<(TraceMap, i32), RunError> {
+fn run_tests(workspace: &Workspace, compile_options: CompileOptions, config: &Config) -> Result<(TraceMap, i32), RunError> {
     let mut result = TraceMap::new();
     let mut return_code = 0i32;
-    let compilation = compile(&workspace, compile_options);
+    let compilation = compile(&workspace, &compile_options);
     match compilation {
         Ok(comp) => {
             for &(ref package, _, ref name, ref path) in &comp.tests {
@@ -125,9 +128,25 @@ fn run_tests(workspace: &Workspace, compile_options: &CompileOptions, config: &C
     }
 }
 
-fn run_doctests(compile_options: &CompileOptions, config: &Config) -> Result<(TraceMap, i32), RunError> {
-    unimplemented!();
+fn run_doctests(workspace: &Workspace, 
+                compile_options: CompileOptions, 
+                config: &Config) -> Result<(TraceMap, i32), RunError> {
+    
+    let opts = TestOptions {
+        no_run: false,
+        no_fail_fast: false,
+        compile_opts: compile_options,
+    };
+    let _ = ops::run_tests(workspace, &opts, &[]);
+    
+    // go over all the doc tests and run them.
+    let doctest_dir = match config.manifest.parent() {
+        Some(p) => p.join(DOCTEST_FOLDER),
+        None => PathBuf::from(DOCTEST_FOLDER)
+    };
+    unimplemented!()
 }
+
 
 fn get_compile_options<'a>(config: &Config, 
                        cargo_config: &'a CargoConfig) -> Result<Vec<CompileOptions<'a>>, RunError> {
@@ -135,12 +154,15 @@ fn get_compile_options<'a>(config: &Config,
     for run_type in &config.run_types {
         let mut copt = CompileOptions::new(cargo_config, (*run_type).into())
             .map_err(|e| RunError::Cargo(e.to_string()))?;
-        if let CompileFilter::Default {
-            ref mut required_features_filterable,
-        } = copt.filter
-        {
-            *required_features_filterable = true;
+        if run_type == &RunType::Tests { 
+            if let CompileFilter::Default { ref mut required_features_filterable } = copt.filter
+            {
+                *required_features_filterable = true;
+            }
+        } else if run_type == &RunType::Doctests {
+            copt.filter = CompileFilter::new(true, vec![], false, vec![], false, vec![], false, vec![], false, false);
         }
+
         copt.features = config.features.clone();
         copt.all_features = config.all_features;
         copt.no_default_features = config.no_default_features;
@@ -174,7 +196,7 @@ fn setup_environment(config: &Config) {
     env::set_var(rustflags, value);
     // doesn't matter if we don't use it
     let rustdoc = "RUSTDOCFLAGS";
-    let mut value = "--persist-doctests doctests -Z unstable-options ".to_string();
+    let mut value = format!("--persist-doctests {} -Z unstable-options ", DOCTEST_FOLDER);
     if let Ok(vtemp) = env::var(rustdoc) {
         value.push_str(vtemp.as_ref());
     }
