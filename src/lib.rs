@@ -13,6 +13,7 @@ use nix::unistd::*;
 use std::env;
 use std::ffi::CString;
 use std::path::{Path, PathBuf};
+use walkdir::WalkDir;
 
 pub mod breakpoint;
 pub mod config;
@@ -107,14 +108,14 @@ fn run_tests(workspace: &Workspace, compile_options: CompileOptions, config: &Co
             for &(ref package, _, ref name, ref path) in &comp.tests {
                 debug!("Processing {}", name);
                 if let Some(res) =
-                    get_test_coverage(&workspace, package, path.as_path(), config, false)?
+                    get_test_coverage(&workspace, Some(package), path.as_path(), config, false)?
                 {
                     result.merge(&res.0);
                     return_code |= res.1;
                 }
                 if config.run_ignored {
                     if let Some(res) =
-                        get_test_coverage(&workspace, package, path.as_path(), config, true)?
+                        get_test_coverage(&workspace, Some(package), path.as_path(), config, true)?
                     {
                         result.merge(&res.0);
                         return_code |= res.1;
@@ -131,7 +132,9 @@ fn run_tests(workspace: &Workspace, compile_options: CompileOptions, config: &Co
 fn run_doctests(workspace: &Workspace, 
                 compile_options: CompileOptions, 
                 config: &Config) -> Result<(TraceMap, i32), RunError> {
-    
+    let mut result = TraceMap::new();
+    let mut return_code = 0i32;
+
     let opts = TestOptions {
         no_run: false,
         no_fail_fast: false,
@@ -144,7 +147,17 @@ fn run_doctests(workspace: &Workspace,
         Some(p) => p.join(DOCTEST_FOLDER),
         None => PathBuf::from(DOCTEST_FOLDER)
     };
-    unimplemented!()
+    let walker = WalkDir::new(&doctest_dir).into_iter();
+    for dt in walker.filter_map(|e| e.ok()).filter(|e| e.file_type().is_file()) {
+        trace!("Processing {}", config.strip_project_path(dt.path()).display());
+        if let Some(res) = get_test_coverage(&workspace, None, dt.path(), config, false)?
+        {
+            result.merge(&res.0);
+            return_code |= res.1;
+        }
+        
+    }
+    Ok((result, return_code))
 }
 
 
@@ -307,7 +320,7 @@ pub fn report_coverage(config: &Config, result: &TraceMap) -> Result<(), RunErro
 /// Returns the coverage statistics for a test executable in the given workspace
 pub fn get_test_coverage(
     project: &Workspace,
-    package: &Package,
+    package: Option<&Package>,
     test: &Path,
     config: &Config,
     ignored: bool,
@@ -361,7 +374,7 @@ fn collect_coverage(
 /// Launches the test executable
 fn execute_test(
     test: &Path,
-    package: &Package,
+    package: Option<&Package>,
     ignored: bool,
     config: &Config,
 ) -> Result<(), RunError> {
@@ -375,8 +388,10 @@ fn execute_test(
         Err(e) => return Err(RunError::Trace(e.to_string())),
     }
     info!("running {}", test.display());
-    if let Some(parent) = package.manifest_path().parent() {
-        let _ = env::set_current_dir(parent);
+    if let Some(pack) = package {
+        if let Some(parent) = pack.manifest_path().parent() {
+            let _ = env::set_current_dir(parent);
+        }
     }
 
     let mut envars: Vec<CString> = vec![CString::new("RUST_TEST_THREADS=1").unwrap()];
