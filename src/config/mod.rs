@@ -13,7 +13,7 @@ mod parse;
 mod types;
 
 /// Specifies the current configuration tarpaulin is using.
-#[derive(Debug, Default)]
+#[derive(Debug)]
 pub struct Config {
     /// Path to the projects cargo manifest
     pub manifest: PathBuf,
@@ -70,6 +70,40 @@ pub struct Config {
     pub test_timeout: Duration,
     /// Build in release mode
     pub release: bool,
+}
+
+impl Default for Config {
+
+    fn default() -> Config {
+        Config {
+            run_types: vec![RunType::Tests],
+            manifest: Default::default(),
+            run_ignored: false,
+            ignore_tests: false,
+            ignore_panics: false,
+            force_clean: false,
+            verbose: false,
+            debug: false,
+            count: false,
+            line_coverage: true,
+            branch_coverage: false,
+            generate: vec![],
+            coveralls: None,
+            ci_tool: None,
+            report_uri: None,
+            forward_signals: false,
+            no_default_features: false,
+            features: vec![],
+            all: false,
+            packages: vec![],
+            exclude: vec![],
+            excluded_files: vec![],
+            varargs: vec![],
+            test_timeout: Duration::from_secs(60),
+            release: false,
+            all_features: false,
+        }
+    }
 }
 
 impl<'a> From<&'a ArgMatches<'a>> for Config {
