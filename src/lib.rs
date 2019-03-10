@@ -96,6 +96,7 @@ pub fn launch_tarpaulin(config: &Config) -> Result<(TraceMap, i32), RunError> {
         result.merge(&run_result.0);
         return_code |= run_result.1;
     }
+    result.dedup();
     Ok((result, return_code))
 }
 
@@ -132,6 +133,7 @@ fn run_tests(workspace: &Workspace, compile_options: CompileOptions, config: &Co
 fn run_doctests(workspace: &Workspace, 
                 compile_options: CompileOptions, 
                 config: &Config) -> Result<(TraceMap, i32), RunError> {
+    info!("Running doctests");
     let mut result = TraceMap::new();
     let mut return_code = 0i32;
 
@@ -149,7 +151,6 @@ fn run_doctests(workspace: &Workspace,
     };
     let walker = WalkDir::new(&doctest_dir).into_iter();
     for dt in walker.filter_map(|e| e.ok()).filter(|e| e.file_type().is_file()) {
-        trace!("Processing {}", config.strip_project_path(dt.path()).display());
         if let Some(res) = get_test_coverage(&workspace, None, dt.path(), config, false)?
         {
             result.merge(&res.0);
@@ -157,6 +158,7 @@ fn run_doctests(workspace: &Workspace,
         }
         
     }
+    result.dedup();
     Ok((result, return_code))
 }
 
@@ -196,10 +198,9 @@ fn get_compile_options<'a>(config: &Config,
 }
 
 fn setup_environment(config: &Config) {
+    let common_opts = " -C relocation-model=dynamic-no-pic -C link-dead-code -C opt-level=0 -C debuginfo=2 ";
     let rustflags = "RUSTFLAGS";
-    let mut value =
-        " -C relocation-model=dynamic-no-pic -C link-dead-code -C opt-level=0 -C debuginfo=2 "
-            .to_string();
+    let mut value = common_opts.to_string();
     if config.release {
         value = format!("{}-C debug-assertions=off ", value);
     }
@@ -209,7 +210,7 @@ fn setup_environment(config: &Config) {
     env::set_var(rustflags, value);
     // doesn't matter if we don't use it
     let rustdoc = "RUSTDOCFLAGS";
-    let mut value = format!("--persist-doctests {} -Z unstable-options ", DOCTEST_FOLDER);
+    let mut value = format!("{} --persist-doctests {} -Z unstable-options ", common_opts, DOCTEST_FOLDER);
     if let Ok(vtemp) = env::var(rustdoc) {
         value.push_str(vtemp.as_ref());
     }
