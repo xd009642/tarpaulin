@@ -143,20 +143,30 @@ fn run_doctests(workspace: &Workspace,
         compile_opts: compile_options,
     };
     let _ = ops::run_tests(workspace, &opts, &[]);
+
+    let mut packages: Vec<PathBuf> = workspace.members()
+        .filter_map(|p| p.manifest_path().parent())
+        .map(|x| x.join(DOCTEST_FOLDER))
+        .collect();
     
-    // go over all the doc tests and run them.
-    let doctest_dir = match config.manifest.parent() {
-        Some(p) => p.join(DOCTEST_FOLDER),
-        None => PathBuf::from(DOCTEST_FOLDER)
-    };
-    let walker = WalkDir::new(&doctest_dir).into_iter();
-    for dt in walker.filter_map(|e| e.ok()).filter(|e| e.file_type().is_file()) {
-        if let Some(res) = get_test_coverage(&workspace, None, dt.path(), config, false)?
-        {
-            result.merge(&res.0);
-            return_code |= res.1;
+    if packages.is_empty() {
+        let doctest_dir = match config.manifest.parent() {
+            Some(p) => p.join(DOCTEST_FOLDER),
+            None => PathBuf::from(DOCTEST_FOLDER)
+        };
+        packages.push(doctest_dir);
+    }
+    
+    for dir in &packages {
+        let walker = WalkDir::new(dir).into_iter();
+        for dt in walker.filter_map(|e| e.ok()).filter(|e| e.file_type().is_file()) {
+            if let Some(res) = get_test_coverage(&workspace, None, dt.path(), config, false)?
+            {
+                result.merge(&res.0);
+                return_code |= res.1;
+            }
+            
         }
-        
     }
     result.dedup();
     Ok((result, return_code))
