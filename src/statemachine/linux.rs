@@ -1,6 +1,6 @@
-use crate::statemachine::*;
 use crate::config::Config;
 use crate::errors::RunError;
+use crate::statemachine::*;
 use log::{debug, trace, warn};
 use nix::errno::Errno;
 use nix::sys::signal::Signal;
@@ -8,8 +8,6 @@ use nix::sys::wait::*;
 use nix::unistd::Pid;
 use nix::Error as NixErr;
 use std::collections::HashMap;
-
-
 
 pub fn create_state_machine<'a>(
     test: Pid,

@@ -1,5 +1,5 @@
-use clap::{_clap_count_exprs, arg_enum};
 use cargo::core::compiler::CompileMode;
+use clap::{_clap_count_exprs, arg_enum};
 use coveralls_api::CiService;
 use std::str::FromStr;
 use void::Void;
@@ -7,7 +7,7 @@ use void::Void;
 arg_enum! {
     #[derive(Debug, Copy, Clone, PartialEq, Eq, Ord, PartialOrd)]
     pub enum RunType {
-        Tests, 
+        Tests,
         Doctests,
     }
 }
@@ -36,7 +36,7 @@ impl From<RunType> for CompileMode {
     fn from(run: RunType) -> Self {
         match run {
             RunType::Tests => CompileMode::Test,
-            RunType::Doctests => CompileMode::Doctest
+            RunType::Doctests => CompileMode::Doctest,
         }
     }
 }

@@ -5,13 +5,11 @@ use crate::ptrace_control::*;
 use crate::traces::*;
 use std::time::Instant;
 
-
 #[cfg(target_os = "linux")]
 pub mod linux;
 
 #[cfg(target_os = "linux")]
 pub use linux::*;
-
 
 #[derive(Debug, Copy, Clone, Eq, PartialEq)]
 pub enum TestState {

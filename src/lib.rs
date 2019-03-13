@@ -1,12 +1,14 @@
 use crate::config::*;
 use crate::errors::*;
-use crate::ptrace_control::*;
+use crate::process_handling::execute;
 use crate::statemachine::*;
 use crate::test_loader::*;
 use crate::traces::*;
 use cargo::core::{compiler::CompileMode, Package, Shell, Workspace};
 use cargo::ops;
-use cargo::ops::{CompileOptions, CompileFilter, Packages, CleanOptions, clean, compile, TestOptions};
+use cargo::ops::{
+    clean, compile, CleanOptions, CompileFilter, CompileOptions, Packages, TestOptions,
+};
 use cargo::util::{homedir, Config as CargoConfig};
 use log::{debug, info, trace, warn};
 use nix::unistd::*;
@@ -18,14 +20,13 @@ use walkdir::WalkDir;
 pub mod breakpoint;
 pub mod config;
 pub mod errors;
+mod process_handling;
 pub mod report;
 mod source_analysis;
 mod statemachine;
 pub mod test_loader;
 pub mod traces;
 
-/// Should be unnecessary with a future nix crate release.
-mod personality;
 mod ptrace_control;
 
 static DOCTEST_FOLDER: &str = "target/doctests";
@@ -58,7 +59,7 @@ pub fn launch_tarpaulin(config: &Config) -> Result<(TraceMap, i32), RunError> {
     };
     let mut cargo_config = CargoConfig::new(Shell::new(), cwd, home);
     let flag_quiet = if config.verbose { None } else { Some(true) };
-    
+
     // This shouldn't fail so no checking the error.
     let _ = cargo_config.configure(0u32, flag_quiet, &None, false, false, &None, &[]);
 
@@ -88,10 +89,10 @@ pub fn launch_tarpaulin(config: &Config) -> Result<(TraceMap, i32), RunError> {
         let run_result = match copt.build_config.mode {
             CompileMode::Test => run_tests(&workspace, copt, config),
             CompileMode::Doctest => run_doctests(&workspace, copt, config),
-            e => { 
+            e => {
                 debug!("Internal tarpaulin error. Unsupported compile mode {:?}", e);
                 Err(RunError::Internal)
-            },
+            }
         }?;
         result.merge(&run_result.0);
         return_code |= run_result.1;
@@ -100,7 +101,11 @@ pub fn launch_tarpaulin(config: &Config) -> Result<(TraceMap, i32), RunError> {
     Ok((result, return_code))
 }
 
-fn run_tests(workspace: &Workspace, compile_options: CompileOptions, config: &Config) -> Result<(TraceMap, i32), RunError> {
+fn run_tests(
+    workspace: &Workspace,
+    compile_options: CompileOptions,
+    config: &Config,
+) -> Result<(TraceMap, i32), RunError> {
     let mut result = TraceMap::new();
     let mut return_code = 0i32;
     let compilation = compile(&workspace, &compile_options);
@@ -130,9 +135,11 @@ fn run_tests(workspace: &Workspace, compile_options: CompileOptions, config: &Co
     }
 }
 
-fn run_doctests(workspace: &Workspace, 
-                compile_options: CompileOptions, 
-                config: &Config) -> Result<(TraceMap, i32), RunError> {
+fn run_doctests(
+    workspace: &Workspace,
+    compile_options: CompileOptions,
+    config: &Config,
+) -> Result<(TraceMap, i32), RunError> {
     info!("Running doctests");
     let mut result = TraceMap::new();
     let mut return_code = 0i32;
@@ -144,71 +151,86 @@ fn run_doctests(workspace: &Workspace,
     };
     let _ = ops::run_tests(workspace, &opts, &[]);
 
-    let mut packages: Vec<PathBuf> = workspace.members()
+    let mut packages: Vec<PathBuf> = workspace
+        .members()
         .filter_map(|p| p.manifest_path().parent())
         .map(|x| x.join(DOCTEST_FOLDER))
         .collect();
-    
+
     if packages.is_empty() {
         let doctest_dir = match config.manifest.parent() {
             Some(p) => p.join(DOCTEST_FOLDER),
-            None => PathBuf::from(DOCTEST_FOLDER)
+            None => PathBuf::from(DOCTEST_FOLDER),
         };
         packages.push(doctest_dir);
     }
-    
+
     for dir in &packages {
         let walker = WalkDir::new(dir).into_iter();
-        for dt in walker.filter_map(|e| e.ok()).filter(|e| e.file_type().is_file()) {
-            if let Some(res) = get_test_coverage(&workspace, None, dt.path(), config, false)?
-            {
+        for dt in walker
+            .filter_map(|e| e.ok())
+            .filter(|e| e.file_type().is_file())
+        {
+            if let Some(res) = get_test_coverage(&workspace, None, dt.path(), config, false)? {
                 result.merge(&res.0);
                 return_code |= res.1;
             }
-            
         }
     }
     result.dedup();
     Ok((result, return_code))
 }
 
-
-fn get_compile_options<'a>(config: &Config, 
-                       cargo_config: &'a CargoConfig) -> Result<Vec<CompileOptions<'a>>, RunError> {
+fn get_compile_options<'a>(
+    config: &Config,
+    cargo_config: &'a CargoConfig,
+) -> Result<Vec<CompileOptions<'a>>, RunError> {
     let mut result = Vec::new();
     for run_type in &config.run_types {
         let mut copt = CompileOptions::new(cargo_config, (*run_type).into())
             .map_err(|e| RunError::Cargo(e.to_string()))?;
-        if run_type == &RunType::Tests { 
-            if let CompileFilter::Default { ref mut required_features_filterable } = copt.filter
+        if run_type == &RunType::Tests {
+            if let CompileFilter::Default {
+                ref mut required_features_filterable,
+            } = copt.filter
             {
                 *required_features_filterable = true;
             }
         } else if run_type == &RunType::Doctests {
-            copt.filter = CompileFilter::new(true, vec![], false, vec![], false, vec![], false, vec![], false, false);
+            copt.filter = CompileFilter::new(
+                true,
+                vec![],
+                false,
+                vec![],
+                false,
+                vec![],
+                false,
+                vec![],
+                false,
+                false,
+            );
         }
 
         copt.features = config.features.clone();
         copt.all_features = config.all_features;
         copt.no_default_features = config.no_default_features;
         copt.build_config.release = config.release;
-        copt.spec = match Packages::from_flags(
-            config.all,
-            config.exclude.clone(),
-            config.packages.clone(),
-        ) {
-            Ok(spec) => spec,
-            Err(e) => {
-                return Err(RunError::Packages(e.to_string()));
-            }
-        };
+        copt.spec =
+            match Packages::from_flags(config.all, config.exclude.clone(), config.packages.clone())
+            {
+                Ok(spec) => spec,
+                Err(e) => {
+                    return Err(RunError::Packages(e.to_string()));
+                }
+            };
         result.push(copt);
     }
     Ok(result)
 }
 
 fn setup_environment(config: &Config) {
-    let common_opts = " -C relocation-model=dynamic-no-pic -C link-dead-code -C opt-level=0 -C debuginfo=2 ";
+    let common_opts =
+        " -C relocation-model=dynamic-no-pic -C link-dead-code -C opt-level=0 -C debuginfo=2 ";
     let rustflags = "RUSTFLAGS";
     let mut value = common_opts.to_string();
     if config.release {
@@ -220,7 +242,10 @@ fn setup_environment(config: &Config) {
     env::set_var(rustflags, value);
     // doesn't matter if we don't use it
     let rustdoc = "RUSTDOCFLAGS";
-    let mut value = format!("{} --persist-doctests {} -Z unstable-options ", common_opts, DOCTEST_FOLDER);
+    let mut value = format!(
+        "{} --persist-doctests {} -Z unstable-options ",
+        common_opts, DOCTEST_FOLDER
+    );
     if let Ok(vtemp) = env::var(rustdoc) {
         value.push_str(vtemp.as_ref());
     }
@@ -390,14 +415,6 @@ fn execute_test(
     config: &Config,
 ) -> Result<(), RunError> {
     let exec_path = CString::new(test.to_str().unwrap()).unwrap();
-    match personality::disable_aslr() {
-        Ok(_) => {}
-        Err(e) => return Err(RunError::TestRuntime(format!("ASLR disable failed: {}", e))),
-    }
-    match request_trace() {
-        Ok(_) => {}
-        Err(e) => return Err(RunError::Trace(e.to_string())),
-    }
     info!("running {}", test.display());
     if let Some(pack) = package {
         if let Some(parent) = pack.manifest_path().parent() {
@@ -426,7 +443,6 @@ fn execute_test(
     for s in &config.varargs {
         argv.push(CString::new(s.as_bytes()).unwrap_or_default());
     }
-    execve(&exec_path, &argv, envars.as_slice()).unwrap();
 
-    Ok(())
+    execute(exec_path, &argv, envars.as_slice())
 }

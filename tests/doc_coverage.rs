@@ -23,12 +23,11 @@ fn doc_test_coverage() {
     assert_eq!(ret, 0);
     assert!(res.total_covered() > 0);
     assert_eq!(res.total_covered(), res.total_coverable());
-    
+
     config.run_types = vec![RunType::Tests];
 
     let (res, ret) = launch_tarpaulin(&config).unwrap();
 
     assert_eq!(ret, 0);
     assert_eq!(res.total_covered(), 0);
-
 }
