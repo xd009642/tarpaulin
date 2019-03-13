@@ -261,8 +261,10 @@ accuracy. If you see missing lines or files, check your compiler version.
 - [x] Annotated coverage reports
 - [x] Coverage reports in the style of existing tools (i.e. kcov)
 - [x] Integration with 3rd party tools like coveralls or codecov
-- [ ] Optional coverage statistics for doctests
+- [x] Optional coverage statistics for doctests
 - [ ] MCDC coverage reports
+- [ ] OSX support 
+- [ ] Windows support
 
 ## License
 
