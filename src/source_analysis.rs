@@ -638,6 +638,7 @@ fn visit_path(path: &ExprPath, analysis: &mut LineAnalysis) -> SubResult {
     if let Some(Pair::End(path_end)) = path.path.segments.last() {
         if path_end.ident.to_string() == "unreachable_unchecked" {
             analysis.ignore_span(path.span());
+            return SubResult::Unreachable;
         }
     }
     SubResult::Ok
@@ -708,7 +709,7 @@ fn visit_if(if_block: &ExprIf, ctx: &Context, analysis: &mut LineAnalysis) -> Su
     if let Some((_, ref else_block)) = if_block.else_branch {
         if let SubResult::Ok = process_expr(&else_block, ctx, analysis) {
             reachable_arm = true;
-        }
+        } 
     } else {
         // an empty else branch is reachable
         reachable_arm = true;
@@ -787,7 +788,7 @@ fn visit_callable(call: &ExprCall, ctx: &Context, analysis: &mut LineAnalysis) -
 
 fn visit_methodcall(meth: &ExprMethodCall, ctx: &Context, analysis: &mut LineAnalysis) -> SubResult {
     if check_attr_list(&meth.attrs, ctx, analysis) {
-        let start = meth.span().start().line + 1;
+        let start = meth.receiver.span().start().line + 1;
         let end = meth.span().end().line + 1;
         let lines = get_coverable_args(&meth.args);
         let lines = (start..end)
