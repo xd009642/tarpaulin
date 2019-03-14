@@ -1,6 +1,7 @@
 use crate::config::Config;
 use cargo::core::Workspace;
 use lazy_static::lazy_static;
+use log::trace;
 use proc_macro2::{Span, TokenStream, TokenTree};
 use regex::Regex;
 use std::cell::RefCell;
@@ -187,7 +188,44 @@ pub fn get_line_analysis(project: &Workspace, config: &Config) -> HashMap<PathBu
         analysis.ignore_all();
         result.insert(e.to_path_buf(), analysis);
     }
+
+    debug_printout(&result, config);
+
     result
+}
+
+pub fn debug_printout(result: &HashMap<PathBuf, LineAnalysis>, config: &Config) {
+    if config.debug {
+        for (ref path, ref analysis) in result {
+            trace!("Source analysis for {}", config.strip_project_path(path).display());
+            let mut lines = Vec::new();
+            for l in &analysis.ignore { 
+                match l {
+                    Lines::All => {
+                        lines.clear();
+                        trace!("All lines are ignorable");
+                        break;
+                    },
+                    Lines::Line(i) => {
+                        lines.push(i);
+                    },
+                }
+            }
+            if !lines.is_empty() {
+                lines.sort();
+                trace!("Ignorable lines: {:?}", lines);
+                lines.clear()
+            }
+            for c in &analysis.cover { 
+                lines.push(c);
+            }
+
+            if !lines.is_empty() {
+                lines.sort();
+                trace!("Coverable lines: {:?}", lines);
+            }
+        }
+    }
 }
 
 /// Analyse the crates lib.rs for some common false positives
@@ -442,9 +480,10 @@ fn visit_fn(func: &ItemFn, analysis: &mut LineAnalysis, ctx: &Context) {
     }
 }
 
-fn check_attr_list(attrs: &[Attribute], ctx: &Context) -> bool {
+fn check_attr_list(attrs: &[Attribute], ctx: &Context, analysis: &mut LineAnalysis) -> bool {
     let mut check_cover = true;
     for attr in attrs {
+        analysis.ignore_span(attr.span());
         if let Some(x) = attr.interpret_meta() {
             if check_cfg_attr(&x) {
                 check_cover = false;
@@ -494,11 +533,11 @@ fn check_cfg_attr(attr: &Meta) -> bool {
 }
 
 fn visit_trait(trait_item: &ItemTrait, analysis: &mut LineAnalysis, ctx: &Context) {
-    let check_cover = check_attr_list(&trait_item.attrs, ctx);
+    let check_cover = check_attr_list(&trait_item.attrs, ctx, analysis);
     if check_cover {
         for item in &trait_item.items {
             if let TraitItem::Method(ref i) = *item {
-                if check_attr_list(&i.attrs, ctx) {
+                if check_attr_list(&i.attrs, ctx, analysis) {
                     if let Some(ref block) = i.default {
                         analysis.cover_span(item.span(), Some(ctx.file_contents));
                         visit_generics(&i.sig.decl.generics, analysis);
@@ -527,11 +566,11 @@ fn visit_trait(trait_item: &ItemTrait, analysis: &mut LineAnalysis, ctx: &Contex
 }
 
 fn visit_impl(impl_blk: &ItemImpl, analysis: &mut LineAnalysis, ctx: &Context) {
-    let check_cover = check_attr_list(&impl_blk.attrs, ctx);
+    let check_cover = check_attr_list(&impl_blk.attrs, ctx, analysis);
     if check_cover {
         for item in &impl_blk.items {
             if let ImplItem::Method(ref i) = *item {
-                if check_attr_list(&i.attrs, ctx) {
+                if check_attr_list(&i.attrs, ctx, analysis) {
                     analysis.cover_span(i.span(), Some(ctx.file_contents));
                     if let SubResult::Unreachable =
                         process_statements(&i.block.stmts, ctx, analysis)
@@ -576,9 +615,9 @@ fn process_expr(expr: &Expr, ctx: &Context, analysis: &mut LineAnalysis) -> SubR
         Expr::Struct(ref s) => visit_struct_expr(&s, analysis),
         Expr::Unsafe(ref u) => visit_unsafe_block(&u, ctx, analysis),
         Expr::Call(ref c) => visit_callable(&c, ctx, analysis),
-        Expr::MethodCall(ref m) => visit_methodcall(&m, analysis),
+        Expr::MethodCall(ref m) => visit_methodcall(&m, ctx, analysis),
         Expr::Match(ref m) => visit_match(&m, ctx, analysis),
-        Expr::Block(ref b) => visit_block(&b.block, ctx, analysis),
+        Expr::Block(ref b) => visit_expr_block(&b, ctx, analysis),
         Expr::If(ref i) => visit_if(&i, ctx, analysis),
         Expr::While(ref w) => visit_while(&w, ctx, analysis),
         Expr::ForLoop(ref f) => visit_for(&f, ctx, analysis),
@@ -599,13 +638,14 @@ fn visit_path(path: &ExprPath, analysis: &mut LineAnalysis) -> SubResult {
     if let Some(Pair::End(path_end)) = path.path.segments.last() {
         if path_end.ident.to_string() == "unreachable_unchecked" {
             analysis.ignore_span(path.span());
+            return SubResult::Unreachable;
         }
     }
     SubResult::Ok
 }
 
 fn visit_return(ret: &ExprReturn, ctx: &Context, analysis: &mut LineAnalysis) -> SubResult {
-    let check_cover = check_attr_list(&ret.attrs, ctx);
+    let check_cover = check_attr_list(&ret.attrs, ctx, analysis);
     if check_cover {
         for a in &ret.attrs {
             analysis.ignore_span(a.span());
@@ -614,6 +654,15 @@ fn visit_return(ret: &ExprReturn, ctx: &Context, analysis: &mut LineAnalysis) ->
         analysis.ignore_span(ret.span());
     }
     SubResult::Ok
+}
+
+fn visit_expr_block(block: &ExprBlock, ctx: &Context, analysis: &mut LineAnalysis) -> SubResult {
+    if check_attr_list(&block.attrs, ctx, analysis) {
+        visit_block(&block.block, ctx, analysis)
+    } else {
+        analysis.ignore_span(block.span());
+        SubResult::Ok
+    }
 }
 
 fn visit_block(block: &Block, ctx: &Context, analysis: &mut LineAnalysis) -> SubResult {
@@ -651,13 +700,16 @@ fn visit_match(mat: &ExprMatch, ctx: &Context, analysis: &mut LineAnalysis) -> S
 fn visit_if(if_block: &ExprIf, ctx: &Context, analysis: &mut LineAnalysis) -> SubResult {
     // an if expression is unreachable iff both its branches are unreachable
     let mut reachable_arm = false;
+   
+    process_expr(&if_block.cond, ctx, analysis);
+
     if let SubResult::Ok = visit_block(&if_block.then_branch, ctx, analysis) {
         reachable_arm = true;
     }
     if let Some((_, ref else_block)) = if_block.else_branch {
         if let SubResult::Ok = process_expr(&else_block, ctx, analysis) {
             reachable_arm = true;
-        }
+        } 
     } else {
         // an empty else branch is reachable
         reachable_arm = true;
@@ -717,27 +769,35 @@ fn get_coverable_args(args: &Punctuated<Expr, Comma>) -> HashSet<usize> {
 }
 
 fn visit_callable(call: &ExprCall, ctx: &Context, analysis: &mut LineAnalysis) -> SubResult {
-    let start = call.span().start().line + 1;
-    let end = call.span().end().line + 1;
-    let lines = get_coverable_args(&call.args);
-    let lines = (start..end)
-        .filter(|x| !lines.contains(&x))
-        .collect::<Vec<_>>();
-    analysis.add_to_ignore(&lines);
+    if check_attr_list(&call.attrs, ctx, analysis) {
+        let start = call.span().start().line + 1;
+        let end = call.span().end().line + 1;
+        let lines = get_coverable_args(&call.args);
+        let lines = (start..end)
+            .filter(|x| !lines.contains(&x))
+            .collect::<Vec<_>>();
+        analysis.add_to_ignore(&lines);
 
-    process_expr(&call.func, ctx, analysis);
+        process_expr(&call.func, ctx, analysis);
+    } else {
+        analysis.ignore_span(call.span());
+    }
     // We can't guess if a callable would actually be unreachable
     SubResult::Ok
 }
 
-fn visit_methodcall(meth: &ExprMethodCall, analysis: &mut LineAnalysis) -> SubResult {
-    let start = meth.span().start().line + 1;
-    let end = meth.span().end().line + 1;
-    let lines = get_coverable_args(&meth.args);
-    let lines = (start..end)
-        .filter(|x| !lines.contains(&x))
-        .collect::<Vec<_>>();
-    analysis.add_to_ignore(&lines);
+fn visit_methodcall(meth: &ExprMethodCall, ctx: &Context, analysis: &mut LineAnalysis) -> SubResult {
+    if check_attr_list(&meth.attrs, ctx, analysis) {
+        let start = meth.receiver.span().start().line + 1;
+        let end = meth.span().end().line + 1;
+        let lines = get_coverable_args(&meth.args);
+        let lines = (start..end)
+            .filter(|x| !lines.contains(&x))
+            .collect::<Vec<_>>();
+        analysis.add_to_ignore(&lines);
+    } else {
+        analysis.ignore_span(meth.span());
+    }
     // We can't guess if a method would actually be unreachable
     SubResult::Ok
 }
@@ -807,7 +867,7 @@ fn visit_macro_call(mac: &Macro, ctx: &Context, analysis: &mut LineAnalysis) -> 
     let end = mac.span().end().line + 1;
     if let Some(End(ref name)) = mac.path.segments.last() {
         let unreachable = name.ident == "unreachable";
-        let standard_ignores = name.ident == "unimplemented" || name.ident == "include";
+        let standard_ignores = name.ident == "unimplemented" || name.ident == "include" || name.ident=="cfg";
         let ignore_panic = ctx.config.ignore_panics && name.ident == "panic";
         if standard_ignores || ignore_panic || unreachable {
             analysis.ignore_span(mac.span());
