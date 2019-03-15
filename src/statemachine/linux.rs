@@ -19,10 +19,37 @@ pub fn create_state_machine<'a>(
     (TestState::start_state(), data)
 }
 
+#[derive(Debug, Copy, Clone, Eq, PartialEq)]
+pub struct ProcessInfo {
+    pid: Pid,
+    signal: Option<Signal>,
+}
+
+impl ProcessInfo {
+    fn new(pid: Pid, signal: Option<Signal>) -> Self {
+        Self {
+            pid,
+            signal
+        }
+    }
+}
+
+impl From<Pid> for ProcessInfo {
+    fn from(pid: Pid) -> Self {
+        ProcessInfo::new(pid, None)
+    }
+}
+
+impl From<&Pid> for ProcessInfo {
+    fn from(pid: &Pid) -> Self {
+        ProcessInfo::new(*pid, None)
+    }
+}
+
 /// Handle to linux process state
 pub struct LinuxData<'a> {
-    /// Recent result from waitpid to be handled by statemachine
-    wait: WaitStatus,
+    /// Recent results from waitpid to be handled by statemachine
+    wait_queue: Vec<WaitStatus>,
     /// Current Pid to process
     current: Pid,
     /// Parent PID of test process
@@ -47,7 +74,6 @@ impl<'a> StateData for LinuxData<'a> {
                 if let WaitStatus::Stopped(child, _) = sig {
                     self.current = child;
                 }
-                self.wait = sig;
                 trace!("Caught inferior transitioning to Initialise state");
                 Ok(Some(TestState::Initialise))
             }
@@ -101,101 +127,151 @@ impl<'a> StateData for LinuxData<'a> {
     }
 
     fn wait(&mut self) -> Result<Option<TestState>, RunError> {
-        let wait = waitpid(
-            Pid::from_raw(-1),
-            Some(WaitPidFlag::WNOHANG | WaitPidFlag::__WALL),
-        );
-        match wait {
-            Ok(WaitStatus::StillAlive) => {
-                self.wait = WaitStatus::StillAlive;
-                Ok(None)
+        let mut result = Ok(None);
+        let mut running = true;
+        while running {
+            let wait = waitpid(
+                Pid::from_raw(-1),
+                Some(WaitPidFlag::WNOHANG | WaitPidFlag::__WALL),
+            );
+            match wait {
+                Ok(WaitStatus::StillAlive) => {
+                    running = false;
+                }
+                Ok(WaitStatus::Exited(s, r)) => {
+                    self.wait_queue.push(WaitStatus::Exited(s,r));
+                    result = Ok(Some(TestState::Stopped));
+                    running = false;
+                },
+                Ok(s) => {
+                    self.wait_queue.push(s);
+                    result = Ok(Some(TestState::Stopped));
+                }
+                Err(e) => {
+                    running = false;
+                    result = Err(RunError::TestRuntime(
+                            format!("An error occurred while waiting for response from test: {}", e)))
+                },
             }
-            Ok(s) => {
-                self.wait = s;
-                Ok(Some(TestState::Stopped))
-            }
-            Err(e) => Err(RunError::TestRuntime(format!(
-                "An error occurred while waiting for response from test: {}",
-                e
-            ))),
         }
+        if !self.wait_queue.is_empty() {
+            trace!("Result queue is {:?}", self.wait_queue);
+        }
+        result
     }
 
     fn stop(&mut self) -> Result<TestState, RunError> {
-        trace!("Caught signal {:?}", self.wait);
-        match self.wait {
-            WaitStatus::PtraceEvent(c, s, e) => match self.handle_ptrace_event(c, s, e) {
-                Ok(s) => Ok(s),
-                Err(e) => Err(RunError::TestRuntime(format!(
-                    "Error occurred when handling ptrace event: {}",
-                    e
-                ))),
-            },
-            WaitStatus::Stopped(c, Signal::SIGTRAP) => {
-                self.current = c;
-                match self.collect_coverage_data() {
+        let mut actions = Vec::new();
+        let mut result = Ok(TestState::wait_state());
+        let pending = self.wait_queue.clone();
+        self.wait_queue.clear();
+        for status in &pending {
+            let state = match status {
+                WaitStatus::PtraceEvent(c, s, e) => match self.handle_ptrace_event(*c, *s, *e) {
                     Ok(s) => Ok(s),
                     Err(e) => Err(RunError::TestRuntime(format!(
-                        "Error when collecting coverage: {}",
+                        "Error occurred when handling ptrace event: {}",
                         e
                     ))),
+                },
+                WaitStatus::Stopped(c, Signal::SIGTRAP) => {
+                    self.current = *c;
+                    match self.collect_coverage_data() {
+                        Ok(s) => Ok(s),
+                        Err(e) => Err(RunError::TestRuntime(format!(
+                            "Error when collecting coverage: {}",
+                            e
+                        ))),
+                    }
                 }
-            }
-            WaitStatus::Stopped(child, Signal::SIGSTOP) => match continue_exec(child, None) {
-                Ok(_) => Ok(TestState::wait_state()),
-                Err(e) => Err(RunError::TestRuntime(format!(
-                    "Error processing SIGSTOP: {}",
-                    e.to_string()
+                WaitStatus::Stopped(child, Signal::SIGSTOP) => {
+                    Ok((TestState::wait_state(), TracerAction::Continue(child.into())))
+                },
+                WaitStatus::Stopped(_, Signal::SIGSEGV) => Err(RunError::TestRuntime(
+                    "A segfault occurred while executing tests".to_string(),
+                )),
+                WaitStatus::Stopped(child, Signal::SIGILL) => Err(RunError::TestRuntime(format!(
+                    "Error running test - SIGILL raised in {}",
+                    child
                 ))),
-            },
-            WaitStatus::Stopped(_, Signal::SIGSEGV) => Err(RunError::TestRuntime(
-                "A segfault occurred while executing tests".to_string(),
-            )),
-            WaitStatus::Stopped(child, Signal::SIGILL) => Err(RunError::TestRuntime(format!(
-                "Error running test - SIGILL raised in {}",
-                child
-            ))),
-            WaitStatus::Stopped(c, s) => {
-                let sig = if self.config.forward_signals {
-                    Some(s)
-                } else {
-                    None
-                };
-                let _ = continue_exec(c, sig);
-                Ok(TestState::wait_state())
-            }
-            WaitStatus::Signaled(_, _, _) => {
-                if let Ok(s) = self.handle_signaled() {
-                    Ok(s)
-                } else {
-                    Err(RunError::TestRuntime(
-                        "Attempting to handle tarpaulin being signaled".to_string(),
-                    ))
+                WaitStatus::Stopped(c, s) => {
+                    let sig = if self.config.forward_signals {
+                        Some(*s)
+                    } else {
+                        None
+                    };
+                    let info = ProcessInfo::new(*c, sig);
+                    Ok((TestState::wait_state(), TracerAction::Continue(info)))
                 }
-            }
-            WaitStatus::Exited(child, ec) => {
-                for ref mut value in self.breakpoints.values_mut() {
-                    value.thread_killed(child);
+                WaitStatus::Signaled(c, s, f) => {
+                    if let Ok(s) = self.handle_signaled(c, s, *f) {
+                        Ok(s)
+                    } else {
+                        Err(RunError::TestRuntime(
+                            "Attempting to handle tarpaulin being signaled".to_string(),
+                        ))
+                    }
                 }
-                if child == self.parent {
-                    Ok(TestState::End(ec))
-                } else {
-                    // Process may have already been destroyed. This is just incase
-                    let _ = continue_exec(self.parent, None);
-                    Ok(TestState::wait_state())
+                WaitStatus::Exited(child, ec) => {
+                    for ref mut value in self.breakpoints.values_mut() {
+                        value.thread_killed(*child);
+                    }
+                    trace!("Exited {:?} parent {:?}", child, self.parent);
+                    if child == &self.parent {
+                        Ok((TestState::End(*ec), TracerAction::Nothing))
+                    } else {
+                        // Process may have already been destroyed. This is just incase
+                        Ok((TestState::wait_state(), TracerAction::Continue(self.parent.into())))
+                    }
                 }
+                _ => Err(RunError::TestRuntime(
+                    "An unexpected signal has been caught by tarpaulin!".to_string(),
+                )),
+            };
+            match state {
+                Ok((TestState::Waiting{..}, action)) => {
+                    actions.push(action);
+                },
+                Ok((state, action)) => {
+                    result = Ok(state);
+                    actions.push(action);
+                },
+                Err(e) => result = Err(e),
             }
-            _ => Err(RunError::TestRuntime(
-                "An unexpected signal has been caught by tarpaulin!".to_string(),
-            )),
         }
+        let mut continued = false;
+        // Now handle the actions!
+        if let Some(d) = actions.iter().find(|i| i.is_detach()) {
+            if let Some(data) = d.get_data() {
+                trace!("Detaching {}", data.pid);
+                detach_child(data.pid)?;
+                continued = true;
+            }
+        } else if let Some(s) = actions.iter().find(|i| i.is_step()) {
+            if let Some(data) = s.get_data() {
+                trace!("Stepping {}", data.pid);
+                single_step(data.pid)?;
+                continued = true;
+            }
+        } else if let Some(c) = actions.iter().find(|i| i.is_continue()) {
+            if let Some(data) = c.get_data() {
+                trace!("Continuing {}", data.pid);
+                continue_exec(data.pid, data.signal)?;
+                continued = true;
+            }
+        } 
+        if !continued {
+            trace!("No action suggested to continue tracee. Attempting a continue");
+            continue_exec(self.parent, None)?;
+        }
+        result
     }
 }
 
 impl<'a> LinuxData<'a> {
     pub fn new(traces: &'a mut TraceMap, config: &'a Config) -> LinuxData<'a> {
         LinuxData {
-            wait: WaitStatus::StillAlive,
+            wait_queue: Vec::new(),
             current: Pid::from_raw(0),
             parent: Pid::from_raw(0),
             breakpoints: HashMap::new(),
@@ -206,12 +282,11 @@ impl<'a> LinuxData<'a> {
         }
     }
 
-    fn handle_ptrace_event(
-        &mut self,
+    fn handle_ptrace_event(&mut self,
         child: Pid,
         sig: Signal,
         event: i32,
-    ) -> Result<TestState, RunError> {
+    ) -> Result<(TestState, TracerAction<ProcessInfo>), RunError> {
         use nix::libc::*;
 
         if sig == Signal::SIGTRAP {
@@ -220,8 +295,7 @@ impl<'a> LinuxData<'a> {
                     Ok(t) => {
                         trace!("New thread spawned {}", t);
                         self.thread_count += 1;
-                        continue_exec(child, None)?;
-                        Ok(TestState::wait_state())
+                        Ok((TestState::wait_state(), TracerAction::Continue(child.into())))
                     }
                     Err(e) => {
                         trace!("Error in clone event {:?}", e);
@@ -232,19 +306,16 @@ impl<'a> LinuxData<'a> {
                 },
                 PTRACE_EVENT_FORK | PTRACE_EVENT_VFORK => {
                     trace!("Caught fork event");
-                    continue_exec(child, None)?;
-                    Ok(TestState::wait_state())
+                    Ok((TestState::wait_state(), TracerAction::Continue(child.into())))
                 }
                 PTRACE_EVENT_EXEC => {
                     trace!("Child execed other process - detaching ptrace");
-                    detach_child(child)?;
-                    Ok(TestState::wait_state())
+                    Ok((TestState::wait_state(), TracerAction::Detach(child.into())))
                 }
                 PTRACE_EVENT_EXIT => {
                     trace!("Child exiting");
                     self.thread_count -= 1;
-                    continue_exec(child, None)?;
-                    Ok(TestState::wait_state())
+                    Ok((TestState::wait_state(), TracerAction::Continue(child.into())))
                 }
                 _ => Err(RunError::TestRuntime(format!(
                     "Unrecognised ptrace event {}",
@@ -258,7 +329,8 @@ impl<'a> LinuxData<'a> {
         }
     }
 
-    fn collect_coverage_data(&mut self) -> Result<TestState, RunError> {
+    fn collect_coverage_data(&mut self) -> Result<(TestState, TracerAction<ProcessInfo>), RunError> {
+        let mut action = None;
         if let Ok(rip) = current_instruction_pointer(self.current) {
             let rip = (rip - 1) as u64;
             trace!("Hit address 0x{:x}", rip);
@@ -276,10 +348,9 @@ impl<'a> LinuxData<'a> {
                 } else {
                     // So failed to process a breakpoint.. Still continue to avoid
                     // stalling
-                    continue_exec(self.current, None)?;
-                    false
+                    (false, TracerAction::Continue(self.current.into()))
                 };
-                if updated {
+                if updated.0 {
                     if let Some(ref mut t) = self.traces.get_trace_mut(rip) {
                         if let CoverageStat::Line(ref mut x) = t.stats {
                             trace!("Incrementing hit count for trace");
@@ -287,20 +358,17 @@ impl<'a> LinuxData<'a> {
                         }
                     }
                 }
-            } else {
-                continue_exec(self.current, None)?;
-            }
-        } else {
-            continue_exec(self.current, None)?;
+                action = Some(updated.1);
+            }         
         }
-        Ok(TestState::wait_state())
+        let action = action.unwrap_or_else(|| TracerAction::Continue(self.current.into()));
+        Ok((TestState::wait_state(), action))
     }
 
-    fn handle_signaled(&mut self) -> Result<TestState, RunError> {
-        match self.wait {
-            WaitStatus::Signaled(child, Signal::SIGTRAP, true) => {
-                continue_exec(child, None)?;
-                Ok(TestState::wait_state())
+    fn handle_signaled(&mut self, pid: &Pid, sig: &Signal, flag: bool) -> Result<(TestState, TracerAction<ProcessInfo>), RunError> {
+        match (sig, flag) {
+            (Signal::SIGTRAP, true) => {
+                Ok((TestState::wait_state(), TracerAction::Continue(pid.into())))
             }
             _ => Err(RunError::StateMachine("Unexpected stop".to_string())),
         }

@@ -16,7 +16,7 @@ pub enum RunError {
     #[fail(display = "Failed to compile tests! Error: {}", _0)]
     TestCompile(String),
     /// Test failed during run
-    #[fail(display = "Failed to run tests! Error: {}", _0)]
+    #[fail(display = "Failed to run tests: {}", _0)]
     TestRuntime(String),
     #[fail(display = "Test failed during run")]
     TestFailed,
