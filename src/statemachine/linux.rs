@@ -7,7 +7,7 @@ use nix::sys::signal::Signal;
 use nix::sys::wait::*;
 use nix::unistd::Pid;
 use nix::Error as NixErr;
-use std::collections::HashMap;
+use std::collections::{HashMap, HashSet};
 
 pub fn create_state_machine<'a>(
     test: Pid,
@@ -18,6 +18,9 @@ pub fn create_state_machine<'a>(
     data.parent = test;
     (TestState::start_state(), data)
 }
+
+
+pub type UpdateContext = (TestState, TracerAction<ProcessInfo>);
 
 #[derive(Debug, Copy, Clone, Eq, PartialEq)]
 pub struct ProcessInfo {
@@ -162,6 +165,7 @@ impl<'a> StateData for LinuxData<'a> {
 
     fn stop(&mut self) -> Result<TestState, RunError> {
         let mut actions = Vec::new();
+        let mut pcs = HashSet::new();
         let mut result = Ok(TestState::wait_state());
         let pending = self.wait_queue.clone();
         self.wait_queue.clear();
@@ -176,7 +180,7 @@ impl<'a> StateData for LinuxData<'a> {
                 },
                 WaitStatus::Stopped(c, Signal::SIGTRAP) => {
                     self.current = *c;
-                    match self.collect_coverage_data() {
+                    match self.collect_coverage_data(&mut pcs) {
                         Ok(s) => Ok(s),
                         Err(e) => Err(RunError::TestRuntime(format!(
                             "Error when collecting coverage: {}",
@@ -239,6 +243,7 @@ impl<'a> StateData for LinuxData<'a> {
                 Err(e) => result = Err(e),
             }
         }
+        println!("Action list {:?}", actions);
         let mut continued = false;
         // Now handle the actions!
         if let Some(d) = actions.iter().find(|i| i.is_detach()) {
@@ -262,7 +267,7 @@ impl<'a> StateData for LinuxData<'a> {
         } 
         if !continued {
             trace!("No action suggested to continue tracee. Attempting a continue");
-            continue_exec(self.parent, None)?;
+            let _ = continue_exec(self.parent, None);
         }
         result
     }
@@ -329,26 +334,33 @@ impl<'a> LinuxData<'a> {
         }
     }
 
-    fn collect_coverage_data(&mut self) -> Result<(TestState, TracerAction<ProcessInfo>), RunError> {
+
+    fn collect_coverage_data(&mut self, 
+                             visited_pcs: &mut HashSet<u64>) -> Result<UpdateContext, RunError> {
         let mut action = None;
         if let Ok(rip) = current_instruction_pointer(self.current) {
             let rip = (rip - 1) as u64;
             trace!("Hit address 0x{:x}", rip);
             if self.breakpoints.contains_key(&rip) {
                 let bp = &mut self.breakpoints.get_mut(&rip).unwrap();
-                let enable = self.config.count && self.thread_count < 2;
-                if !enable && self.force_disable_hit_count {
-                    warn!("Code is mulithreaded, disabling hit count");
-                    warn!("Results may be improved by not using the '--count' option when running tarpaulin");
-                    self.force_disable_hit_count = false;
-                }
-                // Don't reenable if multithreaded as can't yet sort out segfault issue
-                let updated = if let Ok(x) = bp.process(self.current, enable) {
-                    x
+                let updated = if visited_pcs.contains(&rip) {
+                    let _ = bp.jump_to(self.current); 
+                    (true, TracerAction::Continue(self.current.into()))
                 } else {
-                    // So failed to process a breakpoint.. Still continue to avoid
-                    // stalling
-                    (false, TracerAction::Continue(self.current.into()))
+                    let enable = self.config.count && self.thread_count < 2;
+                    if !enable && self.force_disable_hit_count {
+                        warn!("Code is mulithreaded, disabling hit count");
+                        warn!("Results may be improved by not using the '--count' option when running tarpaulin");
+                        self.force_disable_hit_count = false;
+                    }
+                    // Don't reenable if multithreaded as can't yet sort out segfault issue
+                    if let Ok(x) = bp.process(self.current, enable) {
+                        x
+                    } else {
+                        // So failed to process a breakpoint.. Still continue to avoid
+                        // stalling
+                        (false, TracerAction::Continue(self.current.into()))
+                    }
                 };
                 if updated.0 {
                     if let Some(ref mut t) = self.traces.get_trace_mut(rip) {
@@ -365,7 +377,8 @@ impl<'a> LinuxData<'a> {
         Ok((TestState::wait_state(), action))
     }
 
-    fn handle_signaled(&mut self, pid: &Pid, sig: &Signal, flag: bool) -> Result<(TestState, TracerAction<ProcessInfo>), RunError> {
+
+    fn handle_signaled(&mut self, pid: &Pid, sig: &Signal, flag: bool) -> Result<UpdateContext, RunError> {
         match (sig, flag) {
             (Signal::SIGTRAP, true) => {
                 Ok((TestState::wait_state(), TracerAction::Continue(pid.into())))

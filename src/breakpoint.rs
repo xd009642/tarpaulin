@@ -44,6 +44,10 @@ impl Breakpoint {
         }
     }
 
+    pub fn jump_to(&mut self, pid: Pid) -> Result<()> {
+        set_instruction_pointer(pid, self.pc).map(|_| ())
+    }
+
     /// Attaches the current breakpoint.
     pub fn enable(&mut self, pid: Pid) -> Result<()> {
         let data = read_address(pid, self.aligned_address())?;
@@ -98,7 +102,7 @@ impl Breakpoint {
         // Remove the breakpoint, reset the program counter to step before it
         // hit the breakpoint then step to execute the original instruction.
         self.disable(pid)?;
-        set_instruction_pointer(pid, self.pc)?;
+        self.jump_to(pid)?;
         Ok(())
     }
 
