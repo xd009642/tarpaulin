@@ -141,8 +141,13 @@ impl<'a> StateData for LinuxData<'a> {
                 Ok(WaitStatus::StillAlive) => {
                     running = false;
                 }
-                Ok(WaitStatus::Exited(s, r)) => {
-                    self.wait_queue.push(WaitStatus::Exited(s,r));
+                Ok(WaitStatus::Exited(_, _)) => {
+                    self.wait_queue.push(wait.unwrap());
+                    result = Ok(Some(TestState::Stopped));
+                    running = false;
+                },
+                Ok(WaitStatus::PtraceEvent(_, _, _)) => {
+                    self.wait_queue.push(wait.unwrap());
                     result = Ok(Some(TestState::Stopped));
                     running = false;
                 },
@@ -225,7 +230,7 @@ impl<'a> StateData for LinuxData<'a> {
                         Ok((TestState::End(*ec), TracerAction::Nothing))
                     } else {
                         // Process may have already been destroyed. This is just incase
-                        Ok((TestState::wait_state(), TracerAction::Continue(self.parent.into())))
+                        Ok((TestState::wait_state(), TracerAction::TryContinue(self.parent.into())))
                     }
                 }
                 _ => Err(RunError::TestRuntime(
@@ -243,28 +248,28 @@ impl<'a> StateData for LinuxData<'a> {
                 Err(e) => result = Err(e),
             }
         }
-        println!("Action list {:?}", actions);
         let mut continued = false;
-        // Now handle the actions!
-        if let Some(d) = actions.iter().find(|i| i.is_detach()) {
-            if let Some(data) = d.get_data() {
-                trace!("Detaching {}", data.pid);
-                detach_child(data.pid)?;
-                continued = true;
+        for a in &actions {
+            match a {
+                TracerAction::TryContinue(t) => {
+                    continued = true;
+                    let _ = continue_exec(t.pid, t.signal);
+                },
+                TracerAction::Continue(t) => {
+                    continued = true;
+                    continue_exec(t.pid, t.signal)?;
+                },
+                TracerAction::Step(t) => { 
+                    continued = true;
+                    single_step(t.pid)?;
+                },
+                TracerAction::Detach(t) => {
+                    continued = true;
+                    detach_child(t.pid)?;
+                },
+                _ => {},
             }
-        } else if let Some(s) = actions.iter().find(|i| i.is_step()) {
-            if let Some(data) = s.get_data() {
-                trace!("Stepping {}", data.pid);
-                single_step(data.pid)?;
-                continued = true;
-            }
-        } else if let Some(c) = actions.iter().find(|i| i.is_continue()) {
-            if let Some(data) = c.get_data() {
-                trace!("Continuing {}", data.pid);
-                continue_exec(data.pid, data.signal)?;
-                continued = true;
-            }
-        } 
+        }
         if !continued {
             trace!("No action suggested to continue tracee. Attempting a continue");
             let _ = continue_exec(self.parent, None);

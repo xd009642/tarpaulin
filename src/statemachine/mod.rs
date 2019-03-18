@@ -30,6 +30,9 @@ pub enum TestState {
 /// i.e. a PID in Unix.
 #[derive(Debug, Copy, Clone, Eq, PartialEq)]
 pub enum TracerAction<T> {
+    /// Try continue is for times when you don't know if there is something
+    /// paused but if there is you want it to move on. 
+    TryContinue(T),
     Continue(T),
     Step(T),
     Detach(T),
