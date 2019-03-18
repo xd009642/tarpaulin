@@ -197,10 +197,11 @@ impl<'a> StateData for LinuxData<'a> {
                 WaitStatus::Stopped(_, Signal::SIGSEGV) => Err(RunError::TestRuntime(
                     "A segfault occurred while executing tests".to_string(),
                 )),
-                WaitStatus::Stopped(child, Signal::SIGILL) => Err(RunError::TestRuntime(format!(
-                    "Error running test - SIGILL raised in {}",
-                    child
-                ))),
+                WaitStatus::Stopped(child, Signal::SIGILL) => {
+                    let pc = current_instruction_pointer(*child).unwrap_or_else(|_| 1) - 1;
+                    trace!("SIGILL raised. Child program counter is: 0x{:x}", pc); 
+                    Err(RunError::TestRuntime(format!("Error running test - SIGILL raised in {}", child)))
+                },
                 WaitStatus::Stopped(c, s) => {
                     let sig = if self.config.forward_signals {
                         Some(*s)
