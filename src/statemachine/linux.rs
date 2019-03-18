@@ -1,7 +1,7 @@
 use crate::config::Config;
 use crate::errors::RunError;
 use crate::statemachine::*;
-use log::{debug, trace, warn};
+use log::{debug, trace};
 use nix::errno::Errno;
 use nix::sys::signal::Signal;
 use nix::sys::wait::*;
@@ -65,8 +65,6 @@ pub struct LinuxData<'a> {
     config: &'a Config,
     /// Thread count. Hopefully getting rid of in future
     thread_count: isize,
-    /// Used to show anomalies noticed so hit counts disabled
-    force_disable_hit_count: bool,
 }
 
 impl<'a> StateData for LinuxData<'a> {
@@ -210,7 +208,7 @@ impl<'a> StateData for LinuxData<'a> {
                         None
                     };
                     let info = ProcessInfo::new(*c, sig);
-                    Ok((TestState::wait_state(), TracerAction::Continue(info)))
+                    Ok((TestState::wait_state(), TracerAction::TryContinue(info)))
                 }
                 WaitStatus::Signaled(c, s, f) => {
                     if let Ok(s) = self.handle_signaled(c, s, *f) {
@@ -288,7 +286,6 @@ impl<'a> LinuxData<'a> {
             traces,
             config,
             thread_count: 0,
-            force_disable_hit_count: config.count,
         }
     }
 
@@ -325,7 +322,7 @@ impl<'a> LinuxData<'a> {
                 PTRACE_EVENT_EXIT => {
                     trace!("Child exiting");
                     self.thread_count -= 1;
-                    Ok((TestState::wait_state(), TracerAction::Continue(child.into())))
+                    Ok((TestState::wait_state(), TracerAction::TryContinue(child.into())))
                 }
                 _ => Err(RunError::TestRuntime(format!(
                     "Unrecognised ptrace event {}",
@@ -352,12 +349,7 @@ impl<'a> LinuxData<'a> {
                     let _ = bp.jump_to(self.current); 
                     (true, TracerAction::Continue(self.current.into()))
                 } else {
-                    let enable = self.config.count && self.thread_count < 2;
-                    if !enable && self.force_disable_hit_count {
-                        warn!("Code is mulithreaded, disabling hit count");
-                        warn!("Results may be improved by not using the '--count' option when running tarpaulin");
-                        self.force_disable_hit_count = false;
-                    }
+                    let enable = self.config.count;
                     // Don't reenable if multithreaded as can't yet sort out segfault issue
                     if let Ok(x) = bp.process(self.current, enable) {
                         x
