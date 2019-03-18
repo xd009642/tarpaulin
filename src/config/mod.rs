@@ -107,6 +107,8 @@ impl Default for Config {
 
 impl<'a> From<&'a ArgMatches<'a>> for Config {
     fn from(args: &'a ArgMatches<'a>) -> Self {
+        let debug = args.is_present("debug");
+        let verbose = args.is_present("verbose") || debug;
         Config {
             manifest: get_manifest(args),
             run_types: get_run_types(args),
@@ -114,8 +116,8 @@ impl<'a> From<&'a ArgMatches<'a>> for Config {
             ignore_tests: args.is_present("ignore-tests"),
             ignore_panics: args.is_present("ignore-panics"),
             force_clean: args.is_present("force-clean"),
-            verbose: args.is_present("verbose"),
-            debug: args.is_present("debug"),
+            verbose,
+            debug,
             count: args.is_present("count"),
             line_coverage: get_line_cov(args),
             branch_coverage: get_branch_cov(args),
