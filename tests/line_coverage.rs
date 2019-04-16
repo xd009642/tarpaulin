@@ -2,6 +2,7 @@ use cargo_tarpaulin::config::Config;
 use cargo_tarpaulin::launch_tarpaulin;
 use cargo_tarpaulin::traces::CoverageStat;
 use std::env;
+use std::path::PathBuf;
 use std::time::Duration;
 
 #[test]
@@ -10,11 +11,11 @@ fn simple_project_coverage() {
     config.verbose = true;
     config.test_timeout = Duration::from_secs(60);
     let restore_dir = env::current_dir().unwrap();
-    let mut test_dir = env::current_dir().unwrap();
+    let mut test_dir = PathBuf::from(env::var("CARGO_MANIFEST_DIR").unwrap());
     test_dir.push("tests");
     test_dir.push("data");
     test_dir.push("simple_project");
-    env::set_current_dir(test_dir.clone()).unwrap();
+    env::set_current_dir(&test_dir).unwrap();
     config.manifest = test_dir.clone();
     config.manifest.push("Cargo.toml");
 
