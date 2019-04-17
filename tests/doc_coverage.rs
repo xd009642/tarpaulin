@@ -1,18 +1,15 @@
 use cargo_tarpaulin::config::{Config, RunType};
 use cargo_tarpaulin::launch_tarpaulin;
 use std::env;
-use std::path::PathBuf;
 use std::time::Duration;
+use utils::get_test_path;
 
 #[test]
 fn doc_test_coverage() {
     let mut config = Config::default();
     config.verbose = true;
     config.test_timeout = Duration::from_secs(60);
-    let mut test_dir = PathBuf::from(env::var("CARGO_MANIFEST_DIR").unwrap());
-    test_dir.push("tests");
-    test_dir.push("data");
-    test_dir.push("doc_coverage");
+    let test_dir = get_test_path("doc_coverage");
     env::set_current_dir(&test_dir).unwrap();
     config.manifest = test_dir;
     config.manifest.push("Cargo.toml");

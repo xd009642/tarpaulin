@@ -12,6 +12,7 @@ categories = ["development-tools"]
 keywords = ["cargo", "cargo-subcommand", "testing"]
 #publish-lockfile = true
 edition = "2018"
+autotests = false
 
 [[bin]]
 name = "cargo-tarpaulin"
