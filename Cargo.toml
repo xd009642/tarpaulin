@@ -17,6 +17,10 @@ autotests = false
 [[bin]]
 name = "cargo-tarpaulin"
 
+[[test]]
+name = "integration"
+path = "tests/mod.rs"
+
 [dependencies]
 cargo = "0.34"
 chrono = "0.4"

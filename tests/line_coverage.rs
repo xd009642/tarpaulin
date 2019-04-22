@@ -1,9 +1,9 @@
+use crate::utils::get_test_path;
 use cargo_tarpaulin::config::Config;
 use cargo_tarpaulin::launch_tarpaulin;
 use cargo_tarpaulin::traces::CoverageStat;
 use std::env;
 use std::time::Duration;
-use utils::get_test_path;
 
 #[test]
 fn simple_project_coverage() {

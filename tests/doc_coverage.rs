@@ -1,8 +1,8 @@
+use crate::utils::get_test_path;
 use cargo_tarpaulin::config::{Config, RunType};
 use cargo_tarpaulin::launch_tarpaulin;
 use std::env;
 use std::time::Duration;
-use utils::get_test_path;
 
 #[test]
 fn doc_test_coverage() {
