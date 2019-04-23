@@ -12,9 +12,14 @@ categories = ["development-tools"]
 keywords = ["cargo", "cargo-subcommand", "testing"]
 #publish-lockfile = true
 edition = "2018"
+autotests = false
 
 [[bin]]
 name = "cargo-tarpaulin"
+
+[[test]]
+name = "integration"
+path = "tests/mod.rs"
 
 [dependencies]
 cargo = "0.34"
