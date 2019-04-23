@@ -247,7 +247,9 @@ fn setup_environment(config: &Config) {
         common_opts, DOCTEST_FOLDER
     );
     if let Ok(vtemp) = env::var(rustdoc) {
-        value.push_str(vtemp.as_ref());
+        if !vtemp.contains("--persist-doctests") {
+            value.push_str(vtemp.as_ref());
+        }
     }
     env::set_var(rustdoc, value);
 }
