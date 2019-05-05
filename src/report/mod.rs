@@ -2,6 +2,7 @@ use crate::config::Config;
 use crate::test_loader::TracerData;
 use serde::Serialize;
 
+mod safe_json;
 pub mod cobertura;
 pub mod coveralls;
 pub mod html;

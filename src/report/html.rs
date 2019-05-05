@@ -1,6 +1,7 @@
 use crate::config::Config;
 use crate::errors::*;
 use crate::traces::{Trace, TraceMap};
+use crate::report::safe_json;
 use serde::Serialize;
 use std::fs::{read_to_string, File};
 use std::io::Write;
@@ -54,7 +55,7 @@ pub fn export(coverage_data: &TraceMap, _config: &Config) -> Result<(), RunError
         }
     };
 
-    let report_json = match serde_json::to_string(&report) {
+    let report_json = match safe_json::to_string_safe(&report) {
         Ok(k) => k,
         Err(e) => {
             return Err(RunError::Html(format!(
