@@ -25,7 +25,7 @@ function findCommonPath(files) {
     return true;
   }
 
-  let commonPath = [...files[0].path];
+  let commonPath = files[0].path.slice(0, -1);
   while (commonPath.length) {
     if (files.every(file => isPrefix(file.path, commonPath))) {
       break;
@@ -51,7 +51,7 @@ function findFolders(files) {
         ...file,
         path: file.path.slice(1),
         parent: [...file.parent, file.path[0]],
-    }));
+      }));
 
     const children = findFolders(filesInFolder); // recursion
 
@@ -79,18 +79,18 @@ class App extends React.Component {
     const files = data.files.map(file => ({...file, path: file.path.slice(commonPath.length), parent: commonPath}));
     const children = findFolders(files);
 
-    data = {
+    const current = [{
       is_folder: true,
       children,
       path: commonPath,
       parent: [],
       covered: children.reduce((sum, file) => sum + file.covered, 0),
       coverable: children.reduce((sum, file) => sum + file.coverable, 0),
-    };
+    }];
 
     this.state = {
       commonPath,
-      current: [data],
+      current,
     };
   }
 
