@@ -13,10 +13,12 @@ mod parse;
 mod types;
 
 /// Specifies the current configuration tarpaulin is using.
-#[derive(Debug, Default)]
+#[derive(Debug)]
 pub struct Config {
     /// Path to the projects cargo manifest
     pub manifest: PathBuf,
+    /// Types of tests for tarpaulin to collect coverage on
+    pub run_types: Vec<RunType>,
     /// Flag to also run tests with the ignored attribute
     pub run_ignored: bool,
     /// Flag to ignore test functions in coverage statistics
@@ -27,6 +29,8 @@ pub struct Config {
     pub force_clean: bool,
     /// Verbose flag for printing information to the user
     pub verbose: bool,
+    /// Debug flag for printing internal debugging information to the user
+    pub debug: bool,
     /// Flag to count hits in coverage
     pub count: bool,
     /// Flag specifying to run line coverage (default)
@@ -68,15 +72,52 @@ pub struct Config {
     pub release: bool,
 }
 
+impl Default for Config {
+    fn default() -> Config {
+        Config {
+            run_types: vec![RunType::Tests],
+            manifest: Default::default(),
+            run_ignored: false,
+            ignore_tests: false,
+            ignore_panics: false,
+            force_clean: false,
+            verbose: false,
+            debug: false,
+            count: false,
+            line_coverage: true,
+            branch_coverage: false,
+            generate: vec![],
+            coveralls: None,
+            ci_tool: None,
+            report_uri: None,
+            forward_signals: false,
+            no_default_features: false,
+            features: vec![],
+            all: false,
+            packages: vec![],
+            exclude: vec![],
+            excluded_files: vec![],
+            varargs: vec![],
+            test_timeout: Duration::from_secs(60),
+            release: false,
+            all_features: false,
+        }
+    }
+}
+
 impl<'a> From<&'a ArgMatches<'a>> for Config {
     fn from(args: &'a ArgMatches<'a>) -> Self {
+        let debug = args.is_present("debug");
+        let verbose = args.is_present("verbose") || debug;
         Config {
             manifest: get_manifest(args),
+            run_types: get_run_types(args),
             run_ignored: args.is_present("ignored"),
             ignore_tests: args.is_present("ignore-tests"),
             ignore_panics: args.is_present("ignore-panics"),
             force_clean: args.is_present("force-clean"),
-            verbose: args.is_present("verbose"),
+            verbose,
+            debug,
             count: args.is_present("count"),
             line_coverage: get_line_cov(args),
             branch_coverage: get_branch_cov(args),

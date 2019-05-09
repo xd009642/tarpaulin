@@ -3,6 +3,7 @@ use cargo_tarpaulin::run;
 use clap::{crate_version, App, Arg, ArgSettings, SubCommand};
 use env_logger::Builder;
 use log::error;
+use log::trace;
 use std::io::Write;
 use std::path::Path;
 
@@ -14,11 +15,13 @@ fn is_dir(d: String) -> Result<(), String> {
     }
 }
 
-fn set_up_logging(verbose: bool) {
+fn set_up_logging(debug: bool, verbose: bool) {
     let mut builder = Builder::new();
 
     // NOTE: This overwrites RUST_LOG
-    if verbose {
+    if debug {
+        builder.filter_module("cargo_tarpaulin", log::LevelFilter::Trace);
+    } else if verbose {
         builder.filter_module("cargo_tarpaulin", log::LevelFilter::Debug);
     } else {
         builder.filter_module("cargo_tarpaulin", log::LevelFilter::Info);
@@ -53,7 +56,8 @@ fn main() {
             .about("Tool to analyse test coverage of cargo projects")
             .version(concat!("version: ", crate_version!()))
             .args_from_usage(
-                 "--verbose -v 'Show extra output'
+                 "--debug 'Show debug output - this is used for diagnosing issues with tarpaulin'
+                 --verbose -v 'Show extra output'
                  --ignore-tests 'ignore lines of test functions when collecting coverage'
                  --ignore-panics 'ignore panic macros in tests'
                  --count   'Counts the number of hits during coverage'
@@ -77,9 +81,12 @@ fn main() {
                 Arg::from_usage("--out -o [FMT]   'Output format of coverage report'")
                     .possible_values(&OutputFile::variants())
                     .multiple(true),
+                Arg::from_usage("--run-types [TYPE] 'Type of the coverage run'")
+                    .possible_values(&RunType::variants())
+                    .multiple(true),
                 Arg::from_usage("--root -r [DIR]  'Root directory containing Cargo.toml to use'")
                     .validator(is_dir),
-                Arg::from_usage("--ciserver [SERVICE] 'CI server being used'")
+                Arg::from_usage("--ciserver [SERVICE] 'CI server being used, if unspecified tarpaulin may automatically infer for coveralls uploads'")
                     .help(CI_SERVER_HELP),
                 Arg::with_name("args")
                     .set(ArgSettings::Last)
@@ -91,8 +98,8 @@ fn main() {
     let args = args.subcommand_matches("tarpaulin").unwrap_or(&args);
     let config = Config::from(args);
 
-    set_up_logging(config.verbose);
-
+    set_up_logging(config.debug, config.verbose);
+    trace!("Debug mode activated");
     // Since this is the last function we run and don't do any error mitigations (other than
     // printing the error to the user it's fine to unwrap here
     run(&config)

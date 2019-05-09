@@ -1,5 +1,5 @@
+use crate::report::cobertura;
 use failure::Fail;
-
 /// Error states that could be returned from tarpaulin
 #[derive(Fail, Debug)]
 pub enum RunError {
@@ -16,8 +16,10 @@ pub enum RunError {
     #[fail(display = "Failed to compile tests! Error: {}", _0)]
     TestCompile(String),
     /// Test failed during run
-    #[fail(display = "Failed to run tests! Error: {}", _0)]
+    #[fail(display = "Failed to run tests: {}", _0)]
     TestRuntime(String),
+    #[fail(display = "Test failed during run")]
+    TestFailed,
     /// Failed to parse
     #[fail(display = "Error while parsing: {}", _0)]
     Parse(std::io::Error),
@@ -40,7 +42,9 @@ pub enum RunError {
     #[fail(display = "Failed to generate HTML report! Error: {}", _0)]
     Html(String),
     #[fail(display = "Failed to generate XML report! Error: {}", _0)]
-    XML(quick_xml::Error),
+    XML(cobertura::Error),
+    #[fail(display = "Tarpaulin experienced an internal error")]
+    Internal,
 }
 
 impl From<std::io::Error> for RunError {
@@ -55,8 +59,8 @@ impl From<nix::Error> for RunError {
     }
 }
 
-impl From<quick_xml::Error> for RunError {
-    fn from(e: quick_xml::Error) -> Self {
+impl From<cobertura::Error> for RunError {
+    fn from(e: cobertura::Error) -> Self {
         RunError::XML(e)
     }
 }

@@ -1,4 +1,5 @@
 use crate::ptrace_control::*;
+use crate::statemachine::*;
 use nix::unistd::Pid;
 use nix::{Error, Result};
 use std::collections::HashMap;
@@ -43,6 +44,10 @@ impl Breakpoint {
         }
     }
 
+    pub fn jump_to(&mut self, pid: Pid) -> Result<()> {
+        set_instruction_pointer(pid, self.pc).map(|_| ())
+    }
+
     /// Attaches the current breakpoint.
     pub fn enable(&mut self, pid: Pid) -> Result<()> {
         let data = read_address(pid, self.aligned_address())?;
@@ -65,7 +70,7 @@ impl Breakpoint {
     }
 
     /// Processes the breakpoint. This steps over the breakpoint
-    pub fn process(&mut self, pid: Pid, reenable: bool) -> Result<bool> {
+    pub fn process(&mut self, pid: Pid, reenable: bool) -> Result<(bool, TracerAction<ProcessInfo>)> {
         let is_running = match self.is_running.get(&pid) {
             Some(r) => *r,
             None => true,
@@ -74,15 +79,14 @@ impl Breakpoint {
             let _ = self.enable(pid);
             self.step(pid)?;
             self.is_running.insert(pid, false);
-            Ok(true)
+            Ok((true, TracerAction::Step(pid.into())))
         } else {
             self.disable(pid)?;
             if reenable {
                 self.enable(pid)?;
             }
-            continue_exec(pid, None)?;
             self.is_running.insert(pid, true);
-            Ok(false)
+            Ok((false, TracerAction::Continue(pid.into())))
         }
     }
 
@@ -98,9 +102,8 @@ impl Breakpoint {
         // Remove the breakpoint, reset the program counter to step before it
         // hit the breakpoint then step to execute the original instruction.
         self.disable(pid)?;
-        // Need to set the program counter back one.
-        set_instruction_pointer(pid, self.pc)?;
-        single_step(pid)
+        self.jump_to(pid)?;
+        Ok(())
     }
 
     fn aligned_address(&self) -> u64 {

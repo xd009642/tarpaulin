@@ -1,179 +1,462 @@
-use crate::config::Config;
-use crate::errors::*;
-use crate::traces::{CoverageStat, TraceMap};
-use log::info;
-use quick_xml::events::{BytesDecl, BytesEnd, BytesStart, Event};
-use quick_xml::Writer;
-use std::collections::HashSet;
+#![allow(dead_code)]
+/// The XML structure for a cobatura report is roughly as follows:
+/// ```xml
+/// <coverage lines-valid="5" lines-covered="0" line-rate="0.0" branches-valid="0"
+/// branches-covered="0" branch-rate="0.0" version="1.9" timestamp="...">
+///   <sources>
+///     <source>PATH</source>
+///     ...
+///   </sources>
+///
+///   <packages>
+///     <package name=".."  line-rate="0.0" branch-rate="0.0" complexity="0.0">
+///       <classes>
+///         <class name="Main" filename="main.rs" line-rate="0.0" branch-rate="0.0" complexity="0.0">
+///           <methods>
+///             <method name="main" signature="()" line-rate="0.0" branch-rate="0.0">
+///               <lines>
+///                 <line number="1" hits="5" branch="false"/>
+///                 <line number="3" hits="2" branch="true">
+///                   <conditions>
+///                     <condition number="0" type="jump" coverage="50%"/>
+///                     ...
+///                   </conditions>
+///                 </line>
+///               </lines>
+///             </method>
+///             ...
+///           </methods>
+///
+///           <lines>
+///             <line number="10" hits="4" branch="false"/>
+///           </lines>
+///         </class>
+///         ...
+///       </classes>
+///     </package>
+///     ...
+///   </packages>
+/// </coverage>
+/// ```
+use std::error;
+use std::fmt;
 use std::fs::File;
-use std::io::prelude::*;
-use std::io::Cursor;
-use std::path::Path;
+use std::io::{Cursor, Write};
+use std::path::{Path, PathBuf};
 use std::time::{SystemTime, UNIX_EPOCH};
 
-fn write_header<T: Write>(writer: &mut Writer<T>, config: &Config) -> Result<usize, RunError> {
-    writer.write_event(Event::Start(BytesStart::borrowed(
-        b"sources",
-        b"sources".len(),
-    )))?;
-    writer.write_event(Event::Start(BytesStart::borrowed(
-        b"source",
-        b"source".len(),
-    )))?;
+use quick_xml::{
+    events::{BytesDecl, BytesEnd, BytesStart, Event},
+    Writer,
+};
 
-    let parent_folder = match config.manifest.parent() {
-        Some(s) => s.to_str().unwrap_or_default(),
-        None => "",
-    };
-    writer.write(parent_folder.as_bytes()).unwrap();
-    writer.write_event(Event::End(BytesEnd::borrowed(b"source")))?;
-    Ok(writer.write_event(Event::End(BytesEnd::borrowed(b"sources")))?)
+use chrono::offset::Utc;
+
+use crate::config::Config;
+use crate::traces::{CoverageStat, Trace, TraceMap};
+
+pub fn report(traces: &TraceMap, config: &Config) -> Result<(), Error> {
+    let result = Report::render(config, traces)?;
+    result.export(config)
 }
 
-/// Input only from single source file
-fn write_class<T: Write>(
-    writer: &mut Writer<T>,
-    manifest_path: &Path,
-    filename: &Path,
-    coverage: &TraceMap,
-) -> Result<usize, RunError> {
-    if !coverage.is_empty() {
-        let covered = coverage.covered_in_path(filename);
-        let covered = (covered as f32) / (coverage.coverable_in_path(filename) as f32);
+#[derive(Debug)]
+pub enum Error {
+    Unknown,
+    ExportError(quick_xml::Error),
+}
 
-        let tidy_filename = match filename.strip_prefix(manifest_path) {
-            Ok(p) => p,
-            _ => filename,
+impl error::Error for Error {
+    #[inline]
+    fn description(&self) -> &str {
+        match self {
+            Error::ExportError(_) => "Error exporting xml file",
+            Error::Unknown => "Unknown Error",
+        }
+    }
+
+    #[inline]
+    fn cause(&self) -> Option<&error::Error> {
+        None
+    }
+}
+
+impl fmt::Display for Error {
+    #[inline]
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        match self {
+            Error::ExportError(ref e) => write!(f, "Export Error {}", e),
+            Error::Unknown => write!(f, "Unknown Error"),
+        }
+    }
+}
+
+#[derive(Debug)]
+pub struct Report {
+    timestamp: i64,
+    lines_covered: usize,
+    lines_valid: usize,
+    line_rate: f64,
+    branches_covered: usize,
+    branches_valid: usize,
+    branch_rate: f64,
+    sources: Vec<PathBuf>,
+    packages: Vec<Package>,
+}
+
+impl Report {
+    pub fn render(config: &Config, traces: &TraceMap) -> Result<Self, Error> {
+        let timestamp = Utc::now().timestamp();
+        let sources = render_sources(config);
+        let packages = render_packages(config, traces);
+        let mut line_rate = 0.0;
+        let mut branch_rate = 0.0;
+
+        if packages.len() > 0 {
+            line_rate = packages.iter().map(|x| x.line_rate).sum::<f64>() / packages.len() as f64;
+            branch_rate =
+                packages.iter().map(|x| x.branch_rate).sum::<f64>() / packages.len() as f64;
+        }
+
+        Ok(Report {
+            timestamp: timestamp,
+            lines_covered: traces.total_covered(),
+            lines_valid: traces.total_coverable(),
+            line_rate: line_rate,
+            branches_covered: 0,
+            branches_valid: 0,
+            branch_rate: branch_rate,
+            sources: sources,
+            packages: packages,
+        })
+    }
+
+    pub fn export(&self, _config: &Config) -> Result<(), Error> {
+        let mut file = File::create("cobertura.xml")
+            .map_err(|e| Error::ExportError(quick_xml::Error::Io(e)))?;
+
+        let mut writer = Writer::new(Cursor::new(vec![]));
+        writer
+            .write_event(Event::Decl(BytesDecl::new(b"1.0", None, None)))
+            .map_err(|e| Error::ExportError(e))?;
+
+        let cov_tag = b"coverage";
+        let mut cov = BytesStart::borrowed(cov_tag, cov_tag.len());
+        cov.push_attribute(("lines-covered", self.lines_covered.to_string().as_ref()));
+        cov.push_attribute(("lines-valid", self.lines_valid.to_string().as_ref()));
+        cov.push_attribute(("line-rate", self.line_rate.to_string().as_ref()));
+        cov.push_attribute((
+            "branches-covered",
+            self.branches_covered.to_string().as_ref(),
+        ));
+        cov.push_attribute(("branches-valid", self.branches_valid.to_string().as_ref()));
+        cov.push_attribute(("branch-rate", self.branch_rate.to_string().as_ref()));
+        cov.push_attribute(("complexity", "0"));
+        cov.push_attribute(("version", "1.9"));
+
+        let secs = match SystemTime::now().duration_since(UNIX_EPOCH) {
+            Ok(s) => s.as_secs().to_string(),
+            Err(_) => String::from("0"),
         };
-        let name = filename
-            .file_stem()
-            .unwrap_or_default()
-            .to_str()
-            .unwrap_or_default();
+        cov.push_attribute(("timestamp", secs.as_ref()));
 
-        let mut class = BytesStart::owned(b"class".to_vec(), b"class".len());
-        class.push_attribute(("name", name));
-        class.push_attribute(("filename", tidy_filename.to_str().unwrap_or_default()));
-        class.push_attribute(("line-rate", covered.to_string().as_ref()));
-        class.push_attribute(("branch-rate", "1.0"));
-        class.push_attribute(("complexity", "0.0"));
-        writer.write_event(Event::Start(class))?;
-        writer.write_event(Event::Empty(BytesStart::owned(
-            b"methods".to_vec(),
-            b"methods".len(),
+        writer
+            .write_event(Event::Start(cov))
+            .map_err(|e| Error::ExportError(e))?;
+
+        self.export_header(&mut writer)
+            .map_err(|e| Error::ExportError(e))?;
+
+        self.export_packages(&mut writer)
+            .map_err(|e| Error::ExportError(e))?;
+
+        writer
+            .write_event(Event::End(BytesEnd::borrowed(cov_tag)))
+            .map_err(|e| Error::ExportError(e))?;
+
+        let result = writer.into_inner().into_inner();
+        file.write_all(&result)
+            .map_err(|e| Error::ExportError(quick_xml::Error::Io(e)))
+    }
+
+    fn export_header<T: Write>(&self, writer: &mut Writer<T>) -> Result<(), quick_xml::Error> {
+        let sources_tag = b"sources";
+        let source_tag = b"source";
+        writer.write_event(Event::Start(BytesStart::borrowed(
+            sources_tag,
+            sources_tag.len(),
         )))?;
-        writer.write_event(Event::Start(BytesStart::borrowed(b"lines", b"lines".len())))?;
-        for trace in coverage.get_child_traces(filename) {
-            let mut line = BytesStart::owned(b"line".to_vec(), b"line".len());
-            line.push_attribute(("number", trace.line.to_string().as_ref()));
-            match trace.stats {
-                CoverageStat::Line(hit) => {
-                    line.push_attribute(("hits", hit.to_string().as_ref()));
-                }
-                _ => {
-                    info!("Coverage statistic currently not implemented for cobertura");
-                }
+        for source in self.sources.iter() {
+            if let Some(ref path) = source.to_str() {
+                writer.write_event(Event::Start(BytesStart::borrowed(
+                    source_tag,
+                    source_tag.len(),
+                )))?;
+                writer.write(path.as_bytes())?;
+                writer.write_event(Event::End(BytesEnd::borrowed(source_tag)))?;
             }
-            writer.write_event(Event::Empty(line))?;
         }
-        writer.write_event(Event::End(BytesEnd::borrowed(b"lines")))?;
-        Ok(writer.write_event(Event::End(BytesEnd::borrowed(b"class")))?)
-    } else {
-        Ok(0)
+        writer
+            .write_event(Event::End(BytesEnd::borrowed(sources_tag)))
+            .map(|_| ())
+    }
+
+    fn export_packages<T: Write>(&self, writer: &mut Writer<T>) -> Result<(), quick_xml::Error> {
+        let packages_tag = b"packages";
+        let pack_tag = b"package";
+
+        writer.write_event(Event::Start(BytesStart::borrowed(
+            packages_tag,
+            packages_tag.len(),
+        )))?;
+        // Export the package
+        for package in &self.packages {
+            let mut pack = BytesStart::borrowed(pack_tag, pack_tag.len());
+            pack.push_attribute(("line-rate", package.line_rate.to_string().as_ref()));
+            pack.push_attribute(("branch-rate", package.branch_rate.to_string().as_ref()));
+            pack.push_attribute(("complexity", package.complexity.to_string().as_ref()));
+
+            writer.write_event(Event::Start(pack))?;
+            self.export_classes(&package.classes, writer)?;
+            writer.write_event(Event::End(BytesEnd::borrowed(pack_tag)))?;
+        }
+
+        writer
+            .write_event(Event::End(BytesEnd::borrowed(packages_tag)))
+            .map(|_| ())
+    }
+
+    fn export_classes<T: Write>(
+        &self,
+        classes: &[Class],
+        writer: &mut Writer<T>,
+    ) -> Result<(), quick_xml::Error> {
+        let classes_tag = b"classes";
+        let class_tag = b"class";
+        let methods_tag = b"methods";
+
+        writer.write_event(Event::Start(BytesStart::borrowed(
+            classes_tag,
+            classes_tag.len(),
+        )))?;
+        for class in classes {
+            let mut c = BytesStart::borrowed(class_tag, class_tag.len());
+            c.push_attribute(("name", class.name.as_ref()));
+            c.push_attribute(("filename", class.file_name.as_ref()));
+            c.push_attribute(("line-rate", class.line_rate.to_string().as_ref()));
+            c.push_attribute(("branch-rate", class.branch_rate.to_string().as_ref()));
+            c.push_attribute(("complexity", class.complexity.to_string().as_ref()));
+
+            writer.write_event(Event::Start(c))?;
+            writer.write_event(Event::Empty(BytesStart::borrowed(
+                methods_tag,
+                methods_tag.len(),
+            )))?;
+            self.export_lines(&class.lines, writer)?;
+            writer.write_event(Event::End(BytesEnd::borrowed(class_tag)))?;
+        }
+        writer
+            .write_event(Event::End(BytesEnd::borrowed(classes_tag)))
+            .map(|_| ())
+    }
+
+    fn export_lines<T: Write>(
+        &self,
+        lines: &[Line],
+        writer: &mut Writer<T>,
+    ) -> Result<(), quick_xml::Error> {
+        let lines_tag = b"lines";
+        let line_tag = b"line";
+
+        writer.write_event(Event::Start(BytesStart::borrowed(
+            lines_tag,
+            lines_tag.len(),
+        )))?;
+        for line in lines {
+            let mut l = BytesStart::borrowed(line_tag, line_tag.len());
+            match line {
+                Line::Plain {
+                    ref number,
+                    ref hits,
+                } => {
+                    l.push_attribute(("number", number.to_string().as_ref()));
+                    l.push_attribute(("hits", hits.to_string().as_ref()));
+                }
+                Line::Branch { .. } => {}
+            }
+            writer.write_event(Event::Empty(l))?;
+        }
+        writer
+            .write_event(Event::End(BytesEnd::borrowed(lines_tag)))
+            .map(|_| ())
     }
 }
 
-/// Input only tracer data from a single source folder
-fn write_package<T: Write>(
-    mut writer: &mut Writer<T>,
-    package: &Path,
-    manifest_path: &Path,
-    package_name: &str,
-    coverage: &TraceMap,
-) -> Result<usize, RunError> {
-    let covered = coverage.covered_in_path(package);
-    let covered = (covered as f32) / (coverage.coverable_in_path(package) as f32);
+fn render_sources(config: &Config) -> Vec<PathBuf> {
+    let render_source = |&x| Path::to_path_buf(x);
 
-    let mut pack = BytesStart::owned(b"package".to_vec(), b"package".len());
-    pack.push_attribute(("name", package_name));
-    pack.push_attribute(("line-rate", covered.to_string().as_ref()));
-    pack.push_attribute(("branch-rate", "1.0"));
-    pack.push_attribute(("complexity", "0.0"));
-    writer.write_event(Event::Start(pack))?;
-    writer.write_event(Event::Start(BytesStart::borrowed(
-        b"classes",
-        b"classes".len(),
-    )))?;
-
-    for file in &coverage.files() {
-        if file.parent() == Some(package) {
-            write_class(&mut writer, manifest_path, file, coverage)?;
-        }
-    }
-
-    writer.write_event(Event::End(BytesEnd::borrowed(b"classes")))?;
-    Ok(writer.write_event(Event::End(BytesEnd::borrowed(b"package")))?)
+    config.manifest.parent().iter().map(render_source).collect()
 }
 
-pub fn export(coverage_data: &TraceMap, config: &Config) -> Result<(), RunError> {
-    let mut file = File::create("cobertura.xml").unwrap();
-    let mut writer = Writer::new(Cursor::new(Vec::new()));
-    writer
-        .write_event(Event::Decl(BytesDecl::new(b"1.0", None, None)))
-        .unwrap();
-    // Construct cobertura xml
-    let line_rate = coverage_data.coverage_percentage();
-    let mut cov = BytesStart::owned(b"coverage".to_vec(), b"coverage".len());
-    cov.push_attribute(("line-rate", line_rate.to_string().as_ref()));
-    cov.push_attribute(("branch-rate", "1.0"));
-    cov.push_attribute(("version", "1.9"));
+#[derive(Debug)]
+struct Package {
+    name: String,
+    line_rate: f64,
+    branch_rate: f64,
+    complexity: f64,
+    classes: Vec<Class>,
+}
 
-    if let Ok(s) = SystemTime::now().duration_since(UNIX_EPOCH) {
-        cov.push_attribute(("timestamp", s.as_secs().to_string().as_ref()));
-    } else {
-        cov.push_attribute(("timestamp", "0"));
+fn render_packages(config: &Config, traces: &TraceMap) -> Vec<Package> {
+    let mut dirs: Vec<&Path> = traces
+        .files()
+        .into_iter()
+        .filter_map(|x| x.parent())
+        .collect();
+
+    dirs.dedup();
+
+    dirs.into_iter()
+        .map(|x| render_package(config, traces, x))
+        .collect()
+}
+
+fn render_package(config: &Config, traces: &TraceMap, pkg: &Path) -> Package {
+    let root = config.manifest.parent().unwrap_or(&config.manifest);
+    let name = pkg
+        .strip_prefix(root)
+        .map(|x| Path::to_str(x))
+        .unwrap_or_default()
+        .unwrap_or_default();
+
+    let line_cover = traces.covered_in_path(pkg) as f64;
+    let line_rate = line_cover / (traces.coverable_in_path(pkg) as f64);
+
+    Package {
+        name: name.to_string(),
+        line_rate: line_rate,
+        branch_rate: 0.0,
+        complexity: 0.0,
+        classes: render_classes(config, traces, pkg),
     }
+}
 
-    writer.write_event(Event::Start(cov)).unwrap();
-    let _ = write_header(&mut writer, &config);
-    // other data
-    writer
-        .write_event(Event::Start(BytesStart::borrowed(
-            b"packages",
-            b"packages".len(),
-        )))
-        .unwrap();
+#[derive(Debug)]
+struct Class {
+    name: String,
+    file_name: String,
+    line_rate: f64,
+    branch_rate: f64,
+    complexity: f64,
+    lines: Vec<Line>,
+    methods: Vec<Method>,
+}
 
-    let mut folder_set: HashSet<&Path> = HashSet::new();
-    for t in &coverage_data.files() {
-        let parent = match t.parent() {
-            Some(x) => x,
-            None => continue,
-        };
-        if !folder_set.contains(&parent) {
-            folder_set.insert(parent);
-            let manifest_path = config.manifest.parent().unwrap_or(&config.manifest);
-            let package_name = match parent.strip_prefix(manifest_path) {
-                Ok(p) => p,
-                _ => manifest_path,
-            };
-            let package_name = package_name.to_str().unwrap_or_default();
-            let _ = write_package(
-                &mut writer,
-                &parent,
-                &manifest_path,
-                package_name,
-                &coverage_data,
-            );
-        }
+fn render_classes(config: &Config, traces: &TraceMap, pkg: &Path) -> Vec<Class> {
+    traces
+        .files()
+        .iter()
+        .filter(|x| x.parent() == Some(pkg))
+        .map(|x| render_class(config, traces, x))
+        .collect()
+}
+
+// TODO: Cobertura distinguishes between lines outside methods, and methods
+// (which also contain lines). As there is currently no way to get traces from
+// a particular function only, all traces are put into lines, and the vector
+// of methods is empty.
+//
+// Until this is fixed, the render_method function will panic if called, as it
+// cannot be properly implemented.
+//
+fn render_class(config: &Config, traces: &TraceMap, file: &Path) -> Class {
+    let root = config.manifest.parent().unwrap_or(&config.manifest);
+    let name = file
+        .file_stem()
+        .map(|x| x.to_str().unwrap())
+        .unwrap_or_default()
+        .to_string();
+
+    let file_name = file
+        .strip_prefix(root)
+        .unwrap_or(file)
+        .to_str()
+        .unwrap()
+        .to_string();
+
+    let covered = traces.covered_in_path(file) as f64;
+    let line_rate = covered / traces.coverable_in_path(file) as f64;
+    let lines = traces
+        .get_child_traces(file)
+        .iter()
+        .map(|x| render_line(x))
+        .collect();
+
+    Class {
+        name: name,
+        file_name: file_name,
+        line_rate: line_rate,
+        branch_rate: 0.0,
+        complexity: 0.0,
+        lines: lines,
+        methods: vec![],
     }
+}
 
-    writer
-        .write_event(Event::End(BytesEnd::borrowed(b"packages")))
-        .unwrap();
-    writer
-        .write_event(Event::End(BytesEnd::borrowed(b"coverage")))
-        .unwrap();
-    let result = writer.into_inner().into_inner();
-    Ok(file.write_all(&result)?)
+#[derive(Debug)]
+struct Method {
+    name: String,
+    signature: String,
+    line_rate: f64,
+    branch_rate: f64,
+    lines: Vec<Line>,
+}
+
+fn render_methods() -> Vec<Method> {
+    unimplemented!()
+}
+
+fn render_method() -> Method {
+    unimplemented!()
+}
+
+#[derive(Debug)]
+enum Line {
+    Plain {
+        number: usize,
+        hits: usize,
+    },
+
+    Branch {
+        number: usize,
+        hits: usize,
+        conditions: Vec<Condition>,
+    },
+}
+
+fn render_line(trace: &Trace) -> Line {
+    match &trace.stats {
+        CoverageStat::Line(hits) => Line::Plain {
+            number: trace.line as usize,
+            hits: *hits as usize,
+        },
+
+        // TODO: Branches in cobertura are given a fresh number as a label,
+        // which would require having some form of context when rendering.
+        //
+        _ => panic!("Not currently supported"),
+    }
+}
+
+#[derive(Debug)]
+struct Condition {
+    number: usize,
+    cond_type: ConditionType,
+    coverage: f64,
+}
+
+// Condition types
+#[derive(Debug)]
+enum ConditionType {
+    Jump,
 }

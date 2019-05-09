@@ -13,7 +13,7 @@ stage and therefore may contain some bugs. A lot of work has been done to get it
 working on some example projects and smaller crates so please report anything
 you find that's wrong. Also, check out our roadmap for planned features.
 
-Tarpaulin only supports x86_64 processors running Linux. This is because
+**Tarpaulin only supports x86_64 processors running Linux.** This is because
 instrumenting breakpoints into executables and tracing their execution requires
 processor and OS specific code. It is a goal when greater stability is reached
 to add wider system support, however this is sufficient to run Tarpaulin on
@@ -261,8 +261,10 @@ accuracy. If you see missing lines or files, check your compiler version.
 - [x] Annotated coverage reports
 - [x] Coverage reports in the style of existing tools (i.e. kcov)
 - [x] Integration with 3rd party tools like coveralls or codecov
-- [ ] Optional coverage statistics for doctests
+- [x] Optional coverage statistics for doctests
 - [ ] MCDC coverage reports
+- [ ] OSX support 
+- [ ] Windows support
 
 ## License
 
