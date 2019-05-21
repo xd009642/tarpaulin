@@ -212,6 +212,7 @@ impl Report {
         // Export the package
         for package in &self.packages {
             let mut pack = BytesStart::borrowed(pack_tag, pack_tag.len());
+            pack.push_attribute(("name", package.name.as_str()));
             pack.push_attribute(("line-rate", package.line_rate.to_string().as_ref()));
             pack.push_attribute(("branch-rate", package.branch_rate.to_string().as_ref()));
             pack.push_attribute(("complexity", package.complexity.to_string().as_ref()));
