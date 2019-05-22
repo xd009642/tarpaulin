@@ -54,13 +54,8 @@ Tarpaulin is a command-line program, you install it into your linux development
 environment with cargo install:
 
 ```text
-RUSTFLAGS="--cfg procmacro2_semver_exempt" cargo install cargo-tarpaulin
+cargo install cargo-tarpaulin
 ```
-
-Because of the `syn` dependency you need the following `RUSTFLAGS` to enable
-the semver exempt functionality to report positions in the source code. 
-Alternatively, you can use the docker develop images or the prebuilt github releases
-for travis-ci.
 
 ### Command line
 
@@ -162,7 +157,7 @@ matrix:
 
 before_cache: |
   if [[ "$TRAVIS_RUST_VERSION" == nightly ]]; then
-    RUSTFLAGS="--cfg procmacro2_semver_exempt" cargo install cargo-tarpaulin -f
+    cargo install cargo-tarpaulin -f
   fi
 
 script:
