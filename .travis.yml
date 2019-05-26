@@ -10,6 +10,8 @@ env:
     global:
         - CRATE_NAME=cargo-tarpaulin
 rust:
+- stable 
+- beta
 - nightly
 script:
 - cargo clean
