@@ -625,7 +625,6 @@ fn visit_generics(generics: &Generics, analysis: &mut LineAnalysis) {
 }
 
 fn process_expr(expr: &Expr, ctx: &Context, analysis: &mut LineAnalysis) -> SubResult {
-    println!("\n{:#?}", expr);
     let res = match *expr {
         Expr::Macro(ref m) => visit_macro_call(&m.mac, ctx, analysis),
         Expr::Struct(ref s) => visit_struct_expr(&s, analysis),
