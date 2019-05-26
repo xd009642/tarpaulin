@@ -1,8 +1,6 @@
-#cargo-features = ["publish-lockfile"]
-
 [package]
 name = "cargo-tarpaulin"
-version = "0.8.1"
+version = "0.8.2"
 authors = ["Daniel McKenna <danielmckenna93@gmail.com>"]
 description = "Cargo-Tarpaulin is a tool to determine code coverage achieved via tests"
 repository = "https://github.com/xd009642/tarpaulin"
@@ -10,7 +8,6 @@ readme = "README.md"
 license = "MIT/Apache-2.0"
 categories = ["development-tools"]
 keywords = ["cargo", "cargo-subcommand", "testing"]
-#publish-lockfile = true
 edition = "2018"
 autotests = false
 

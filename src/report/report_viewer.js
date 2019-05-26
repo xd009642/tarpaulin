@@ -75,14 +75,23 @@ class App extends React.Component {
   constructor(...args) {
     super(...args);
 
-    let current = [];
-    if (window.location.hash.length > 1) {
-      current = window.location.hash.substr(1).split('/');
-    }
-
     this.state = {
-      current,
+      current: [],
     };
+  }
+
+  componentDidMount() {
+    this.updateStateFromLocation();
+    window.addEventListener("hashchange", () => this.updateStateFromLocation(), false);
+  }
+
+  updateStateFromLocation() {
+    if (window.location.hash.length > 1) {
+      const current = window.location.hash.substr(1).split('/');
+      this.setState({current});
+    } else {
+      this.setState({current: []});
+    }
   }
 
   getCurrentPath() {
