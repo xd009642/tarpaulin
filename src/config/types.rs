@@ -1,5 +1,5 @@
 use cargo::core::compiler::CompileMode;
-use clap::{_clap_count_exprs, arg_enum};
+use clap::arg_enum;
 use coveralls_api::CiService;
 use std::str::FromStr;
 use void::Void;
