@@ -3,13 +3,16 @@ use cargo::core::Workspace;
 use lazy_static::lazy_static;
 use log::trace;
 use proc_macro2::{Span, TokenStream, TokenTree};
+use quote::ToTokens;
 use regex::Regex;
 use std::cell::RefCell;
+use std::cmp::{max, min};
 use std::collections::{HashMap, HashSet};
 use std::ffi::OsStr;
 use std::fs::File;
 use std::io::{BufRead, BufReader, Read};
 use std::path::{Path, PathBuf};
+use std::ops::Range;
 use syn::{
     punctuated::Punctuated,
     punctuated::{Pair, Pair::End},
@@ -76,6 +79,12 @@ impl LineAnalysis {
         self.ignore.insert(Lines::All);
     }
 
+    pub fn ignore_tokens<T>(&mut self, tokens: T) where T: ToTokens {
+        for token in tokens.into_token_stream() {
+            self.ignore_span(token.span());
+        }
+    }
+
     /// Adds the lines of the provided span to the ignore set
     pub fn ignore_span(&mut self, span: Span) {
         // If we're already ignoring everything no need to ignore this span
@@ -86,6 +95,12 @@ impl LineAnalysis {
                     self.cover.remove(&i);
                 }
             }
+        }
+    }
+
+    pub fn cover_token_stream(&mut self, tokens: TokenStream, contents: Option<&str>) {
+        for token in tokens {
+            self.cover_span(token.span(), contents);
         }
     }
 
@@ -332,18 +347,18 @@ fn process_items(items: &[Item], ctx: &Context, analysis: &mut LineAnalysis) -> 
     let mut res = SubResult::Ok;
     for item in items.iter() {
         match *item {
-            Item::ExternCrate(ref i) => analysis.ignore_span(i.span()),
-            Item::Use(ref i) => analysis.ignore_span(i.span()),
+            Item::ExternCrate(ref i) => analysis.ignore_tokens(i),
+            Item::Use(ref i) => analysis.ignore_tokens(i),
             Item::Mod(ref i) => visit_mod(&i, analysis, ctx),
             Item::Fn(ref i) => visit_fn(&i, analysis, ctx),
             Item::Struct(ref i) => {
-                analysis.ignore_span(i.span());
+                analysis.ignore_tokens(i);
             }
             Item::Enum(ref i) => {
-                analysis.ignore_span(i.span());
+                analysis.ignore_tokens(i);
             }
             Item::Union(ref i) => {
-                analysis.ignore_span(i.span());
+                analysis.ignore_tokens(i);
             }
             Item::Trait(ref i) => visit_trait(&i, analysis, ctx),
             Item::Impl(ref i) => visit_impl(&i, analysis, ctx),
@@ -381,12 +396,12 @@ fn process_statements(stmts: &[Stmt], ctx: &Context, analysis: &mut LineAnalysis
 }
 
 fn visit_mod(module: &ItemMod, analysis: &mut LineAnalysis, ctx: &Context) {
-    analysis.ignore_span(module.mod_token.span());
+    analysis.ignore_tokens(module.mod_token);
     let mut check_insides = true;
     for attr in &module.attrs {
         if let Some(x) = attr.interpret_meta() {
             if check_cfg_attr(&x) {
-                analysis.ignore_span(module.span());
+                analysis.ignore_tokens(module);
                 if let Some((ref braces, _)) = module.content {
                     analysis.ignore_span(braces.span);
                 }
@@ -401,7 +416,7 @@ fn visit_mod(module: &ItemMod, analysis: &mut LineAnalysis, ctx: &Context) {
                         if let NestedMeta::Meta(Meta::Word(ref i)) = *nested {
                             if i == "test" {
                                 check_insides = false;
-                                analysis.ignore_span(module.mod_token.span());
+                                analysis.ignore_tokens(module.mod_token);
                                 if let Some((ref braces, _)) = module.content {
                                     analysis.ignore_span(braces.span);
                                 }
@@ -453,10 +468,10 @@ fn visit_fn(func: &ItemFn, analysis: &mut LineAnalysis, ctx: &Context) {
         }
     }
     if ignore_span {
-        analysis.ignore_span(func.span());
+        analysis.ignore_tokens(func);
     } else if test_func {
         if ctx.config.ignore_tests || (ignored_attr && !ctx.config.run_ignored) {
-            analysis.ignore_span(func.span());
+            analysis.ignore_tokens(func);
         }
     } else {
         if is_inline {
@@ -466,7 +481,7 @@ fn visit_fn(func: &ItemFn, analysis: &mut LineAnalysis, ctx: &Context) {
         if let SubResult::Unreachable = process_statements(&func.block.stmts, ctx, analysis) {
             // if the whole body of the function is unreachable, that means the function itself
             // cannot be called, so is unreachable as a whole
-            analysis.ignore_span(func.span());
+            analysis.ignore_tokens(func);
             return;
         }
         visit_generics(&func.decl.generics, analysis);
@@ -483,7 +498,7 @@ fn visit_fn(func: &ItemFn, analysis: &mut LineAnalysis, ctx: &Context) {
 fn check_attr_list(attrs: &[Attribute], ctx: &Context, analysis: &mut LineAnalysis) -> bool {
     let mut check_cover = true;
     for attr in attrs {
-        analysis.ignore_span(attr.span());
+        analysis.ignore_tokens(attr);
         if let Some(x) = attr.interpret_meta() {
             if check_cfg_attr(&x) {
                 check_cover = false;
@@ -539,7 +554,7 @@ fn visit_trait(trait_item: &ItemTrait, analysis: &mut LineAnalysis, ctx: &Contex
             if let TraitItem::Method(ref i) = *item {
                 if check_attr_list(&i.attrs, ctx, analysis) {
                     if let Some(ref block) = i.default {
-                        analysis.cover_span(item.span(), Some(ctx.file_contents));
+                        analysis.cover_token_stream(item.into_token_stream(), Some(ctx.file_contents));
                         visit_generics(&i.sig.decl.generics, analysis);
                         analysis
                             .ignore
@@ -552,16 +567,16 @@ fn visit_trait(trait_item: &ItemTrait, analysis: &mut LineAnalysis, ctx: &Contex
                         analysis.add_to_ignore(&lines);
                     }
                 } else {
-                    analysis.ignore_span(i.span());
+                    analysis.ignore_tokens(i);
                 }
                 for a in &i.attrs {
-                    analysis.ignore_span(a.span());
+                    analysis.ignore_tokens(a);
                 }
             }
         }
         visit_generics(&trait_item.generics, analysis);
     } else {
-        analysis.ignore_span(trait_item.span());
+        analysis.ignore_tokens(trait_item);
     }
 }
 
@@ -571,13 +586,13 @@ fn visit_impl(impl_blk: &ItemImpl, analysis: &mut LineAnalysis, ctx: &Context) {
         for item in &impl_blk.items {
             if let ImplItem::Method(ref i) = *item {
                 if check_attr_list(&i.attrs, ctx, analysis) {
-                    analysis.cover_span(i.span(), Some(ctx.file_contents));
+                    analysis.cover_token_stream(i.into_token_stream(), Some(ctx.file_contents));
                     if let SubResult::Unreachable =
                         process_statements(&i.block.stmts, ctx, analysis)
                     {
                         // if the body of this method is unreachable, this means that the method
                         // cannot be called, and is unreachable
-                        analysis.ignore_span(i.span());
+                        analysis.ignore_tokens(i);
                         return;
                     }
 
@@ -590,26 +605,27 @@ fn visit_impl(impl_blk: &ItemImpl, analysis: &mut LineAnalysis, ctx: &Context) {
                     let lines = (decl_start..(stmts_start + 1)).collect::<Vec<_>>();
                     analysis.add_to_ignore(&lines);
                 } else {
-                    analysis.ignore_span(item.span());
+                    analysis.ignore_tokens(item);
                 }
                 for a in &i.attrs {
-                    analysis.ignore_span(a.span());
+                    analysis.ignore_tokens(a);
                 }
             }
         }
         visit_generics(&impl_blk.generics, analysis);
     } else {
-        analysis.ignore_span(impl_blk.span());
+        analysis.ignore_tokens(impl_blk);
     }
 }
 
 fn visit_generics(generics: &Generics, analysis: &mut LineAnalysis) {
     if let Some(ref wh) = generics.where_clause {
-        analysis.ignore_span(wh.span());
+        analysis.ignore_tokens(wh);
     }
 }
 
 fn process_expr(expr: &Expr, ctx: &Context, analysis: &mut LineAnalysis) -> SubResult {
+    println!("\n{:#?}", expr);
     let res = match *expr {
         Expr::Macro(ref m) => visit_macro_call(&m.mac, ctx, analysis),
         Expr::Struct(ref s) => visit_struct_expr(&s, analysis),
@@ -629,7 +645,7 @@ fn process_expr(expr: &Expr, ctx: &Context, analysis: &mut LineAnalysis) -> SubR
         _ => SubResult::Ok,
     };
     if let SubResult::Unreachable = res {
-        analysis.ignore_span(expr.span());
+        analysis.ignore_tokens(expr);
     }
     res
 }
@@ -637,7 +653,7 @@ fn process_expr(expr: &Expr, ctx: &Context, analysis: &mut LineAnalysis) -> SubR
 fn visit_path(path: &ExprPath, analysis: &mut LineAnalysis) -> SubResult {
     if let Some(Pair::End(path_end)) = path.path.segments.last() {
         if path_end.ident.to_string() == "unreachable_unchecked" {
-            analysis.ignore_span(path.span());
+            analysis.ignore_tokens(path);
             return SubResult::Unreachable;
         }
     }
@@ -648,10 +664,10 @@ fn visit_return(ret: &ExprReturn, ctx: &Context, analysis: &mut LineAnalysis) ->
     let check_cover = check_attr_list(&ret.attrs, ctx, analysis);
     if check_cover {
         for a in &ret.attrs {
-            analysis.ignore_span(a.span());
+            analysis.ignore_tokens(a);
         }
     } else {
-        analysis.ignore_span(ret.span());
+        analysis.ignore_tokens(ret);
     }
     SubResult::Ok
 }
@@ -660,14 +676,14 @@ fn visit_expr_block(block: &ExprBlock, ctx: &Context, analysis: &mut LineAnalysi
     if check_attr_list(&block.attrs, ctx, analysis) {
         visit_block(&block.block, ctx, analysis)
     } else {
-        analysis.ignore_span(block.span());
+        analysis.ignore_tokens(block);
         SubResult::Ok
     }
 }
 
 fn visit_block(block: &Block, ctx: &Context, analysis: &mut LineAnalysis) -> SubResult {
     if let SubResult::Unreachable = process_statements(&block.stmts, ctx, analysis) {
-        analysis.ignore_span(block.span());
+        analysis.ignore_tokens(block);
         SubResult::Unreachable
     } else {
         SubResult::Ok
@@ -690,7 +706,7 @@ fn visit_match(mat: &ExprMatch, ctx: &Context, analysis: &mut LineAnalysis) -> S
         }
     }
     if !reachable_arm {
-        analysis.ignore_span(mat.span());
+        analysis.ignore_tokens(mat);
         SubResult::Unreachable
     } else {
         SubResult::Ok
@@ -715,7 +731,7 @@ fn visit_if(if_block: &ExprIf, ctx: &Context, analysis: &mut LineAnalysis) -> Su
         reachable_arm = true;
     }
     if !reachable_arm {
-        analysis.ignore_span(if_block.span());
+        analysis.ignore_tokens(if_block);
         SubResult::Unreachable
     } else {
         SubResult::Ok
@@ -725,7 +741,7 @@ fn visit_if(if_block: &ExprIf, ctx: &Context, analysis: &mut LineAnalysis) -> Su
 fn visit_while(whl: &ExprWhile, ctx: &Context, analysis: &mut LineAnalysis) -> SubResult {
     // a while block is unreachable iff its body is
     if let SubResult::Unreachable = visit_block(&whl.body, ctx, analysis) {
-        analysis.ignore_span(whl.span());
+        analysis.ignore_tokens(whl);
         SubResult::Unreachable
     } else {
         SubResult::Ok
@@ -735,7 +751,7 @@ fn visit_while(whl: &ExprWhile, ctx: &Context, analysis: &mut LineAnalysis) -> S
 fn visit_for(for_loop: &ExprForLoop, ctx: &Context, analysis: &mut LineAnalysis) -> SubResult {
     // a for block is unreachable iff its body is
     if let SubResult::Unreachable = visit_block(&for_loop.body, ctx, analysis) {
-        analysis.ignore_span(for_loop.span());
+        analysis.ignore_tokens(for_loop);
         SubResult::Unreachable
     } else {
         SubResult::Ok
@@ -745,7 +761,7 @@ fn visit_for(for_loop: &ExprForLoop, ctx: &Context, analysis: &mut LineAnalysis)
 fn visit_loop(loopex: &ExprLoop, ctx: &Context, analysis: &mut LineAnalysis) -> SubResult {
     // a loop block is unreachable iff its body is
     if let SubResult::Unreachable = visit_block(&loopex.body, ctx, analysis) {
-        analysis.ignore_span(loopex.span());
+        analysis.ignore_tokens(loopex);
         SubResult::Unreachable
     } else {
         SubResult::Ok
@@ -755,11 +771,10 @@ fn visit_loop(loopex: &ExprLoop, ctx: &Context, analysis: &mut LineAnalysis) -> 
 fn get_coverable_args(args: &Punctuated<Expr, Comma>) -> HashSet<usize> {
     let mut lines: HashSet<usize> = HashSet::new();
     for a in args.iter() {
-        let s = a.span();
         match *a {
             Expr::Lit(_) => {}
             _ => {
-                for i in s.start().line..(s.end().line + 1) {
+                for i in get_line_range(a) {
                     lines.insert(i);
                 }
             }
@@ -768,19 +783,38 @@ fn get_coverable_args(args: &Punctuated<Expr, Comma>) -> HashSet<usize> {
     lines
 }
 
+fn get_line_range<T>(tokens: T) -> Range<usize> where T: ToTokens {
+    let mut start = None;
+    let mut end = None;
+    for token in tokens.into_token_stream() {
+        let temp_start = token.span().start().line;
+        let temp_end = token.span().end().line + 1;
+        start = match start {
+            Some(x) => Some(min(temp_start, x)),
+            None => Some(temp_start),
+        };
+        end = match end {
+            Some(x) => Some(max(temp_end, x)),
+            None => Some(temp_end),
+        };
+    }
+    match (start, end) {
+        (Some(s), Some(e)) => s..e,
+        _ => 0..0
+    }
+}
+
 fn visit_callable(call: &ExprCall, ctx: &Context, analysis: &mut LineAnalysis) -> SubResult {
     if check_attr_list(&call.attrs, ctx, analysis) {
-        let start = call.span().start().line + 1;
-        let end = call.span().end().line + 1;
         let lines = get_coverable_args(&call.args);
-        let lines = (start..end)
+        let lines = get_line_range(call)
             .filter(|x| !lines.contains(&x))
             .collect::<Vec<_>>();
         analysis.add_to_ignore(&lines);
 
         process_expr(&call.func, ctx, analysis);
     } else {
-        analysis.ignore_span(call.span());
+        analysis.ignore_tokens(call);
     }
     // We can't guess if a callable would actually be unreachable
     SubResult::Ok
@@ -789,14 +823,14 @@ fn visit_callable(call: &ExprCall, ctx: &Context, analysis: &mut LineAnalysis) -
 fn visit_methodcall(meth: &ExprMethodCall, ctx: &Context, analysis: &mut LineAnalysis) -> SubResult {
     if check_attr_list(&meth.attrs, ctx, analysis) {
         let start = meth.receiver.span().start().line + 1;
-        let end = meth.span().end().line + 1;
+        let range = get_line_range(meth);
         let lines = get_coverable_args(&meth.args);
-        let lines = (start..end)
+        let lines = (start..range.end)
             .filter(|x| !lines.contains(&x))
             .collect::<Vec<_>>();
         analysis.add_to_ignore(&lines);
     } else {
-        analysis.ignore_span(meth.span());
+        analysis.ignore_tokens(meth);
     }
     // We can't guess if a method would actually be unreachable
     SubResult::Ok
@@ -811,7 +845,7 @@ fn visit_unsafe_block(
 
     let blk = &unsafe_expr.block;
     if u_line != blk.brace_token.span.start().line || blk.stmts.is_empty() {
-        analysis.ignore_span(unsafe_expr.unsafe_token.span());
+        analysis.ignore_tokens(unsafe_expr.unsafe_token);
     } else if let Some(ref first_stmt) = blk.stmts.get(0) {
         let s = match **first_stmt {
             Stmt::Local(ref l) => l.span(),
@@ -820,14 +854,14 @@ fn visit_unsafe_block(
             Stmt::Semi(ref e, _) => e.span(),
         };
         if u_line != s.start().line {
-            analysis.ignore_span(unsafe_expr.unsafe_token.span());
+            analysis.ignore_tokens(unsafe_expr.unsafe_token);
         }
         if let SubResult::Unreachable = process_statements(&blk.stmts, ctx, analysis) {
-            analysis.ignore_span(unsafe_expr.span());
+            analysis.ignore_tokens(unsafe_expr);
             return SubResult::Unreachable;
         }
     } else {
-        analysis.ignore_span(unsafe_expr.unsafe_token.span());
+        analysis.ignore_tokens(unsafe_expr.unsafe_token);
         analysis.ignore_span(blk.brace_token.span);
     }
     SubResult::Ok
@@ -835,8 +869,6 @@ fn visit_unsafe_block(
 
 fn visit_struct_expr(structure: &ExprStruct, analysis: &mut LineAnalysis) -> SubResult {
     let mut cover: HashSet<usize> = HashSet::new();
-    let start = structure.span().start().line;
-    let end = structure.span().end().line;
     for field in structure.fields.pairs() {
         let first = match field {
             Pair::Punctuated(t, _) => t,
@@ -853,7 +885,7 @@ fn visit_struct_expr(structure: &ExprStruct, analysis: &mut LineAnalysis) -> Sub
             }
         }
     }
-    let x = (start..(end + 1))
+    let x = get_line_range(structure)
         .filter(|x| !cover.contains(&x))
         .collect::<Vec<usize>>();
     analysis.add_to_ignore(&x);
@@ -863,14 +895,12 @@ fn visit_struct_expr(structure: &ExprStruct, analysis: &mut LineAnalysis) -> Sub
 
 fn visit_macro_call(mac: &Macro, ctx: &Context, analysis: &mut LineAnalysis) -> SubResult {
     let mut skip = false;
-    let start = mac.span().start().line + 1;
-    let end = mac.span().end().line + 1;
     if let Some(End(ref name)) = mac.path.segments.last() {
         let unreachable = name.ident == "unreachable";
         let standard_ignores = name.ident == "unimplemented" || name.ident == "include" || name.ident=="cfg";
         let ignore_panic = ctx.config.ignore_panics && name.ident == "panic";
         if standard_ignores || ignore_panic || unreachable {
-            analysis.ignore_span(mac.span());
+            analysis.ignore_tokens(mac);
             skip = true;
         }
         if unreachable {
@@ -878,8 +908,10 @@ fn visit_macro_call(mac: &Macro, ctx: &Context, analysis: &mut LineAnalysis) -> 
         }
     }
     if !skip {
+        let start = mac.span().start().line + 1;
+        let range = get_line_range(mac);
         let lines = process_mac_args(&mac.tts);
-        let lines = (start..end)
+        let lines = (start..range.end)
             .filter(|x| !lines.contains(&x))
             .collect::<Vec<_>>();
         analysis.add_to_ignore(&lines);
@@ -891,11 +923,10 @@ fn process_mac_args(tokens: &TokenStream) -> HashSet<usize> {
     let mut cover: HashSet<usize> = HashSet::new();
     // IntoIter not implemented for &TokenStream.
     for token in tokens.clone() {
-        let t = token.span();
         match token {
             TokenTree::Literal(_) | TokenTree::Punct { .. } => {}
             _ => {
-                for i in t.start().line..(t.end().line + 1) {
+                for i in get_line_range(token) {
                     cover.insert(i);
                 }
             }
@@ -1491,7 +1522,7 @@ mod tests {
             config: &config,
             file_contents: "fn inline_func() {
                     (0..0).iter().foreach(|x| {
-                        unreachable!()
+                        unreachable!();
                         });
                 }",
             file: Path::new(""),

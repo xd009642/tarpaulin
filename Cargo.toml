@@ -36,13 +36,14 @@ log = "0.4.6"
 memmap = "0.7.0"
 nix = "0.13.0"
 object = "0.11"
-proc-macro2 = "0.4.27"
+proc-macro2 = { version = "0.4.27", features = ["span-locations"] }
+quote = "0.6"
 quick-xml = "0.13.0"
 regex = "1.1"
 rustc-demangle = "0.1.11"
 serde = { version = "1.0", features = ["derive"] }
 serde_json = "1.0"
-syn = { version = "0.15.23", features = ["full"]}
+syn = { version = "0.15.34", features = ["full"]}
 void = "1.0"
 walkdir = "2.2.5"
 git2 = "0.7"

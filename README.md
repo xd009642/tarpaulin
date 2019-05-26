@@ -22,11 +22,6 @@ popular CI tools like Travis.
 It can also be run in Docker, which is useful for when you don't use Linux but
 want to run it locally, e.g. during development. See below for how to do that.
 
-**Due to unstable features in syn and issues with not packaging tarpaulin with
-the Cargo.lock file tarpaulin is now a nightly only crate. If you don't run
-nightly by default replace all calls to `cargo tarpaulin` with 
-`cargo +nightly tarpaulin`**
-
 ## Features
 
 Below is a list of features currently implemented. As Tarpaulin loads binary
@@ -54,13 +49,8 @@ Tarpaulin is a command-line program, you install it into your linux development
 environment with cargo install:
 
 ```text
-RUSTFLAGS="--cfg procmacro2_semver_exempt" cargo install cargo-tarpaulin
+cargo install cargo-tarpaulin
 ```
-
-Because of the `syn` dependency you need the following `RUSTFLAGS` to enable
-the semver exempt functionality to report positions in the source code. 
-Alternatively, you can use the docker develop images or the prebuilt github releases
-for travis-ci.
 
 ### Command line
 
@@ -138,11 +128,6 @@ with a verbose run of tarpaulin to see the test results as well as coverage outp
 For codecov.io you'll need to export CODECOV_TOKEN are instructions on this in
 the settings of your codecov project.
 
-Because of the use of nightly proc-macro features you'll need to reinstall
-tarpaulin each time unless you're keeping to a specific nightly version. If you
-are keeping to a specific nightly you can remove the `-f` flag in the example
-travis file.
-
 ```yml
 language: rust
 sudo: required
@@ -161,8 +146,8 @@ matrix:
     - rust: nightly
 
 before_cache: |
-  if [[ "$TRAVIS_RUST_VERSION" == nightly ]]; then
-    RUSTFLAGS="--cfg procmacro2_semver_exempt" cargo install cargo-tarpaulin -f
+  if [[ "$TRAVIS_RUST_VERSION" == stable ]]; then
+    cargo install cargo-tarpaulin -f
   fi
 
 script:
@@ -171,7 +156,7 @@ script:
 - cargo test
 
 after_success: |
-  if [[ "$TRAVIS_RUST_VERSION" == nightly ]]; then
+  if [[ "$TRAVIS_RUST_VERSION" == stable ]]; then
     # Uncomment the following line for coveralls.io
     # cargo tarpaulin --ciserver travis-ci --coveralls $TRAVIS_JOB_ID
 
@@ -185,9 +170,6 @@ Alternative, there is the travis-install shell script will install the latest ta
 release built on travis to your travis instance and significantly speeds up the travis 
 builds. You can install via that script using 
 `bash <(curl https://raw.githubusercontent.com/xd009642/tarpaulin/master/travis-install.sh)`.
-**Warning** due to the proc_macro2 dependency, the github releases are now tied
-to a specific version of rust so are no longer recommended. Instead use cargo or docker to 
-install tarpaulin.
 
 ### Docker
 
