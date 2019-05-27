@@ -77,3 +77,8 @@ fn loops_expr_coverage() {
 fn loops_assigns_coverage() {
     check_percentage("assigns", 1.0f64, true);
 }
+
+#[test]
+fn paths_coverage() {
+    check_percentage("paths", 1.0f64, true);
+}
