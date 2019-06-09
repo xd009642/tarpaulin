@@ -5,6 +5,7 @@ use std::env;
 use std::time::Duration;
 
 #[test]
+#[ignore]
 fn doc_test_coverage() {
     let mut config = Config::default();
     config.verbose = true;
