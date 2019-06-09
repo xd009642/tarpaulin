@@ -17,23 +17,23 @@ impl serde_json::ser::Formatter for SafeFormatter {
         W: io::Write,
     {
         let mut start = 0;
-
-        for (i, ch) in fragment.chars().enumerate() {
+        let mut code_length = 0;
+        for ch in fragment.chars() {
+            code_length += ch.len_utf8();
             let escape = match ch {
                 '<' | '>' | '&' => CharEscape::AsciiControl(ch as u8),
                 _ => continue,
             };
-
-            if start < i {
-                self.0.write_string_fragment(writer, &fragment[start..i])?;
+            if start < code_length - 1 {
+                self.0.write_string_fragment(writer, &fragment[start..code_length-1])?;
             }
 
             self.write_char_escape(writer, escape)?;
 
-            start = i + 1;
+            start = code_length;
         }
 
-        if start < fragment.len() {
+        if start < code_length {
             self.0.write_string_fragment(writer, &fragment[start..])?;
         }
         Ok(())
@@ -74,6 +74,18 @@ mod tests {
         assert_eq!(
             to_string_safe(&x).unwrap().as_str(),
             r#"{"a":1,"b":"c","d":"text with \"quotes\" inside","h":"some \u003cscript\u003ealert(\"Alert\")\u003c/script\u003e html"}"#
+        );
+    }
+
+    #[test]
+    fn test_json_unicode() {
+        let x = json!({
+            "a": 1,
+            "b": "a<❌>b",
+        });
+        assert_eq!(
+            to_string_safe(&x).unwrap().as_str(),
+            r#"{"a":1,"b":"a\u003c❌\u003eb"}"#
         );
     }
 }
