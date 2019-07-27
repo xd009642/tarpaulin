@@ -2,7 +2,6 @@ use cargo_tarpaulin::config::*;
 use cargo_tarpaulin::run;
 use clap::{crate_version, App, Arg, ArgSettings, SubCommand};
 use env_logger::Builder;
-use log::error;
 use log::trace;
 use std::io::Write;
 use std::path::Path;
@@ -46,7 +45,7 @@ travis-ci, travis-pro, circle-ci, semaphore, jenkins and codeship.
 If you are interfacing with coveralls.io or another site you can \
 also specify a name that they will recognise. Refer to their documentation for this.";
 
-fn main() {
+fn main() -> Result<(), String> {
     let args = App::new("cargo-tarpaulin")
         .author("Daniel McKenna, <danielmckenna93@gmail.com>")
         .about("Tool to analyse test coverage of cargo projects")
@@ -103,6 +102,5 @@ fn main() {
     // Since this is the last function we run and don't do any error mitigations (other than
     // printing the error to the user it's fine to unwrap here
     run(&config)
-        .map_err(|e| error!("{}", e.to_string()))
-        .unwrap_or_default();
+        .map_err(|e| e.to_string())
 }

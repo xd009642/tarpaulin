@@ -4,6 +4,7 @@ use cargo_tarpaulin::launch_tarpaulin;
 use std::env;
 use std::time::Duration;
 
+mod compile_fail;
 mod line_coverage;
 mod doc_coverage;
 mod utils;
