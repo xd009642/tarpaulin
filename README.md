@@ -171,6 +171,22 @@ release built on travis to your travis instance and significantly speeds up the 
 builds. You can install via that script using 
 `bash <(curl https://raw.githubusercontent.com/xd009642/tarpaulin/master/travis-install.sh)`.
 
+### CircleCI
+
+To run tarpaulin on CircleCI you need to run tarpaulin in docker and set the
+machine flag to true as shown below:
+
+```yml
+jobs:
+  coverage:
+    machine: true
+    steps:
+      - checkout
+      - run
+        name: Coverage with docker
+        command: docker run --security-opt seccomp=unconfined -v "${PWD}:/volume" xd009642/tarpaulin
+```
+
 ### Docker
 
 Tarpaulin has builds deployed to [docker-hub](https://hub.docker.com/r/xd009642/tarpaulin/), 
