@@ -159,7 +159,7 @@ dependencies = [
 
 [[package]]
 name = "cargo-tarpaulin"
-version = "0.8.4"
+version = "0.8.5"
 dependencies = [
  "cargo 0.35.0 (registry+https://github.com/rust-lang/crates.io-index)",
  "chrono 0.4.6 (registry+https://github.com/rust-lang/crates.io-index)",

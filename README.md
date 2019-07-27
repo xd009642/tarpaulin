@@ -171,13 +171,29 @@ release built on travis to your travis instance and significantly speeds up the 
 builds. You can install via that script using 
 `bash <(curl https://raw.githubusercontent.com/xd009642/tarpaulin/master/travis-install.sh)`.
 
+### CircleCI
+
+To run tarpaulin on CircleCI you need to run tarpaulin in docker and set the
+machine flag to true as shown below:
+
+```yml
+jobs:
+  coverage:
+    machine: true
+    steps:
+      - checkout
+      - run
+        name: Coverage with docker
+        command: docker run --security-opt seccomp=unconfined -v "${PWD}:/volume" xd009642/tarpaulin
+```
+
 ### Docker
 
 Tarpaulin has builds deployed to [docker-hub](https://hub.docker.com/r/xd009642/tarpaulin/), 
 to run Tarpaulin on any system that has Docker, run this in your project directory:
 
 ```text
-docker run --security-opt seccomp=unconfined -v "$PWD:/volume" xd009642/tarpaulin
+docker run --security-opt seccomp=unconfined -v "${PWD}:/volume" xd009642/tarpaulin
 ```
 
 This builds your project inside Docker and runs Tarpaulin without any arguments. There are
@@ -186,14 +202,14 @@ versions after 0.5.6 will have the latest release built with the rust stable and
 compilers. To get the latest development version built with rustc-nightly run the following:
 
 ```text
-docker run --security-opt seccomp=unconfined -v "$PWD:/volume" xd009642/tarpaulin:develop-nightly
+docker run --security-opt seccomp=unconfined -v "${PWD}:/volume" xd009642/tarpaulin:develop-nightly
 ```
 
 Note that the build might fail if the Docker image doesn't contain any necessary
 dependencies. In that case, you can install dependencies before, like this:
 
 ```text
-docker run --security-opt seccomp=unconfined -v "$PWD:/volume" xd009642/tarpaulin sh -c "apt-get install xxx && cargo tarpaulin"
+docker run --security-opt seccomp=unconfined -v "${PWD}:/volume" xd009642/tarpaulin sh -c "apt-get install xxx && cargo tarpaulin"
 ```
 
 ## Extending Tarpaulin.
