@@ -7,7 +7,8 @@ use crate::traces::*;
 use cargo::core::{compiler::CompileMode, Package, Shell, Workspace};
 use cargo::ops;
 use cargo::ops::{
-    clean, compile, CleanOptions, CompileFilter, CompileOptions, Packages, TestOptions,
+    clean, compile, CleanOptions, CompileFilter, CompileOptions, FilterRule,
+    LibRule, Packages, TestOptions,
 };
 use cargo::util::{homedir, Config as CargoConfig};
 use log::{debug, info, trace, warn};
@@ -61,7 +62,7 @@ pub fn launch_tarpaulin(config: &Config) -> Result<(TraceMap, i32), RunError> {
     let flag_quiet = if config.verbose { None } else { Some(true) };
 
     // This shouldn't fail so no checking the error.
-    let _ = cargo_config.configure(0u32, flag_quiet, &None, false, false, &None, &[]);
+    let _ = cargo_config.configure(0u32, flag_quiet, &None, false, false, false, &None, &[]);
 
     let workspace = Workspace::new(config.manifest.as_path(), &cargo_config)
         .map_err(|e| RunError::Manifest(e.to_string()))?;
@@ -111,7 +112,7 @@ fn run_tests(
     let compilation = compile(&workspace, &compile_options);
     match compilation {
         Ok(comp) => {
-            for &(ref package, _, ref name, ref path) in &comp.tests {
+            for &(ref package, ref name, ref path) in &comp.tests {
                 debug!("Processing {}", name);
                 if let Some(res) =
                     get_test_coverage(&workspace, Some(package), path.as_path(), config, false)?
@@ -198,16 +199,11 @@ fn get_compile_options<'a>(
             }
         } else if run_type == &RunType::Doctests {
             copt.filter = CompileFilter::new(
-                true,
-                vec![],
-                false,
-                vec![],
-                false,
-                vec![],
-                false,
-                vec![],
-                false,
-                false,
+                LibRule::True,
+                FilterRule::Just(vec![]),
+                FilterRule::Just(vec![]),
+                FilterRule::Just(vec![]),
+                FilterRule::Just(vec![]),
             );
         }
 
