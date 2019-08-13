@@ -399,7 +399,7 @@ fn visit_mod(module: &ItemMod, analysis: &mut LineAnalysis, ctx: &Context) {
     analysis.ignore_tokens(module.mod_token);
     let mut check_insides = true;
     for attr in &module.attrs {
-        if let Some(x) = attr.interpret_meta() {
+        if let Ok(x) = attr.parse_meta() {
             if check_cfg_attr(&x) {
                 analysis.ignore_tokens(module);
                 if let Some((ref braces, _)) = module.content {
@@ -409,7 +409,7 @@ fn visit_mod(module: &ItemMod, analysis: &mut LineAnalysis, ctx: &Context) {
                 break;
             } else if ctx.config.ignore_tests {
                 if let Meta::List(ref ml) = x {
-                    if ml.ident != "cfg" {
+                    if ml.path.is_ident("cfg") {
                         continue;
                     }
                     for nested in &ml.nested {
@@ -451,7 +451,7 @@ fn visit_fn(func: &ItemFn, analysis: &mut LineAnalysis, ctx: &Context) {
     let mut is_inline = false;
     let mut ignore_span = false;
     for attr in &func.attrs {
-        if let Some(x) = attr.interpret_meta() {
+        if let Ok(x) = attr.parse_meta() {
             let id = x.name();
             if id == "test" {
                 test_func = true;
@@ -497,7 +497,7 @@ fn check_attr_list(attrs: &[Attribute], ctx: &Context, analysis: &mut LineAnalys
     let mut check_cover = true;
     for attr in attrs {
         analysis.ignore_tokens(attr);
-        if let Some(x) = attr.interpret_meta() {
+        if let Ok(x) = attr.parse_meta() {
             if check_cfg_attr(&x) {
                 check_cover = false;
             } else if ctx.config.ignore_tests && x.name() == "cfg" {
@@ -648,8 +648,8 @@ fn process_expr(expr: &Expr, ctx: &Context, analysis: &mut LineAnalysis) -> SubR
 }
 
 fn visit_path(path: &ExprPath, analysis: &mut LineAnalysis) -> SubResult {
-    if let Some(Pair::End(path_end)) = path.path.segments.last() {
-        if path_end.ident.to_string() == "unreachable_unchecked" {
+    if let Some(PathSegment{ref ident, ref arguments}) = path.path.segments.last() {
+        if ident == "unreachable_unchecked" {
             analysis.ignore_tokens(path);
             return SubResult::Unreachable;
         }
@@ -892,10 +892,10 @@ fn visit_struct_expr(structure: &ExprStruct, analysis: &mut LineAnalysis) -> Sub
 
 fn visit_macro_call(mac: &Macro, ctx: &Context, analysis: &mut LineAnalysis) -> SubResult {
     let mut skip = false;
-    if let Some(End(ref name)) = mac.path.segments.last() {
-        let unreachable = name.ident == "unreachable";
-        let standard_ignores = name.ident == "unimplemented" || name.ident == "include" || name.ident=="cfg";
-        let ignore_panic = ctx.config.ignore_panics && name.ident == "panic";
+    if let Some(PathSegment{ref ident, ref arguments}) = mac.path.segments.last() {
+        let unreachable = ident == "unreachable";
+        let standard_ignores = ident == "unimplemented" || ident == "include" || ident=="cfg";
+        let ignore_panic = ctx.config.ignore_panics && ident == "panic";
         if standard_ignores || ignore_panic || unreachable {
             analysis.ignore_tokens(mac);
             skip = true;
