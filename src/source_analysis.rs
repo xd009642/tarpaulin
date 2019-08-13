@@ -482,11 +482,11 @@ fn visit_fn(func: &ItemFn, analysis: &mut LineAnalysis, ctx: &Context) {
             analysis.ignore_tokens(func);
             return;
         }
-        visit_generics(&func.decl.generics, analysis);
-        let line_number = func.decl.fn_token.span().start().line;
+        visit_generics(&func.sig.generics, analysis);
+        let line_number = func.sig.fn_token.span().start().line;
         analysis.ignore.remove(&Lines::Line(line_number));
         // Ignore multiple lines of fn decl
-        let decl_start = func.decl.fn_token.span().start().line + 1;
+        let decl_start = func.sig.fn_token.span().start().line + 1;
         let stmts_start = func.block.span().start().line;
         let lines = (decl_start..(stmts_start + 1)).collect::<Vec<_>>();
         analysis.add_to_ignore(&lines);
@@ -553,13 +553,13 @@ fn visit_trait(trait_item: &ItemTrait, analysis: &mut LineAnalysis, ctx: &Contex
                 if check_attr_list(&i.attrs, ctx, analysis) {
                     if let Some(ref block) = i.default {
                         analysis.cover_token_stream(item.into_token_stream(), Some(ctx.file_contents));
-                        visit_generics(&i.sig.decl.generics, analysis);
+                        visit_generics(&i.sig.generics, analysis);
                         analysis
                             .ignore
                             .remove(&Lines::Line(i.sig.span().start().line));
 
                         // Ignore multiple lines of fn decl
-                        let decl_start = i.sig.decl.fn_token.span().start().line + 1;
+                        let decl_start = i.sig.fn_token.span().start().line + 1;
                         let stmts_start = block.span().start().line;
                         let lines = (decl_start..(stmts_start + 1)).collect::<Vec<_>>();
                         analysis.add_to_ignore(&lines);
@@ -594,11 +594,11 @@ fn visit_impl(impl_blk: &ItemImpl, analysis: &mut LineAnalysis, ctx: &Context) {
                         return;
                     }
 
-                    visit_generics(&i.sig.decl.generics, analysis);
+                    visit_generics(&i.sig.generics, analysis);
                     analysis.ignore.remove(&Lines::Line(i.span().start().line));
 
                     // Ignore multiple lines of fn decl
-                    let decl_start = i.sig.decl.fn_token.span().start().line + 1;
+                    let decl_start = i.sig.fn_token.span().start().line + 1;
                     let stmts_start = i.block.span().start().line;
                     let lines = (decl_start..(stmts_start + 1)).collect::<Vec<_>>();
                     analysis.add_to_ignore(&lines);
