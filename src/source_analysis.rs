@@ -15,7 +15,7 @@ use std::path::{Path, PathBuf};
 use std::ops::Range;
 use syn::{
     punctuated::Punctuated,
-    punctuated::{Pair, Pair::End},
+    punctuated::Pair,
     spanned::Spanned,
     token::Comma,
     *,
@@ -413,8 +413,8 @@ fn visit_mod(module: &ItemMod, analysis: &mut LineAnalysis, ctx: &Context) {
                         continue;
                     }
                     for nested in &ml.nested {
-                        if let NestedMeta::Meta(Meta::Word(ref i)) = *nested {
-                            if i == "test" {
+                        if let NestedMeta::Meta(Meta::Path(ref i)) = *nested {
+                            if i.is_ident("test") {
                                 check_insides = false;
                                 analysis.ignore_tokens(module.mod_token);
                                 if let Some((ref braces, _)) = module.content {
@@ -452,14 +452,14 @@ fn visit_fn(func: &ItemFn, analysis: &mut LineAnalysis, ctx: &Context) {
     let mut ignore_span = false;
     for attr in &func.attrs {
         if let Ok(x) = attr.parse_meta() {
-            let id = x.name();
-            if id == "test" {
+            let id = x.path();
+            if id.is_ident("test") {
                 test_func = true;
-            } else if id == "derive" {
+            } else if id.is_ident("derive") {
                 analysis.ignore_span(attr.bracket_token.span);
-            } else if id == "inline" {
+            } else if id.is_ident("inline") {
                 is_inline = true;
-            } else if id == "ignore" {
+            } else if id.is_ident("ignore") {
                 ignored_attr = true;
             } else if check_cfg_attr(&x) {
                 ignore_span = true;
@@ -500,12 +500,12 @@ fn check_attr_list(attrs: &[Attribute], ctx: &Context, analysis: &mut LineAnalys
         if let Ok(x) = attr.parse_meta() {
             if check_cfg_attr(&x) {
                 check_cover = false;
-            } else if ctx.config.ignore_tests && x.name() == "cfg" {
+            } else if ctx.config.ignore_tests && x.path().is_ident("cfg") {
                 if let Meta::List(ref ml) = x {
                     let mut skip = false;
                     for c in &ml.nested {
-                        if let NestedMeta::Meta(Meta::Word(ref i)) = c {
-                            skip |= i == "test";
+                        if let NestedMeta::Meta(Meta::Path(ref i)) = c {
+                            skip |= i.is_ident("test");
                         }
                     }
                     if skip {
@@ -523,15 +523,15 @@ fn check_attr_list(attrs: &[Attribute], ctx: &Context, analysis: &mut LineAnalys
 
 fn check_cfg_attr(attr: &Meta) -> bool {
     let mut ignore_span = false;
-    let id = attr.name();
-    if id == "cfg_attr" {
+    let id = attr.path();
+    if id.is_ident("cfg_attr") {
         if let Meta::List(ml) = attr {
             let mut skip_match = false;
             let list = vec!["tarpaulin", "skip"];
             for (p, x) in ml.nested.iter().zip(list.iter()) {
                 match p {
-                    NestedMeta::Meta(Meta::Word(ref i)) => {
-                        skip_match = i == x;
+                    NestedMeta::Meta(Meta::Path(ref i)) => {
+                        skip_match = i.is_ident(x);
                     }
                     _ => skip_match = false,
                 }
@@ -648,7 +648,7 @@ fn process_expr(expr: &Expr, ctx: &Context, analysis: &mut LineAnalysis) -> SubR
 }
 
 fn visit_path(path: &ExprPath, analysis: &mut LineAnalysis) -> SubResult {
-    if let Some(PathSegment{ref ident, ref arguments}) = path.path.segments.last() {
+    if let Some(PathSegment{ref ident, arguments: _}) = path.path.segments.last() {
         if ident == "unreachable_unchecked" {
             analysis.ignore_tokens(path);
             return SubResult::Unreachable;
@@ -892,7 +892,7 @@ fn visit_struct_expr(structure: &ExprStruct, analysis: &mut LineAnalysis) -> Sub
 
 fn visit_macro_call(mac: &Macro, ctx: &Context, analysis: &mut LineAnalysis) -> SubResult {
     let mut skip = false;
-    if let Some(PathSegment{ref ident, ref arguments}) = mac.path.segments.last() {
+    if let Some(PathSegment{ref ident, arguments: _}) = mac.path.segments.last() {
         let unreachable = ident == "unreachable";
         let standard_ignores = ident == "unimplemented" || ident == "include" || ident=="cfg";
         let ignore_panic = ctx.config.ignore_panics && ident == "panic";
@@ -907,7 +907,7 @@ fn visit_macro_call(mac: &Macro, ctx: &Context, analysis: &mut LineAnalysis) -> 
     if !skip {
         let start = mac.span().start().line + 1;
         let range = get_line_range(mac);
-        let lines = process_mac_args(&mac.tts);
+        let lines = process_mac_args(&mac.tokens);
         let lines = (start..range.end)
             .filter(|x| !lines.contains(&x))
             .collect::<Vec<_>>();
