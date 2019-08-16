@@ -407,11 +407,8 @@ fn visit_mod(module: &ItemMod, analysis: &mut LineAnalysis, ctx: &Context) {
                 }
                 check_insides = false;
                 break;
-            } else if ctx.config.ignore_tests {
+            } else if ctx.config.ignore_tests && x.path().is_ident("cfg") {
                 if let Meta::List(ref ml) = x {
-                    if ml.path.is_ident("cfg") {
-                        continue;
-                    }
                     for nested in &ml.nested {
                         if let NestedMeta::Meta(Meta::Path(ref i)) = *nested {
                             if i.is_ident("test") {
