@@ -11,15 +11,9 @@ use std::collections::{HashMap, HashSet};
 use std::ffi::OsStr;
 use std::fs::File;
 use std::io::{BufRead, BufReader, Read};
-use std::path::{Path, PathBuf};
 use std::ops::Range;
-use syn::{
-    punctuated::Punctuated,
-    punctuated::{Pair, Pair::End},
-    spanned::Spanned,
-    token::Comma,
-    *,
-};
+use std::path::{Path, PathBuf};
+use syn::{punctuated::Pair, punctuated::Punctuated, spanned::Spanned, token::Comma, *};
 use walkdir::{DirEntry, WalkDir};
 
 #[derive(Copy, Clone, Debug, Eq, PartialEq, Hash)]
@@ -79,7 +73,10 @@ impl LineAnalysis {
         self.ignore.insert(Lines::All);
     }
 
-    pub fn ignore_tokens<T>(&mut self, tokens: T) where T: ToTokens {
+    pub fn ignore_tokens<T>(&mut self, tokens: T)
+    where
+        T: ToTokens,
+    {
         for token in tokens.into_token_stream() {
             self.ignore_span(token.span());
         }
@@ -212,18 +209,21 @@ pub fn get_line_analysis(project: &Workspace, config: &Config) -> HashMap<PathBu
 pub fn debug_printout(result: &HashMap<PathBuf, LineAnalysis>, config: &Config) {
     if config.debug {
         for (ref path, ref analysis) in result {
-            trace!("Source analysis for {}", config.strip_project_path(path).display());
+            trace!(
+                "Source analysis for {}",
+                config.strip_project_path(path).display()
+            );
             let mut lines = Vec::new();
-            for l in &analysis.ignore { 
+            for l in &analysis.ignore {
                 match l {
                     Lines::All => {
                         lines.clear();
                         trace!("All lines are ignorable");
                         break;
-                    },
+                    }
                     Lines::Line(i) => {
                         lines.push(i);
-                    },
+                    }
                 }
             }
             if !lines.is_empty() {
@@ -231,7 +231,7 @@ pub fn debug_printout(result: &HashMap<PathBuf, LineAnalysis>, config: &Config) 
                 trace!("Ignorable lines: {:?}", lines);
                 lines.clear()
             }
-            for c in &analysis.cover { 
+            for c in &analysis.cover {
                 lines.push(c);
             }
 
@@ -399,7 +399,7 @@ fn visit_mod(module: &ItemMod, analysis: &mut LineAnalysis, ctx: &Context) {
     analysis.ignore_tokens(module.mod_token);
     let mut check_insides = true;
     for attr in &module.attrs {
-        if let Some(x) = attr.interpret_meta() {
+        if let Ok(x) = attr.parse_meta() {
             if check_cfg_attr(&x) {
                 analysis.ignore_tokens(module);
                 if let Some((ref braces, _)) = module.content {
@@ -407,14 +407,11 @@ fn visit_mod(module: &ItemMod, analysis: &mut LineAnalysis, ctx: &Context) {
                 }
                 check_insides = false;
                 break;
-            } else if ctx.config.ignore_tests {
+            } else if ctx.config.ignore_tests && x.path().is_ident("cfg") {
                 if let Meta::List(ref ml) = x {
-                    if ml.ident != "cfg" {
-                        continue;
-                    }
                     for nested in &ml.nested {
-                        if let NestedMeta::Meta(Meta::Word(ref i)) = *nested {
-                            if i == "test" {
+                        if let NestedMeta::Meta(Meta::Path(ref i)) = *nested {
+                            if i.is_ident("test") {
                                 check_insides = false;
                                 analysis.ignore_tokens(module.mod_token);
                                 if let Some((ref braces, _)) = module.content {
@@ -451,15 +448,15 @@ fn visit_fn(func: &ItemFn, analysis: &mut LineAnalysis, ctx: &Context) {
     let mut is_inline = false;
     let mut ignore_span = false;
     for attr in &func.attrs {
-        if let Some(x) = attr.interpret_meta() {
-            let id = x.name();
-            if id == "test" {
+        if let Ok(x) = attr.parse_meta() {
+            let id = x.path();
+            if id.is_ident("test") {
                 test_func = true;
-            } else if id == "derive" {
+            } else if id.is_ident("derive") {
                 analysis.ignore_span(attr.bracket_token.span);
-            } else if id == "inline" {
+            } else if id.is_ident("inline") {
                 is_inline = true;
-            } else if id == "ignore" {
+            } else if id.is_ident("ignore") {
                 ignored_attr = true;
             } else if check_cfg_attr(&x) {
                 ignore_span = true;
@@ -482,11 +479,11 @@ fn visit_fn(func: &ItemFn, analysis: &mut LineAnalysis, ctx: &Context) {
             analysis.ignore_tokens(func);
             return;
         }
-        visit_generics(&func.decl.generics, analysis);
-        let line_number = func.decl.fn_token.span().start().line;
+        visit_generics(&func.sig.generics, analysis);
+        let line_number = func.sig.fn_token.span().start().line;
         analysis.ignore.remove(&Lines::Line(line_number));
         // Ignore multiple lines of fn decl
-        let decl_start = func.decl.fn_token.span().start().line + 1;
+        let decl_start = func.sig.fn_token.span().start().line + 1;
         let stmts_start = func.block.span().start().line;
         let lines = (decl_start..(stmts_start + 1)).collect::<Vec<_>>();
         analysis.add_to_ignore(&lines);
@@ -497,15 +494,15 @@ fn check_attr_list(attrs: &[Attribute], ctx: &Context, analysis: &mut LineAnalys
     let mut check_cover = true;
     for attr in attrs {
         analysis.ignore_tokens(attr);
-        if let Some(x) = attr.interpret_meta() {
+        if let Ok(x) = attr.parse_meta() {
             if check_cfg_attr(&x) {
                 check_cover = false;
-            } else if ctx.config.ignore_tests && x.name() == "cfg" {
+            } else if ctx.config.ignore_tests && x.path().is_ident("cfg") {
                 if let Meta::List(ref ml) = x {
                     let mut skip = false;
                     for c in &ml.nested {
-                        if let NestedMeta::Meta(Meta::Word(ref i)) = c {
-                            skip |= i == "test";
+                        if let NestedMeta::Meta(Meta::Path(ref i)) = c {
+                            skip |= i.is_ident("test");
                         }
                     }
                     if skip {
@@ -523,15 +520,15 @@ fn check_attr_list(attrs: &[Attribute], ctx: &Context, analysis: &mut LineAnalys
 
 fn check_cfg_attr(attr: &Meta) -> bool {
     let mut ignore_span = false;
-    let id = attr.name();
-    if id == "cfg_attr" {
+    let id = attr.path();
+    if id.is_ident("cfg_attr") {
         if let Meta::List(ml) = attr {
             let mut skip_match = false;
             let list = vec!["tarpaulin", "skip"];
             for (p, x) in ml.nested.iter().zip(list.iter()) {
                 match p {
-                    NestedMeta::Meta(Meta::Word(ref i)) => {
-                        skip_match = i == x;
+                    NestedMeta::Meta(Meta::Path(ref i)) => {
+                        skip_match = i.is_ident(x);
                     }
                     _ => skip_match = false,
                 }
@@ -552,14 +549,15 @@ fn visit_trait(trait_item: &ItemTrait, analysis: &mut LineAnalysis, ctx: &Contex
             if let TraitItem::Method(ref i) = *item {
                 if check_attr_list(&i.attrs, ctx, analysis) {
                     if let Some(ref block) = i.default {
-                        analysis.cover_token_stream(item.into_token_stream(), Some(ctx.file_contents));
-                        visit_generics(&i.sig.decl.generics, analysis);
+                        analysis
+                            .cover_token_stream(item.into_token_stream(), Some(ctx.file_contents));
+                        visit_generics(&i.sig.generics, analysis);
                         analysis
                             .ignore
                             .remove(&Lines::Line(i.sig.span().start().line));
 
                         // Ignore multiple lines of fn decl
-                        let decl_start = i.sig.decl.fn_token.span().start().line + 1;
+                        let decl_start = i.sig.fn_token.span().start().line + 1;
                         let stmts_start = block.span().start().line;
                         let lines = (decl_start..(stmts_start + 1)).collect::<Vec<_>>();
                         analysis.add_to_ignore(&lines);
@@ -594,11 +592,11 @@ fn visit_impl(impl_blk: &ItemImpl, analysis: &mut LineAnalysis, ctx: &Context) {
                         return;
                     }
 
-                    visit_generics(&i.sig.decl.generics, analysis);
+                    visit_generics(&i.sig.generics, analysis);
                     analysis.ignore.remove(&Lines::Line(i.span().start().line));
 
                     // Ignore multiple lines of fn decl
-                    let decl_start = i.sig.decl.fn_token.span().start().line + 1;
+                    let decl_start = i.sig.fn_token.span().start().line + 1;
                     let stmts_start = i.block.span().start().line;
                     let lines = (decl_start..(stmts_start + 1)).collect::<Vec<_>>();
                     analysis.add_to_ignore(&lines);
@@ -648,8 +646,12 @@ fn process_expr(expr: &Expr, ctx: &Context, analysis: &mut LineAnalysis) -> SubR
 }
 
 fn visit_path(path: &ExprPath, analysis: &mut LineAnalysis) -> SubResult {
-    if let Some(Pair::End(path_end)) = path.path.segments.last() {
-        if path_end.ident.to_string() == "unreachable_unchecked" {
+    if let Some(PathSegment {
+        ref ident,
+        arguments: _,
+    }) = path.path.segments.last()
+    {
+        if ident == "unreachable_unchecked" {
             analysis.ignore_tokens(path);
             return SubResult::Unreachable;
         }
@@ -713,7 +715,7 @@ fn visit_match(mat: &ExprMatch, ctx: &Context, analysis: &mut LineAnalysis) -> S
 fn visit_if(if_block: &ExprIf, ctx: &Context, analysis: &mut LineAnalysis) -> SubResult {
     // an if expression is unreachable iff both its branches are unreachable
     let mut reachable_arm = false;
-   
+
     process_expr(&if_block.cond, ctx, analysis);
 
     if let SubResult::Ok = visit_block(&if_block.then_branch, ctx, analysis) {
@@ -722,7 +724,7 @@ fn visit_if(if_block: &ExprIf, ctx: &Context, analysis: &mut LineAnalysis) -> Su
     if let Some((_, ref else_block)) = if_block.else_branch {
         if let SubResult::Ok = process_expr(&else_block, ctx, analysis) {
             reachable_arm = true;
-        } 
+        }
     } else {
         // an empty else branch is reachable
         reachable_arm = true;
@@ -780,7 +782,10 @@ fn get_coverable_args(args: &Punctuated<Expr, Comma>) -> HashSet<usize> {
     lines
 }
 
-fn get_line_range<T>(tokens: T) -> Range<usize> where T: ToTokens {
+fn get_line_range<T>(tokens: T) -> Range<usize>
+where
+    T: ToTokens,
+{
     let mut start = None;
     let mut end = None;
     for token in tokens.into_token_stream() {
@@ -797,7 +802,7 @@ fn get_line_range<T>(tokens: T) -> Range<usize> where T: ToTokens {
     }
     match (start, end) {
         (Some(s), Some(e)) => s..e,
-        _ => 0..0
+        _ => 0..0,
     }
 }
 
@@ -817,7 +822,11 @@ fn visit_callable(call: &ExprCall, ctx: &Context, analysis: &mut LineAnalysis) -
     SubResult::Ok
 }
 
-fn visit_methodcall(meth: &ExprMethodCall, ctx: &Context, analysis: &mut LineAnalysis) -> SubResult {
+fn visit_methodcall(
+    meth: &ExprMethodCall,
+    ctx: &Context,
+    analysis: &mut LineAnalysis,
+) -> SubResult {
     if check_attr_list(&meth.attrs, ctx, analysis) {
         let start = meth.receiver.span().start().line + 1;
         let range = get_line_range(meth);
@@ -892,10 +901,14 @@ fn visit_struct_expr(structure: &ExprStruct, analysis: &mut LineAnalysis) -> Sub
 
 fn visit_macro_call(mac: &Macro, ctx: &Context, analysis: &mut LineAnalysis) -> SubResult {
     let mut skip = false;
-    if let Some(End(ref name)) = mac.path.segments.last() {
-        let unreachable = name.ident == "unreachable";
-        let standard_ignores = name.ident == "unimplemented" || name.ident == "include" || name.ident=="cfg";
-        let ignore_panic = ctx.config.ignore_panics && name.ident == "panic";
+    if let Some(PathSegment {
+        ref ident,
+        arguments: _,
+    }) = mac.path.segments.last()
+    {
+        let unreachable = ident == "unreachable";
+        let standard_ignores = ident == "unimplemented" || ident == "include" || ident == "cfg";
+        let ignore_panic = ctx.config.ignore_panics && ident == "panic";
         if standard_ignores || ignore_panic || unreachable {
             analysis.ignore_tokens(mac);
             skip = true;
@@ -907,7 +920,7 @@ fn visit_macro_call(mac: &Macro, ctx: &Context, analysis: &mut LineAnalysis) -> 
     if !skip {
         let start = mac.span().start().line + 1;
         let range = get_line_range(mac);
-        let lines = process_mac_args(&mac.tts);
+        let lines = process_mac_args(&mac.tokens);
         let lines = (start..range.end)
             .filter(|x| !lines.contains(&x))
             .collect::<Vec<_>>();
@@ -1185,7 +1198,11 @@ mod tests {
         let mut lines = LineAnalysis::new();
         let ctx = Context {
             config: &config,
-            file_contents: "#[cfg(test)]\nmod tests {\n fn boo(){\nassert!(true);\n}\n}",
+            file_contents: "#[cfg(test)]
+                mod tests {
+                    fn boo(){
+                        assert!(true);
+                    }\n}",
             file: Path::new(""),
             ignore_mods: RefCell::new(HashSet::new()),
         };
@@ -1195,7 +1212,12 @@ mod tests {
 
         let ctx = Context {
             config: &igconfig,
-            file_contents: "#[cfg(test)]\nmod tests {\n fn boo(){\nassert!(true);\n}\n}",
+            file_contents: "#[cfg(test)]
+                mod tests {
+                    fn boo(){
+                        assert!(true);
+                    }
+                }",
             file: Path::new(""),
             ignore_mods: RefCell::new(HashSet::new()),
         };
