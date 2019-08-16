@@ -11,15 +11,9 @@ use std::collections::{HashMap, HashSet};
 use std::ffi::OsStr;
 use std::fs::File;
 use std::io::{BufRead, BufReader, Read};
-use std::path::{Path, PathBuf};
 use std::ops::Range;
-use syn::{
-    punctuated::Punctuated,
-    punctuated::Pair,
-    spanned::Spanned,
-    token::Comma,
-    *,
-};
+use std::path::{Path, PathBuf};
+use syn::{punctuated::Pair, punctuated::Punctuated, spanned::Spanned, token::Comma, *};
 use walkdir::{DirEntry, WalkDir};
 
 #[derive(Copy, Clone, Debug, Eq, PartialEq, Hash)]
@@ -79,7 +73,10 @@ impl LineAnalysis {
         self.ignore.insert(Lines::All);
     }
 
-    pub fn ignore_tokens<T>(&mut self, tokens: T) where T: ToTokens {
+    pub fn ignore_tokens<T>(&mut self, tokens: T)
+    where
+        T: ToTokens,
+    {
         for token in tokens.into_token_stream() {
             self.ignore_span(token.span());
         }
@@ -212,18 +209,21 @@ pub fn get_line_analysis(project: &Workspace, config: &Config) -> HashMap<PathBu
 pub fn debug_printout(result: &HashMap<PathBuf, LineAnalysis>, config: &Config) {
     if config.debug {
         for (ref path, ref analysis) in result {
-            trace!("Source analysis for {}", config.strip_project_path(path).display());
+            trace!(
+                "Source analysis for {}",
+                config.strip_project_path(path).display()
+            );
             let mut lines = Vec::new();
-            for l in &analysis.ignore { 
+            for l in &analysis.ignore {
                 match l {
                     Lines::All => {
                         lines.clear();
                         trace!("All lines are ignorable");
                         break;
-                    },
+                    }
                     Lines::Line(i) => {
                         lines.push(i);
-                    },
+                    }
                 }
             }
             if !lines.is_empty() {
@@ -231,7 +231,7 @@ pub fn debug_printout(result: &HashMap<PathBuf, LineAnalysis>, config: &Config) 
                 trace!("Ignorable lines: {:?}", lines);
                 lines.clear()
             }
-            for c in &analysis.cover { 
+            for c in &analysis.cover {
                 lines.push(c);
             }
 
@@ -552,7 +552,8 @@ fn visit_trait(trait_item: &ItemTrait, analysis: &mut LineAnalysis, ctx: &Contex
             if let TraitItem::Method(ref i) = *item {
                 if check_attr_list(&i.attrs, ctx, analysis) {
                     if let Some(ref block) = i.default {
-                        analysis.cover_token_stream(item.into_token_stream(), Some(ctx.file_contents));
+                        analysis
+                            .cover_token_stream(item.into_token_stream(), Some(ctx.file_contents));
                         visit_generics(&i.sig.generics, analysis);
                         analysis
                             .ignore
@@ -648,7 +649,11 @@ fn process_expr(expr: &Expr, ctx: &Context, analysis: &mut LineAnalysis) -> SubR
 }
 
 fn visit_path(path: &ExprPath, analysis: &mut LineAnalysis) -> SubResult {
-    if let Some(PathSegment{ref ident, arguments: _}) = path.path.segments.last() {
+    if let Some(PathSegment {
+        ref ident,
+        arguments: _,
+    }) = path.path.segments.last()
+    {
         if ident == "unreachable_unchecked" {
             analysis.ignore_tokens(path);
             return SubResult::Unreachable;
@@ -713,7 +718,7 @@ fn visit_match(mat: &ExprMatch, ctx: &Context, analysis: &mut LineAnalysis) -> S
 fn visit_if(if_block: &ExprIf, ctx: &Context, analysis: &mut LineAnalysis) -> SubResult {
     // an if expression is unreachable iff both its branches are unreachable
     let mut reachable_arm = false;
-   
+
     process_expr(&if_block.cond, ctx, analysis);
 
     if let SubResult::Ok = visit_block(&if_block.then_branch, ctx, analysis) {
@@ -722,7 +727,7 @@ fn visit_if(if_block: &ExprIf, ctx: &Context, analysis: &mut LineAnalysis) -> Su
     if let Some((_, ref else_block)) = if_block.else_branch {
         if let SubResult::Ok = process_expr(&else_block, ctx, analysis) {
             reachable_arm = true;
-        } 
+        }
     } else {
         // an empty else branch is reachable
         reachable_arm = true;
@@ -780,7 +785,10 @@ fn get_coverable_args(args: &Punctuated<Expr, Comma>) -> HashSet<usize> {
     lines
 }
 
-fn get_line_range<T>(tokens: T) -> Range<usize> where T: ToTokens {
+fn get_line_range<T>(tokens: T) -> Range<usize>
+where
+    T: ToTokens,
+{
     let mut start = None;
     let mut end = None;
     for token in tokens.into_token_stream() {
@@ -797,7 +805,7 @@ fn get_line_range<T>(tokens: T) -> Range<usize> where T: ToTokens {
     }
     match (start, end) {
         (Some(s), Some(e)) => s..e,
-        _ => 0..0
+        _ => 0..0,
     }
 }
 
@@ -817,7 +825,11 @@ fn visit_callable(call: &ExprCall, ctx: &Context, analysis: &mut LineAnalysis) -
     SubResult::Ok
 }
 
-fn visit_methodcall(meth: &ExprMethodCall, ctx: &Context, analysis: &mut LineAnalysis) -> SubResult {
+fn visit_methodcall(
+    meth: &ExprMethodCall,
+    ctx: &Context,
+    analysis: &mut LineAnalysis,
+) -> SubResult {
     if check_attr_list(&meth.attrs, ctx, analysis) {
         let start = meth.receiver.span().start().line + 1;
         let range = get_line_range(meth);
@@ -892,9 +904,13 @@ fn visit_struct_expr(structure: &ExprStruct, analysis: &mut LineAnalysis) -> Sub
 
 fn visit_macro_call(mac: &Macro, ctx: &Context, analysis: &mut LineAnalysis) -> SubResult {
     let mut skip = false;
-    if let Some(PathSegment{ref ident, arguments: _}) = mac.path.segments.last() {
+    if let Some(PathSegment {
+        ref ident,
+        arguments: _,
+    }) = mac.path.segments.last()
+    {
         let unreachable = ident == "unreachable";
-        let standard_ignores = ident == "unimplemented" || ident == "include" || ident=="cfg";
+        let standard_ignores = ident == "unimplemented" || ident == "include" || ident == "cfg";
         let ignore_panic = ctx.config.ignore_panics && ident == "panic";
         if standard_ignores || ignore_panic || unreachable {
             analysis.ignore_tokens(mac);
@@ -1185,7 +1201,11 @@ mod tests {
         let mut lines = LineAnalysis::new();
         let ctx = Context {
             config: &config,
-            file_contents: "#[cfg(test)]\nmod tests {\n fn boo(){\nassert!(true);\n}\n}",
+            file_contents: "#[cfg(test)]
+                mod tests {
+                    fn boo(){
+                        assert!(true);
+                    }\n}",
             file: Path::new(""),
             ignore_mods: RefCell::new(HashSet::new()),
         };
@@ -1195,7 +1215,12 @@ mod tests {
 
         let ctx = Context {
             config: &igconfig,
-            file_contents: "#[cfg(test)]\nmod tests {\n fn boo(){\nassert!(true);\n}\n}",
+            file_contents: "#[cfg(test)]
+                mod tests {
+                    fn boo(){
+                        assert!(true);
+                    }
+                }",
             file: Path::new(""),
             ignore_mods: RefCell::new(HashSet::new()),
         };
