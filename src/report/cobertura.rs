@@ -294,9 +294,7 @@ impl Report {
 }
 
 fn render_sources(config: &Config) -> Vec<PathBuf> {
-    let render_source = |&x| Path::to_path_buf(x);
-
-    config.manifest.parent().iter().map(render_source).collect()
+    vec![config.get_base_dir()]
 }
 
 #[derive(Debug)]
@@ -323,18 +321,14 @@ fn render_packages(config: &Config, traces: &TraceMap) -> Vec<Package> {
 }
 
 fn render_package(config: &Config, traces: &TraceMap, pkg: &Path) -> Package {
-    let root = config.manifest.parent().unwrap_or(&config.manifest);
-    let name = pkg
-        .strip_prefix(root)
-        .map(|x| Path::to_str(x))
-        .unwrap_or_default()
-        .unwrap_or_default();
+    let name = config.strip_base_dir(pkg)
+        .to_str().unwrap().to_string();
 
     let line_cover = traces.covered_in_path(pkg) as f64;
     let line_rate = line_cover / (traces.coverable_in_path(pkg) as f64);
 
     Package {
-        name: name.to_string(),
+        name: name,
         line_rate: line_rate,
         branch_rate: 0.0,
         complexity: 0.0,
@@ -371,19 +365,14 @@ fn render_classes(config: &Config, traces: &TraceMap, pkg: &Path) -> Vec<Class> 
 // cannot be properly implemented.
 //
 fn render_class(config: &Config, traces: &TraceMap, file: &Path) -> Class {
-    let root = config.manifest.parent().unwrap_or(&config.manifest);
     let name = file
         .file_stem()
         .map(|x| x.to_str().unwrap())
         .unwrap_or_default()
         .to_string();
 
-    let file_name = file
-        .strip_prefix(root)
-        .unwrap_or(file)
-        .to_str()
-        .unwrap()
-        .to_string();
+    let file_name = config.strip_base_dir(file)
+        .to_str().unwrap().to_string();
 
     let covered = traces.covered_in_path(file) as f64;
     let line_rate = covered / traces.coverable_in_path(file) as f64;

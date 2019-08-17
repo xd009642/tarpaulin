@@ -284,7 +284,7 @@ pub fn report_coverage(config: &Config, result: &TraceMap) -> Result<(), RunErro
         if config.verbose {
             println!("|| Uncovered Lines:");
             for (ref key, ref value) in result.iter() {
-                let path = config.strip_project_path(key);
+                let path = config.strip_base_dir(key);
                 let mut uncovered_lines = vec![];
                 for v in value.iter() {
                     match v.stats {
@@ -306,7 +306,7 @@ pub fn report_coverage(config: &Config, result: &TraceMap) -> Result<(), RunErro
         }
         println!("|| Tested/Total Lines:");
         for file in result.files() {
-            let path = config.strip_project_path(file);
+            let path = config.strip_base_dir(file);
             println!(
                 "|| {}: {}/{}",
                 path.display(),
