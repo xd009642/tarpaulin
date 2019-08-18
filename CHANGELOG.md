@@ -6,8 +6,11 @@ file.
 ## [Unreleased]
 ### Added
 - Created `CHANGELOG.md`
+- Add --manifest-path option
 
 ### Changed
+- Ignore lines containing "}else{"
+- Use relative file paths to base_dir (env::current_dir() or --root option if set)
 
 ### Removed
 
