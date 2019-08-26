@@ -209,10 +209,7 @@ pub fn get_line_analysis(project: &Workspace, config: &Config) -> HashMap<PathBu
 pub fn debug_printout(result: &HashMap<PathBuf, LineAnalysis>, config: &Config) {
     if config.debug {
         for (ref path, ref analysis) in result {
-            trace!(
-                "Source analysis for {}",
-                config.strip_project_path(path).display()
-            );
+            trace!("Source analysis for {}", config.strip_base_dir(path).display());
             let mut lines = Vec::new();
             for l in &analysis.ignore {
                 match l {
@@ -338,6 +335,18 @@ fn find_ignorable_lines(content: &str, analysis: &mut LineAnalysis) {
         .lines()
         .enumerate()
         .filter(|&(_, x)| !x.chars().any(|x| !"(){}[]?;\t ,".contains(x)))
+        .map(|(i, _)| i + 1)
+        .collect::<Vec<usize>>();
+    analysis.add_to_ignore(&lines);
+
+    let lines = content
+        .lines()
+        .enumerate()
+        .filter(|&(_, x)| {
+            let mut x = x.to_string();
+            x.retain(|c| !c.is_whitespace());
+            x == "}else{"
+        })
         .map(|(i, _)| i + 1)
         .collect::<Vec<usize>>();
     analysis.add_to_ignore(&lines);

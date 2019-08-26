@@ -84,7 +84,7 @@ pub fn export(coverage_data: &TraceMap, config: &Config) -> Result<(), RunError>
 
         let mut report = CoverallsReport::new(id);
         for file in &coverage_data.files() {
-            let rel_path = config.strip_project_path(file);
+            let rel_path = config.strip_base_dir(file);
             let mut lines: HashMap<usize, usize> = HashMap::new();
             let fcov = coverage_data.get_child_traces(file);
 

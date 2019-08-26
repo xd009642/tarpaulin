@@ -275,7 +275,7 @@ fn get_line_addresses(
                 let mut tracemap = TraceMap::new();
                 for (k, val) in &temp_map {
                     for v in val.iter() {
-                        let rpath = config.strip_project_path(&k.path);
+                        let rpath = config.strip_base_dir(&k.path);
                         match v.address {
                             Some(ref a) => trace!(
                                 "Adding trace at address 0x{:x} in {}:{}",
@@ -313,7 +313,7 @@ fn get_line_addresses(
             let line = *line as u64;
             if !result.contains_location(file, line) && !line_analysis.should_ignore(line as usize)
             {
-                let rpath = config.strip_project_path(file);
+                let rpath = config.strip_base_dir(file);
                 trace!(
                     "Adding trace for potentially uncoverable line in {}:{}",
                     rpath.display(),
