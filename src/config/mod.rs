@@ -42,6 +42,8 @@ pub struct Config {
     pub branch_coverage: bool,
     /// Output files to generate
     pub generate: Vec<OutputFile>,
+    /// Directory to write output files
+    pub output_directory: PathBuf,
     /// Key relating to coveralls service or repo
     pub coveralls: Option<String>,
     /// Enum representing CI tool used.
@@ -91,6 +93,7 @@ impl Default for Config {
             line_coverage: true,
             branch_coverage: false,
             generate: vec![],
+            output_directory: Default::default(),
             coveralls: None,
             ci_tool: None,
             report_uri: None,
@@ -127,6 +130,7 @@ impl<'a> From<&'a ArgMatches<'a>> for Config {
             line_coverage: get_line_cov(args),
             branch_coverage: get_branch_cov(args),
             generate: get_outputs(args),
+            output_directory: get_output_directory(args),
             coveralls: get_coveralls(args),
             ci_tool: get_ci(args),
             report_uri: get_report_uri(args),
@@ -186,6 +190,10 @@ impl Config {
         .unwrap_or_else(|| path.to_path_buf())
     }
 
+    #[inline]
+    pub fn is_default_output_dir(&self) -> bool {
+        self.output_directory == env::current_dir().unwrap()
+    }
 }
 
 /// Gets the relative path from one directory to another, if it exists.

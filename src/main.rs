@@ -80,6 +80,7 @@ fn main() -> Result<(), String> {
                 Arg::from_usage("--out -o [FMT]   'Output format of coverage report'")
                     .possible_values(&OutputFile::variants())
                     .multiple(true),
+                Arg::from_usage("--output-dir [PATH] 'Specify a custom directory to write report files'"),
                 Arg::from_usage("--run-types [TYPE] 'Type of the coverage run'")
                     .possible_values(&RunType::variants())
                     .multiple(true),

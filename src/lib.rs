@@ -16,6 +16,7 @@ use nix::unistd::*;
 use std::env;
 use std::ffi::CString;
 use std::path::{Path, PathBuf};
+use std::fs::{create_dir_all};
 use walkdir::WalkDir;
 
 pub mod breakpoint;
@@ -325,6 +326,15 @@ pub fn report_coverage(config: &Config, result: &TraceMap) -> Result<(), RunErro
         if config.is_coveralls() {
             report::coveralls::export(result, config)?;
             info!("Coverage data sent");
+        }
+
+        if !config.is_default_output_dir() {
+            if create_dir_all(&config.output_directory).is_err() {
+                return Err(RunError::OutFormat(format!(
+                    "Failed to create or locate custom output directory: {:?}",
+                    config.output_directory,
+                )));
+            }
         }
 
         for g in &config.generate {
