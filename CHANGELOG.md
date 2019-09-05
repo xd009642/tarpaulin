@@ -6,7 +6,8 @@ file.
 ## [Unreleased]
 ### Added
 - Created `CHANGELOG.md`
-- Add --manifest-path option
+- Add `--manifest-path` option
+- Add `--output-dir` option
 
 ### Changed
 - Ignore lines containing "}else{"
