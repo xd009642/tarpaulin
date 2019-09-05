@@ -345,6 +345,9 @@ pub fn report_coverage(config: &Config, result: &TraceMap) -> Result<(), RunErro
                 OutputFile::Html => {
                     report::html::export(result, config)?;
                 }
+                OutputFile::Json => {
+                    report::json::export(result, config)?;
+                }
                 _ => {
                     return Err(RunError::OutFormat(
                         "Format currently unsupported".to_string(),

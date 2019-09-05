@@ -6,6 +6,7 @@ mod safe_json;
 pub mod cobertura;
 pub mod coveralls;
 pub mod html;
+pub mod json;
 /// Trait for report formats to implement.
 /// Currently reports must be serializable using serde
 pub trait Report<Out: Serialize> {

@@ -43,6 +43,8 @@ pub enum RunError {
     Html(String),
     #[fail(display = "Failed to generate XML report! Error: {}", _0)]
     XML(cobertura::Error),
+    #[fail(display = "Failed to generate JSON report! Error: {}", _0)]
+    Json(String),
     #[fail(display = "Tarpaulin experienced an internal error")]
     Internal,
 }
