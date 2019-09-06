@@ -21,7 +21,7 @@ struct CoverageReport {
     pub files: Vec<SourceFile>,
 }
 
-pub fn export(coverage_data: &TraceMap, _config: &Config) -> Result<(), RunError> {
+pub fn export(coverage_data: &TraceMap, config: &Config) -> Result<(), RunError> {
     let mut report = CoverageReport { files: Vec::new() };
     for (path, traces) in coverage_data.iter() {
         let content = match fs::read_to_string(path) {
@@ -46,7 +46,8 @@ pub fn export(coverage_data: &TraceMap, _config: &Config) -> Result<(), RunError
         });
     }
 
-    let mut file = match fs::File::create("tarpaulin-report.json") {
+    let file_path = config.output_directory.join("tarpaulin-report.json");
+    let mut file = match fs::File::create(file_path) {
         Ok(k) => k,
         Err(e) => {
             return Err(RunError::Json(format!(
