@@ -111,7 +111,17 @@ fn main() {
 }
 ```
 
-### Travis-ci and Coverage Sites
+### Continuous Integration Services
+
+Tarpaulin aims to be easy to add to your CI workflow. With well tested support
+for Travis-CI it also supports sending CI specific meta-data to coveralls.io for
+Circle, Semaphore, Jenkins and Codeship (though only Jenkin's has been tested).
+
+You can also use Tarpaulin on Azure, check out
+[crate-ci/azure-pipelines](https://github.com/crate-ci/azure-pipelines) for an
+example config.
+
+#### Travis-ci and Coverage Sites
 
 The expected most common usecase is launching coverage via a CI service to
 upload to a site like codecov or coveralls. Given the built in support and
