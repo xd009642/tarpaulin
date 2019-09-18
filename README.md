@@ -192,9 +192,9 @@ jobs:
     machine: true
     steps:
       - checkout
-      - run
-        name: Coverage with docker
-        command: docker run --security-opt seccomp=unconfined -v "${PWD}:/volume" xd009642/tarpaulin
+      - run:
+          name: Coverage with docker
+          command: docker run --security-opt seccomp=unconfined -v "${PWD}:/volume" xd009642/tarpaulin
 ```
 
 ### Docker
