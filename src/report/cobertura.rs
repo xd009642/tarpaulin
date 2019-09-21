@@ -38,6 +38,7 @@
 ///   </packages>
 /// </coverage>
 /// ```
+use std::collections::HashSet;
 use std::error;
 use std::fmt;
 use std::fs::File;
@@ -308,13 +309,11 @@ struct Package {
 }
 
 fn render_packages(config: &Config, traces: &TraceMap) -> Vec<Package> {
-    let mut dirs: Vec<&Path> = traces
+    let dirs: HashSet<&Path> = traces
         .files()
         .into_iter()
         .filter_map(|x| x.parent())
         .collect();
-
-    dirs.dedup();
 
     dirs.into_iter()
         .map(|x| render_package(config, traces, x))
