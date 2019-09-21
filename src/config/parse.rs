@@ -26,6 +26,10 @@ pub(super) fn get_branch_cov(args: &ArgMatches) -> bool {
 }
 
 pub(super) fn get_manifest(args: &ArgMatches) -> PathBuf {
+    if let Some(path) = args.value_of("manifest-path") {
+        return PathBuf::from(path);
+    }
+
     let mut manifest = env::current_dir().unwrap();
 
     if let Some(path) = args.value_of("root") {
@@ -34,6 +38,10 @@ pub(super) fn get_manifest(args: &ArgMatches) -> PathBuf {
 
     manifest.push("Cargo.toml");
     manifest.canonicalize().unwrap_or(manifest)
+}
+
+pub(super) fn get_root(args: &ArgMatches) -> Option<String> {
+    args.value_of("root").map(ToString::to_string)
 }
 
 pub(super) fn get_ci(args: &ArgMatches) -> Option<CiService> {
@@ -50,6 +58,13 @@ pub(super) fn get_report_uri(args: &ArgMatches) -> Option<String> {
 
 pub(super) fn get_outputs(args: &ArgMatches) -> Vec<OutputFile> {
     values_t!(args.values_of("out"), OutputFile).unwrap_or(vec![])
+}
+
+pub(super) fn get_output_directory(args: &ArgMatches) -> PathBuf {
+    if let Some(path) = args.value_of("output-dir") {
+        return PathBuf::from(path);
+    }
+    env::current_dir().unwrap()
 }
 
 pub(super) fn get_run_types(args: &ArgMatches) -> Vec<RunType> {

@@ -2,6 +2,7 @@ pub use self::types::*;
 
 use std::path::{Path, PathBuf};
 use std::time::Duration;
+use std::env;
 
 use clap::ArgMatches;
 use coveralls_api::CiService;
@@ -17,6 +18,8 @@ mod types;
 pub struct Config {
     /// Path to the projects cargo manifest
     pub manifest: PathBuf,
+    /// Path to the projects cargo manifest
+    pub root: Option<String>,
     /// Types of tests for tarpaulin to collect coverage on
     pub run_types: Vec<RunType>,
     /// Flag to also run tests with the ignored attribute
@@ -39,6 +42,8 @@ pub struct Config {
     pub branch_coverage: bool,
     /// Output files to generate
     pub generate: Vec<OutputFile>,
+    /// Directory to write output files
+    pub output_directory: PathBuf,
     /// Key relating to coveralls service or repo
     pub coveralls: Option<String>,
     /// Enum representing CI tool used.
@@ -77,6 +82,7 @@ impl Default for Config {
         Config {
             run_types: vec![RunType::Tests],
             manifest: Default::default(),
+            root: Default::default(),
             run_ignored: false,
             ignore_tests: false,
             ignore_panics: false,
@@ -87,6 +93,7 @@ impl Default for Config {
             line_coverage: true,
             branch_coverage: false,
             generate: vec![],
+            output_directory: Default::default(),
             coveralls: None,
             ci_tool: None,
             report_uri: None,
@@ -111,6 +118,7 @@ impl<'a> From<&'a ArgMatches<'a>> for Config {
         let verbose = args.is_present("verbose") || debug;
         Config {
             manifest: get_manifest(args),
+            root: get_root(args),
             run_types: get_run_types(args),
             run_ignored: args.is_present("ignored"),
             ignore_tests: args.is_present("ignore-tests"),
@@ -122,6 +130,7 @@ impl<'a> From<&'a ArgMatches<'a>> for Config {
             line_coverage: get_line_cov(args),
             branch_coverage: get_branch_cov(args),
             generate: get_outputs(args),
+            output_directory: get_output_directory(args),
             coveralls: get_coveralls(args),
             ci_tool: get_ci(args),
             report_uri: get_report_uri(args),
@@ -148,22 +157,42 @@ impl Config {
 
     #[inline]
     pub fn exclude_path(&self, path: &Path) -> bool {
-        let project = self.strip_project_path(path);
+        let project = self.strip_base_dir(path);
 
         self.excluded_files
             .iter()
             .any(|x| x.is_match(project.to_str().unwrap_or("")))
     }
 
-    /// Strips the directory the project manifest is in from the path.
-    /// Provides a nicer path for printing to the user.
+    ///
+    /// returns the relative path from the base_dir
+    /// uses root if set, else env::current_dir()
     ///
     #[inline]
-    pub fn strip_project_path(&self, path: &Path) -> PathBuf {
-        self.manifest
-            .parent()
-            .and_then(|x| path_relative_from(path, x))
-            .unwrap_or_else(|| path.to_path_buf())
+    pub fn get_base_dir(&self) -> PathBuf {
+        if let Some(root) = &self.root {
+            if Path::new(root).is_absolute() {
+                PathBuf::from(root)
+            }else{
+                let base_dir = env::current_dir().unwrap();
+                base_dir.join(root).canonicalize().unwrap()
+            }
+        }else{
+            env::current_dir().unwrap()
+        }
+    }
+
+    /// returns the relative path from the base_dir
+    ///
+    #[inline]
+    pub fn strip_base_dir(&self, path: &Path) -> PathBuf {
+        path_relative_from(path, &self.get_base_dir())
+        .unwrap_or_else(|| path.to_path_buf())
+    }
+
+    #[inline]
+    pub fn is_default_output_dir(&self) -> bool {
+        self.output_directory == env::current_dir().unwrap()
     }
 }
 

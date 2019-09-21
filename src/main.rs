@@ -80,11 +80,13 @@ fn main() -> Result<(), String> {
                 Arg::from_usage("--out -o [FMT]   'Output format of coverage report'")
                     .possible_values(&OutputFile::variants())
                     .multiple(true),
+                Arg::from_usage("--output-dir [PATH] 'Specify a custom directory to write report files'"),
                 Arg::from_usage("--run-types [TYPE] 'Type of the coverage run'")
                     .possible_values(&RunType::variants())
                     .multiple(true),
-                Arg::from_usage("--root -r [DIR]  'Root directory containing Cargo.toml to use'")
+                Arg::from_usage("--root -r [DIR]  'Calculates relative paths to root directory. If --manifest-path isn't specified it will look for a Cargo.toml in root'")
                     .validator(is_dir),
+                Arg::from_usage("--manifest-path [PATH] 'Path to Cargo.toml'"),
                 Arg::from_usage("--ciserver [SERVICE] 'CI server being used, if unspecified tarpaulin may automatically infer for coveralls uploads'")
                     .help(CI_SERVER_HELP),
                 Arg::with_name("args")

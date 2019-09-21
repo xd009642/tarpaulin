@@ -84,7 +84,7 @@ pub fn export(coverage_data: &TraceMap, config: &Config) -> Result<(), RunError>
 
         let mut report = CoverallsReport::new(id);
         for file in &coverage_data.files() {
-            let rel_path = config.strip_project_path(file);
+            let rel_path = config.strip_base_dir(file);
             let mut lines: HashMap<usize, usize> = HashMap::new();
             let fcov = coverage_data.get_child_traces(file);
 
@@ -124,7 +124,8 @@ pub fn export(coverage_data: &TraceMap, config: &Config) -> Result<(), RunError>
         if config.debug {
             if let Ok(text) = serde_json::to_string(&report) {
                 info!("Attempting to write coveralls report to coveralls.json");
-                let _ = fs::write("coveralls.json", text);
+                let file_path = config.output_directory.join("coveralls.json");
+                let _ = fs::write(file_path, text);
             } else {
                 warn!("Failed to serialise coverage report");
             }
