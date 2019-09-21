@@ -5,6 +5,13 @@ file.
 
 ## [Unreleased]
 ### Added
+
+### Changed
+
+### Removed
+
+## [0.8.7] 2019-09-21
+### Added
 - Created `CHANGELOG.md`
 - Add `--manifest-path` option
 - Add `--output-dir` option
@@ -12,6 +19,7 @@ file.
 ### Changed
 - Ignore lines containing "}else{"
 - Use relative file paths to base_dir (env::current_dir() or --root option if set)
+- Use `HashSet` for XML package deduplication in cobertura fixing a codecov rendering issue
 
 ### Removed
 
