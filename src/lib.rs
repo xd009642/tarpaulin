@@ -18,6 +18,8 @@ use std::ffi::CString;
 use std::path::{Path, PathBuf};
 use std::fs::{create_dir_all};
 use walkdir::WalkDir;
+use once_cell::sync::OnceCell;
+use std::{ptr, mem};
 
 pub mod breakpoint;
 pub mod config;
@@ -249,6 +251,30 @@ fn setup_environment(config: &Config) {
         }
     }
     env::set_var(rustdoc, value);
+    create_signal_stack();
+}
+
+fn create_signal_stack() {
+    static SIGALTSTACK_DISABLE : OnceCell<()> = OnceCell::new();
+    SIGALTSTACK_DISABLE.get_or_init(|| unsafe {
+        let mut stack = mem::zeroed();
+        libc::sigaltstack(ptr::null(), &mut stack);
+        let size = 1<<20;
+        if stack.ss_size >= size {
+            return;
+        }
+        let ss_sp = libc::mmap(ptr::null_mut(), size, libc::PROT_READ | libc::PROT_WRITE,
+        libc::MAP_PRIVATE | libc::MAP_ANON, -1, 0);
+        if ss_sp == libc::MAP_FAILED {
+            panic!("Failed to allocate alternative signal stack");
+        }
+        let new_stack = libc::stack_t {
+            ss_sp,
+            ss_flags: 0,
+            ss_size: size,
+        };
+        libc::sigaltstack(&new_stack, ptr::null_mut());
+    });
 }
 
 fn accumulate_lines(
