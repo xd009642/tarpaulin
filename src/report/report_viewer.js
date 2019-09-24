@@ -25,7 +25,7 @@ function findCommonPath(files) {
     return true;
   }
 
-  let commonPath = [...files[0].path];
+  let commonPath = files[0].path.slice(0, -1);
   while (commonPath.length) {
     if (files.every(file => isPrefix(file.path, commonPath))) {
       break;
@@ -51,7 +51,7 @@ function findFolders(files) {
         ...file,
         path: file.path.slice(1),
         parent: [...file.parent, file.path[0]],
-    }));
+      }));
 
     const children = findFolders(filesInFolder); // recursion
 
@@ -75,38 +75,48 @@ class App extends React.Component {
   constructor(...args) {
     super(...args);
 
-    const commonPath = findCommonPath(data.files);
-    const files = data.files.map(file => ({...file, path: file.path.slice(commonPath.length), parent: commonPath}));
-    const children = findFolders(files);
-
-    data = {
-      is_folder: true,
-      children,
-      path: commonPath,
-      parent: [],
-      covered: children.reduce((sum, file) => sum + file.covered, 0),
-      coverable: children.reduce((sum, file) => sum + file.coverable, 0),
-    };
-
     this.state = {
-      commonPath,
-      current: [data],
+      current: [],
     };
   }
 
-  render() {
-    const {current} = this.state;
-    if (!current || !current.length) {
-      return null;
+  componentDidMount() {
+    this.updateStateFromLocation();
+    window.addEventListener("hashchange", () => this.updateStateFromLocation(), false);
+  }
+
+  updateStateFromLocation() {
+    if (window.location.hash.length > 1) {
+      const current = window.location.hash.substr(1).split('/');
+      this.setState({current});
+    } else {
+      this.setState({current: []});
     }
-    const file = current[current.length - 1];
+  }
+
+  getCurrentPath() {
+    let file = this.props.root;
+    let path = [file];
+    for (let p of this.state.current) {
+      file = file.children.find(file => file.path[0] === p);
+      if (!file) {
+        return path;
+      }
+      path.push(file);
+    }
+    return path;
+  }
+
+  render() {
+    const path = this.getCurrentPath();
+    const file = path[path.length - 1];
 
     let w = null;
     if (file.is_folder) {
       w = e(FilesList, {
         folder: file,
         onSelectFile: this.selectFile.bind(this),
-        onBack: current.length > 1 ? this.back.bind(this) : null,
+        onBack: path.length > 1 ? this.back.bind(this) : null,
       });
     } else {
       w = e(DisplayFile, {
@@ -120,14 +130,22 @@ class App extends React.Component {
 
   selectFile(file) {
     this.setState(({current}) => {
-      return {current: [...current, file]};
-    });
+      return {current: [...current, file.path[0]]};
+    }, () => this.updateHash());
   }
 
   back(file) {
     this.setState(({current}) => {
       return {current: current.slice(0, current.length - 1)};
-    });
+    }, () => this.updateHash());
+  }
+
+  updateHash() {
+    if (!this.state.current || !this.state.current.length) {
+      window.location = '#';
+    } else {
+      window.location = '#' + this.state.current.join('/');
+    }
   }
 }
 
@@ -202,4 +220,19 @@ function FileContent({file}) {
   );
 }
 
-ReactDOM.render(e(App), document.getElementById('root'));
+(function(){
+  const commonPath = findCommonPath(data.files);
+  const files = data.files.map(file => ({...file, path: file.path.slice(commonPath.length), parent: commonPath}));
+  const children = findFolders(files);
+
+  const root = {
+    is_folder: true,
+    children,
+    path: commonPath,
+    parent: [],
+    covered: children.reduce((sum, file) => sum + file.covered, 0),
+    coverable: children.reduce((sum, file) => sum + file.coverable, 0),
+  };
+
+  ReactDOM.render(e(App, {root}), document.getElementById('root'));
+}());

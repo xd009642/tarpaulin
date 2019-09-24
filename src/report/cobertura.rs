@@ -38,6 +38,7 @@
 ///   </packages>
 /// </coverage>
 /// ```
+use std::collections::HashSet;
 use std::error;
 use std::fmt;
 use std::fs::File;
@@ -76,7 +77,7 @@ impl error::Error for Error {
     }
 
     #[inline]
-    fn cause(&self) -> Option<&error::Error> {
+    fn cause(&self) -> Option<&dyn error::Error> {
         None
     }
 }
@@ -131,8 +132,9 @@ impl Report {
         })
     }
 
-    pub fn export(&self, _config: &Config) -> Result<(), Error> {
-        let mut file = File::create("cobertura.xml")
+    pub fn export(&self, config: &Config) -> Result<(), Error> {
+        let file_path = config.output_directory.join("cobertura.xml");
+        let mut file = File::create(file_path)
             .map_err(|e| Error::ExportError(quick_xml::Error::Io(e)))?;
 
         let mut writer = Writer::new(Cursor::new(vec![]));
@@ -212,6 +214,7 @@ impl Report {
         // Export the package
         for package in &self.packages {
             let mut pack = BytesStart::borrowed(pack_tag, pack_tag.len());
+            pack.push_attribute(("name", package.name.as_str()));
             pack.push_attribute(("line-rate", package.line_rate.to_string().as_ref()));
             pack.push_attribute(("branch-rate", package.branch_rate.to_string().as_ref()));
             pack.push_attribute(("complexity", package.complexity.to_string().as_ref()));
@@ -293,9 +296,7 @@ impl Report {
 }
 
 fn render_sources(config: &Config) -> Vec<PathBuf> {
-    let render_source = |&x| Path::to_path_buf(x);
-
-    config.manifest.parent().iter().map(render_source).collect()
+    vec![config.get_base_dir()]
 }
 
 #[derive(Debug)]
@@ -308,13 +309,11 @@ struct Package {
 }
 
 fn render_packages(config: &Config, traces: &TraceMap) -> Vec<Package> {
-    let mut dirs: Vec<&Path> = traces
+    let dirs: HashSet<&Path> = traces
         .files()
         .into_iter()
         .filter_map(|x| x.parent())
         .collect();
-
-    dirs.dedup();
 
     dirs.into_iter()
         .map(|x| render_package(config, traces, x))
@@ -322,18 +321,14 @@ fn render_packages(config: &Config, traces: &TraceMap) -> Vec<Package> {
 }
 
 fn render_package(config: &Config, traces: &TraceMap, pkg: &Path) -> Package {
-    let root = config.manifest.parent().unwrap_or(&config.manifest);
-    let name = pkg
-        .strip_prefix(root)
-        .map(|x| Path::to_str(x))
-        .unwrap_or_default()
-        .unwrap_or_default();
+    let name = config.strip_base_dir(pkg)
+        .to_str().unwrap().to_string();
 
     let line_cover = traces.covered_in_path(pkg) as f64;
     let line_rate = line_cover / (traces.coverable_in_path(pkg) as f64);
 
     Package {
-        name: name.to_string(),
+        name: name,
         line_rate: line_rate,
         branch_rate: 0.0,
         complexity: 0.0,
@@ -370,19 +365,14 @@ fn render_classes(config: &Config, traces: &TraceMap, pkg: &Path) -> Vec<Class> 
 // cannot be properly implemented.
 //
 fn render_class(config: &Config, traces: &TraceMap, file: &Path) -> Class {
-    let root = config.manifest.parent().unwrap_or(&config.manifest);
     let name = file
         .file_stem()
         .map(|x| x.to_str().unwrap())
         .unwrap_or_default()
         .to_string();
 
-    let file_name = file
-        .strip_prefix(root)
-        .unwrap_or(file)
-        .to_str()
-        .unwrap()
-        .to_string();
+    let file_name = config.strip_base_dir(file)
+        .to_str().unwrap().to_string();
 
     let covered = traces.covered_in_path(file) as f64;
     let line_rate = covered / traces.coverable_in_path(file) as f64;

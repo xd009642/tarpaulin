@@ -7,7 +7,8 @@ use crate::traces::*;
 use cargo::core::{compiler::CompileMode, Package, Shell, Workspace};
 use cargo::ops;
 use cargo::ops::{
-    clean, compile, CleanOptions, CompileFilter, CompileOptions, Packages, TestOptions,
+    clean, compile, CleanOptions, CompileFilter, CompileOptions, FilterRule,
+    LibRule, Packages, TestOptions,
 };
 use cargo::util::{homedir, Config as CargoConfig};
 use log::{debug, info, trace, warn};
@@ -15,7 +16,10 @@ use nix::unistd::*;
 use std::env;
 use std::ffi::CString;
 use std::path::{Path, PathBuf};
+use std::fs::{create_dir_all};
 use walkdir::WalkDir;
+use once_cell::sync::OnceCell;
+use std::{ptr, mem};
 
 pub mod breakpoint;
 pub mod config;
@@ -61,7 +65,7 @@ pub fn launch_tarpaulin(config: &Config) -> Result<(TraceMap, i32), RunError> {
     let flag_quiet = if config.verbose { None } else { Some(true) };
 
     // This shouldn't fail so no checking the error.
-    let _ = cargo_config.configure(0u32, flag_quiet, &None, false, false, &None, &[]);
+    let _ = cargo_config.configure(0u32, flag_quiet, &None, false, false, false, &None, &[]);
 
     let workspace = Workspace::new(config.manifest.as_path(), &cargo_config)
         .map_err(|e| RunError::Manifest(e.to_string()))?;
@@ -111,7 +115,7 @@ fn run_tests(
     let compilation = compile(&workspace, &compile_options);
     match compilation {
         Ok(comp) => {
-            for &(ref package, _, ref name, ref path) in &comp.tests {
+            for &(ref package, ref name, ref path) in &comp.tests {
                 debug!("Processing {}", name);
                 if let Some(res) =
                     get_test_coverage(&workspace, Some(package), path.as_path(), config, false)?
@@ -198,16 +202,11 @@ fn get_compile_options<'a>(
             }
         } else if run_type == &RunType::Doctests {
             copt.filter = CompileFilter::new(
-                true,
-                vec![],
-                false,
-                vec![],
-                false,
-                vec![],
-                false,
-                vec![],
-                false,
-                false,
+                LibRule::True,
+                FilterRule::Just(vec![]),
+                FilterRule::Just(vec![]),
+                FilterRule::Just(vec![]),
+                FilterRule::Just(vec![]),
             );
         }
 
@@ -247,9 +246,35 @@ fn setup_environment(config: &Config) {
         common_opts, DOCTEST_FOLDER
     );
     if let Ok(vtemp) = env::var(rustdoc) {
-        value.push_str(vtemp.as_ref());
+        if !vtemp.contains("--persist-doctests") {
+            value.push_str(vtemp.as_ref());
+        }
     }
     env::set_var(rustdoc, value);
+    create_signal_stack();
+}
+
+fn create_signal_stack() {
+    static SIGALTSTACK_DISABLE : OnceCell<()> = OnceCell::new();
+    SIGALTSTACK_DISABLE.get_or_init(|| unsafe {
+        let mut stack = mem::zeroed();
+        libc::sigaltstack(ptr::null(), &mut stack);
+        let size = 1<<20;
+        if stack.ss_size >= size {
+            return;
+        }
+        let ss_sp = libc::mmap(ptr::null_mut(), size, libc::PROT_READ | libc::PROT_WRITE,
+        libc::MAP_PRIVATE | libc::MAP_ANON, -1, 0);
+        if ss_sp == libc::MAP_FAILED {
+            panic!("Failed to allocate alternative signal stack");
+        }
+        let new_stack = libc::stack_t {
+            ss_sp,
+            ss_flags: 0,
+            ss_size: size,
+        };
+        libc::sigaltstack(&new_stack, ptr::null_mut());
+    });
 }
 
 fn accumulate_lines(
@@ -286,7 +311,7 @@ pub fn report_coverage(config: &Config, result: &TraceMap) -> Result<(), RunErro
         if config.verbose {
             println!("|| Uncovered Lines:");
             for (ref key, ref value) in result.iter() {
-                let path = config.strip_project_path(key);
+                let path = config.strip_base_dir(key);
                 let mut uncovered_lines = vec![];
                 for v in value.iter() {
                     match v.stats {
@@ -308,7 +333,7 @@ pub fn report_coverage(config: &Config, result: &TraceMap) -> Result<(), RunErro
         }
         println!("|| Tested/Total Lines:");
         for file in result.files() {
-            let path = config.strip_project_path(file);
+            let path = config.strip_base_dir(file);
             println!(
                 "|| {}: {}/{}",
                 path.display(),
@@ -327,6 +352,15 @@ pub fn report_coverage(config: &Config, result: &TraceMap) -> Result<(), RunErro
         if config.is_coveralls() {
             report::coveralls::export(result, config)?;
             info!("Coverage data sent");
+        }
+
+        if !config.is_default_output_dir() {
+            if create_dir_all(&config.output_directory).is_err() {
+                return Err(RunError::OutFormat(format!(
+                    "Failed to create or locate custom output directory: {:?}",
+                    config.output_directory,
+                )));
+            }
         }
 
         for g in &config.generate {
