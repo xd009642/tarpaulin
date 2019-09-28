@@ -7,6 +7,7 @@ file.
 ### Added
 
 ### Changed
+- Updated phrasing of error messages on invalid `--out` and `--output-dir` command line options
 
 ### Removed
 
