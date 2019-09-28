@@ -7,6 +7,8 @@ file.
 ### Added
 
 ### Changed
+- Replaced error printout in statemachine with `log::error`
+- Check callable arg count to prevent removing callables with no return from coverable lines
 
 ### Removed
 

@@ -4,6 +4,7 @@ use crate::errors::RunError;
 use crate::ptrace_control::*;
 use crate::traces::*;
 use std::time::Instant;
+use log::error;
 
 #[cfg(target_os = "linux")]
 pub mod linux;
@@ -147,7 +148,7 @@ impl TestState {
             _ => {
                 // Unhandled
                 if config.verbose {
-                    println!("Tarpaulin error: unhandled test state");
+                    error!("Tarpaulin error: unhandled test state");
                 }
                 Ok(TestState::End(-1))
             }

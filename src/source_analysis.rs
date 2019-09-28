@@ -817,12 +817,13 @@ where
 
 fn visit_callable(call: &ExprCall, ctx: &Context, analysis: &mut LineAnalysis) -> SubResult {
     if check_attr_list(&call.attrs, ctx, analysis) {
-        let lines = get_coverable_args(&call.args);
-        let lines = get_line_range(call)
-            .filter(|x| !lines.contains(&x))
-            .collect::<Vec<_>>();
-        analysis.add_to_ignore(&lines);
-
+        if !call.args.is_empty() {
+            let lines = get_coverable_args(&call.args);
+            let lines = get_line_range(call)
+                .filter(|x| !lines.contains(&x))
+                .collect::<Vec<_>>();
+            analysis.add_to_ignore(&lines);
+        }
         process_expr(&call.func, ctx, analysis);
     } else {
         analysis.ignore_tokens(call);
@@ -978,7 +979,11 @@ mod tests {
         let config = Config::default();
         let ctx = Context {
             config: &config,
-            file_contents: "fn test() {\nwriteln!(#\"test\n\ttest\n\ttest\"#);\n}\n",
+            file_contents: "fn test() {
+                writeln!(#\"test
+                         \ttest
+                         \ttest\"#);
+            }",
             file: Path::new(""),
             ignore_mods: RefCell::new(HashSet::new()),
         };
@@ -990,7 +995,12 @@ mod tests {
 
         let ctx = Context {
             config: &config,
-            file_contents: "fn test() {\nwrite(\"test\ntest\ntest\");\n}\nfn write(s:&str){}",
+            file_contents: "fn test() {
+                write(\"test
+                      test
+                      test\");
+            }
+            fn write(s:&str){}",
             file: Path::new(""),
             ignore_mods: RefCell::new(HashSet::new()),
         };
@@ -1004,7 +1014,14 @@ mod tests {
         let mut lines = LineAnalysis::new();
         let ctx = Context {
             config: &config,
-            file_contents: "\n\nfn test() {\nwriteln!(\n#\"test\"#\n);\n}\n",
+            file_contents: "
+
+                fn test() {
+                    writeln!(
+                        #\"test\"#
+                        );
+                }
+            ",
             file: Path::new(""),
             ignore_mods: RefCell::new(HashSet::new()),
         };
@@ -1540,6 +1557,23 @@ mod tests {
         assert!(!lines.cover.contains(&6));
         assert!(!lines.cover.contains(&7));
         assert!(lines.cover.contains(&8));
+    }
+
+    #[test]
+    fn cover_callable_noargs() {
+        let config = Config::default();
+        let mut lines = LineAnalysis::new();
+        let ctx = Context {
+            config: &config,
+            file_contents: "fn foo() {
+                    std::ptr::null::<i32>();
+                }",
+            file: Path::new(""),
+            ignore_mods: RefCell::new(HashSet::new()),
+        };
+        let parser = parse_file(ctx.file_contents).unwrap();
+        process_items(&parser.items, &ctx, &mut lines);
+        assert!(!lines.ignore.contains(&Lines::Line(2)));
     }
 
     #[test]
