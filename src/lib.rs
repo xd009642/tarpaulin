@@ -373,7 +373,7 @@ pub fn report_coverage(config: &Config, result: &TraceMap) -> Result<(), RunErro
                 }
                 _ => {
                     return Err(RunError::OutFormat(
-                        "Format currently unsupported".to_string(),
+                        "Output format is currently not supported!".to_string(),
                     ));
                 }
             }
