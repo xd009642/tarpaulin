@@ -251,6 +251,7 @@ fn setup_environment(config: &Config) {
     env::set_var(rustdoc, value);
 }
 
+
 fn accumulate_lines(
     (mut acc, mut group): (Vec<String>, Vec<u64>),
     next: u64,
@@ -430,7 +431,8 @@ fn execute_test(
         }
     }
 
-    let mut envars: Vec<CString> = vec![CString::new("RUST_TEST_THREADS=1").unwrap()];
+    let mut envars: Vec<CString> = Vec::new();
+
     for (key, value) in env::vars() {
         let mut temp = String::new();
         temp.push_str(key.as_str());
