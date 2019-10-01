@@ -85,7 +85,7 @@ fn paths_coverage() {
 }
 
 #[test]
-#[ignored]
+#[ignore]
 fn futures_coverage() {
     check_percentage("futures", 1.0f64, true);
 }
