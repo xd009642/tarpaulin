@@ -171,7 +171,10 @@ fn run_doctests(
         let walker = WalkDir::new(dir).into_iter();
         for dt in walker
             .filter_map(|e| e.ok())
-            .filter(|e| e.file_type().is_file())
+            .filter(|e| match e.metadata() {
+                Ok(ref m) if m.is_file() && m.len() != 0 => true,
+                _ => false,
+            })
         {
             if let Some(res) = get_test_coverage(&workspace, None, dt.path(), config, false)? {
                 result.merge(&res.0);
