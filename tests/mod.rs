@@ -83,3 +83,9 @@ fn loops_assigns_coverage() {
 fn paths_coverage() {
     check_percentage("paths", 1.0f64, true);
 }
+
+#[test]
+#[ignore]
+fn futures_coverage() {
+    check_percentage("futures", 1.0f64, true);
+}

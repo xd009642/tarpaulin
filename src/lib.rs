@@ -171,7 +171,10 @@ fn run_doctests(
         let walker = WalkDir::new(dir).into_iter();
         for dt in walker
             .filter_map(|e| e.ok())
-            .filter(|e| e.file_type().is_file())
+            .filter(|e| match e.metadata() {
+                Ok(ref m) if m.is_file() && m.len() != 0 => true,
+                _ => false,
+            })
         {
             if let Some(res) = get_test_coverage(&workspace, None, dt.path(), config, false)? {
                 result.merge(&res.0);
@@ -250,6 +253,7 @@ fn setup_environment(config: &Config) {
     }
     env::set_var(rustdoc, value);
 }
+
 
 fn accumulate_lines(
     (mut acc, mut group): (Vec<String>, Vec<u64>),
@@ -347,7 +351,7 @@ pub fn report_coverage(config: &Config, result: &TraceMap) -> Result<(), RunErro
                 }
                 _ => {
                     return Err(RunError::OutFormat(
-                        "Format currently unsupported".to_string(),
+                        "Output format is currently not supported!".to_string(),
                     ));
                 }
             }
@@ -430,7 +434,8 @@ fn execute_test(
         }
     }
 
-    let mut envars: Vec<CString> = vec![CString::new("RUST_TEST_THREADS=1").unwrap()];
+    let mut envars: Vec<CString> = Vec::new();
+
     for (key, value) in env::vars() {
         let mut temp = String::new();
         temp.push_str(key.as_str());

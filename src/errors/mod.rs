@@ -30,7 +30,7 @@ pub enum RunError {
     Trace(String),
     #[fail(display = "Failed to report coverage! Error: {}", _0)]
     CovReport(String),
-    #[fail(display = "Output format {} is currently not supported!", _0)]
+    #[fail(display = "{}", _0)]
     OutFormat(String),
     #[fail(display = "{}", _0)]
     IO(std::io::Error),
