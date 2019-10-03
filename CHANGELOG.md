@@ -7,6 +7,13 @@ file.
 ### Added
 
 ### Changed
+
+### Removed
+
+## [0.9.0] 2019-10-03
+### Added
+
+### Changed
 - Updated phrasing of error messages on invalid `--out` and `--output-dir` command line options
 - Replaced error printout in statemachine with `log::error`
 - Check callable arg count to prevent removing callables with no return from coverable lines
