@@ -1,0 +1,38 @@
+name: Build
+
+on:
+  push:
+    branches:
+      - "*"
+  pull_request:
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        version:
+          - stable
+          - beta
+          - nightly
+    steps:
+      - uses: actions/checkout@v1
+      - uses: actions-rs/toolchain@v1
+        with:
+          toolchain: ${{ matrix.version }}
+          override: true
+      - name: clean
+        run: cargo clean
+      - name: build
+        run: cargo build --verbose
+        env:
+          RUST_BACKTRACE: 1
+      - name: test
+        run: cargo test -- --test-threads 1
+        env:
+          RUST_BACKTRACE: 1
+      - name: ignored test
+        run: cargo test -- --test-threads 1 --ignored
+        env:
+          RUST_BACKTRACE: 1
+        if: matrix.version == 'nightly'
