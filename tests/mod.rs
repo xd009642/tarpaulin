@@ -89,3 +89,8 @@ fn paths_coverage() {
 fn futures_coverage() {
     check_percentage("futures", 1.0f64, true);
 }
+
+#[test]
+fn breaks_expr_coverage() {
+    check_percentage("breaks", 1.0f64, true);
+}
