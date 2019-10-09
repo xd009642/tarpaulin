@@ -94,3 +94,8 @@ fn futures_coverage() {
 fn breaks_expr_coverage() {
     check_percentage("breaks", 1.0f64, true);
 }
+
+#[test]
+fn continues_expr_coverage() {
+    check_percentage("continues", 1.0f64, true);
+}
