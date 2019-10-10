@@ -229,6 +229,7 @@ fn get_compile_options<'a>(
 }
 
 fn setup_environment(config: &Config) {
+    env::set_var("TARPAULIN", "1");
     let common_opts =
         " -C relocation-model=dynamic-no-pic -C link-dead-code -C opt-level=0 -C debuginfo=2 ";
     let rustflags = "RUSTFLAGS";
@@ -458,4 +459,20 @@ fn execute_test(
     }
 
     execute(exec_path, &argv, envars.as_slice())
+}
+
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn check_env() {
+        let conf = Config::default();
+        setup_environment(&conf);
+       
+        let tarp_var = env::var("TARPAULIN").unwrap();
+        assert_eq!(tarp_var, "1");
+    }
+
 }

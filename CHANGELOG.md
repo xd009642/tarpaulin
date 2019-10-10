@@ -5,6 +5,7 @@ file.
 
 ## [Unreleased]
 ### Added
+- Sets an environment variable `TARPAULIN` to `1` when starting so inferiors can detect coverage runs
 
 ### Changed
 
