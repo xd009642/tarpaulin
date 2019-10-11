@@ -99,3 +99,8 @@ fn breaks_expr_coverage() {
 fn continues_expr_coverage() {
     check_percentage("continues", 1.0f64, true);
 }
+
+#[test]
+fn method_calls_expr_coverage() {
+    check_percentage("method_calls", 1.0f64, true);
+}
