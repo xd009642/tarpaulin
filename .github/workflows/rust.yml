@@ -42,4 +42,4 @@ jobs:
             --header 'Content-Type: application/json' \
             --data '{"build": true}' \
             https://registry.hub.docker.com/u/xd009642/tarpaulin/trigger/${{ secrets.DOCKER_TOKEN }}/
-        if: matrix.version == 'nightly' && github.ref == 'refs/heads/develop'
+        if: github.ref == 'ref/heads/master' || github.ref == 'refs/heads/develop'
