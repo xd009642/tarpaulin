@@ -1,8 +1,7 @@
 use crate::utils::get_test_path;
-use cargo_tarpaulin::{config::Config, errors::RunError};
 use cargo_tarpaulin::launch_tarpaulin;
+use cargo_tarpaulin::{config::Config, errors::RunError};
 use std::env;
-
 
 #[test]
 fn error_if_compilation_fails() {
@@ -17,7 +16,6 @@ fn error_if_compilation_fails() {
     assert!(result.is_err());
 
     if let Err(RunError::TestCompile(_)) = result {
-
     } else {
         panic!("Expected a TestCompile error");
     }

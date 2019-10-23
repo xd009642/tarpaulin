@@ -103,6 +103,5 @@ fn main() -> Result<(), String> {
     trace!("Debug mode activated");
     // Since this is the last function we run and don't do any error mitigations (other than
     // printing the error to the user it's fine to unwrap here
-    run(&config)
-        .map_err(|e| e.to_string())
+    run(&config).map_err(|e| e.to_string())
 }

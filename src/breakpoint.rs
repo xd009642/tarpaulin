@@ -70,7 +70,11 @@ impl Breakpoint {
     }
 
     /// Processes the breakpoint. This steps over the breakpoint
-    pub fn process(&mut self, pid: Pid, reenable: bool) -> Result<(bool, TracerAction<ProcessInfo>)> {
+    pub fn process(
+        &mut self,
+        pid: Pid,
+        reenable: bool,
+    ) -> Result<(bool, TracerAction<ProcessInfo>)> {
         let is_running = match self.is_running.get(&pid) {
             Some(r) => *r,
             None => true,

@@ -1,8 +1,8 @@
 pub use self::types::*;
 
+use std::env;
 use std::path::{Path, PathBuf};
 use std::time::Duration;
-use std::env;
 
 use clap::ArgMatches;
 use coveralls_api::CiService;
@@ -173,11 +173,11 @@ impl Config {
         if let Some(root) = &self.root {
             if Path::new(root).is_absolute() {
                 PathBuf::from(root)
-            }else{
+            } else {
                 let base_dir = env::current_dir().unwrap();
                 base_dir.join(root).canonicalize().unwrap()
             }
-        }else{
+        } else {
             env::current_dir().unwrap()
         }
     }
@@ -186,8 +186,7 @@ impl Config {
     ///
     #[inline]
     pub fn strip_base_dir(&self, path: &Path) -> PathBuf {
-        path_relative_from(path, &self.get_base_dir())
-        .unwrap_or_else(|| path.to_path_buf())
+        path_relative_from(path, &self.get_base_dir()).unwrap_or_else(|| path.to_path_buf())
     }
 
     #[inline]

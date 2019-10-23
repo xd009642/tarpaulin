@@ -1,7 +1,7 @@
-use std::default::Default;
-use std::io;
 use serde_json::ser::CharEscape;
 use serde_json::ser::CompactFormatter;
+use std::default::Default;
+use std::io;
 
 struct SafeFormatter(CompactFormatter);
 
@@ -25,7 +25,8 @@ impl serde_json::ser::Formatter for SafeFormatter {
                 _ => continue,
             };
             if start < code_length - 1 {
-                self.0.write_string_fragment(writer, &fragment[start..code_length-1])?;
+                self.0
+                    .write_string_fragment(writer, &fragment[start..code_length - 1])?;
             }
 
             self.write_char_escape(writer, escape)?;
@@ -50,8 +51,8 @@ pub fn to_string_safe<T: serde::Serialize + ?Sized>(value: &T) -> Result<String,
 
 #[cfg(test)]
 mod tests {
-    use serde_json::{self, json};
     use super::*;
+    use serde_json::{self, json};
 
     #[test]
     fn test_json_without_html() {
@@ -60,7 +61,10 @@ mod tests {
             "b": "c",
             "d": "text with \"quotes\" inside",
         });
-        assert_eq!(to_string_safe(&x).unwrap(), serde_json::to_string(&x).unwrap());
+        assert_eq!(
+            to_string_safe(&x).unwrap(),
+            serde_json::to_string(&x).unwrap()
+        );
     }
 
     #[test]

@@ -19,7 +19,6 @@ pub fn create_state_machine<'a>(
     (TestState::start_state(), data)
 }
 
-
 pub type UpdateContext = (TestState, TracerAction<ProcessInfo>);
 
 #[derive(Debug, Copy, Clone, Eq, PartialEq)]
@@ -30,10 +29,7 @@ pub struct ProcessInfo {
 
 impl ProcessInfo {
     fn new(pid: Pid, signal: Option<Signal>) -> Self {
-        Self {
-            pid,
-            signal
-        }
+        Self { pid, signal }
     }
 }
 
@@ -143,21 +139,23 @@ impl<'a> StateData for LinuxData<'a> {
                     self.wait_queue.push(wait.unwrap());
                     result = Ok(Some(TestState::Stopped));
                     running = false;
-                },
+                }
                 Ok(WaitStatus::PtraceEvent(_, _, _)) => {
                     self.wait_queue.push(wait.unwrap());
                     result = Ok(Some(TestState::Stopped));
                     running = false;
-                },
+                }
                 Ok(s) => {
                     self.wait_queue.push(s);
                     result = Ok(Some(TestState::Stopped));
                 }
                 Err(e) => {
                     running = false;
-                    result = Err(RunError::TestRuntime(
-                            format!("An error occurred while waiting for response from test: {}", e)))
-                },
+                    result = Err(RunError::TestRuntime(format!(
+                        "An error occurred while waiting for response from test: {}",
+                        e
+                    )))
+                }
             }
         }
         if !self.wait_queue.is_empty() {
@@ -191,17 +189,21 @@ impl<'a> StateData for LinuxData<'a> {
                         ))),
                     }
                 }
-                WaitStatus::Stopped(child, Signal::SIGSTOP) => {
-                    Ok((TestState::wait_state(), TracerAction::Continue(child.into())))
-                },
+                WaitStatus::Stopped(child, Signal::SIGSTOP) => Ok((
+                    TestState::wait_state(),
+                    TracerAction::Continue(child.into()),
+                )),
                 WaitStatus::Stopped(_, Signal::SIGSEGV) => Err(RunError::TestRuntime(
                     "A segfault occurred while executing tests".to_string(),
                 )),
                 WaitStatus::Stopped(child, Signal::SIGILL) => {
                     let pc = current_instruction_pointer(*child).unwrap_or_else(|_| 1) - 1;
-                    trace!("SIGILL raised. Child program counter is: 0x{:x}", pc); 
-                    Err(RunError::TestRuntime(format!("Error running test - SIGILL raised in {}", child)))
-                },
+                    trace!("SIGILL raised. Child program counter is: 0x{:x}", pc);
+                    Err(RunError::TestRuntime(format!(
+                        "Error running test - SIGILL raised in {}",
+                        child
+                    )))
+                }
                 WaitStatus::Stopped(c, s) => {
                     let sig = if self.config.forward_signals {
                         Some(*s)
@@ -229,7 +231,10 @@ impl<'a> StateData for LinuxData<'a> {
                         Ok((TestState::End(*ec), TracerAction::Nothing))
                     } else {
                         // Process may have already been destroyed. This is just incase
-                        Ok((TestState::wait_state(), TracerAction::TryContinue(self.parent.into())))
+                        Ok((
+                            TestState::wait_state(),
+                            TracerAction::TryContinue(self.parent.into()),
+                        ))
                     }
                 }
                 _ => Err(RunError::TestRuntime(
@@ -237,13 +242,13 @@ impl<'a> StateData for LinuxData<'a> {
                 )),
             };
             match state {
-                Ok((TestState::Waiting{..}, action)) => {
+                Ok((TestState::Waiting { .. }, action)) => {
                     actions.push(action);
-                },
+                }
                 Ok((state, action)) => {
                     result = Ok(state);
                     actions.push(action);
-                },
+                }
                 Err(e) => result = Err(e),
             }
         }
@@ -253,20 +258,20 @@ impl<'a> StateData for LinuxData<'a> {
                 TracerAction::TryContinue(t) => {
                     continued = true;
                     let _ = continue_exec(t.pid, t.signal);
-                },
+                }
                 TracerAction::Continue(t) => {
                     continued = true;
                     continue_exec(t.pid, t.signal)?;
-                },
-                TracerAction::Step(t) => { 
+                }
+                TracerAction::Step(t) => {
                     continued = true;
                     single_step(t.pid)?;
-                },
+                }
                 TracerAction::Detach(t) => {
                     continued = true;
                     detach_child(t.pid)?;
-                },
-                _ => {},
+                }
+                _ => {}
             }
         }
         if !continued {
@@ -290,7 +295,8 @@ impl<'a> LinuxData<'a> {
         }
     }
 
-    fn handle_ptrace_event(&mut self,
+    fn handle_ptrace_event(
+        &mut self,
         child: Pid,
         sig: Signal,
         event: i32,
@@ -303,7 +309,10 @@ impl<'a> LinuxData<'a> {
                     Ok(t) => {
                         trace!("New thread spawned {}", t);
                         self.thread_count += 1;
-                        Ok((TestState::wait_state(), TracerAction::Continue(child.into())))
+                        Ok((
+                            TestState::wait_state(),
+                            TracerAction::Continue(child.into()),
+                        ))
                     }
                     Err(e) => {
                         trace!("Error in clone event {:?}", e);
@@ -314,7 +323,10 @@ impl<'a> LinuxData<'a> {
                 },
                 PTRACE_EVENT_FORK | PTRACE_EVENT_VFORK => {
                     trace!("Caught fork event");
-                    Ok((TestState::wait_state(), TracerAction::Continue(child.into())))
+                    Ok((
+                        TestState::wait_state(),
+                        TracerAction::Continue(child.into()),
+                    ))
                 }
                 PTRACE_EVENT_EXEC => {
                     trace!("Child execed other process - detaching ptrace");
@@ -323,7 +335,10 @@ impl<'a> LinuxData<'a> {
                 PTRACE_EVENT_EXIT => {
                     trace!("Child exiting");
                     self.thread_count -= 1;
-                    Ok((TestState::wait_state(), TracerAction::TryContinue(child.into())))
+                    Ok((
+                        TestState::wait_state(),
+                        TracerAction::TryContinue(child.into()),
+                    ))
                 }
                 _ => Err(RunError::TestRuntime(format!(
                     "Unrecognised ptrace event {}",
@@ -337,9 +352,10 @@ impl<'a> LinuxData<'a> {
         }
     }
 
-
-    fn collect_coverage_data(&mut self, 
-                             visited_pcs: &mut HashSet<u64>) -> Result<UpdateContext, RunError> {
+    fn collect_coverage_data(
+        &mut self,
+        visited_pcs: &mut HashSet<u64>,
+    ) -> Result<UpdateContext, RunError> {
         let mut action = None;
         if let Ok(rip) = current_instruction_pointer(self.current) {
             let rip = (rip - 1) as u64;
@@ -347,7 +363,7 @@ impl<'a> LinuxData<'a> {
             if self.breakpoints.contains_key(&rip) {
                 let bp = &mut self.breakpoints.get_mut(&rip).unwrap();
                 let updated = if visited_pcs.contains(&rip) {
-                    let _ = bp.jump_to(self.current); 
+                    let _ = bp.jump_to(self.current);
                     (true, TracerAction::Continue(self.current.into()))
                 } else {
                     let enable = self.config.count;
@@ -369,14 +385,18 @@ impl<'a> LinuxData<'a> {
                     }
                 }
                 action = Some(updated.1);
-            }         
+            }
         }
         let action = action.unwrap_or_else(|| TracerAction::Continue(self.current.into()));
         Ok((TestState::wait_state(), action))
     }
 
-
-    fn handle_signaled(&mut self, pid: &Pid, sig: &Signal, flag: bool) -> Result<UpdateContext, RunError> {
+    fn handle_signaled(
+        &mut self,
+        pid: &Pid,
+        sig: &Signal,
+        flag: bool,
+    ) -> Result<UpdateContext, RunError> {
         match (sig, flag) {
             (Signal::SIGTRAP, true) => {
                 Ok((TestState::wait_state(), TracerAction::Continue(pid.into())))
