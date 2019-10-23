@@ -209,7 +209,10 @@ pub fn get_line_analysis(project: &Workspace, config: &Config) -> HashMap<PathBu
 pub fn debug_printout(result: &HashMap<PathBuf, LineAnalysis>, config: &Config) {
     if config.debug {
         for (ref path, ref analysis) in result {
-            trace!("Source analysis for {}", config.strip_base_dir(path).display());
+            trace!(
+                "Source analysis for {}",
+                config.strip_base_dir(path).display()
+            );
             let mut lines = Vec::new();
             for l in &analysis.ignore {
                 match l {
@@ -1979,5 +1982,4 @@ mod tests {
         assert!(lines.ignore.contains(&Lines::Line(6)));
         assert!(lines.ignore.contains(&Lines::Line(7)));
     }
-
 }

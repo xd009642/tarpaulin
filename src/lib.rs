@@ -7,16 +7,16 @@ use crate::traces::*;
 use cargo::core::{compiler::CompileMode, Package, Shell, Workspace};
 use cargo::ops;
 use cargo::ops::{
-    clean, compile, CleanOptions, CompileFilter, CompileOptions, FilterRule,
-    LibRule, Packages, TestOptions,
+    clean, compile, CleanOptions, CompileFilter, CompileOptions, FilterRule, LibRule, Packages,
+    TestOptions,
 };
 use cargo::util::{homedir, Config as CargoConfig};
 use log::{debug, info, trace, warn};
 use nix::unistd::*;
 use std::env;
 use std::ffi::CString;
+use std::fs::create_dir_all;
 use std::path::{Path, PathBuf};
-use std::fs::{create_dir_all};
 use walkdir::WalkDir;
 
 pub mod breakpoint;
@@ -255,7 +255,6 @@ fn setup_environment(config: &Config) {
     env::set_var(rustdoc, value);
 }
 
-
 fn accumulate_lines(
     (mut acc, mut group): (Vec<String>, Vec<u64>),
     next: u64,
@@ -461,7 +460,6 @@ fn execute_test(
     execute(exec_path, &argv, envars.as_slice())
 }
 
-
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -470,9 +468,8 @@ mod tests {
     fn check_env() {
         let conf = Config::default();
         setup_environment(&conf);
-       
+
         let tarp_var = env::var("TARPAULIN").unwrap();
         assert_eq!(tarp_var, "1");
     }
-
 }

@@ -255,7 +255,9 @@ fn get_line_addresses(
             let prog = debug_line.program(offset, addr_size, None, None)?;
             let mut temp_map: HashMap<SourceLocation, Vec<TracerData>> = HashMap::new();
 
-            if let Err(e) = get_addresses_from_program(prog, &debug_strings, &entries, project, &mut temp_map) {
+            if let Err(e) =
+                get_addresses_from_program(prog, &debug_strings, &entries, project, &mut temp_map)
+            {
                 debug!("Potential issue reading test addresses {}", e);
             } else {
                 // Deduplicate addresses

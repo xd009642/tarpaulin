@@ -5,8 +5,8 @@ use std::env;
 use std::time::Duration;
 
 mod compile_fail;
-mod line_coverage;
 mod doc_coverage;
+mod line_coverage;
 mod utils;
 
 pub fn check_percentage(project_name: &str, minimum_coverage: f64, has_lines: bool) {
