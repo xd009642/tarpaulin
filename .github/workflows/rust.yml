@@ -22,8 +22,11 @@ jobs:
         with:
           toolchain: ${{ matrix.version }}
           override: true
+          components: rustfmt
       - name: clean
         run: cargo clean
+      - name: check formatting
+        run: cargo fmt -- --check
       - name: build
         run: cargo build --verbose
         env:
