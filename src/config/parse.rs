@@ -29,7 +29,11 @@ pub(super) fn get_manifest(args: &ArgMatches) -> PathBuf {
     if let Some(path) = args.value_of("manifest-path") {
         let path = PathBuf::from(path);
         if path.is_relative() {
-            return env::current_dir().unwrap().join(path).canonicalize().unwrap();
+            return env::current_dir()
+                .unwrap()
+                .join(path)
+                .canonicalize()
+                .unwrap();
         }
         return path;
     }
