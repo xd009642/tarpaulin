@@ -1,6 +1,6 @@
 use crate::config::*;
 use crate::errors::*;
-use crate::process_handling::execute;
+use crate::process_handling::*;
 use crate::statemachine::*;
 use crate::test_loader::*;
 use crate::traces::*;
@@ -375,6 +375,9 @@ pub fn get_test_coverage(
 ) -> Result<Option<(TraceMap, i32)>, RunError> {
     if !test.exists() {
         return Ok(None);
+    }
+    if let Err(e) = limit_affinity() {
+        warn!("Failed to set processor affinity {}", e);
     }
     match fork() {
         Ok(ForkResult::Parent { child }) => match collect_coverage(project, test, child, config) {
