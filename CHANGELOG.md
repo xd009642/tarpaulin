@@ -9,6 +9,7 @@ file.
 - Limit the processor affinity to a single core to solve #190
 
 ### Changed
+- Switch from travis-ci to github actions
 
 ### Removed
 
