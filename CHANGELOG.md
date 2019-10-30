@@ -5,6 +5,13 @@ file.
 
 ## [Unreleased]
 ### Added
+
+### Changed
+
+### Removed
+
+## [0.9.1] 2019-10-30
+### Added
 - Sets an environment variable `TARPAULIN` to `1` when starting so inferiors can detect coverage runs
 - Limit the processor affinity to a single core to solve #190
 
