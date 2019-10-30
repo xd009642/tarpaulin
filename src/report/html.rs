@@ -1,7 +1,7 @@
 use crate::config::Config;
 use crate::errors::*;
-use crate::traces::{Trace, TraceMap};
 use crate::report::safe_json;
+use crate::traces::{Trace, TraceMap};
 use serde::Serialize;
 use std::fs::{read_to_string, File};
 use std::io::Write;
@@ -66,7 +66,9 @@ pub fn export(coverage_data: &TraceMap, config: &Config) -> Result<(), RunError>
         }
     };
 
-    let html_write = match write!(file, r##"<!doctype html>
+    let html_write = match write!(
+        file,
+        r##"<!doctype html>
 <html>
 <head>
     <meta charset="utf-8">
@@ -84,9 +86,9 @@ pub fn export(coverage_data: &TraceMap, config: &Config) -> Result<(), RunError>
         report_json,
         include_str!("report_viewer.js")
     ) {
-         Ok(_) => (),
-         Err(e) => return Err(RunError::Html(e.to_string())),
-     };
+        Ok(_) => (),
+        Err(e) => return Err(RunError::Html(e.to_string())),
+    };
 
     Ok(html_write)
 }

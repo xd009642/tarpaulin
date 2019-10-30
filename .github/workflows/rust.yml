@@ -1,0 +1,49 @@
+name: Build
+
+on:
+  push:
+    branches:
+      - "*"
+  pull_request:
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        version:
+          - stable
+          - beta
+          - nightly
+      fail-fast: false
+    steps:
+      - uses: actions/checkout@v1
+      - uses: actions-rs/toolchain@v1
+        with:
+          toolchain: ${{ matrix.version }}
+          override: true
+          components: rustfmt
+      - name: clean
+        run: cargo clean
+      - name: check formatting
+        run: cargo fmt -- --check
+      - name: build
+        run: cargo build --verbose
+        env:
+          RUST_BACKTRACE: 1
+      - name: test
+        run: cargo test -- --test-threads 1
+        env:
+          RUST_BACKTRACE: 1
+      - name: ignored test
+        run: cargo test -- --test-threads 1 --ignored || true
+        env:
+          RUST_BACKTRACE: 1
+        if: matrix.version == 'nightly'
+      - name: notify docker hub
+        run: |
+          curl --request POST \
+            --header 'Content-Type: application/json' \
+            --data '{"build": true}' \
+            https://registry.hub.docker.com/u/xd009642/tarpaulin/trigger/${{ secrets.DOCKER_TOKEN }}/
+        if: github.ref == 'ref/heads/master' || github.ref == 'refs/heads/develop'

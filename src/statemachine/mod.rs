@@ -3,8 +3,8 @@ use crate::config::Config;
 use crate::errors::RunError;
 use crate::ptrace_control::*;
 use crate::traces::*;
-use std::time::Instant;
 use log::error;
+use std::time::Instant;
 
 #[cfg(target_os = "linux")]
 pub mod linux;
@@ -27,12 +27,12 @@ pub enum TestState {
 }
 
 /// This enum represents a generic action for the process tracing API to take
-/// along with any form of ID or handle to the underlying thread or process 
+/// along with any form of ID or handle to the underlying thread or process
 /// i.e. a PID in Unix.
 #[derive(Debug, Copy, Clone, Eq, PartialEq)]
 pub enum TracerAction<T> {
     /// Try continue is for times when you don't know if there is something
-    /// paused but if there is you want it to move on. 
+    /// paused but if there is you want it to move on.
     TryContinue(T),
     Continue(T),
     Step(T),
@@ -40,8 +40,7 @@ pub enum TracerAction<T> {
     Nothing,
 }
 
-impl <T>TracerAction<T> {
-    
+impl<T> TracerAction<T> {
     pub fn is_detach(&self) -> bool {
         if let TracerAction::Detach(_) = self {
             true
@@ -49,7 +48,7 @@ impl <T>TracerAction<T> {
             false
         }
     }
-    
+
     pub fn is_continue(&self) -> bool {
         if let TracerAction::Continue(_) = self {
             true
@@ -57,7 +56,7 @@ impl <T>TracerAction<T> {
             false
         }
     }
-    
+
     pub fn is_step(&self) -> bool {
         if let TracerAction::Step(_) = self {
             true

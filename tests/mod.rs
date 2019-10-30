@@ -5,8 +5,8 @@ use std::env;
 use std::time::Duration;
 
 mod compile_fail;
-mod line_coverage;
 mod doc_coverage;
+mod line_coverage;
 mod utils;
 
 pub fn check_percentage(project_name: &str, minimum_coverage: f64, has_lines: bool) {
@@ -88,4 +88,24 @@ fn paths_coverage() {
 #[ignore]
 fn futures_coverage() {
     check_percentage("futures", 1.0f64, true);
+}
+
+#[test]
+fn breaks_expr_coverage() {
+    check_percentage("breaks", 1.0f64, true);
+}
+
+#[test]
+fn continues_expr_coverage() {
+    check_percentage("continues", 1.0f64, true);
+}
+
+// This test is currently being ignored because it contains cases which Tarpaulin
+// does not handle correctly yet. So, once (#136) [https://github.com/xd009642/tarpaulin/issues/136]
+// is updated to resolve method call coverage and multi-line expressions, then
+// the #[ignore] can be removed from this test.
+#[test]
+#[ignore]
+fn method_calls_expr_coverage() {
+    check_percentage("method_calls", 1.0f64, true);
 }

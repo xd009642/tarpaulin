@@ -134,8 +134,8 @@ impl Report {
 
     pub fn export(&self, config: &Config) -> Result<(), Error> {
         let file_path = config.output_directory.join("cobertura.xml");
-        let mut file = File::create(file_path)
-            .map_err(|e| Error::ExportError(quick_xml::Error::Io(e)))?;
+        let mut file =
+            File::create(file_path).map_err(|e| Error::ExportError(quick_xml::Error::Io(e)))?;
 
         let mut writer = Writer::new(Cursor::new(vec![]));
         writer
@@ -321,8 +321,7 @@ fn render_packages(config: &Config, traces: &TraceMap) -> Vec<Package> {
 }
 
 fn render_package(config: &Config, traces: &TraceMap, pkg: &Path) -> Package {
-    let name = config.strip_base_dir(pkg)
-        .to_str().unwrap().to_string();
+    let name = config.strip_base_dir(pkg).to_str().unwrap().to_string();
 
     let line_cover = traces.covered_in_path(pkg) as f64;
     let line_rate = line_cover / (traces.coverable_in_path(pkg) as f64);
@@ -371,8 +370,7 @@ fn render_class(config: &Config, traces: &TraceMap, file: &Path) -> Class {
         .unwrap_or_default()
         .to_string();
 
-    let file_name = config.strip_base_dir(file)
-        .to_str().unwrap().to_string();
+    let file_name = config.strip_base_dir(file).to_str().unwrap().to_string();
 
     let covered = traces.covered_in_path(file) as f64;
     let line_rate = covered / traces.coverable_in_path(file) as f64;

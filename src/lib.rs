@@ -1,22 +1,22 @@
 use crate::config::*;
 use crate::errors::*;
-use crate::process_handling::execute;
+use crate::process_handling::*;
 use crate::statemachine::*;
 use crate::test_loader::*;
 use crate::traces::*;
 use cargo::core::{compiler::CompileMode, Package, Shell, Workspace};
 use cargo::ops;
 use cargo::ops::{
-    clean, compile, CleanOptions, CompileFilter, CompileOptions, FilterRule,
-    LibRule, Packages, TestOptions,
+    clean, compile, CleanOptions, CompileFilter, CompileOptions, FilterRule, LibRule, Packages,
+    TestOptions,
 };
 use cargo::util::{homedir, Config as CargoConfig};
 use log::{debug, info, trace, warn};
 use nix::unistd::*;
 use std::env;
 use std::ffi::CString;
+use std::fs::create_dir_all;
 use std::path::{Path, PathBuf};
-use std::fs::{create_dir_all};
 use walkdir::WalkDir;
 
 pub mod breakpoint;
@@ -229,6 +229,7 @@ fn get_compile_options<'a>(
 }
 
 fn setup_environment(config: &Config) {
+    env::set_var("TARPAULIN", "1");
     let common_opts =
         " -C relocation-model=dynamic-no-pic -C link-dead-code -C opt-level=0 -C debuginfo=2 ";
     let rustflags = "RUSTFLAGS";
@@ -253,7 +254,6 @@ fn setup_environment(config: &Config) {
     }
     env::set_var(rustdoc, value);
 }
-
 
 fn accumulate_lines(
     (mut acc, mut group): (Vec<String>, Vec<u64>),
@@ -376,6 +376,9 @@ pub fn get_test_coverage(
     if !test.exists() {
         return Ok(None);
     }
+    if let Err(e) = limit_affinity() {
+        warn!("Failed to set processor affinity {}", e);
+    }
     match fork() {
         Ok(ForkResult::Parent { child }) => match collect_coverage(project, test, child, config) {
             Ok(t) => Ok(Some(t)),
@@ -458,4 +461,18 @@ fn execute_test(
     }
 
     execute(exec_path, &argv, envars.as_slice())
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn check_env() {
+        let conf = Config::default();
+        setup_environment(&conf);
+
+        let tarp_var = env::var("TARPAULIN").unwrap();
+        assert_eq!(tarp_var, "1");
+    }
 }

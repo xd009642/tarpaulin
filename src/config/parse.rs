@@ -27,7 +27,15 @@ pub(super) fn get_branch_cov(args: &ArgMatches) -> bool {
 
 pub(super) fn get_manifest(args: &ArgMatches) -> PathBuf {
     if let Some(path) = args.value_of("manifest-path") {
-        return PathBuf::from(path);
+        let path = PathBuf::from(path);
+        if path.is_relative() {
+            return env::current_dir()
+                .unwrap()
+                .join(path)
+                .canonicalize()
+                .unwrap();
+        }
+        return path;
     }
 
     let mut manifest = env::current_dir().unwrap();
