@@ -2,6 +2,7 @@ use crate::errors::*;
 use crate::ptrace_control::*;
 use nix::errno::Errno;
 use nix::libc::{c_int, c_long};
+use nix::sched::*;
 use nix::unistd::*;
 use nix::Error;
 use std::ffi::CString;
@@ -31,7 +32,7 @@ fn personality(persona: Persona) -> nix::Result<c_int> {
     }
 }
 
-pub fn disable_aslr() -> nix::Result<i32> {
+fn disable_aslr() -> nix::Result<i32> {
     match personality(GET_PERSONA) {
         Ok(p) => match personality(i64::from(p) | ADDR_NO_RANDOMIZE) {
             ok @ Ok(_) => ok,
@@ -39,6 +40,13 @@ pub fn disable_aslr() -> nix::Result<i32> {
         },
         err @ Err(..) => err,
     }
+}
+
+pub fn limit_affinity() -> nix::Result<()> {
+    let mut cpu_set = CpuSet::new();
+    cpu_set.set(0)?;
+    let this = Pid::this();
+    sched_setaffinity(this, &cpu_set)
 }
 
 pub fn execute(program: CString, argv: &[CString], envar: &[CString]) -> Result<(), RunError> {
