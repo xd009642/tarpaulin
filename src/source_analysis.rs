@@ -1,4 +1,4 @@
-use crate::config::Config;
+use crate::config::{Config, RunType};
 use cargo::core::Workspace;
 use lazy_static::lazy_static;
 use log::trace;
@@ -287,7 +287,8 @@ fn analyse_package(
 ) {
     if let Some(file) = path.to_str() {
         let skip_cause_test = config.ignore_tests && path.starts_with(root.join("tests"));
-        let skip_cause_example = path.starts_with(root.join("examples"));
+        let skip_cause_example = path.starts_with(root.join("examples"))
+            && !config.run_types.contains(&RunType::Examples);
         if !(skip_cause_test || skip_cause_example) {
             let file = File::open(file);
             if let Ok(mut file) = file {

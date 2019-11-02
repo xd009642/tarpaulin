@@ -6,6 +6,7 @@ file.
 ## [Unreleased]
 ### Added
 - Added Benchmarks to `RunType` to allow coverage of benchmark tests to be collected
+- Added Examples to `RunType` to allow coverage of examples to be collected
 
 ### Changed
 

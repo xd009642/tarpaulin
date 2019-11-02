@@ -32,6 +32,9 @@ a repo and the commit containing your project and paste the verbose output).
 
 * Line coverage
 * Uploading coverage to https://coveralls.io or https://codecov.io
+* HTML report generation and other coverage report types
+* Coverage of tests, doctests, benchmarks and examples possible
+* Excluding irrelevant files from coverage
 
 ## Usage
 

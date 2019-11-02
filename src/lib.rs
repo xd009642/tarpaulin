@@ -89,7 +89,9 @@ pub fn launch_tarpaulin(config: &Config) -> Result<(TraceMap, i32), RunError> {
     info!("Building project");
     for copt in compile_options.drain(..) {
         let run_result = match copt.build_config.mode {
-            CompileMode::Test | CompileMode::Bench => run_tests(&workspace, copt, config),
+            CompileMode::Build | CompileMode::Test | CompileMode::Bench => {
+                run_tests(&workspace, copt, config)
+            }
             CompileMode::Doctest => run_doctests(&workspace, copt, config),
             e => {
                 debug!("Internal tarpaulin error. Unsupported compile mode {:?}", e);
@@ -113,6 +115,15 @@ fn run_tests(
     let compilation = compile(&workspace, &compile_options);
     match compilation {
         Ok(comp) => {
+            // If we have binaries we have other artefacts to run
+            for binary in comp.binaries {
+                if let Some(res) =
+                    get_test_coverage(&workspace, None, binary.as_path(), config, false)?
+                {
+                    result.merge(&res.0);
+                    return_code |= res.1;
+                }
+            }
             for &(ref package, ref name, ref path) in &comp.tests {
                 debug!("Processing {}", name);
                 if let Some(res) =
@@ -207,6 +218,14 @@ fn get_compile_options<'a>(
                 FilterRule::Just(vec![]),
                 FilterRule::Just(vec![]),
                 FilterRule::Just(vec![]),
+                FilterRule::Just(vec![]),
+            );
+        } else if run_type == &RunType::Examples {
+            copt.filter = CompileFilter::new(
+                LibRule::True,
+                FilterRule::Just(vec![]),
+                FilterRule::Just(vec![]),
+                FilterRule::All,
                 FilterRule::Just(vec![]),
             );
         }
