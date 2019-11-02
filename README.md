@@ -200,6 +200,17 @@ jobs:
           command: docker run --security-opt seccomp=unconfined -v "${PWD}:/volume" xd009642/tarpaulin
 ```
 
+### Gitlab Pipelines
+
+To get the coverage results showing up in your Gitlab pipelines add the following regex to the `Test
+coverage parsing` section in the pipelines settings.
+
+```
+^\d+.\d+% coverage
+```
+
+For installation add `cargo install cargo-tarpaulin` to the script section.
+
 ### Docker
 
 Tarpaulin has builds deployed to [docker-hub](https://hub.docker.com/r/xd009642/tarpaulin/), 
