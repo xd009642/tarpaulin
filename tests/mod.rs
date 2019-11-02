@@ -129,3 +129,13 @@ fn benchmark_coverage() {
     config.run_types = vec![RunType::Benchmarks];
     check_percentage_with_config(test, 1.0f64, true, config);
 }
+
+#[test]
+fn examples_coverage() {
+    let test = "example_test";
+    check_percentage(test, 0.0f64, true);
+
+    let mut config = Config::default();
+    config.run_types = vec![RunType::Examples];
+    check_percentage_with_config(test, 1.0f64, true, config);
+}
