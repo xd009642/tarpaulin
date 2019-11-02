@@ -89,7 +89,7 @@ pub fn launch_tarpaulin(config: &Config) -> Result<(TraceMap, i32), RunError> {
     info!("Building project");
     for copt in compile_options.drain(..) {
         let run_result = match copt.build_config.mode {
-            CompileMode::Test => run_tests(&workspace, copt, config),
+            CompileMode::Test | CompileMode::Bench => run_tests(&workspace, copt, config),
             CompileMode::Doctest => run_doctests(&workspace, copt, config),
             e => {
                 debug!("Internal tarpaulin error. Unsupported compile mode {:?}", e);

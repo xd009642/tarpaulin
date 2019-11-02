@@ -1,5 +1,5 @@
 use crate::utils::get_test_path;
-use cargo_tarpaulin::config::Config;
+use cargo_tarpaulin::config::{Config, RunType};
 use cargo_tarpaulin::launch_tarpaulin;
 use std::env;
 use std::time::Duration;
@@ -9,8 +9,7 @@ mod doc_coverage;
 mod line_coverage;
 mod utils;
 
-pub fn check_percentage(project_name: &str, minimum_coverage: f64, has_lines: bool) {
-    let mut config = Config::default();
+pub fn check_percentage_with_config(project_name: &str, minimum_coverage: f64, has_lines: bool, mut config: Config) {
     config.verbose = true;
     config.test_timeout = Duration::from_secs(60);
     let restore_dir = env::current_dir().unwrap();
@@ -26,6 +25,11 @@ pub fn check_percentage(project_name: &str, minimum_coverage: f64, has_lines: bo
     if has_lines {
         assert!(res.total_coverable() > 0);
     }
+}
+
+pub fn check_percentage(project_name: &str, minimum_coverage: f64, has_lines: bool) {
+    let config = Config::default();
+    check_percentage_with_config(project_name, minimum_coverage, has_lines, config);
 }
 
 #[test]
@@ -108,4 +112,14 @@ fn continues_expr_coverage() {
 #[ignore]
 fn method_calls_expr_coverage() {
     check_percentage("method_calls", 1.0f64, true);
+}
+
+#[test]
+fn benchmark_coverage() {
+    let test = "benchmark_coverage";
+    check_percentage(test, 0.0f64, true);
+    
+    let mut config = Config::default();
+    config.run_types = vec![RunType::Benchmarks];
+    check_percentage_with_config(test, 1.0f64, true, config);
 }
