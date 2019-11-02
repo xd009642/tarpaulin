@@ -9,6 +9,7 @@ arg_enum! {
     pub enum RunType {
         Tests,
         Doctests,
+        Benchmarks,
     }
 }
 
@@ -37,6 +38,7 @@ impl From<RunType> for CompileMode {
         match run {
             RunType::Tests => CompileMode::Test,
             RunType::Doctests => CompileMode::Doctest,
+            RunType::Benchmarks => CompileMode::Bench,
         }
     }
 }
