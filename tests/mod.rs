@@ -9,7 +9,12 @@ mod doc_coverage;
 mod line_coverage;
 mod utils;
 
-pub fn check_percentage_with_config(project_name: &str, minimum_coverage: f64, has_lines: bool, mut config: Config) {
+pub fn check_percentage_with_config(
+    project_name: &str,
+    minimum_coverage: f64,
+    has_lines: bool,
+    mut config: Config,
+) {
     config.verbose = true;
     config.test_timeout = Duration::from_secs(60);
     let restore_dir = env::current_dir().unwrap();
@@ -118,7 +123,7 @@ fn method_calls_expr_coverage() {
 fn benchmark_coverage() {
     let test = "benchmark_coverage";
     check_percentage(test, 0.0f64, true);
-    
+
     let mut config = Config::default();
     config.run_types = vec![RunType::Benchmarks];
     check_percentage_with_config(test, 1.0f64, true, config);
