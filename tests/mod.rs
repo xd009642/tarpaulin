@@ -120,6 +120,7 @@ fn method_calls_expr_coverage() {
 }
 
 #[test]
+#[ignore]
 fn benchmark_coverage() {
     let test = "benchmark_coverage";
     check_percentage(test, 0.0f64, true);
