@@ -209,7 +209,7 @@ coverage parsing` section in the pipelines settings.
 ^\d+.\d+% coverage
 ```
 
-For installation add `cargo install cargo-tarpaulin` to the script section.
+For installation add `cargo install cargo-tarpaulin -f` to the script section.
 
 ### Docker
 
