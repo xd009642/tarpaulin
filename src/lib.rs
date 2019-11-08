@@ -130,16 +130,26 @@ fn run_tests(
             }
             for &(ref package, ref name, ref path) in &comp.tests {
                 debug!("Processing {}", name);
-                if let Some(res) =
-                    get_test_coverage(&workspace, Some(package), path.as_path(), analysis, config, false)?
-                {
+                if let Some(res) = get_test_coverage(
+                    &workspace,
+                    Some(package),
+                    path.as_path(),
+                    analysis,
+                    config,
+                    false,
+                )? {
                     result.merge(&res.0);
                     return_code |= res.1;
                 }
                 if config.run_ignored {
-                    if let Some(res) =
-                        get_test_coverage(&workspace, Some(package), path.as_path(), analysis, config, true)?
-                    {
+                    if let Some(res) = get_test_coverage(
+                        &workspace,
+                        Some(package),
+                        path.as_path(),
+                        analysis,
+                        config,
+                        true,
+                    )? {
                         result.merge(&res.0);
                         return_code |= res.1;
                     }
@@ -192,7 +202,9 @@ fn run_doctests(
                 _ => false,
             })
         {
-            if let Some(res) = get_test_coverage(&workspace, None, dt.path(), analysis, config, false)? {
+            if let Some(res) =
+                get_test_coverage(&workspace, None, dt.path(), analysis, config, false)?
+            {
                 result.merge(&res.0);
                 return_code |= res.1;
             }
@@ -405,10 +417,12 @@ pub fn get_test_coverage(
         warn!("Failed to set processor affinity {}", e);
     }
     match fork() {
-        Ok(ForkResult::Parent { child }) => match collect_coverage(project, test, child, analysis, config) {
-            Ok(t) => Ok(Some(t)),
-            Err(e) => Err(RunError::TestCoverage(e.to_string())),
-        },
+        Ok(ForkResult::Parent { child }) => {
+            match collect_coverage(project, test, child, analysis, config) {
+                Ok(t) => Ok(Some(t)),
+                Err(e) => Err(RunError::TestCoverage(e.to_string())),
+            }
+        }
         Ok(ForkResult::Child) => {
             info!("Launching test");
             execute_test(test, package, ignored, config)?;
