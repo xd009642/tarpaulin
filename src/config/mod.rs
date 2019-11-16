@@ -75,6 +75,8 @@ pub struct Config {
     pub test_timeout: Duration,
     /// Build in release mode
     pub release: bool,
+    /// Build the tests only don't run coverage
+    pub no_run: bool,
 }
 
 impl Default for Config {
@@ -108,6 +110,7 @@ impl Default for Config {
             test_timeout: Duration::from_secs(60),
             release: false,
             all_features: false,
+            no_run: false,
         }
     }
 }
@@ -145,6 +148,7 @@ impl<'a> From<&'a ArgMatches<'a>> for Config {
             varargs: get_list(args, "args"),
             test_timeout: get_timeout(args),
             release: args.is_present("release"),
+            no_run: args.is_present("no-run"),
         }
     }
 }

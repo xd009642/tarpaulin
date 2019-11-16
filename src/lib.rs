@@ -119,6 +119,10 @@ fn run_tests(
     let compilation = compile(&workspace, &compile_options);
     match compilation {
         Ok(comp) => {
+            if config.no_run {
+                info!("Project compiled successfully");
+                return Ok((result, return_code));
+            }
             // If we have binaries we have other artefacts to run
             for binary in comp.binaries {
                 if let Some(res) =
@@ -394,10 +398,12 @@ pub fn report_coverage(config: &Config, result: &TraceMap) -> Result<(), RunErro
         }
 
         Ok(())
-    } else {
+    } else if !config.no_run {
         Err(RunError::CovReport(
             "No coverage results collected.".to_string(),
         ))
+    } else {
+        Ok(())
     }
 }
 
