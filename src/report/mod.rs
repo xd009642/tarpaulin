@@ -2,7 +2,7 @@ use crate::config::*;
 use crate::errors::*;
 use crate::test_loader::TracerData;
 use crate::traces::*;
-use log::info;
+use log::{error, info};
 use serde::Serialize;
 use std::fs::create_dir_all;
 
@@ -23,75 +23,10 @@ pub fn report_coverage(config: &Config, result: &TraceMap) -> Result<(), RunErro
     if !result.is_empty() {
         info!("Coverage Results:");
         if config.verbose {
-            println!("|| Uncovered Lines:");
-            for (ref key, ref value) in result.iter() {
-                let path = config.strip_base_dir(key);
-                let mut uncovered_lines = vec![];
-                for v in value.iter() {
-                    match v.stats {
-                        CoverageStat::Line(count) if count == 0 => {
-                            uncovered_lines.push(v.line);
-                        }
-                        _ => (),
-                    }
-                }
-                uncovered_lines.sort();
-                let (groups, last_group) = uncovered_lines
-                    .into_iter()
-                    .fold((vec![], vec![]), accumulate_lines);
-                let (groups, _) = accumulate_lines((groups, last_group), u64::max_value());
-                if !groups.is_empty() {
-                    println!("|| {}: {}", path.display(), groups.join(", "));
-                }
-            }
+            print_missing_lines(config, result);
         }
-        println!("|| Tested/Total Lines:");
-        for file in result.files() {
-            let path = config.strip_base_dir(file);
-            println!(
-                "|| {}: {}/{}",
-                path.display(),
-                result.covered_in_path(&file),
-                result.coverable_in_path(&file)
-            );
-        }
-        let percent = result.coverage_percentage() * 100.0f64;
-        // Put file filtering here
-        println!(
-            "|| \n{:.2}% coverage, {}/{} lines covered",
-            percent,
-            result.total_covered(),
-            result.total_coverable()
-        );
-        if config.is_coveralls() {
-            coveralls::export(result, config)?;
-            info!("Coverage data sent");
-        }
-
-        if !config.is_default_output_dir() {
-            if create_dir_all(&config.output_directory).is_err() {
-                return Err(RunError::OutFormat(format!(
-                    "Failed to create or locate custom output directory: {:?}",
-                    config.output_directory,
-                )));
-            }
-        }
-
-        for g in &config.generate {
-            match *g {
-                OutputFile::Xml => {
-                    cobertura::report(result, config).map_err(|e| RunError::XML(e))?;
-                }
-                OutputFile::Html => {
-                    html::export(result, config)?;
-                }
-                _ => {
-                    return Err(RunError::OutFormat(
-                        "Output format is currently not supported!".to_string(),
-                    ));
-                }
-            }
-        }
+        print_summary(config, result);
+        generate_requested_reports(config, result)?;
 
         Ok(())
     } else if !config.no_run {
@@ -101,6 +36,96 @@ pub fn report_coverage(config: &Config, result: &TraceMap) -> Result<(), RunErro
     } else {
         Ok(())
     }
+}
+
+fn generate_requested_reports(config: &Config, result: &TraceMap) -> Result<(), RunError> {
+    if config.is_coveralls() {
+        coveralls::export(result, config)?;
+        info!("Coverage data sent");
+    }
+
+    if !config.is_default_output_dir() {
+        if create_dir_all(&config.output_directory).is_err() {
+            return Err(RunError::OutFormat(format!(
+                "Failed to create or locate custom output directory: {:?}",
+                config.output_directory,
+            )));
+        }
+    }
+
+    for g in &config.generate {
+        match *g {
+            OutputFile::Xml => {
+                cobertura::report(result, config).map_err(|e| RunError::XML(e))?;
+            }
+            OutputFile::Html => {
+                html::export(result, config)?;
+            }
+            _ => {
+                return Err(RunError::OutFormat(
+                    "Output format is currently not supported!".to_string(),
+                ));
+            }
+        }
+    }
+    Ok(())
+}
+
+fn print_missing_lines(config: &Config, result: &TraceMap) {
+    println!("|| Uncovered Lines:");
+    for (ref key, ref value) in result.iter() {
+        let path = config.strip_base_dir(key);
+        let mut uncovered_lines = vec![];
+        for v in value.iter() {
+            match v.stats {
+                CoverageStat::Line(count) if count == 0 => {
+                    uncovered_lines.push(v.line);
+                }
+                _ => (),
+            }
+        }
+        uncovered_lines.sort();
+        let (groups, last_group) = uncovered_lines
+            .into_iter()
+            .fold((vec![], vec![]), accumulate_lines);
+        let (groups, _) = accumulate_lines((groups, last_group), u64::max_value());
+        if !groups.is_empty() {
+            println!("|| {}: {}", path.display(), groups.join(", "));
+        }
+    }
+}
+
+fn print_summary(config: &Config, result: &TraceMap) {
+    // Check for previous report
+    if let Some(project_dir) = config.manifest.parent() {
+        let mut report_dir = project_dir.join("target");
+        report_dir.push("tarpaulin");
+        if report_dir.exists() {
+            // is report there?
+        } else {
+            // make directory
+            std::fs::create_dir(&report_dir)
+                .unwrap_or_else(|e| error!("Failed to create report directory: {}", e));
+        }
+    }
+    println!("|| Tested/Total Lines:");
+    for file in result.files() {
+        let path = config.strip_base_dir(file);
+        println!(
+            "|| {}: {}/{}",
+            path.display(),
+            result.covered_in_path(&file),
+            result.coverable_in_path(&file)
+        );
+    }
+    let percent = result.coverage_percentage() * 100.0f64;
+    // Put file filtering here
+    println!(
+        "|| \n{:.2}% coverage, {}/{} lines covered",
+        percent,
+        result.total_covered(),
+        result.total_coverable()
+    );
 }
 
 fn accumulate_lines(
