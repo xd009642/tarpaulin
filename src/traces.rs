@@ -262,6 +262,11 @@ impl TraceMap {
         }
     }
 
+    /// Returns true if the file is among the traces
+    pub fn contains_file(&self, file: &Path) -> bool {
+        self.traces.contains_key(file)
+    }
+
     /// Gets all traces below a certain path
     pub fn get_child_traces(&self, root: &Path) -> Vec<&Trace> {
         self.traces
