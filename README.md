@@ -32,6 +32,9 @@ a repo and the commit containing your project and paste the verbose output).
 
 * Line coverage
 * Uploading coverage to https://coveralls.io or https://codecov.io
+* HTML report generation and other coverage report types
+* Coverage of tests, doctests, benchmarks and examples possible
+* Excluding irrelevant files from coverage
 
 ## Usage
 
@@ -90,6 +93,32 @@ test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out
 || src/unused.rs: 0/3
 || 
 55.56% coverage, 5/9 lines covered
+```
+
+Tarpaulin can also report the change in coverage for each file between runs. If
+the tests were updated in the previous example to cover all the lines we would
+expect the following output.
+
+```text
+cargo tarpaulin -v
+[INFO tarpaulin] Running Tarpaulin
+[INFO tarpaulin] Building project
+    Finished dev [unoptimized + debuginfo] target(s) in 0.00s                                                                                                                                                      
+[DEBUG tarpaulin] Processing simple_project
+[INFO tarpaulin] Launching test
+[INFO tarpaulin] running /home/xd009642/code/rust/tarpaulin/tests/data/simple_project/target/debug/deps/simple_project-b0accf6671d080e0
+
+running 1 test
+test tests::bad_test ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out
+
+[INFO tarpaulin] Coverage Results:
+|| Tested/Total Lines:
+|| src/lib.rs: 6/6 +16.67%
+|| src/unused.rs: 3/3 +100%
+|| 
+100% coverage, 9/9 lines covered, +44.44% change in coverage
 ```
 
 Hint: if using coveralls.io with travis-ci run with the options
@@ -196,6 +225,17 @@ jobs:
           name: Coverage with docker
           command: docker run --security-opt seccomp=unconfined -v "${PWD}:/volume" xd009642/tarpaulin
 ```
+
+### Gitlab Pipelines
+
+To get the coverage results showing up in your Gitlab pipelines add the following regex to the `Test
+coverage parsing` section in the pipelines settings.
+
+```
+^\d+.\d+% coverage
+```
+
+For installation add `cargo install cargo-tarpaulin -f` to the script section.
 
 ### Docker
 

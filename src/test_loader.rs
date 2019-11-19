@@ -350,13 +350,13 @@ fn open_symbols_file(test: &Path) -> io::Result<File> {
 pub fn generate_tracemap(
     project: &Workspace,
     test: &Path,
+    analysis: &HashMap<PathBuf, LineAnalysis>,
     config: &Config,
 ) -> io::Result<TraceMap> {
     let manifest = project.root();
     let file = open_symbols_file(test)?;
     let file = unsafe { MmapOptions::new().map(&file)? };
     if let Ok(obj) = OFile::parse(&*file) {
-        let analysis = get_line_analysis(project, config);
         let endian = if obj.is_little_endian() {
             RunTimeEndian::Little
         } else {

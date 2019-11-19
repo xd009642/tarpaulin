@@ -1,6 +1,8 @@
 use crate::config::*;
 use crate::errors::*;
 use crate::process_handling::*;
+use crate::report::report_coverage;
+use crate::source_analysis::LineAnalysis;
 use crate::statemachine::*;
 use crate::test_loader::*;
 use crate::traces::*;
@@ -13,9 +15,9 @@ use cargo::ops::{
 use cargo::util::{homedir, Config as CargoConfig};
 use log::{debug, info, trace, warn};
 use nix::unistd::*;
+use std::collections::HashMap;
 use std::env;
 use std::ffi::CString;
-use std::fs::create_dir_all;
 use std::path::{Path, PathBuf};
 use walkdir::WalkDir;
 
@@ -86,11 +88,14 @@ pub fn launch_tarpaulin(config: &Config) -> Result<(TraceMap, i32), RunError> {
     }
     let mut result = TraceMap::new();
     let mut return_code = 0i32;
+    let project_analysis = source_analysis::get_line_analysis(&workspace, config);
     info!("Building project");
     for copt in compile_options.drain(..) {
         let run_result = match copt.build_config.mode {
-            CompileMode::Test => run_tests(&workspace, copt, config),
-            CompileMode::Doctest => run_doctests(&workspace, copt, config),
+            CompileMode::Build | CompileMode::Test | CompileMode::Bench => {
+                run_tests(&workspace, copt, &project_analysis, config)
+            }
+            CompileMode::Doctest => run_doctests(&workspace, copt, &project_analysis, config),
             e => {
                 debug!("Internal tarpaulin error. Unsupported compile mode {:?}", e);
                 Err(RunError::Internal)
@@ -106,6 +111,7 @@ pub fn launch_tarpaulin(config: &Config) -> Result<(TraceMap, i32), RunError> {
 fn run_tests(
     workspace: &Workspace,
     compile_options: CompileOptions,
+    analysis: &HashMap<PathBuf, LineAnalysis>,
     config: &Config,
 ) -> Result<(TraceMap, i32), RunError> {
     let mut result = TraceMap::new();
@@ -113,18 +119,41 @@ fn run_tests(
     let compilation = compile(&workspace, &compile_options);
     match compilation {
         Ok(comp) => {
-            for &(ref package, ref name, ref path) in &comp.tests {
-                debug!("Processing {}", name);
+            if config.no_run {
+                info!("Project compiled successfully");
+                return Ok((result, return_code));
+            }
+            // If we have binaries we have other artefacts to run
+            for binary in comp.binaries {
                 if let Some(res) =
-                    get_test_coverage(&workspace, Some(package), path.as_path(), config, false)?
+                    get_test_coverage(&workspace, None, binary.as_path(), analysis, config, false)?
                 {
                     result.merge(&res.0);
                     return_code |= res.1;
                 }
+            }
+            for &(ref package, ref name, ref path) in &comp.tests {
+                debug!("Processing {}", name);
+                if let Some(res) = get_test_coverage(
+                    &workspace,
+                    Some(package),
+                    path.as_path(),
+                    analysis,
+                    config,
+                    false,
+                )? {
+                    result.merge(&res.0);
+                    return_code |= res.1;
+                }
                 if config.run_ignored {
-                    if let Some(res) =
-                        get_test_coverage(&workspace, Some(package), path.as_path(), config, true)?
-                    {
+                    if let Some(res) = get_test_coverage(
+                        &workspace,
+                        Some(package),
+                        path.as_path(),
+                        analysis,
+                        config,
+                        true,
+                    )? {
                         result.merge(&res.0);
                         return_code |= res.1;
                     }
@@ -140,6 +169,7 @@ fn run_tests(
 fn run_doctests(
     workspace: &Workspace,
     compile_options: CompileOptions,
+    analysis: &HashMap<PathBuf, LineAnalysis>,
     config: &Config,
 ) -> Result<(TraceMap, i32), RunError> {
     info!("Running doctests");
@@ -176,7 +206,9 @@ fn run_doctests(
                 _ => false,
             })
         {
-            if let Some(res) = get_test_coverage(&workspace, None, dt.path(), config, false)? {
+            if let Some(res) =
+                get_test_coverage(&workspace, None, dt.path(), analysis, config, false)?
+            {
                 result.merge(&res.0);
                 return_code |= res.1;
             }
@@ -207,6 +239,14 @@ fn get_compile_options<'a>(
                 FilterRule::Just(vec![]),
                 FilterRule::Just(vec![]),
                 FilterRule::Just(vec![]),
+                FilterRule::Just(vec![]),
+            );
+        } else if run_type == &RunType::Examples {
+            copt.filter = CompileFilter::new(
+                LibRule::True,
+                FilterRule::Just(vec![]),
+                FilterRule::Just(vec![]),
+                FilterRule::All,
                 FilterRule::Just(vec![]),
             );
         }
@@ -255,121 +295,12 @@ fn setup_environment(config: &Config) {
     env::set_var(rustdoc, value);
 }
 
-fn accumulate_lines(
-    (mut acc, mut group): (Vec<String>, Vec<u64>),
-    next: u64,
-) -> (Vec<String>, Vec<u64>) {
-    if let Some(last) = group.last().cloned() {
-        if next == last + 1 {
-            group.push(next);
-            (acc, group)
-        } else {
-            match (group.first(), group.last()) {
-                (Some(first), Some(last)) if first == last => {
-                    acc.push(format!("{}", first));
-                }
-                (Some(first), Some(last)) => {
-                    acc.push(format!("{}-{}", first, last));
-                }
-                (Some(_), None) | (None, _) => (),
-            };
-            (acc, vec![next])
-        }
-    } else {
-        group.push(next);
-        (acc, group)
-    }
-}
-
-/// Reports the test coverage using the users preferred method. See config.rs
-/// or help text for details.
-pub fn report_coverage(config: &Config, result: &TraceMap) -> Result<(), RunError> {
-    if !result.is_empty() {
-        info!("Coverage Results:");
-        if config.verbose {
-            println!("|| Uncovered Lines:");
-            for (ref key, ref value) in result.iter() {
-                let path = config.strip_base_dir(key);
-                let mut uncovered_lines = vec![];
-                for v in value.iter() {
-                    match v.stats {
-                        traces::CoverageStat::Line(count) if count == 0 => {
-                            uncovered_lines.push(v.line);
-                        }
-                        _ => (),
-                    }
-                }
-                uncovered_lines.sort();
-                let (groups, last_group) = uncovered_lines
-                    .into_iter()
-                    .fold((vec![], vec![]), accumulate_lines);
-                let (groups, _) = accumulate_lines((groups, last_group), u64::max_value());
-                if !groups.is_empty() {
-                    println!("|| {}: {}", path.display(), groups.join(", "));
-                }
-            }
-        }
-        println!("|| Tested/Total Lines:");
-        for file in result.files() {
-            let path = config.strip_base_dir(file);
-            println!(
-                "|| {}: {}/{}",
-                path.display(),
-                result.covered_in_path(&file),
-                result.coverable_in_path(&file)
-            );
-        }
-        let percent = result.coverage_percentage() * 100.0f64;
-        // Put file filtering here
-        println!(
-            "|| \n{:.2}% coverage, {}/{} lines covered",
-            percent,
-            result.total_covered(),
-            result.total_coverable()
-        );
-        if config.is_coveralls() {
-            report::coveralls::export(result, config)?;
-            info!("Coverage data sent");
-        }
-
-        if !config.is_default_output_dir() {
-            if create_dir_all(&config.output_directory).is_err() {
-                return Err(RunError::OutFormat(format!(
-                    "Failed to create or locate custom output directory: {:?}",
-                    config.output_directory,
-                )));
-            }
-        }
-
-        for g in &config.generate {
-            match *g {
-                OutputFile::Xml => {
-                    report::cobertura::report(result, config).map_err(|e| RunError::XML(e))?;
-                }
-                OutputFile::Html => {
-                    report::html::export(result, config)?;
-                }
-                _ => {
-                    return Err(RunError::OutFormat(
-                        "Output format is currently not supported!".to_string(),
-                    ));
-                }
-            }
-        }
-
-        Ok(())
-    } else {
-        Err(RunError::CovReport(
-            "No coverage results collected.".to_string(),
-        ))
-    }
-}
-
 /// Returns the coverage statistics for a test executable in the given workspace
 pub fn get_test_coverage(
     project: &Workspace,
     package: Option<&Package>,
     test: &Path,
+    analysis: &HashMap<PathBuf, LineAnalysis>,
     config: &Config,
     ignored: bool,
 ) -> Result<Option<(TraceMap, i32)>, RunError> {
@@ -380,10 +311,12 @@ pub fn get_test_coverage(
         warn!("Failed to set processor affinity {}", e);
     }
     match fork() {
-        Ok(ForkResult::Parent { child }) => match collect_coverage(project, test, child, config) {
-            Ok(t) => Ok(Some(t)),
-            Err(e) => Err(RunError::TestCoverage(e.to_string())),
-        },
+        Ok(ForkResult::Parent { child }) => {
+            match collect_coverage(project, test, child, analysis, config) {
+                Ok(t) => Ok(Some(t)),
+                Err(e) => Err(RunError::TestCoverage(e.to_string())),
+            }
+        }
         Ok(ForkResult::Child) => {
             info!("Launching test");
             execute_test(test, package, ignored, config)?;
@@ -402,10 +335,11 @@ fn collect_coverage(
     project: &Workspace,
     test_path: &Path,
     test: Pid,
+    analysis: &HashMap<PathBuf, LineAnalysis>,
     config: &Config,
 ) -> Result<(TraceMap, i32), RunError> {
     let mut ret_code = 0;
-    let mut traces = generate_tracemap(project, test_path, config)?;
+    let mut traces = generate_tracemap(project, test_path, analysis, config)?;
     {
         trace!("Test PID is {}", test);
         let (mut state, mut data) = create_state_machine(test, &mut traces, config);
