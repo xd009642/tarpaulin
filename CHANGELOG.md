@@ -5,6 +5,13 @@ file.
 
 ## [Unreleased]
 ### Added
+
+### Changed
+
+### Removed
+
+## [0.9.2] 2019-11-19
+### Added
 - Added Benchmarks to `RunType` to allow coverage of benchmark tests to be collected
 - Added Examples to `RunType` to allow coverage of examples to be collected
 - Instructions for integration to Gitlab pipelines to `README.md`
