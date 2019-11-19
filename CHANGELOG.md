@@ -9,6 +9,7 @@ file.
 - Added Examples to `RunType` to allow coverage of examples to be collected
 - Instructions for integration to Gitlab pipelines to `README.md`
 - `--no-run` option to build tests and not collect coverage
+- Added run-to-run coverage change reporting through saving the previous run in `target/tarpaulin/coverage.json`
 
 ### Changed
 

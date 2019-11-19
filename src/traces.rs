@@ -1,4 +1,4 @@
-use serde::Serialize;
+use serde::{Deserialize, Serialize};
 use std::cmp::{Ord, Ordering};
 use std::collections::btree_map::Iter;
 use std::collections::{BTreeMap, HashMap};
@@ -7,7 +7,7 @@ use std::ops::Add;
 use std::path::{Path, PathBuf};
 
 /// Used to track the state of logical conditions
-#[derive(Debug, Clone, Copy, Default, Hash, PartialEq, Eq, PartialOrd, Serialize)]
+#[derive(Debug, Clone, Copy, Default, Hash, PartialEq, Eq, PartialOrd, Deserialize, Serialize)]
 pub struct LogicState {
     /// Whether the condition has been observed as true
     pub been_true: bool,
@@ -27,7 +27,7 @@ impl<'a> Add for &'a LogicState {
 }
 
 /// Shows what type of coverage data is being collected by a given trace
-#[derive(Debug, Clone, Hash, PartialEq, Eq, PartialOrd, Serialize)]
+#[derive(Debug, Clone, Hash, PartialEq, Eq, PartialOrd, Deserialize, Serialize)]
 pub enum CoverageStat {
     /// Line coverage data (whether line has been hit)
     Line(u64),
@@ -60,7 +60,7 @@ impl Display for CoverageStat {
     }
 }
 
-#[derive(Debug, Clone, Hash, PartialEq, Eq, PartialOrd, Serialize)]
+#[derive(Debug, Clone, Hash, PartialEq, Eq, PartialOrd, Deserialize, Serialize)]
 pub struct Trace {
     /// Line the trace is on in the file
     pub line: u64,
@@ -127,7 +127,7 @@ pub fn coverage_percentage(traces: &[&Trace]) -> f64 {
 
 /// Stores all the program traces mapped to files and provides an interface to
 /// add, query and change traces.
-#[derive(Debug, Default)]
+#[derive(Debug, Default, Deserialize, Serialize)]
 pub struct TraceMap {
     /// Traces in the program mapped to the given file
     traces: BTreeMap<PathBuf, Vec<Trace>>,
@@ -260,6 +260,11 @@ impl TraceMap {
             Some(traces) => traces.iter().any(|x| x.line == line),
             None => false,
         }
+    }
+
+    /// Returns true if the file is among the traces
+    pub fn contains_file(&self, file: &Path) -> bool {
+        self.traces.contains_key(file)
     }
 
     /// Gets all traces below a certain path
