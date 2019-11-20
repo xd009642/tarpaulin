@@ -7,6 +7,7 @@ use std::time::Duration;
 mod compile_fail;
 mod doc_coverage;
 mod line_coverage;
+mod test_types;
 mod utils;
 
 pub fn check_percentage_with_config(

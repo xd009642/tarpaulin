@@ -123,13 +123,26 @@ fn run_tests(
                 info!("Project compiled successfully");
                 return Ok((result, return_code));
             }
-            // If we have binaries we have other artefacts to run
-            for binary in comp.binaries {
-                if let Some(res) =
-                    get_test_coverage(&workspace, None, binary.as_path(), analysis, config, false)?
-                {
-                    result.merge(&res.0);
-                    return_code |= res.1;
+            // Examples are always in the binaries list with tests!
+            if config
+                .run_types
+                .iter()
+                .any(|x| !(*x == RunType::Tests || *x == RunType::Doctests))
+            {
+                // If we have binaries we have other artefacts to run
+                for binary in comp.binaries {
+                    if let Some(res) = get_test_coverage(
+                        &workspace,
+                        None,
+                        binary.as_path(),
+                        analysis,
+                        config,
+                        false,
+                        false,
+                    )? {
+                        result.merge(&res.0);
+                        return_code |= res.1;
+                    }
                 }
             }
             for &(ref package, ref name, ref path) in &comp.tests {
@@ -140,6 +153,7 @@ fn run_tests(
                     path.as_path(),
                     analysis,
                     config,
+                    true,
                     false,
                 )? {
                     result.merge(&res.0);
@@ -152,6 +166,7 @@ fn run_tests(
                         path.as_path(),
                         analysis,
                         config,
+                        true,
                         true,
                     )? {
                         result.merge(&res.0);
@@ -207,7 +222,7 @@ fn run_doctests(
             })
         {
             if let Some(res) =
-                get_test_coverage(&workspace, None, dt.path(), analysis, config, false)?
+                get_test_coverage(&workspace, None, dt.path(), analysis, config, true, false)?
             {
                 result.merge(&res.0);
                 return_code |= res.1;
@@ -302,6 +317,7 @@ pub fn get_test_coverage(
     test: &Path,
     analysis: &HashMap<PathBuf, LineAnalysis>,
     config: &Config,
+    can_quiet: bool,
     ignored: bool,
 ) -> Result<Option<(TraceMap, i32)>, RunError> {
     if !test.exists() {
@@ -319,7 +335,7 @@ pub fn get_test_coverage(
         }
         Ok(ForkResult::Child) => {
             info!("Launching test");
-            execute_test(test, package, ignored, config)?;
+            execute_test(test, package, ignored, can_quiet, config)?;
             Ok(None)
         }
         Err(err) => Err(RunError::TestCoverage(format!(
@@ -361,6 +377,7 @@ fn execute_test(
     test: &Path,
     package: Option<&Package>,
     ignored: bool,
+    can_quiet: bool,
     config: &Config,
 ) -> Result<(), RunError> {
     let exec_path = CString::new(test.to_str().unwrap()).unwrap();
@@ -387,7 +404,7 @@ fn execute_test(
     };
     if config.verbose {
         envars.push(CString::new("RUST_BACKTRACE=1").unwrap());
-    } else {
+    } else if can_quiet {
         argv.push(CString::new("--quiet").unwrap());
     }
     for s in &config.varargs {

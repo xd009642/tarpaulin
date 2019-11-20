@@ -1,4 +1,3 @@
-#![feature(async_await, futures_api)]
 
 #[test]
 pub fn a() {
