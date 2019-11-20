@@ -11,7 +11,7 @@ use regex::Regex;
 use self::parse::*;
 
 mod parse;
-mod types;
+pub mod types;
 
 /// Specifies the current configuration tarpaulin is using.
 #[derive(Debug)]
