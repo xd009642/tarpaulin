@@ -7,6 +7,9 @@ file.
 ### Added
 
 ### Changed
+- Fixed issue where examples were ran with `RunType::Tests`
+- No longer pass `--quiet` to examples
+- Updated futures test for stable features
 
 ### Removed
 

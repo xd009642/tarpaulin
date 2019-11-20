@@ -27,7 +27,7 @@ fn set_up_logging(debug: bool, verbose: bool) {
     }
 
     builder
-        .default_format_timestamp(false)
+        .format_timestamp(None)
         .format(|buf, record| {
             let level_style = buf.default_level_style(record.level());
             writeln!(
