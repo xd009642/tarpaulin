@@ -81,6 +81,8 @@ pub struct Config {
     pub locked: bool,
     /// Don't update `Cargo.lock` or any caches.
     pub frozen: bool,
+    /// Directory for generated artifacts
+    pub target_dir: Option<PathBuf>,
 }
 
 impl Default for Config {
@@ -117,6 +119,7 @@ impl Default for Config {
             no_run: false,
             locked: false,
             frozen: false,
+            target_dir: None,
         }
     }
 }
@@ -157,6 +160,7 @@ impl<'a> From<&'a ArgMatches<'a>> for Config {
             no_run: args.is_present("no-run"),
             locked: args.is_present("locked"),
             frozen: args.is_present("frozen"),
+            target_dir: get_target_dir(args),
         }
     }
 }
