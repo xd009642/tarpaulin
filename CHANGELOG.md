@@ -5,6 +5,7 @@ file.
 
 ## [Unreleased]
 ### Added
+- `--locked` and `--frozen` options to mirror `cargo test` options
 
 ### Changed
 - Fixed issue where examples were ran with `RunType::Tests`

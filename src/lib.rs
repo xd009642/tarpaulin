@@ -65,7 +65,16 @@ pub fn launch_tarpaulin(config: &Config) -> Result<(TraceMap, i32), RunError> {
     let flag_quiet = if config.verbose { None } else { Some(true) };
 
     // This shouldn't fail so no checking the error.
-    let _ = cargo_config.configure(0u32, flag_quiet, &None, false, false, false, &None, &[]);
+    let _ = cargo_config.configure(
+        0u32,
+        flag_quiet,
+        &None,
+        config.frozen,
+        config.locked,
+        false,
+        &None,
+        &[],
+    );
 
     let workspace = Workspace::new(config.manifest.as_path(), &cargo_config)
         .map_err(|e| RunError::Manifest(e.to_string()))?;

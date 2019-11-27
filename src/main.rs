@@ -76,7 +76,9 @@ fn main() -> Result<(), String> {
                  --exclude-files [FILE]... 'Exclude given files from coverage results has * wildcard'
                  --timeout -t [SECONDS] 'Integer for the maximum time in seconds without response from test before timeout (default is 1 minute).'
                  --release   'Build in release mode.'
-                 --no-run 'Compile tests but don't run coverage'")
+                 --no-run 'Compile tests but don't run coverage'
+                 --locked 'Do not update Cargo.lock'
+                 --frozen 'Do not update Cargo.lock or any caches'")
             .args(&[
                 Arg::from_usage("--out -o [FMT]   'Output format of coverage report'")
                     .possible_values(&OutputFile::variants())

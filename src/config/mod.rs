@@ -77,6 +77,10 @@ pub struct Config {
     pub release: bool,
     /// Build the tests only don't run coverage
     pub no_run: bool,
+    /// Don't update `Cargo.lock`.
+    pub locked: bool,
+    /// Don't update `Cargo.lock` or any caches.
+    pub frozen: bool,
 }
 
 impl Default for Config {
@@ -111,6 +115,8 @@ impl Default for Config {
             release: false,
             all_features: false,
             no_run: false,
+            locked: false,
+            frozen: false,
         }
     }
 }
@@ -149,6 +155,8 @@ impl<'a> From<&'a ArgMatches<'a>> for Config {
             test_timeout: get_timeout(args),
             release: args.is_present("release"),
             no_run: args.is_present("no-run"),
+            locked: args.is_present("locked"),
+            frozen: args.is_present("frozen"),
         }
     }
 }
