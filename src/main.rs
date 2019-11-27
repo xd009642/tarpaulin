@@ -78,7 +78,8 @@ fn main() -> Result<(), String> {
                  --release   'Build in release mode.'
                  --no-run 'Compile tests but don't run coverage'
                  --locked 'Do not update Cargo.lock'
-                 --frozen 'Do not update Cargo.lock or any caches'")
+                 --frozen 'Do not update Cargo.lock or any caches'
+                 --target-dir <DIR> 'Directory for all generated artifacts'")
             .args(&[
                 Arg::from_usage("--out -o [FMT]   'Output format of coverage report'")
                     .possible_values(&OutputFile::variants())
