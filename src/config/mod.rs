@@ -83,6 +83,8 @@ pub struct Config {
     pub frozen: bool,
     /// Directory for generated artifacts
     pub target_dir: Option<PathBuf>,
+    /// Run tarpaulin on project without accessing the network
+    pub offline: bool,
 }
 
 impl Default for Config {
@@ -120,6 +122,7 @@ impl Default for Config {
             locked: false,
             frozen: false,
             target_dir: None,
+            offline: false,
         }
     }
 }
@@ -161,6 +164,7 @@ impl<'a> From<&'a ArgMatches<'a>> for Config {
             locked: args.is_present("locked"),
             frozen: args.is_present("frozen"),
             target_dir: get_target_dir(args),
+            offline: args.is_present("offline"),
         }
     }
 }
