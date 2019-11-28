@@ -71,7 +71,7 @@ pub fn launch_tarpaulin(config: &Config) -> Result<(TraceMap, i32), RunError> {
         &None,
         config.frozen,
         config.locked,
-        false,
+        config.offline,
         &config.target_dir,
         &[],
     );

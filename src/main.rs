@@ -79,7 +79,8 @@ fn main() -> Result<(), String> {
                  --no-run 'Compile tests but don't run coverage'
                  --locked 'Do not update Cargo.lock'
                  --frozen 'Do not update Cargo.lock or any caches'
-                 --target-dir [DIR] 'Directory for all generated artifacts'")
+                 --target-dir [DIR] 'Directory for all generated artifacts'
+                 --offline 'Run without accessing the network'")
             .args(&[
                 Arg::from_usage("--out -o [FMT]   'Output format of coverage report'")
                     .possible_values(&OutputFile::variants())
