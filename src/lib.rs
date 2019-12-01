@@ -73,7 +73,7 @@ pub fn launch_tarpaulin(config: &Config) -> Result<(TraceMap, i32), RunError> {
         config.locked,
         config.offline,
         &config.target_dir,
-        &[],
+        &config.unstable_features,
     );
 
     let workspace = Workspace::new(config.manifest.as_path(), &cargo_config)

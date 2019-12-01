@@ -61,6 +61,8 @@ pub struct Config {
     pub no_default_features: bool,
     /// Features to include in the target project build
     pub features: Vec<String>,
+    /// Unstable cargo features to use
+    pub unstable_features: Vec<String>,
     /// Build all packages in the workspace
     pub all: bool,
     /// Packages to include when building the target project
@@ -110,6 +112,7 @@ impl Default for Config {
             forward_signals: false,
             no_default_features: false,
             features: vec![],
+            unstable_features: vec![],
             all: false,
             packages: vec![],
             exclude: vec![],
@@ -153,7 +156,8 @@ impl<'a> From<&'a ArgMatches<'a>> for Config {
             all_features: args.is_present("all-features"),
             no_default_features: args.is_present("no-default-features"),
             features: get_list(args, "features"),
-            all: args.is_present("all"),
+            unstable_features: get_list(args, "Z"),
+            all: args.is_present("all") | args.is_present("workspace"),
             packages: get_list(args, "packages"),
             exclude: get_list(args, "exclude"),
             excluded_files: get_excluded(args),
