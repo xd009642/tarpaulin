@@ -70,7 +70,8 @@ fn main() -> Result<(), String> {
                  --no-default-features 'Do not include default features'
                  --features [FEATURE]... 'Features to be included in the target project'
                  --all-features 'Build all available features'
-                 --all        'Build all packages in the workspace'
+                 --all        'alias for --workspace (deprecated)'
+                 --workspace 'Test all packages in the workspace'
                  --packages -p [PACKAGE]... 'Package id specifications for which package should be build. See cargo help pkgid for more info'
                  --exclude -e [PACKAGE]... 'Package id specifications to exclude from coverage. See cargo help pkgid for more info'
                  --exclude-files [FILE]... 'Exclude given files from coverage results has * wildcard'
@@ -80,7 +81,8 @@ fn main() -> Result<(), String> {
                  --locked 'Do not update Cargo.lock'
                  --frozen 'Do not update Cargo.lock or any caches'
                  --target-dir [DIR] 'Directory for all generated artifacts'
-                 --offline 'Run without accessing the network'")
+                 --offline 'Run without accessing the network'
+                 -Z [FEATURES]...   'list of unstable nightly only flags'")
             .args(&[
                 Arg::from_usage("--out -o [FMT]   'Output format of coverage report'")
                     .possible_values(&OutputFile::variants())
