@@ -827,9 +827,9 @@ dependencies = [
 
 [[package]]
 name = "nix"
-version = "0.15.0"
+version = "0.16.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "3b2e0b4f3320ed72aaedb9a5ac838690a8047c7b275da22711fddff4f8a14229"
+checksum = "19a8300bf427d432716764070ff70d5b2b7801c958b9049686e6cbd8b06fad92"
 dependencies = [
  "bitflags",
  "cc",

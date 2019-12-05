@@ -5,7 +5,7 @@ use nix::libc::{c_int, c_long};
 use nix::sched::*;
 use nix::unistd::*;
 use nix::Error;
-use std::ffi::CString;
+use std::ffi::{CStr, CString};
 
 #[cfg(any(target_arch = "x86", target_arch = "x86_64", target_arch = "arm"))]
 type Persona = c_long;
@@ -54,7 +54,9 @@ pub fn execute(program: CString, argv: &[CString], envar: &[CString]) -> Result<
 
     request_trace().map_err(|e| RunError::Trace(e.to_string()))?;
 
-    execve(&program, argv, envar)
+    let arg_ref = argv.iter().map(|x| x.as_ref()).collect::<Vec<&CStr>>();
+    let env_ref = envar.iter().map(|x| x.as_ref()).collect::<Vec<&CStr>>();
+    execve(&program, &arg_ref, &env_ref)
         .map_err(|_| RunError::Internal)
         .map(|_| ())
 }
