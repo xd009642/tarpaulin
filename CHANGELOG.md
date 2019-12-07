@@ -5,6 +5,13 @@ file.
 
 ## [Unreleased]
 ### Added
+
+### Changed
+
+### Removed
+
+## [0.10.0] 2019-12-07  
+### Added
 - `--locked` and `--frozen` options to mirror `cargo test` options
 - `--target-dir` option to mirror `cargo test` and `cargo build` options
 - `--offline` option to mirror `cargo test` and `cargo build` options
