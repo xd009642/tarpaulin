@@ -48,6 +48,24 @@ pub(super) fn get_manifest(args: &ArgMatches) -> PathBuf {
     manifest.canonicalize().unwrap_or(manifest)
 }
 
+pub(super) fn get_target_dir(args: &ArgMatches) -> Option<PathBuf> {
+    if let Some(path) = args.value_of("target-dir") {
+        let path = PathBuf::from(path);
+        let path = if path.is_relative() {
+            env::current_dir()
+                .unwrap()
+                .join(path)
+                .canonicalize()
+                .unwrap()
+        } else {
+            path
+        };
+        Some(path)
+    } else {
+        None
+    }
+}
+
 pub(super) fn get_root(args: &ArgMatches) -> Option<String> {
     args.value_of("root").map(ToString::to_string)
 }

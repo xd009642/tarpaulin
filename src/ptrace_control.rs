@@ -20,7 +20,7 @@ pub fn trace_children(pid: Pid) -> Result<()> {
 }
 
 pub fn detach_child(pid: Pid) -> Result<()> {
-    detach(pid)
+    detach(pid, None)
 }
 
 pub fn continue_exec(pid: Pid, sig: Option<Signal>) -> Result<()> {

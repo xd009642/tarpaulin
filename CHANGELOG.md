@@ -7,9 +7,20 @@ file.
 ### Added
 
 ### Changed
+
+### Removed
+
+## [0.10.0] 2019-12-07  
+### Added
+- `--locked` and `--frozen` options to mirror `cargo test` options
+- `--target-dir` option to mirror `cargo test` and `cargo build` options
+- `--offline` option to mirror `cargo test` and `cargo build` options
+
+### Changed
 - Fixed issue where examples were ran with `RunType::Tests`
 - No longer pass `--quiet` to examples
 - Updated futures test for stable features
+- Split up docker run stages to optimise build times and added `.dockerignore`
 
 ### Removed
 
