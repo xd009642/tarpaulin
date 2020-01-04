@@ -21,7 +21,7 @@ path = "tests/mod.rs"
 [dependencies]
 cargo = "0.40"
 chrono = "0.4"
-clap = "2.31.2"
+clap = "2.33.0"
 coveralls-api = "0.4.0"
 env_logger = "0.7"
 failure = "0.1.3"
