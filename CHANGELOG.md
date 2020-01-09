@@ -5,6 +5,7 @@ file.
 
 ## [Unreleased]
 ### Added
+- Filtering of attributes on `loop`, `for` and `while` expressions
 
 ### Changed
 

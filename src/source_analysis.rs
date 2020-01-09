@@ -751,31 +751,46 @@ fn visit_if(if_block: &ExprIf, ctx: &Context, analysis: &mut LineAnalysis) -> Su
 }
 
 fn visit_while(whl: &ExprWhile, ctx: &Context, analysis: &mut LineAnalysis) -> SubResult {
-    // a while block is unreachable iff its body is
-    if let SubResult::Unreachable = visit_block(&whl.body, ctx, analysis) {
-        analysis.ignore_tokens(whl);
-        SubResult::Unreachable
+    if check_attr_list(&whl.attrs, ctx, analysis) {
+        // a while block is unreachable iff its body is
+        if let SubResult::Unreachable = visit_block(&whl.body, ctx, analysis) {
+            analysis.ignore_tokens(whl);
+            SubResult::Unreachable
+        } else {
+            SubResult::Ok
+        }
     } else {
+        analysis.ignore_tokens(whl);
         SubResult::Ok
     }
 }
 
 fn visit_for(for_loop: &ExprForLoop, ctx: &Context, analysis: &mut LineAnalysis) -> SubResult {
-    // a for block is unreachable iff its body is
-    if let SubResult::Unreachable = visit_block(&for_loop.body, ctx, analysis) {
-        analysis.ignore_tokens(for_loop);
-        SubResult::Unreachable
+    if check_attr_list(&for_loop.attrs, ctx, analysis) {
+        // a for block is unreachable iff its body is
+        if let SubResult::Unreachable = visit_block(&for_loop.body, ctx, analysis) {
+            analysis.ignore_tokens(for_loop);
+            SubResult::Unreachable
+        } else {
+            SubResult::Ok
+        }
     } else {
+        analysis.ignore_tokens(for_loop);
         SubResult::Ok
     }
 }
 
 fn visit_loop(loopex: &ExprLoop, ctx: &Context, analysis: &mut LineAnalysis) -> SubResult {
-    // a loop block is unreachable iff its body is
-    if let SubResult::Unreachable = visit_block(&loopex.body, ctx, analysis) {
-        analysis.ignore_tokens(loopex);
-        SubResult::Unreachable
+    if check_attr_list(&loopex.attrs, ctx, analysis) {
+        // a loop block is unreachable iff its body is
+        if let SubResult::Unreachable = visit_block(&loopex.body, ctx, analysis) {
+            analysis.ignore_tokens(loopex);
+            SubResult::Unreachable
+        } else {
+            SubResult::Ok
+        }
     } else {
+        analysis.ignore_tokens(loopex);
         SubResult::Ok
     }
 }
@@ -1123,6 +1138,33 @@ mod tests {
         let parser = parse_file(ctx.file_contents).unwrap();
         process_items(&parser.items, &ctx, &mut lines);
         assert!(lines.ignore.contains(&Lines::Line(2)));
+    }
+
+    #[test]
+    fn filter_loop_attr() {
+        let config = Config::default();
+        let mut lines = LineAnalysis::new();
+        let ctx = Context {
+            config: &config,
+            file_contents: "fn test() {
+                    #[allow(clippy::option_unwrap_used)]
+                    loop {
+                    }
+                    #[allow(clippy::option_unwrap_used)]
+                    for i in 0..10 {
+                    }
+                    #[allow(clippy::option_unwrap_used)]
+                    while true {
+                    }
+                }",
+            file: Path::new(""),
+            ignore_mods: RefCell::new(HashSet::new()),
+        };
+        let parser = parse_file(ctx.file_contents).unwrap();
+        process_items(&parser.items, &ctx, &mut lines);
+        assert!(lines.ignore.contains(&Lines::Line(2)));
+        assert!(lines.ignore.contains(&Lines::Line(5)));
+        assert!(lines.ignore.contains(&Lines::Line(8)));
     }
 
     #[test]
