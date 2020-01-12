@@ -13,7 +13,7 @@ use std::io;
 use std::path::{Path, PathBuf};
 
 /// Describes a function as `low_pc`, `high_pc` and bool representing `is_test`.
-type FuncDesc = (u64, u64, FunctionType, String);
+type FuncDesc = (u64, u64, FunctionType, Option<String>);
 
 #[derive(Clone, Copy, PartialEq)]
 enum FunctionType {
@@ -55,7 +55,7 @@ pub struct TracerData {
     pub address: Option<u64>,
     /// Length of the instruction
     pub length: u64,
-    pub fn_name: String,
+    pub fn_name: Option<String>,
 }
 
 fn generate_func_desc<R, Offset>(
@@ -72,14 +72,13 @@ where
     let linkage = die.attr_value(DW_AT_linkage_name)?;
     let fn_name = die.attr_value(DW_AT_name)?;
 
-    let fn_name: String = match fn_name {
+    let fn_name: Option<String> = match fn_name {
         Some(AttributeValue::DebugStrRef(offset)) => debug_str
                 .get_str(offset)
                 .and_then(|r| r.to_string().map(|s| s.to_string()))
                 .ok()
-                .map(|r| demangle(r.as_ref()).to_string())
-                .unwrap_or(String::from("")),
-        _ => String::from(""),
+                .map(|r| demangle(r.as_ref()).to_string()),
+        _ => None,
     };
 
     // Low is a program counter address so stored in an Addr
@@ -140,7 +139,7 @@ where
 fn get_addresses_from_program<R, Offset>(
     prog: IncompleteLineProgram<R>,
     debug_strs: &DebugStr<R>,
-    entries: &Vec<(u64, LineType, &String)>,
+    entries: &Vec<(u64, LineType, &Option<String>)>,
     project: &Path,
     result: &mut HashMap<SourceLocation, Vec<TracerData>>,
 ) -> Result<()>
@@ -195,7 +194,7 @@ where
                                 .filter(|&&(addr, _, _)| addr == address)
                                 .map(|&(_, t, fn_name)| (t, fn_name.to_owned()))
                                 .nth(0)
-                                .unwrap_or((LineType::Unknown, String::from("")));
+                                .unwrap_or((LineType::Unknown, None));
                             let loc = SourceLocation { path, line };
                             if desc != LineType::TestMain && !temp_map.contains_key(&loc) {
                                 temp_map.insert(
@@ -343,7 +342,7 @@ fn get_line_addresses(
                         address: None,
                         length: 0,
                         stats: CoverageStat::Line(0),
-                        fn_name: String::from(""),
+                        fn_name: None,
                     },
                 );
             }
