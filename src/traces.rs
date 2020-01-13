@@ -70,6 +70,7 @@ pub struct Trace {
     pub length: usize,
     /// Coverage stats
     pub stats: CoverageStat,
+    /// Function name
     pub fn_name: Option<String>,
 }
 

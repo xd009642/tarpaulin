@@ -55,6 +55,7 @@ pub struct TracerData {
     pub address: Option<u64>,
     /// Length of the instruction
     pub length: u64,
+    /// Funcrion name
     pub fn_name: Option<String>,
 }
 
