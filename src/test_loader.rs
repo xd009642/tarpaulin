@@ -74,10 +74,10 @@ where
 
     let fn_name: Option<String> = match fn_name {
         Some(AttributeValue::DebugStrRef(offset)) => debug_str
-                .get_str(offset)
-                .and_then(|r| r.to_string().map(|s| s.to_string()))
-                .ok()
-                .map(|r| demangle(r.as_ref()).to_string()),
+            .get_str(offset)
+            .and_then(|r| r.to_string().map(|s| s.to_string()))
+            .ok()
+            .map(|r| demangle(r.as_ref()).to_string()),
         _ => None,
     };
 
