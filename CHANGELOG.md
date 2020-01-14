@@ -6,6 +6,7 @@ file.
 ## [Unreleased]
 ### Added
 - Filtering of attributes on `loop`, `for` and `while` expressions
+- Added support for `lcov.info` report
 
 ### Changed
 
