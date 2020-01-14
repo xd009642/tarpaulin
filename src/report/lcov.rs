@@ -9,7 +9,7 @@ pub fn export(coverage_data: &TraceMap, config: &Config) -> Result<(), RunError>
     let mut file = match File::create(file_path) {
         Ok(k) => k,
         Err(e) => {
-            return Err(RunError::Info(format!(
+            return Err(RunError::Lcov(format!(
                 "File is not writeable: {}",
                 e.to_string()
             )))
@@ -30,7 +30,7 @@ pub fn export(coverage_data: &TraceMap, config: &Config) -> Result<(), RunError>
                 let fn_hits = match trace.stats {
                     CoverageStat::Line(hits) => hits,
                     _ => {
-                        return Err(RunError::Info(
+                        return Err(RunError::Lcov(
                             "Function doesn't have hits number".to_string(),
                         ))
                     }

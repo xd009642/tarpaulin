@@ -22,7 +22,7 @@ arg_enum! {
         Stdout,
         Xml,
         Html,
-        Info,
+        Lcov,
     }
 }
 
