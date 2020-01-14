@@ -23,6 +23,7 @@ file.
 - No longer pass `--quiet` to examples
 - Updated futures test for stable features
 - Split up docker run stages to optimise build times and added `.dockerignore`
+- Updated dependencies including `Cargo` to mitigate #319
 
 ### Removed
 

@@ -109,12 +109,13 @@ dependencies = [
 
 [[package]]
 name = "cargo"
-version = "0.40.0"
+version = "0.41.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "03504435a39de1303decb9c9a7416e875f16d4b94769d4d0dd5e1bfb21229640"
+checksum = "2737475f76ce9681e230a4e5cb2476fb133875f28fd84a834a6b5aefd83d3741"
 dependencies = [
  "atty",
  "bytesize",
+ "cargo-platform",
  "clap",
  "core-foundation",
  "crates-io",
@@ -122,7 +123,7 @@ dependencies = [
  "crypto-hash",
  "curl",
  "curl-sys",
- "env_logger 0.6.2",
+ "env_logger",
  "failure",
  "filetime",
  "flate2",
@@ -168,6 +169,15 @@ dependencies = [
 ]
 
 [[package]]
+name = "cargo-platform"
+version = "0.1.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "e78cce7683c0998d7a11405dcd13e31b23a930d4b5bba9e4245bdfba6bcd462c"
+dependencies = [
+ "serde",
+]
+
+[[package]]
 name = "cargo-tarpaulin"
 version = "0.10.0"
 dependencies = [
@@ -175,7 +185,7 @@ dependencies = [
  "chrono",
  "clap",
  "coveralls-api",
- "env_logger 0.7.1",
+ "env_logger",
  "failure",
  "fallible-iterator",
  "gimli",
@@ -290,9 +300,9 @@ dependencies = [
 
 [[package]]
 name = "crates-io"
-version = "0.28.0"
+version = "0.29.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "9dc57b7035c84bcaaa14d89221491b624a32977c230ce6bb77ae191e880c48e1"
+checksum = "54a5db4b026e2d3bad49a9775b01722035ebc6976b95ec556716852d640f3ad5"
 dependencies = [
  "curl",
  "failure",
@@ -383,19 +393,6 @@ dependencies = [
  "adler32",
  "byteorder",
  "gzip-header",
-]
-
-[[package]]
-name = "env_logger"
-version = "0.6.2"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "aafcde04e90a5226a6443b7aabdb016ba2f8307c847d524724bd9b346dd1a2d3"
-dependencies = [
- "atty",
- "humantime",
- "log",
- "regex",
- "termcolor",
 ]
 
 [[package]]
