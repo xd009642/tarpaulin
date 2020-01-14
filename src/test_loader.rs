@@ -13,7 +13,7 @@ use std::io;
 use std::path::{Path, PathBuf};
 
 /// Describes a function as `low_pc`, `high_pc` and bool representing `is_test`.
-type FuncDesc = (u64, u64, FunctionType);
+type FuncDesc = (u64, u64, FunctionType, Option<String>);
 
 #[derive(Clone, Copy, PartialEq)]
 enum FunctionType {
@@ -55,6 +55,8 @@ pub struct TracerData {
     pub address: Option<u64>,
     /// Length of the instruction
     pub length: u64,
+    /// Function name
+    pub fn_name: Option<String>,
 }
 
 fn generate_func_desc<R, Offset>(
@@ -69,6 +71,16 @@ where
     let low = die.attr_value(DW_AT_low_pc)?;
     let high = die.attr_value(DW_AT_high_pc)?;
     let linkage = die.attr_value(DW_AT_linkage_name)?;
+    let fn_name = die.attr_value(DW_AT_name)?;
+
+    let fn_name: Option<String> = match fn_name {
+        Some(AttributeValue::DebugStrRef(offset)) => debug_str
+            .get_str(offset)
+            .and_then(|r| r.to_string().map(|s| s.to_string()))
+            .ok()
+            .map(|r| demangle(r.as_ref()).to_string()),
+        _ => None,
+    };
 
     // Low is a program counter address so stored in an Addr
     let low = match low {
@@ -96,7 +108,7 @@ where
             FunctionType::Standard
         };
     }
-    Ok((low, high, func_type))
+    Ok((low, high, func_type, fn_name))
 }
 
 /// Finds all function entry points and returns a vector
@@ -128,7 +140,7 @@ where
 fn get_addresses_from_program<R, Offset>(
     prog: IncompleteLineProgram<R>,
     debug_strs: &DebugStr<R>,
-    entries: &[(u64, LineType)],
+    entries: &Vec<(u64, LineType, &Option<String>)>,
     project: &Path,
     result: &mut HashMap<SourceLocation, Vec<TracerData>>,
 ) -> Result<()>
@@ -178,12 +190,12 @@ where
                                 continue;
                             }
                             let address = ln_row.address();
-                            let desc = entries
+                            let (desc, fn_name) = entries
                                 .iter()
-                                .filter(|&&(addr, _)| addr == address)
-                                .map(|&(_, t)| t)
+                                .filter(|&&(addr, _, _)| addr == address)
+                                .map(|&(_, t, fn_name)| (t, fn_name.to_owned()))
                                 .nth(0)
-                                .unwrap_or(LineType::Unknown);
+                                .unwrap_or((LineType::Unknown, None));
                             let loc = SourceLocation { path, line };
                             if desc != LineType::TestMain && !temp_map.contains_key(&loc) {
                                 temp_map.insert(
@@ -192,6 +204,7 @@ where
                                         address: Some(address),
                                         trace_type: desc,
                                         length: 1,
+                                        fn_name,
                                     },
                                 );
                             }
@@ -238,12 +251,13 @@ fn get_line_addresses(
             Ok(a) => a,
             _ => continue,
         };
-        let entries = get_entry_points(&cu, &abbr, &debug_strings)
+        let entry_points = get_entry_points(&cu, &abbr, &debug_strings);
+        let entries = entry_points
             .iter()
-            .map(|&(a, b, c)| match c {
-                FunctionType::Test => (a, LineType::TestEntry(b)),
-                FunctionType::Standard => (a, LineType::FunctionEntry(b)),
-                FunctionType::Generated => (a, LineType::TestMain),
+            .map(|(a, b, c, fn_name)| match c {
+                FunctionType::Test => (*a, LineType::TestEntry(*b), fn_name),
+                FunctionType::Standard => (*a, LineType::FunctionEntry(*b), fn_name),
+                FunctionType::Generated => (*a, LineType::TestMain, fn_name),
             })
             .collect::<Vec<_>>();
 
@@ -298,6 +312,7 @@ fn get_line_addresses(
                                 address: v.address,
                                 length: 1,
                                 stats: CoverageStat::Line(0),
+                                fn_name: v.fn_name.clone(),
                             },
                         );
                     }
@@ -328,6 +343,7 @@ fn get_line_addresses(
                         address: None,
                         length: 0,
                         stats: CoverageStat::Line(0),
+                        fn_name: None,
                     },
                 );
             }

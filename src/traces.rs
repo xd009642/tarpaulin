@@ -70,6 +70,8 @@ pub struct Trace {
     pub length: usize,
     /// Coverage stats
     pub stats: CoverageStat,
+    /// Function name
+    pub fn_name: Option<String>,
 }
 
 /// Implemented to allow Traces to be sorted by line number
@@ -389,6 +391,7 @@ mod tests {
             address: Some(5),
             length: 0,
             stats: CoverageStat::Line(1),
+            fn_name: Some(String::from("f")),
         };
         t1.add_trace(Path::new("file.rs"), a_trace.clone());
         t2.add_trace(
@@ -398,6 +401,7 @@ mod tests {
                 address: None,
                 length: 0,
                 stats: CoverageStat::Line(2),
+                fn_name: Some(String::from("f")),
             },
         );
 
@@ -420,6 +424,7 @@ mod tests {
             address: Some(5),
             length: 0,
             stats: CoverageStat::Line(1),
+            fn_name: Some(String::from("f1")),
         };
         t1.add_trace(Path::new("file.rs"), a_trace.clone());
         t2.add_trace(
@@ -429,6 +434,7 @@ mod tests {
                 address: None,
                 length: 0,
                 stats: CoverageStat::Line(2),
+                fn_name: Some(String::from("f2")),
             },
         );
 
@@ -452,6 +458,7 @@ mod tests {
                 address: Some(1),
                 length: 0,
                 stats: CoverageStat::Line(5),
+                fn_name: Some(String::from("f")),
             },
         );
         t2.add_trace(
@@ -461,6 +468,7 @@ mod tests {
                 address: Some(1),
                 length: 0,
                 stats: CoverageStat::Line(2),
+                fn_name: Some(String::from("f")),
             },
         );
         t1.merge(&t2);
@@ -471,7 +479,8 @@ mod tests {
                 line: 2,
                 address: Some(1),
                 length: 0,
-                stats: CoverageStat::Line(7)
+                stats: CoverageStat::Line(7),
+                fn_name: Some(String::from("f")),
             })
         );
         // Deduplicating should have no effect.
@@ -483,7 +492,8 @@ mod tests {
                 line: 2,
                 address: Some(1),
                 length: 0,
-                stats: CoverageStat::Line(7)
+                stats: CoverageStat::Line(7),
+                fn_name: Some(String::from("f")),
             })
         );
     }

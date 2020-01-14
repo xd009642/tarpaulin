@@ -22,6 +22,7 @@ arg_enum! {
         Stdout,
         Xml,
         Html,
+        Lcov,
     }
 }
 
