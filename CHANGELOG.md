@@ -5,10 +5,18 @@ file.
 
 ## [Unreleased]
 ### Added
+
+### Changed
+
+### Removed
+
+## [0.10.1] 2020-01-15
+### Added
 - Filtering of attributes on `loop`, `for` and `while` expressions
 - Added support for `lcov.info` report
 
 ### Changed
+- Updated dependencies including `Cargo` to mitigate #319
 
 ### Removed
 
@@ -23,7 +31,6 @@ file.
 - No longer pass `--quiet` to examples
 - Updated futures test for stable features
 - Split up docker run stages to optimise build times and added `.dockerignore`
-- Updated dependencies including `Cargo` to mitigate #319
 
 ### Removed
 
