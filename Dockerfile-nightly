@@ -10,7 +10,8 @@ RUN env USER=root cargo init .
 
 COPY Cargo.toml .
 COPY Cargo.lock .
-RUN cargo fetch --locked && rm -rf src
+RUN mkdir .cargo
+RUN cargo vendor > .cargo/config
 
 COPY . /opt/tarpaulin/
 

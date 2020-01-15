@@ -67,20 +67,7 @@ pub enum Error {
     ExportError(quick_xml::Error),
 }
 
-impl error::Error for Error {
-    #[inline]
-    fn description(&self) -> &str {
-        match self {
-            Error::ExportError(_) => "Error exporting xml file",
-            Error::Unknown => "Unknown Error",
-        }
-    }
-
-    #[inline]
-    fn cause(&self) -> Option<&dyn error::Error> {
-        None
-    }
-}
+impl error::Error for Error {}
 
 impl fmt::Display for Error {
     #[inline]

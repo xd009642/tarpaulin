@@ -186,7 +186,7 @@ matrix:
 
 before_cache: |
   if [[ "$TRAVIS_RUST_VERSION" == stable ]]; then
-    cargo install cargo-tarpaulin -f
+    cargo install cargo-tarpaulin
   fi
 
 script:

@@ -10,6 +10,16 @@ file.
 
 ### Removed
 
+## [0.10.1] 2020-01-15
+### Added
+- Filtering of attributes on `loop`, `for` and `while` expressions
+- Added support for `lcov.info` report
+
+### Changed
+- Updated dependencies including `Cargo` to mitigate #319
+
+### Removed
+
 ## [0.10.0] 2019-12-07  
 ### Added
 - `--locked` and `--frozen` options to mirror `cargo test` options
