@@ -1,6 +1,6 @@
 [package]
 name = "cargo-tarpaulin"
-version = "0.10.1"
+version = "0.10.2"
 authors = ["Daniel McKenna <danielmckenna93@gmail.com>"]
 description = "Cargo-Tarpaulin is a tool to determine code coverage achieved via tests"
 repository = "https://github.com/xd009642/tarpaulin"
@@ -30,7 +30,7 @@ gimli = "0.19.0"
 git2 = "0.10"
 lazy_static = "1.0"
 libc = "0.2.66"
-log = "0.4.10"
+log = "0.4.8"
 memmap = "0.7.0"
 nix = "0.16.1"
 object = "0.17"
