@@ -6,7 +6,10 @@ use crate::source_analysis::LineAnalysis;
 use crate::statemachine::*;
 use crate::test_loader::*;
 use crate::traces::*;
-use cargo::core::{compiler::{CompileMode, ProfileKind}, Package, Shell, Workspace};
+use cargo::core::{
+    compiler::{CompileMode, ProfileKind},
+    Package, Shell, Workspace,
+};
 use cargo::ops;
 use cargo::ops::{
     clean, compile, CleanOptions, CompileFilter, CompileOptions, FilterRule, LibRule, Packages,
@@ -82,7 +85,7 @@ pub fn launch_tarpaulin(config: &Config) -> Result<(TraceMap, i32), RunError> {
     let mut compile_options = get_compile_options(&config, &cargo_config)?;
 
     info!("Running Tarpaulin");
-   
+
     if config.force_clean {
         debug!("Cleaning project");
         // Clean isn't expected to fail and if it does it likely won't have an effect
