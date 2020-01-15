@@ -10,7 +10,15 @@ file.
 
 ### Removed
 
-## [0.10.1] 2020-01-15
+## [0.10.2] 2020-01-15
+### Added
+
+### Changed
+- Dropped log dependency to 0.4.8 as later versions have been yanked
+
+### Removed
+
+## [0.10.1] 2020-01-15 [YANKED]
 ### Added
 - Filtering of attributes on `loop`, `for` and `while` expressions
 - Added support for `lcov.info` report
