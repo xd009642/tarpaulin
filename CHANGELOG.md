@@ -5,6 +5,7 @@ file.
 
 ## [Unreleased]
 ### Added
+- Change in coverage between last 2 runs in HTML report
 
 ### Changed
 
@@ -28,7 +29,7 @@ file.
 
 ### Removed
 
-## [0.10.0] 2019-12-07  
+## [0.10.0] 2019-12-07
 ### Added
 - `--locked` and `--frozen` options to mirror `cargo test` options
 - `--target-dir` option to mirror `cargo test` and `cargo build` options
