@@ -1,6 +1,6 @@
 use crate::config::Config;
 use crate::errors::*;
-use crate::report::safe_json;
+use crate::report::{get_previous_result, safe_json};
 use crate::traces::{Trace, TraceMap};
 use serde::Serialize;
 use std::fs::{read_to_string, File};
@@ -20,8 +20,9 @@ struct CoverageReport {
     pub files: Vec<SourceFile>,
 }
 
-pub fn export(coverage_data: &TraceMap, config: &Config) -> Result<(), RunError> {
+fn get_json(coverage_data: &TraceMap) -> Result<String, RunError> {
     let mut report = CoverageReport { files: Vec::new() };
+
     for (path, traces) in coverage_data.iter() {
         let content = match read_to_string(path) {
             Ok(k) => k,
@@ -45,6 +46,11 @@ pub fn export(coverage_data: &TraceMap, config: &Config) -> Result<(), RunError>
         });
     }
 
+    safe_json::to_string_safe(&report)
+        .map_err(|e| RunError::Html(format!("Report isn't serializable: {}", e.to_string())))
+}
+
+pub fn export(coverage_data: &TraceMap, config: &Config) -> Result<(), RunError> {
     let file_path = config.output_directory.join("tarpaulin-report.html");
     let mut file = match File::create(file_path) {
         Ok(k) => k,
@@ -56,14 +62,10 @@ pub fn export(coverage_data: &TraceMap, config: &Config) -> Result<(), RunError>
         }
     };
 
-    let report_json = match safe_json::to_string_safe(&report) {
-        Ok(k) => k,
-        Err(e) => {
-            return Err(RunError::Html(format!(
-                "Report isn't serializable: {}",
-                e.to_string()
-            )))
-        }
+    let report_json = get_json(coverage_data)?;
+    let previous_report_json = match get_previous_result(&config) {
+        Some(result) => get_json(&result)?,
+        None => String::from("null"),
     };
 
     let html_write = match write!(
@@ -76,7 +78,10 @@ pub fn export(coverage_data: &TraceMap, config: &Config) -> Result<(), RunError>
 </head>
 <body>
     <div id="root"></div>
-    <script>var data = {};</script>
+    <script>
+        var data = {};
+        var previousData = {};
+    </script>
     <script crossorigin src="https://unpkg.com/react@16/umd/react.production.min.js"></script>
     <script crossorigin src="https://unpkg.com/react-dom@16/umd/react-dom.production.min.js"></script>
     <script>{}</script>
@@ -84,6 +89,7 @@ pub fn export(coverage_data: &TraceMap, config: &Config) -> Result<(), RunError>
 </html>"##,
         include_str!("report_viewer.css"),
         report_json,
+        previous_report_json,
         include_str!("report_viewer.js")
     ) {
         Ok(_) => (),
