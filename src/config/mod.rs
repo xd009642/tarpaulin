@@ -1,20 +1,20 @@
 pub use self::types::*;
 
-use std::env;
-use std::path::{Path, PathBuf};
-use std::time::Duration;
-
+use self::parse::*;
 use clap::ArgMatches;
 use coveralls_api::CiService;
 use regex::Regex;
-
-use self::parse::*;
+use serde::{Deserialize, Serialize};
+use std::cell::RefCell;
+use std::env;
+use std::path::{Path, PathBuf};
+use std::time::Duration;
 
 mod parse;
 pub mod types;
 
 /// Specifies the current configuration tarpaulin is using.
-#[derive(Debug)]
+#[derive(Debug, Deserialize, Serialize)]
 pub struct Config {
     /// Path to the projects cargo manifest
     pub manifest: PathBuf,
@@ -69,8 +69,11 @@ pub struct Config {
     pub packages: Vec<String>,
     /// Packages to exclude from testing
     pub exclude: Vec<String>,
-    /// Files to exclude from testing
-    excluded_files: Vec<Regex>,
+    /// Files to exclude from testing in their compiled form
+    #[serde(skip_deserializing, skip_serializing)]
+    excluded_files: RefCell<Vec<Regex>>,
+    /// Files to exclude from testing in uncompiled form (for serde)
+    excluded_files_raw: Vec<String>,
     /// Varargs to be forwarded to the test executables.
     pub varargs: Vec<String>,
     /// Duration to wait before a timeout occurs
@@ -116,7 +119,8 @@ impl Default for Config {
             all: false,
             packages: vec![],
             exclude: vec![],
-            excluded_files: vec![],
+            excluded_files: RefCell::new(vec![]),
+            excluded_files_raw: vec![],
             varargs: vec![],
             test_timeout: Duration::from_secs(60),
             release: false,
@@ -134,6 +138,9 @@ impl<'a> From<&'a ArgMatches<'a>> for Config {
     fn from(args: &'a ArgMatches<'a>) -> Self {
         let debug = args.is_present("debug");
         let verbose = args.is_present("verbose") || debug;
+        let excluded_files = get_excluded(args);
+        let excluded_files_raw = get_list(args, "exclude-files");
+
         Config {
             manifest: get_manifest(args),
             root: get_root(args),
@@ -160,7 +167,8 @@ impl<'a> From<&'a ArgMatches<'a>> for Config {
             all: args.is_present("all") | args.is_present("workspace"),
             packages: get_list(args, "packages"),
             exclude: get_list(args, "exclude"),
-            excluded_files: get_excluded(args),
+            excluded_files: RefCell::new(excluded_files),
+            excluded_files_raw,
             varargs: get_list(args, "args"),
             test_timeout: get_timeout(args),
             release: args.is_present("release"),
@@ -181,9 +189,15 @@ impl Config {
 
     #[inline]
     pub fn exclude_path(&self, path: &Path) -> bool {
+        if self.excluded_files.borrow().len() != self.excluded_files_raw.len() {
+            let mut excluded_files = self.excluded_files.borrow_mut();
+            let mut compiled = regexes_from_excluded(&self.excluded_files_raw);
+            excluded_files.append(&mut compiled);
+        }
         let project = self.strip_base_dir(path);
 
         self.excluded_files
+            .borrow()
             .iter()
             .any(|x| x.is_match(project.to_str().unwrap_or("")))
     }

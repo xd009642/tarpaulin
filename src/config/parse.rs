@@ -98,9 +98,13 @@ pub(super) fn get_run_types(args: &ArgMatches) -> Vec<RunType> {
 }
 
 pub(super) fn get_excluded(args: &ArgMatches) -> Vec<Regex> {
+    regexes_from_excluded(&get_list(args, "exclude-files"))
+}
+
+pub(super) fn regexes_from_excluded(strs: &[String]) -> Vec<Regex> {
     let mut files = vec![];
 
-    for temp_str in &get_list(args, "exclude-files") {
+    for temp_str in strs {
         let s = &temp_str.replace(".", r"\.").replace("*", ".*");
 
         if let Ok(re) = Regex::new(s) {
@@ -109,7 +113,6 @@ pub(super) fn get_excluded(args: &ArgMatches) -> Vec<Regex> {
             error!("Invalid regex: {}", temp_str);
         }
     }
-
     files
 }
 
