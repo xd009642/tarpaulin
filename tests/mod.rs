@@ -110,6 +110,11 @@ fn continues_expr_coverage() {
     check_percentage("continues", 1.0f64, true);
 }
 
+#[test]
+fn boxes_coverage() {
+    check_percentage("boxes", 1.0f64, true);
+}
+
 // This test is currently being ignored because it contains cases which Tarpaulin
 // does not handle correctly yet. So, once (#136) [https://github.com/xd009642/tarpaulin/issues/136]
 // is updated to resolve method call coverage and multi-line expressions, then
