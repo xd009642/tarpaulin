@@ -6,6 +6,7 @@ file.
 ## [Unreleased]
 ### Added
 - Change in coverage between last 2 runs in HTML report
+- Filter attributes on match arms
 
 ### Changed
 
