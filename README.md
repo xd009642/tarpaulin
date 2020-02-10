@@ -22,6 +22,69 @@ popular CI tools like Travis.
 It can also be run in Docker, which is useful for when you don't use Linux but
 want to run it locally, e.g. during development. See below for how to do that.
 
+Below is the help-text for a thorough explanation of the flags and features
+available:
+
+```
+cargo-tarpaulin version: 0.10.2
+Tool to analyse test coverage of cargo projects
+
+USAGE:
+    cargo tarpaulin [FLAGS] [OPTIONS] [-- <args>...]
+
+FLAGS:
+        --all                    alias for --workspace (deprecated)
+        --all-features           Build all available features
+    -b, --branch                 Branch coverage: NOT IMPLEMENTED
+        --count                  Counts the number of hits during coverage
+        --debug                  Show debug output - this is used for diagnosing issues with tarpaulin
+        --force-clean            Adds a clean stage to work around cargo bugs that may affect coverage results
+    -f, --forward                Forwards unexpected signals to test. Tarpaulin will still take signals it is expecting.
+        --frozen                 Do not update Cargo.lock or any caches
+    -h, --help                   Prints help information
+        --ignore-panics          ignore panic macros in tests
+        --ignore-tests           ignore lines of test functions when collecting coverage
+    -i, --ignored                Run ignored tests as well
+    -l, --line                   Line coverage
+        --locked                 Do not update Cargo.lock
+        --no-default-features    Do not include default features
+        --no-run                 Compile tests but don't run coverage
+        --offline                Run without accessing the network
+        --release                Build in release mode.
+    -V, --version                Prints version information
+    -v, --verbose                Show extra output
+        --workspace              Test all packages in the workspace
+
+OPTIONS:
+    -Z <FEATURES>...                 list of unstable nightly only flags
+        --ciserver <SERVICE>         Name of service, supported services are:
+                                     travis-ci, travis-pro, circle-ci, semaphore, jenkins and codeship.
+                                     If you are interfacing with coveralls.io or another site you can also specify a
+                                     name that they will recognise. Refer to their documentation for this.
+        --coveralls <KEY>            Coveralls key, either the repo token, or if you're using travis use $TRAVIS_JOB_ID
+                                     and specify travis-{ci|pro} in --ciserver
+    -e, --exclude <PACKAGE>...       Package id specifications to exclude from coverage. See cargo help pkgid for more
+                                     info
+        --exclude-files <FILE>...    Exclude given files from coverage results has * wildcard
+        --features <FEATURE>...      Features to be included in the target project
+        --manifest-path <PATH>       Path to Cargo.toml
+    -o, --out <FMT>...               Output format of coverage report [possible values: Json, Toml, Stdout, Xml, Html,
+                                     Lcov]
+        --output-dir <PATH>          Specify a custom directory to write report files
+    -p, --packages <PACKAGE>...      Package id specifications for which package should be build. See cargo help pkgid
+                                     for more info
+        --report-uri <URI>           URI to send report to, only used if the option --coveralls is used
+    -r, --root <DIR>                 Calculates relative paths to root directory. If --manifest-path isn't specified it
+                                     will look for a Cargo.toml in root
+        --run-types <TYPE>...        Type of the coverage run [possible values: Tests, Doctests, Benchmarks, Examples]
+        --target-dir <DIR>           Directory for all generated artifacts
+    -t, --timeout <SECONDS>          Integer for the maximum time in seconds without response from test before timeout
+                                     (default is 1 minute).
+
+ARGS:
+    <args>...    Arguments to be passed to the test executables can be used to filter or skip certain tests
+```
+
 ## Features
 
 Below is a list of features currently implemented. As Tarpaulin loads binary
@@ -309,7 +372,7 @@ accuracy. If you see missing lines or files, check your compiler version.
 - [x] Annotated coverage reports
 - [x] Coverage reports in the style of existing tools (i.e. kcov)
 - [x] Integration with 3rd party tools like coveralls or codecov
-- [x] Optional coverage statistics for doctests
+- [x] Optional coverage statistics for doctests (nightly only [tracking issue](https://github.com/rust-lang/rust/issues/56925))
 - [ ] MCDC coverage reports
 - [ ] OSX support 
 - [ ] Windows support
