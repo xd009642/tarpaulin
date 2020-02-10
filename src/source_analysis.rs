@@ -713,8 +713,12 @@ fn visit_match(mat: &ExprMatch, ctx: &Context, analysis: &mut LineAnalysis) -> S
     // a match with some arms is unreachable iff all its arms are unreachable
     let mut reachable_arm = false;
     for arm in &mat.arms {
-        if let SubResult::Ok = process_expr(&arm.body, ctx, analysis) {
-            reachable_arm = true
+        if check_attr_list(&arm.attrs, ctx, analysis) {
+            if let SubResult::Ok = process_expr(&arm.body, ctx, analysis) {
+                reachable_arm = true
+            }
+        } else {
+            analysis.ignore_tokens(arm);
         }
     }
     if !reachable_arm {
@@ -1812,6 +1816,7 @@ mod tests {
                 match x {
                     1 => 5,
                     2 => 7,
+                    #[test]
                     _ => {
                         unreachable!();
                     },
@@ -1822,7 +1827,8 @@ mod tests {
         };
         let parser = parse_file(ctx.file_contents).unwrap();
         process_items(&parser.items, &ctx, &mut lines);
-        assert!(lines.ignore.contains(&Lines::Line(6)));
+        assert!(lines.ignore.contains(&Lines::Line(5)));
+        assert!(lines.ignore.contains(&Lines::Line(7)));
     }
 
     #[test]
