@@ -19,7 +19,7 @@ name = "integration"
 path = "tests/mod.rs"
 
 [dependencies]
-cargo = "0.41"
+cargo = "0.42"
 chrono = "0.4"
 clap = "2.33.0"
 coveralls-api = "0.4.0"
@@ -32,7 +32,7 @@ lazy_static = "1.0"
 libc = "0.2.66"
 log = "0.4.8"
 memmap = "0.7.0"
-nix = "0.16.1"
+nix = "0.17.0"
 object = "0.17"
 proc-macro2 = { version = "1.0", features = ["span-locations"] }
 quick-xml = "0.17"
