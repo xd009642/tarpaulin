@@ -9,6 +9,7 @@ file.
 - Filter attributes on match arms
 
 ### Changed
+- Now instrument multiple points in the same binary for the same line to remove false negatives
 
 ### Removed
 

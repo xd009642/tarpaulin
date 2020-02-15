@@ -7,7 +7,7 @@ use log::{debug, trace};
 use memmap::MmapOptions;
 use object::{File as OFile, Object};
 use rustc_demangle::demangle;
-use std::collections::HashMap;
+use std::collections::{HashMap, HashSet};
 use std::fs::File;
 use std::io;
 use std::path::{Path, PathBuf};
@@ -15,7 +15,7 @@ use std::path::{Path, PathBuf};
 /// Describes a function as `low_pc`, `high_pc` and bool representing `is_test`.
 type FuncDesc = (u64, u64, FunctionType, Option<String>);
 
-#[derive(Clone, Copy, PartialEq)]
+#[derive(Debug, Clone, Copy, PartialEq)]
 enum FunctionType {
     Generated,
     Test,
@@ -40,7 +40,7 @@ pub enum LineType {
     UnusedGeneric,
 }
 
-#[derive(Clone, PartialEq, Eq, Hash)]
+#[derive(Debug, Clone, PartialEq, Eq, Hash)]
 struct SourceLocation {
     pub path: PathBuf,
     pub line: u64,
@@ -151,7 +151,6 @@ where
     let get_string = |x: R| x.to_string().map(|y| y.to_string()).ok();
     let (cprog, seq) = prog.sequences()?;
     for s in seq {
-        let mut temp_map: HashMap<SourceLocation, TracerData> = HashMap::new();
         let mut sm = cprog.resume_from(&s);
         while let Ok(Some((header, &ln_row))) = sm.next_row() {
             // If this row isn't useful move on
@@ -197,28 +196,23 @@ where
                                 .nth(0)
                                 .unwrap_or((LineType::Unknown, None));
                             let loc = SourceLocation { path, line };
-                            if desc != LineType::TestMain && !temp_map.contains_key(&loc) {
-                                temp_map.insert(
-                                    loc,
-                                    TracerData {
-                                        address: Some(address),
-                                        trace_type: desc,
-                                        length: 1,
-                                        fn_name,
-                                    },
-                                );
+                            if desc != LineType::TestMain {
+                                let trace = TracerData {
+                                    address: Some(address),
+                                    trace_type: desc,
+                                    length: 1,
+                                    fn_name,
+                                };
+                                if result.contains_key(&loc) {
+                                    let x = result.get_mut(&loc).unwrap();
+                                    x.push(trace);
+                                } else {
+                                    result.insert(loc, vec![trace]);
+                                }
                             }
                         }
                     }
                 }
-            }
-        }
-        for (k, v) in &temp_map {
-            if result.contains_key(k) {
-                let x = result.get_mut(k).unwrap();
-                x.push(v.clone());
-            } else {
-                result.insert(k.clone(), vec![v.clone()]);
             }
         }
     }
@@ -288,34 +282,43 @@ fn get_line_addresses(
                         !analysis.should_ignore(k.path.as_ref(), &(k.line as usize))
                     })
                     .collect::<HashMap<SourceLocation, Vec<TracerData>>>();
+
                 let mut tracemap = TraceMap::new();
                 for (k, val) in &temp_map {
+                    let rpath = config.strip_base_dir(&k.path);
+                    let mut address = HashSet::new();
+                    let mut fn_name = None;
                     for v in val.iter() {
-                        let rpath = config.strip_base_dir(&k.path);
-                        match v.address {
-                            Some(ref a) => trace!(
+                        if let Some(a) = v.address {
+                            address.insert(a);
+                            trace!(
                                 "Adding trace at address 0x{:x} in {}:{}",
                                 a,
                                 rpath.display(),
                                 k.line
-                            ),
-                            None => trace!(
-                                "Adding trace with no address at {}:{}",
-                                rpath.display(),
-                                k.line
-                            ),
+                            );
                         }
-                        tracemap.add_trace(
-                            &k.path,
-                            Trace {
-                                line: k.line,
-                                address: v.address,
-                                length: 1,
-                                stats: CoverageStat::Line(0),
-                                fn_name: v.fn_name.clone(),
-                            },
+                        if fn_name.is_none() && v.fn_name.is_some() {
+                            fn_name = v.fn_name.clone();
+                        }
+                    }
+                    if address.is_empty() {
+                        trace!(
+                            "Adding trace with no address at {}:{}",
+                            rpath.display(),
+                            k.line
                         );
                     }
+                    tracemap.add_trace(
+                        &k.path,
+                        Trace {
+                            line: k.line,
+                            address,
+                            length: 1,
+                            stats: CoverageStat::Line(0),
+                            fn_name,
+                        },
+                    );
                 }
                 result.merge(&tracemap);
             }
@@ -340,7 +343,7 @@ fn get_line_addresses(
                     file,
                     Trace {
                         line,
-                        address: None,
+                        address: HashSet::new(),
                         length: 0,
                         stats: CoverageStat::Line(0),
                         fn_name: None,

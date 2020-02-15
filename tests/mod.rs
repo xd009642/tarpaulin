@@ -95,7 +95,6 @@ fn paths_coverage() {
 }
 
 #[test]
-#[ignore]
 fn futures_coverage() {
     check_percentage("futures", 1.0f64, true);
 }
@@ -115,18 +114,12 @@ fn boxes_coverage() {
     check_percentage("boxes", 1.0f64, true);
 }
 
-// This test is currently being ignored because it contains cases which Tarpaulin
-// does not handle correctly yet. So, once (#136) [https://github.com/xd009642/tarpaulin/issues/136]
-// is updated to resolve method call coverage and multi-line expressions, then
-// the #[ignore] can be removed from this test.
 #[test]
-#[ignore]
 fn method_calls_expr_coverage() {
     check_percentage("method_calls", 1.0f64, true);
 }
 
 #[test]
-#[ignore]
 fn benchmark_coverage() {
     let test = "benchmark_coverage";
     check_percentage(test, 0.0f64, true);
