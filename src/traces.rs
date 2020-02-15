@@ -1,7 +1,7 @@
 use serde::{Deserialize, Serialize};
 use std::cmp::{Ord, Ordering};
 use std::collections::btree_map::Iter;
-use std::collections::{BTreeMap, HashMap};
+use std::collections::{BTreeMap, HashMap, HashSet};
 use std::fmt::{Display, Formatter, Result};
 use std::ops::Add;
 use std::path::{Path, PathBuf};
@@ -60,18 +60,25 @@ impl Display for CoverageStat {
     }
 }
 
-#[derive(Debug, Clone, Hash, PartialEq, Eq, PartialOrd, Deserialize, Serialize)]
+#[derive(Debug, Clone, PartialEq, Eq, Deserialize, Serialize)]
 pub struct Trace {
     /// Line the trace is on in the file
     pub line: u64,
     /// Optional address showing location in the test artefact
-    pub address: Option<u64>,
+    pub address: HashSet<u64>,
     /// Length of the instruction (useful to get entire condition/branch)
     pub length: usize,
     /// Coverage stats
     pub stats: CoverageStat,
     /// Function name
     pub fn_name: Option<String>,
+}
+
+impl PartialOrd for Trace {
+    fn partial_cmp(&self, other: &Trace) -> Option<Ordering> {
+        // Not sure if I care about the others
+        self.line.partial_cmp(&other.line)
+    }
 }
 
 /// Implemented to allow Traces to be sorted by line number
@@ -240,7 +247,7 @@ impl TraceMap {
     pub fn get_trace(&self, address: u64) -> Option<&Trace> {
         self.all_traces()
             .iter()
-            .find(|x| x.address == Some(address))
+            .find(|x| x.address.contains(&address))
             .map(|x| *x)
     }
 
@@ -248,7 +255,7 @@ impl TraceMap {
     /// Returns None if there is no trace at that address
     pub fn get_trace_mut(&mut self, address: u64) -> Option<&mut Trace> {
         for val in self.all_traces_mut() {
-            if val.address == Some(address) {
+            if val.address.contains(&address) {
                 return Some(val);
             }
         }
@@ -382,13 +389,36 @@ mod tests {
     }
 
     #[test]
+    fn multiple_traces_per_line() {
+        let mut t1 = TraceMap::new();
+        let mut address = HashSet::new();
+        address.insert(0);
+        address.insert(128);
+        let trace_1 = Trace {
+            line: 1,
+            address,
+            length: 0,
+            stats: CoverageStat::Line(1),
+            fn_name: Some(String::from("f")),
+        };
+        t1.add_trace(Path::new("file.rs"), trace_1);
+
+        let coverable = t1.total_coverable();
+        assert_eq!(coverable, 1);
+        let total_covered = t1.total_covered();
+        assert_eq!(total_covered, 1);
+    }
+
+    #[test]
     fn merge_address_mismatch_and_dedup() {
         let mut t1 = TraceMap::new();
         let mut t2 = TraceMap::new();
 
+        let mut address = HashSet::new();
+        address.insert(5);
         let a_trace = Trace {
             line: 1,
-            address: Some(5),
+            address,
             length: 0,
             stats: CoverageStat::Line(1),
             fn_name: Some(String::from("f")),
@@ -398,7 +428,7 @@ mod tests {
             Path::new("file.rs"),
             Trace {
                 line: 1,
-                address: None,
+                address: HashSet::new(),
                 length: 0,
                 stats: CoverageStat::Line(2),
                 fn_name: Some(String::from("f")),
@@ -419,9 +449,11 @@ mod tests {
         let mut t1 = TraceMap::new();
         let mut t2 = TraceMap::new();
 
+        let mut address = HashSet::new();
+        address.insert(5);
         let a_trace = Trace {
             line: 1,
-            address: Some(5),
+            address,
             length: 0,
             stats: CoverageStat::Line(1),
             fn_name: Some(String::from("f1")),
@@ -431,7 +463,7 @@ mod tests {
             Path::new("file.rs"),
             Trace {
                 line: 2,
-                address: None,
+                address: HashSet::new(),
                 length: 0,
                 stats: CoverageStat::Line(2),
                 fn_name: Some(String::from("f2")),
@@ -451,11 +483,13 @@ mod tests {
         let mut t1 = TraceMap::new();
         let mut t2 = TraceMap::new();
 
+        let mut address = HashSet::new();
+        address.insert(1);
         t1.add_trace(
             Path::new("file.rs"),
             Trace {
                 line: 2,
-                address: Some(1),
+                address: address.clone(),
                 length: 0,
                 stats: CoverageStat::Line(5),
                 fn_name: Some(String::from("f")),
@@ -465,7 +499,7 @@ mod tests {
             Path::new("file.rs"),
             Trace {
                 line: 2,
-                address: Some(1),
+                address: address.clone(),
                 length: 0,
                 stats: CoverageStat::Line(2),
                 fn_name: Some(String::from("f")),
@@ -477,7 +511,7 @@ mod tests {
             t1.get_trace(1),
             Some(&Trace {
                 line: 2,
-                address: Some(1),
+                address: address.clone(),
                 length: 0,
                 stats: CoverageStat::Line(7),
                 fn_name: Some(String::from("f")),
@@ -490,7 +524,7 @@ mod tests {
             t1.get_trace(1),
             Some(&Trace {
                 line: 2,
-                address: Some(1),
+                address,
                 length: 0,
                 stats: CoverageStat::Line(7),
                 fn_name: Some(String::from("f")),

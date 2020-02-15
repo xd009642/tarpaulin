@@ -87,10 +87,10 @@ impl<'a> StateData for LinuxData<'a> {
     fn init(&mut self) -> Result<TestState, RunError> {
         trace_children(self.current)?;
         for trace in self.traces.all_traces() {
-            if let Some(addr) = trace.address {
-                match Breakpoint::new(self.current, addr) {
+            for addr in &trace.address {
+                match Breakpoint::new(self.current, *addr) {
                     Ok(bp) => {
-                        let _ = self.breakpoints.insert(addr, bp);
+                        let _ = self.breakpoints.insert(*addr, bp);
                     }
                     Err(e) if e == NixErr::Sys(Errno::EIO) => {
                         return Err(RunError::TestRuntime(
