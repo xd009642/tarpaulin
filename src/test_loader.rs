@@ -44,6 +44,7 @@ pub enum LineType {
 struct SourceLocation {
     pub path: PathBuf,
     pub line: u64,
+    pub address: u64,
 }
 
 #[derive(Debug, Clone)]
@@ -196,7 +197,13 @@ where
                                 .map(|&(_, t, fn_name)| (t, fn_name.to_owned()))
                                 .nth(0)
                                 .unwrap_or((LineType::Unknown, None));
-                            let loc = SourceLocation { path, line };
+
+                            let loc = SourceLocation {
+                                path,
+                                line,
+                                address,
+                            };
+
                             if desc != LineType::TestMain && !temp_map.contains_key(&loc) {
                                 temp_map.insert(
                                     loc,
