@@ -19,7 +19,9 @@ pub mod types;
 
 /// Specifies the current configuration tarpaulin is using.
 #[derive(Debug, Deserialize, Serialize)]
+#[serde(default)]
 pub struct Config {
+    pub name: String,
     /// Path to the projects cargo manifest
     pub manifest: PathBuf,
     /// Path to a tarpaulin.toml config file
@@ -101,8 +103,9 @@ pub struct Config {
 impl Default for Config {
     fn default() -> Config {
         Config {
+            name: String::new(),
             run_types: vec![RunType::Tests],
-            manifest: Default::default(),
+            manifest: default_manifest(),
             config: None,
             root: Default::default(),
             run_ignored: false,
@@ -150,6 +153,7 @@ impl<'a> From<&'a ArgMatches<'a>> for Config {
         let excluded_files_raw = get_list(args, "exclude-files");
 
         let args_config = Config {
+            name: String::new(),
             manifest: get_manifest(args),
             config: None,
             root: get_root(args),
@@ -189,7 +193,6 @@ impl<'a> From<&'a ArgMatches<'a>> for Config {
         };
 
         if args.is_present("config") {
-            info!("Attempting to read config file");
             let mut path = PathBuf::from(args.value_of("config").unwrap());
             if path.is_relative() {
                 path = env::current_dir()
@@ -223,14 +226,22 @@ impl Config {
         let mut f = File::open(file)?;
         let mut buffer = Vec::new();
         f.read_to_end(&mut buffer)?;
-        let mut map: HashMap<String, Vec<Self>> = toml::from_slice(&buffer).map_err(|e| {
+        let mut map: HashMap<String, Self> = toml::from_slice(&buffer).map_err(|e| {
             error!("Invalid config file {}", e);
             Error::new(ErrorKind::InvalidData, format!("{}", e))
         })?;
-        if map.contains_key("configs") {
-            Ok(map.remove("configs").unwrap())
+
+        let mut result = Vec::new();
+        let mut keys = map.keys().into_iter().cloned().collect::<Vec<_>>();
+        for k in keys.drain(..) {
+            let mut conf = map.remove(&k).unwrap();
+            conf.name = k;
+            result.push(conf);
+        }
+        if result.is_empty() {
+            Err(Error::new(ErrorKind::InvalidData, "No config tables"))
         } else {
-            Err(Error::new(ErrorKind::InvalidData, "No configs table"))
+            Ok(result)
         }
     }
 

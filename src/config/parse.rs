@@ -48,6 +48,12 @@ pub(super) fn get_manifest(args: &ArgMatches) -> PathBuf {
     manifest.canonicalize().unwrap_or(manifest)
 }
 
+pub(super) fn default_manifest() -> PathBuf {
+    let mut manifest = env::current_dir().unwrap();
+    manifest.push("Cargo.toml");
+    manifest.canonicalize().unwrap_or(manifest)
+}
+
 pub(super) fn get_target_dir(args: &ArgMatches) -> Option<PathBuf> {
     if let Some(path) = args.value_of("target-dir") {
         let path = PathBuf::from(path);
