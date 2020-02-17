@@ -3,10 +3,13 @@ pub use self::types::*;
 use self::parse::*;
 use clap::ArgMatches;
 use coveralls_api::CiService;
+use log::{error, info};
 use regex::Regex;
 use serde::{Deserialize, Serialize};
 use std::cell::RefCell;
 use std::env;
+use std::fs::File;
+use std::io::{Error, ErrorKind, Read};
 use std::path::{Path, PathBuf};
 use std::time::Duration;
 
@@ -18,10 +21,10 @@ pub mod types;
 pub struct Config {
     /// Path to the projects cargo manifest
     pub manifest: PathBuf,
+    /// Path to a tarpaulin.toml config file
+    pub config: Option<PathBuf>,
     /// Path to the projects cargo manifest
     pub root: Option<String>,
-    /// Types of tests for tarpaulin to collect coverage on
-    pub run_types: Vec<RunType>,
     /// Flag to also run tests with the ignored attribute
     pub run_ignored: bool,
     /// Flag to ignore test functions in coverage statistics
@@ -40,8 +43,6 @@ pub struct Config {
     pub line_coverage: bool,
     /// Flag specifying to run branch coverage
     pub branch_coverage: bool,
-    /// Output files to generate
-    pub generate: Vec<OutputFile>,
     /// Directory to write output files
     pub output_directory: PathBuf,
     /// Key relating to coveralls service or repo
@@ -59,23 +60,8 @@ pub struct Config {
     pub all_features: bool,
     /// Do not include default features in target build
     pub no_default_features: bool,
-    /// Features to include in the target project build
-    pub features: Vec<String>,
-    /// Unstable cargo features to use
-    pub unstable_features: Vec<String>,
     /// Build all packages in the workspace
     pub all: bool,
-    /// Packages to include when building the target project
-    pub packages: Vec<String>,
-    /// Packages to exclude from testing
-    pub exclude: Vec<String>,
-    /// Files to exclude from testing in their compiled form
-    #[serde(skip_deserializing, skip_serializing)]
-    excluded_files: RefCell<Vec<Regex>>,
-    /// Files to exclude from testing in uncompiled form (for serde)
-    excluded_files_raw: Vec<String>,
-    /// Varargs to be forwarded to the test executables.
-    pub varargs: Vec<String>,
     /// Duration to wait before a timeout occurs
     pub test_timeout: Duration,
     /// Build in release mode
@@ -90,6 +76,25 @@ pub struct Config {
     pub target_dir: Option<PathBuf>,
     /// Run tarpaulin on project without accessing the network
     pub offline: bool,
+    /// Types of tests for tarpaulin to collect coverage on
+    pub run_types: Vec<RunType>,
+    /// Packages to include when building the target project
+    pub packages: Vec<String>,
+    /// Packages to exclude from testing
+    pub exclude: Vec<String>,
+    /// Files to exclude from testing in their compiled form
+    #[serde(skip_deserializing, skip_serializing)]
+    excluded_files: RefCell<Vec<Regex>>,
+    /// Files to exclude from testing in uncompiled form (for serde)
+    excluded_files_raw: Vec<String>,
+    /// Varargs to be forwarded to the test executables.
+    pub varargs: Vec<String>,
+    /// Features to include in the target project build
+    pub features: Vec<String>,
+    /// Unstable cargo features to use
+    pub unstable_features: Vec<String>,
+    /// Output files to generate
+    pub generate: Vec<OutputFile>,
 }
 
 impl Default for Config {
@@ -97,6 +102,7 @@ impl Default for Config {
         Config {
             run_types: vec![RunType::Tests],
             manifest: Default::default(),
+            config: None,
             root: Default::default(),
             run_ignored: false,
             ignore_tests: false,
@@ -141,8 +147,9 @@ impl<'a> From<&'a ArgMatches<'a>> for Config {
         let excluded_files = get_excluded(args);
         let excluded_files_raw = get_list(args, "exclude-files");
 
-        Config {
+        let args_config = Config {
             manifest: get_manifest(args),
+            config: None,
             root: get_root(args),
             run_types: get_run_types(args),
             run_ignored: args.is_present("ignored"),
@@ -177,11 +184,46 @@ impl<'a> From<&'a ArgMatches<'a>> for Config {
             frozen: args.is_present("frozen"),
             target_dir: get_target_dir(args),
             offline: args.is_present("offline"),
+        };
+
+        if args.is_present("config") {
+            info!("Attempting to read config file");
+            let mut path = PathBuf::from(args.value_of("config").unwrap());
+            if path.is_relative() {
+                path = env::current_dir()
+                    .unwrap()
+                    .join(path)
+                    .canonicalize()
+                    .unwrap();
+            }
+            let confs = Config::load_config_file(&path);
+            if confs.is_err() {
+                args_config
+            } else {
+                let mut confs = confs.unwrap();
+                if confs.is_empty() {
+                    args_config
+                } else {
+                    confs.remove(0)
+                }
+            }
+        } else {
+            args_config
         }
     }
 }
 
 impl Config {
+    pub fn load_config_file<P: AsRef<Path>>(file: P) -> std::io::Result<Vec<Self>> {
+        let mut f = File::open(file)?;
+        let mut buffer = Vec::new();
+        f.read_to_end(&mut buffer)?;
+        toml::from_slice(&buffer).map_err(|e| {
+            error!("Invalid config file {}", e);
+            Error::new(ErrorKind::InvalidData, format!("{}", e))
+        })
+    }
+
     #[inline]
     pub fn is_coveralls(&self) -> bool {
         self.coveralls.is_some()
@@ -282,6 +324,7 @@ fn path_relative_from(path: &Path, base: &Path) -> Option<PathBuf> {
 mod tests {
     use super::*;
     use clap::App;
+    use std::collections::HashMap;
 
     #[test]
     fn exclude_paths() {

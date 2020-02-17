@@ -217,6 +217,7 @@ dependencies = [
  "serde",
  "serde_json",
  "syn",
+ "toml",
  "void",
  "walkdir",
 ]

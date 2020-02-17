@@ -55,7 +55,8 @@ fn main() -> Result<(), String> {
             .about("Tool to analyse test coverage of cargo projects")
             .version(concat!("version: ", crate_version!()))
             .args_from_usage(
-                 "--debug 'Show debug output - this is used for diagnosing issues with tarpaulin'
+                 "--config [FILE] 'path to a toml file specifying a list of options this will override any other options set'
+                 --debug 'Show debug output - this is used for diagnosing issues with tarpaulin'
                  --verbose -v 'Show extra output'
                  --ignore-tests 'ignore lines of test functions when collecting coverage'
                  --ignore-panics 'ignore panic macros in tests'
