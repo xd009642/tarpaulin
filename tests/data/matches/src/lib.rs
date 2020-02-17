@@ -1,3 +1,14 @@
+pub enum LibType {
+    A(usize),
+    B(usize),
+}
+
+pub fn check_libtype_match(lt: LibType) -> usize {
+    match lt {
+        LibType::A(n) => n,
+        LibType::B(n) => n,
+    }
+}
 
 pub fn check_match(x: usize) -> usize {
     match x {
@@ -16,7 +27,6 @@ pub fn destructuring_match(x: u32, y: u32) {
         (2, 2) => 2,
         _ => 0,
     };
-
 }
 
 #[cfg(test)]
@@ -25,6 +35,9 @@ mod tests {
 
     #[test]
     fn it_works() {
+        check_libtype_match(LibType::A(0));
+        check_libtype_match(LibType::B(1));
+
         check_match(0);
         check_match(2);
         check_match(999999);
