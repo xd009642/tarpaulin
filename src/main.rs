@@ -105,9 +105,9 @@ fn main() -> Result<(), String> {
         .get_matches();
 
     let args = args.subcommand_matches("tarpaulin").unwrap_or(&args);
+    set_up_logging(args.is_present("debug"), args.is_present("verbose"));
     let config = Config::from(args);
 
-    set_up_logging(config.debug, config.verbose);
     trace!("Debug mode activated");
     // Since this is the last function we run and don't do any error mitigations (other than
     // printing the error to the user it's fine to unwrap here

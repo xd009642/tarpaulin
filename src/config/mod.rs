@@ -7,6 +7,7 @@ use log::{error, info};
 use regex::Regex;
 use serde::{Deserialize, Serialize};
 use std::cell::RefCell;
+use std::collections::HashMap;
 use std::env;
 use std::fs::File;
 use std::io::{Error, ErrorKind, Read};
@@ -142,6 +143,7 @@ impl Default for Config {
 
 impl<'a> From<&'a ArgMatches<'a>> for Config {
     fn from(args: &'a ArgMatches<'a>) -> Self {
+        info!("Creating config");
         let debug = args.is_present("debug");
         let verbose = args.is_present("verbose") || debug;
         let excluded_files = get_excluded(args);
@@ -201,6 +203,9 @@ impl<'a> From<&'a ArgMatches<'a>> for Config {
                 args_config
             } else {
                 let mut confs = confs.unwrap();
+                for c in confs.iter_mut() {
+                    c.config = Some(path.clone());
+                }
                 if confs.is_empty() {
                     args_config
                 } else {
@@ -218,10 +223,15 @@ impl Config {
         let mut f = File::open(file)?;
         let mut buffer = Vec::new();
         f.read_to_end(&mut buffer)?;
-        toml::from_slice(&buffer).map_err(|e| {
+        let mut map: HashMap<String, Vec<Self>> = toml::from_slice(&buffer).map_err(|e| {
             error!("Invalid config file {}", e);
             Error::new(ErrorKind::InvalidData, format!("{}", e))
-        })
+        })?;
+        if map.contains_key("configs") {
+            Ok(map.remove("configs").unwrap())
+        } else {
+            Err(Error::new(ErrorKind::InvalidData, "No configs table"))
+        }
     }
 
     #[inline]
