@@ -44,6 +44,9 @@ pub fn run(configs: &[Config]) -> Result<(), RunError> {
     let mut failure = Ok(());
 
     for config in configs.iter() {
+        if config.name == "report" {
+            continue;
+        }
         match launch_tarpaulin(config) {
             Ok((t, r)) => {
                 tracemap.merge(&t);
@@ -62,7 +65,7 @@ pub fn run(configs: &[Config]) -> Result<(), RunError> {
     } else if !configs.is_empty() {
         let mut reported = false;
         for c in configs.iter() {
-            if c.name == "global" {
+            if c.name == "report" {
                 reported = true;
                 report_coverage(c, &tracemap)?;
             }

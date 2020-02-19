@@ -243,6 +243,10 @@ impl Config {
         let mut f = File::open(file)?;
         let mut buffer = Vec::new();
         f.read_to_end(&mut buffer)?;
+        Self::parse_config_toml(&buffer)
+    }
+
+    pub fn parse_config_toml(buffer: &[u8]) -> std::io::Result<Vec<Self>> {
         let mut map: HashMap<String, Self> = toml::from_slice(&buffer).map_err(|e| {
             error!("Invalid config file {}", e);
             Error::new(ErrorKind::InvalidData, format!("{}", e))
@@ -432,5 +436,28 @@ mod tests {
             "../../../b/rel/path",
             "Wrong relative path"
         );
+    }
+
+    #[test]
+    fn config_toml() {
+        let toml = "[global]
+        run_ignored= true
+        coveralls= \"hello\"
+
+        [other]
+        run_types = [\"Doctests\", \"Tests\"]";
+
+        let configs = Config::parse_config_toml(toml.as_bytes()).unwrap();
+        assert_eq!(configs.len(), 2);
+        for c in &configs {
+            if c.name == "global" {
+                assert_eq!(c.run_ignored, true);
+                assert_eq!(c.coveralls, Some("hello".to_string()));
+            } else if c.name == "other" {
+                assert_eq!(c.run_types, vec![RunType::Doctests, RunType::Tests]);
+            } else {
+                panic!("Unexpected name {}", c.name);
+            }
+        }
     }
 }
