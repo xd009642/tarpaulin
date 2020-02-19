@@ -3,7 +3,7 @@ pub use self::types::*;
 use self::parse::*;
 use clap::ArgMatches;
 use coveralls_api::CiService;
-use log::{error, info};
+use log::{error, info, warn};
 use regex::Regex;
 use serde::{Deserialize, Serialize};
 use std::cell::RefCell;
@@ -17,8 +17,10 @@ use std::time::Duration;
 mod parse;
 pub mod types;
 
+pub struct ConfigWrapper(pub Vec<Config>);
+
 /// Specifies the current configuration tarpaulin is using.
-#[derive(Debug, Deserialize, Serialize)]
+#[derive(Debug, Clone, Deserialize, Serialize)]
 #[serde(default)]
 pub struct Config {
     pub name: String,
@@ -144,7 +146,7 @@ impl Default for Config {
     }
 }
 
-impl<'a> From<&'a ArgMatches<'a>> for Config {
+impl<'a> From<&'a ArgMatches<'a>> for ConfigWrapper {
     fn from(args: &'a ArgMatches<'a>) -> Self {
         info!("Creating config");
         let debug = args.is_present("debug");
@@ -180,8 +182,8 @@ impl<'a> From<&'a ArgMatches<'a>> for Config {
             all: args.is_present("all") | args.is_present("workspace"),
             packages: get_list(args, "packages"),
             exclude: get_list(args, "exclude"),
-            excluded_files: RefCell::new(excluded_files),
-            excluded_files_raw,
+            excluded_files: RefCell::new(excluded_files.clone()),
+            excluded_files_raw: excluded_files_raw.clone(),
             varargs: get_list(args, "args"),
             test_timeout: get_timeout(args),
             release: args.is_present("release"),
@@ -203,20 +205,35 @@ impl<'a> From<&'a ArgMatches<'a>> for Config {
             }
             let confs = Config::load_config_file(&path);
             if confs.is_err() {
-                args_config
+                warn!("Failed to deserialize config file falling back to provided args");
+                Self(vec![args_config])
             } else {
                 let mut confs = confs.unwrap();
                 for c in confs.iter_mut() {
                     c.config = Some(path.clone());
+                    if debug {
+                        c.debug = debug;
+                        c.verbose = verbose;
+                    } else if verbose {
+                        c.verbose = verbose;
+                    }
+                    let mut conf_files = c.excluded_files.borrow_mut();
+                    let mut compiled = regexes_from_excluded(&c.excluded_files_raw);
+                    conf_files.append(&mut compiled);
+                    if !excluded_files.is_empty() {
+                        conf_files.extend_from_slice(&excluded_files);
+                        c.excluded_files_raw.extend_from_slice(&excluded_files_raw);
+                    }
                 }
+
                 if confs.is_empty() {
-                    args_config
+                    Self(vec![args_config])
                 } else {
-                    confs.remove(0)
+                    Self(confs)
                 }
             }
         } else {
-            args_config
+            Self(vec![args_config])
         }
     }
 }
@@ -232,11 +249,9 @@ impl Config {
         })?;
 
         let mut result = Vec::new();
-        let mut keys = map.keys().into_iter().cloned().collect::<Vec<_>>();
-        for k in keys.drain(..) {
-            let mut conf = map.remove(&k).unwrap();
-            conf.name = k;
-            result.push(conf);
+        for (name, mut conf) in map.iter_mut() {
+            conf.name = name.to_string();
+            result.push(conf.clone());
         }
         if result.is_empty() {
             Err(Error::new(ErrorKind::InvalidData, "No config tables"))
