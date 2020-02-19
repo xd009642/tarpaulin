@@ -360,7 +360,6 @@ fn path_relative_from(path: &Path, base: &Path) -> Option<PathBuf> {
 mod tests {
     use super::*;
     use clap::App;
-    use std::collections::HashMap;
 
     #[test]
     fn exclude_paths() {
@@ -368,11 +367,12 @@ mod tests {
             .args_from_usage("--exclude-files [FILE]... 'Exclude given files from coverage results has * wildcard'")
             .get_matches_from_safe(vec!["tarpaulin", "--exclude-files", "*module*"])
             .unwrap();
-        let conf = Config::from(&matches);
-        assert!(conf.exclude_path(Path::new("src/module/file.rs")));
-        assert!(!conf.exclude_path(Path::new("src/mod.rs")));
-        assert!(!conf.exclude_path(Path::new("unrelated.rs")));
-        assert!(conf.exclude_path(Path::new("module.rs")));
+        let conf = ConfigWrapper::from(&matches).0;
+        assert_eq!(conf.len(), 1);
+        assert!(conf[0].exclude_path(Path::new("src/module/file.rs")));
+        assert!(!conf[0].exclude_path(Path::new("src/mod.rs")));
+        assert!(!conf[0].exclude_path(Path::new("unrelated.rs")));
+        assert!(conf[0].exclude_path(Path::new("module.rs")));
     }
 
     #[test]
@@ -381,11 +381,12 @@ mod tests {
             .args_from_usage("--exclude-files [FILE]... 'Exclude given files from coverage results has * wildcard'")
             .get_matches_from_safe(vec!["tarpaulin"])
             .unwrap();
-        let conf = Config::from(&matches);
-        assert!(!conf.exclude_path(Path::new("src/module/file.rs")));
-        assert!(!conf.exclude_path(Path::new("src/mod.rs")));
-        assert!(!conf.exclude_path(Path::new("unrelated.rs")));
-        assert!(!conf.exclude_path(Path::new("module.rs")));
+        let conf = ConfigWrapper::from(&matches).0;
+        assert_eq!(conf.len(), 1);
+        assert!(!conf[0].exclude_path(Path::new("src/module/file.rs")));
+        assert!(!conf[0].exclude_path(Path::new("src/mod.rs")));
+        assert!(!conf[0].exclude_path(Path::new("unrelated.rs")));
+        assert!(!conf[0].exclude_path(Path::new("module.rs")));
     }
 
     #[test]
@@ -394,11 +395,12 @@ mod tests {
             .args_from_usage("--exclude-files [FILE]... 'Exclude given files from coverage results has * wildcard'")
             .get_matches_from_safe(vec!["tarpaulin", "--exclude-files", "*/lib.rs"])
             .unwrap();
-        let conf = Config::from(&matches);
-        assert!(conf.exclude_path(Path::new("src/lib.rs")));
-        assert!(!conf.exclude_path(Path::new("src/mod.rs")));
-        assert!(!conf.exclude_path(Path::new("src/notlib.rs")));
-        assert!(!conf.exclude_path(Path::new("lib.rs")));
+        let conf = ConfigWrapper::from(&matches).0;
+        assert_eq!(conf.len(), 1);
+        assert!(conf[0].exclude_path(Path::new("src/lib.rs")));
+        assert!(!conf[0].exclude_path(Path::new("src/mod.rs")));
+        assert!(!conf[0].exclude_path(Path::new("src/notlib.rs")));
+        assert!(!conf[0].exclude_path(Path::new("lib.rs")));
     }
 
     #[test]
