@@ -98,6 +98,7 @@ a repo and the commit containing your project and paste the verbose output).
 * HTML report generation and other coverage report types
 * Coverage of tests, doctests, benchmarks and examples possible
 * Excluding irrelevant files from coverage
+* Config file for mutually exclusive coverage settings (see `Config file` section for details)
 
 ## Usage
 
@@ -324,6 +325,38 @@ dependencies. In that case, you can install dependencies before, like this:
 ```text
 docker run --security-opt seccomp=unconfined -v "${PWD}:/volume" xd009642/tarpaulin sh -c "apt-get install xxx && cargo tarpaulin"
 ```
+
+### Config file
+
+Tarpaulin has a config file setting where multiple coverage setups can be
+encoded in a toml file. Below is an example file:
+
+```toml
+[feature_a]
+features = ["feature_a"]
+
+[feature_b]
+features = ["feature_b"]
+release = true
+
+[report]
+coveralls = "coveralls_key"
+out = ["Html", "Xml"]
+```
+
+Here we'd create three configurations, one would run your tests with
+`feature_a` enabled, and the other with the tests built in release and
+`feature_b` enabled. The last configuration uses a reserved configuration name
+`report` and this doesn't result in a coverage run but affects the report 
+output. This is a reserved feature name and any non-reporting based options
+chosen will have no effect on the output of tarpaulin.
+
+For reference on available keys and their types refer to the CLI help text
+at the start of the readme or `src/config/mod.rs` for the concrete types
+if anything is unclear.
+
+Setting the field `config` will have no effect on the run as it won't be parsed
+for additional configuration.
 
 ## Extending Tarpaulin.
 
