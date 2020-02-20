@@ -3,6 +3,7 @@ pub use self::types::*;
 use self::parse::*;
 use clap::ArgMatches;
 use coveralls_api::CiService;
+use humantime_serde::deserialize as humantime_serde;
 use log::{error, info, warn};
 use regex::Regex;
 use serde::{Deserialize, Serialize};
@@ -25,18 +26,23 @@ pub struct ConfigWrapper(pub Vec<Config>);
 pub struct Config {
     pub name: String,
     /// Path to the projects cargo manifest
+    #[serde(rename = "manifest-path")]
     pub manifest: PathBuf,
     /// Path to a tarpaulin.toml config file
     pub config: Option<PathBuf>,
     /// Path to the projects cargo manifest
     pub root: Option<String>,
     /// Flag to also run tests with the ignored attribute
+    #[serde(rename = "ignored")]
     pub run_ignored: bool,
     /// Flag to ignore test functions in coverage statistics
+    #[serde(rename = "ignore-tests")]
     pub ignore_tests: bool,
     /// Ignore panic macros in code.
+    #[serde(rename = "ignore-panics")]
     pub ignore_panics: bool,
     /// Flag to add a clean step when preparing the target project
+    #[serde(rename = "force-clean")]
     pub force_clean: bool,
     /// Verbose flag for printing information to the user
     pub verbose: bool,
@@ -45,43 +51,56 @@ pub struct Config {
     /// Flag to count hits in coverage
     pub count: bool,
     /// Flag specifying to run line coverage (default)
+    #[serde(rename = "line")]
     pub line_coverage: bool,
     /// Flag specifying to run branch coverage
+    #[serde(rename = "branch")]
     pub branch_coverage: bool,
     /// Directory to write output files
+    #[serde(rename = "output-dir")]
     pub output_directory: PathBuf,
     /// Key relating to coveralls service or repo
     pub coveralls: Option<String>,
     /// Enum representing CI tool used.
+    #[serde(rename = "ciserver", deserialize_with = "deserialize_ci_server")]
     pub ci_tool: Option<CiService>,
     /// Only valid if coveralls option is set. If coveralls option is set,
     /// as well as report_uri, then the report will be sent to this endpoint
     /// instead.
+    #[serde(rename = "report-uri")]
     pub report_uri: Option<String>,
     /// Forward unexpected signals back to the tracee. Used for tests which
     /// rely on signals to work.
+    #[serde(rename = "forward")]
     pub forward_signals: bool,
     /// Include all available features in target build
+    #[serde(rename = "all-features")]
     pub all_features: bool,
     /// Do not include default features in target build
+    #[serde(rename = "no-default-features")]
     pub no_default_features: bool,
     /// Build all packages in the workspace
+    #[serde(alias = "workspace")]
     pub all: bool,
     /// Duration to wait before a timeout occurs
+    #[serde(deserialize_with = "humantime_serde", rename = "timeout")]
     pub test_timeout: Duration,
     /// Build in release mode
     pub release: bool,
     /// Build the tests only don't run coverage
+    #[serde(rename = "no-run")]
     pub no_run: bool,
     /// Don't update `Cargo.lock`.
     pub locked: bool,
     /// Don't update `Cargo.lock` or any caches.
     pub frozen: bool,
     /// Directory for generated artifacts
+    #[serde(rename = "target-dir")]
     pub target_dir: Option<PathBuf>,
     /// Run tarpaulin on project without accessing the network
     pub offline: bool,
     /// Types of tests for tarpaulin to collect coverage on
+    #[serde(rename = "run-types")]
     pub run_types: Vec<RunType>,
     /// Packages to include when building the target project
     pub packages: Vec<String>,
@@ -91,14 +110,18 @@ pub struct Config {
     #[serde(skip_deserializing, skip_serializing)]
     excluded_files: RefCell<Vec<Regex>>,
     /// Files to exclude from testing in uncompiled form (for serde)
+    #[serde(rename = "exclude-files")]
     excluded_files_raw: Vec<String>,
     /// Varargs to be forwarded to the test executables.
+    #[serde(rename = "args")]
     pub varargs: Vec<String>,
     /// Features to include in the target project build
     pub features: Vec<String>,
     /// Unstable cargo features to use
+    #[serde(rename = "Z")]
     pub unstable_features: Vec<String>,
     /// Output files to generate
+    #[serde(rename = "out")]
     pub generate: Vec<OutputFile>,
 }
 
@@ -441,11 +464,11 @@ mod tests {
     #[test]
     fn config_toml() {
         let toml = "[global]
-        run_ignored= true
+        ignored= true
         coveralls= \"hello\"
 
         [other]
-        run_types = [\"Doctests\", \"Tests\"]";
+        run-types = [\"Doctests\", \"Tests\"]";
 
         let configs = Config::parse_config_toml(toml.as_bytes()).unwrap();
         assert_eq!(configs.len(), 2);
@@ -459,5 +482,83 @@ mod tests {
                 panic!("Unexpected name {}", c.name);
             }
         }
+    }
+
+    #[test]
+    fn all_toml_options() {
+        let toml = r#"[all]
+        debug = true
+        verbose = true
+        ignore-panics = true
+        count = true
+        ignored = true
+        force-clean = true
+        branch = true
+        forward = true
+        coveralls = "hello"
+        report-uri = "http://hello.com"
+        no-default-features = true
+        features = ["a"]
+        all-features = true
+        workspace = true
+        packages = ["pack_1"]
+        exclude = ["pack_2"]
+        exclude-files = ["fuzz/*"]
+        timeout = "5s"
+        release = true
+        no-run = true
+        locked = true
+        frozen = true
+        target-dir = "/tmp"
+        offline = true
+        Z = ["something-nightly"]
+        out = ["Html"]
+        run-types = ["Doctests"]
+        root = "/home/rust"
+        manifest-path = "/home/rust/foo/Cargo.toml"
+        ciserver = "travis-ci"
+        args = ["--nocapture"]
+        "#;
+        let mut configs = Config::parse_config_toml(toml.as_bytes()).unwrap();
+        assert_eq!(configs.len(), 1);
+        let config = configs.remove(0);
+        assert!(config.debug);
+        assert!(config.verbose);
+        assert!(config.ignore_panics);
+        assert!(config.count);
+        assert!(config.run_ignored);
+        assert!(config.force_clean);
+        assert!(config.branch_coverage);
+        assert!(config.forward_signals);
+        assert_eq!(config.coveralls, Some("hello".to_string()));
+        assert_eq!(config.report_uri, Some("http://hello.com".to_string()));
+        assert!(config.no_default_features);
+        assert!(config.all_features);
+        assert!(config.all);
+        assert!(config.release);
+        assert!(config.no_run);
+        assert!(config.locked);
+        assert!(config.frozen);
+        assert!(config.offline);
+        assert_eq!(config.test_timeout, Duration::from_secs(5));
+        assert_eq!(config.unstable_features.len(), 1);
+        assert_eq!(config.unstable_features[0], "something-nightly");
+        assert_eq!(config.varargs.len(), 1);
+        assert_eq!(config.varargs[0], "--nocapture");
+        assert_eq!(config.features.len(), 1);
+        assert_eq!(config.features[0], "a");
+        assert_eq!(config.excluded_files_raw.len(), 1);
+        assert_eq!(config.excluded_files_raw[0], "fuzz/*");
+        assert_eq!(config.packages.len(), 1);
+        assert_eq!(config.packages[0], "pack_1");
+        assert_eq!(config.exclude.len(), 1);
+        assert_eq!(config.exclude[0], "pack_2");
+        assert_eq!(config.generate.len(), 1);
+        assert_eq!(config.generate[0], OutputFile::Html);
+        assert_eq!(config.run_types.len(), 1);
+        assert_eq!(config.run_types[0], RunType::Doctests);
+        assert_eq!(config.ci_tool, Some(CiService::Travis));
+        assert_eq!(config.root, Some("/home/rust".to_string()));
+        assert_eq!(config.manifest, PathBuf::from("/home/rust/foo/Cargo.toml"));
     }
 }

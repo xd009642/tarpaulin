@@ -16,7 +16,7 @@ arg_enum! {
 }
 
 arg_enum! {
-    #[derive(Debug, Clone, Deserialize, Serialize)]
+    #[derive(Debug, Clone, Eq, PartialEq, Ord, PartialOrd, Hash, Deserialize, Serialize)]
     pub enum OutputFile {
         Json,
         Toml,
@@ -34,7 +34,7 @@ impl Default for OutputFile {
     }
 }
 
-#[derive(Debug, Deserialize, Serialize)]
+#[derive(Debug, Eq, PartialEq, Ord, PartialOrd, Deserialize, Serialize)]
 pub struct Ci(pub CiService);
 
 impl From<RunType> for CompileMode {

@@ -3,8 +3,11 @@ use clap::{value_t, values_t, ArgMatches};
 use coveralls_api::CiService;
 use log::error;
 use regex::Regex;
+use serde::de::{self, Deserializer};
 use std::env;
+use std::fmt;
 use std::path::PathBuf;
+use std::str::FromStr;
 use std::time::Duration;
 
 pub(super) fn get_list(args: &ArgMatches, key: &str) -> Vec<String> {
@@ -129,4 +132,32 @@ pub(super) fn get_timeout(args: &ArgMatches) -> Duration {
     } else {
         Duration::from_secs(60)
     }
+}
+
+pub fn deserialize_ci_server<'de, D>(d: D) -> Result<Option<CiService>, D::Error>
+where
+    D: Deserializer<'de>,
+{
+    struct CiServerVisitor;
+
+    impl<'de> de::Visitor<'de> for CiServerVisitor {
+        type Value = Option<CiService>;
+
+        fn expecting(&self, formatter: &mut fmt::Formatter) -> fmt::Result {
+            formatter.write_str("A string containing the ci-service name")
+        }
+
+        fn visit_str<E>(self, v: &str) -> Result<Self::Value, E>
+        where
+            E: de::Error,
+        {
+            if v.is_empty() {
+                Ok(None)
+            } else {
+                Ok(Some(Ci::from_str(v).unwrap().0))
+            }
+        }
+    }
+
+    d.deserialize_any(CiServerVisitor)
 }
