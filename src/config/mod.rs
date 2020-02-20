@@ -227,46 +227,74 @@ impl<'a> From<&'a ArgMatches<'a>> for ConfigWrapper {
                     .unwrap();
             }
             let confs = Config::load_config_file(&path);
-            if confs.is_err() {
-                warn!("Failed to deserialize config file falling back to provided args");
-                Self(vec![args_config])
-            } else {
-                let mut confs = confs.unwrap();
-                for c in confs.iter_mut() {
-                    c.config = Some(path.clone());
-                    if debug {
-                        c.debug = debug;
-                        c.verbose = verbose;
-                    } else if verbose {
-                        c.verbose = verbose;
-                    }
-                    let mut conf_files = c.excluded_files.borrow_mut();
-                    let mut compiled = regexes_from_excluded(&c.excluded_files_raw);
-                    conf_files.append(&mut compiled);
-                    if !excluded_files.is_empty() {
-                        conf_files.extend_from_slice(&excluded_files);
-                        c.excluded_files_raw.extend_from_slice(&excluded_files_raw);
-                    }
-                }
-
-                if confs.is_empty() {
-                    Self(vec![args_config])
-                } else {
-                    Self(confs)
-                }
-            }
+            Config::get_config_vec(confs, args_config)
         } else {
-            Self(vec![args_config])
+            if let Some(cfg) = args_config.check_for_configs() {
+                let confs = Config::load_config_file(&cfg);
+                Config::get_config_vec(confs, args_config)
+            } else {
+                Self(vec![args_config])
+            }
         }
     }
 }
 
 impl Config {
+    pub fn get_config_vec(file_configs: std::io::Result<Vec<Self>>, backup: Self) -> ConfigWrapper {
+        if file_configs.is_err() {
+            warn!("Failed to deserialize config file falling back to provided args");
+            ConfigWrapper(vec![backup])
+        } else {
+            let mut confs = file_configs.unwrap();
+            for c in confs.iter_mut() {
+                c.merge(&backup);
+            }
+            if confs.is_empty() {
+                ConfigWrapper(vec![backup])
+            } else {
+                ConfigWrapper(confs)
+            }
+        }
+    }
+
+    /// Taking an existing config look for any relevant config files
+    pub fn check_for_configs(&self) -> Option<PathBuf> {
+        if let Some(root) = &self.root {
+            Self::check_path_for_configs(&root)
+        } else {
+            if let Some(root) = self.manifest.clone().parent() {
+                Self::check_path_for_configs(&root)
+            } else {
+                None
+            }
+        }
+    }
+
+    fn check_path_for_configs<P: AsRef<Path>>(path: P) -> Option<PathBuf> {
+        let mut path_1 = PathBuf::from(path.as_ref());
+        let mut path_2 = path_1.clone();
+        path_1.push("tarpaulin.toml");
+        path_2.push(".tarpaulin.toml");
+        if path_1.exists() {
+            Some(path_1)
+        } else if path_2.exists() {
+            Some(path_2)
+        } else {
+            None
+        }
+    }
+
     pub fn load_config_file<P: AsRef<Path>>(file: P) -> std::io::Result<Vec<Self>> {
-        let mut f = File::open(file)?;
+        let mut f = File::open(file.as_ref())?;
         let mut buffer = Vec::new();
         f.read_to_end(&mut buffer)?;
-        Self::parse_config_toml(&buffer)
+        let mut res = Self::parse_config_toml(&buffer);
+        if let Ok(cfs) = res.as_mut() {
+            for mut c in cfs.iter_mut() {
+                c.config = Some(file.as_ref().to_path_buf());
+            }
+        }
+        res
     }
 
     pub fn parse_config_toml(buffer: &[u8]) -> std::io::Result<Vec<Self>> {
@@ -284,6 +312,24 @@ impl Config {
             Err(Error::new(ErrorKind::InvalidData, "No config tables"))
         } else {
             Ok(result)
+        }
+    }
+
+    pub fn merge(&mut self, other: &Config) {
+        if other.debug {
+            self.debug = other.debug;
+            self.verbose = other.verbose;
+        } else if other.verbose {
+            self.verbose = other.verbose;
+        }
+        let mut conf_files = self.excluded_files.borrow_mut();
+        let other_files = other.excluded_files.borrow();
+        let mut compiled = regexes_from_excluded(&self.excluded_files_raw);
+        conf_files.append(&mut compiled);
+        if !other_files.is_empty() {
+            conf_files.extend_from_slice(&other_files);
+            self.excluded_files_raw
+                .extend_from_slice(&other.excluded_files_raw);
         }
     }
 
