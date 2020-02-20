@@ -7,6 +7,7 @@ file.
 ### Added
 - Change in coverage between last 2 runs in HTML report
 - Filter attributes on match arms
+- Add toml config files for multiple runs with merged reports and `--config` and `--ignore-config` options 
 
 ### Changed
 - Now instrument multiple points in the same binary for the same line to remove false negatives
