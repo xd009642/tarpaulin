@@ -56,6 +56,7 @@ fn main() -> Result<(), String> {
             .version(concat!("version: ", crate_version!()))
             .args_from_usage(
                  "--config [FILE] 'path to a toml file specifying a list of options this will override any other options set'
+                 --ignore-config 'ignore any project config files'
                  --debug 'Show debug output - this is used for diagnosing issues with tarpaulin'
                  --verbose -v 'Show extra output'
                  --ignore-tests 'ignore lines of test functions when collecting coverage'

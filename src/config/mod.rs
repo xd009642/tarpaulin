@@ -216,8 +216,9 @@ impl<'a> From<&'a ArgMatches<'a>> for ConfigWrapper {
             target_dir: get_target_dir(args),
             offline: args.is_present("offline"),
         };
-
-        if args.is_present("config") {
+        if args.is_present("ignore-config") {
+            Self(vec![args_config])
+        } else if args.is_present("config") {
             let mut path = PathBuf::from(args.value_of("config").unwrap());
             if path.is_relative() {
                 path = env::current_dir()
