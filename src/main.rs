@@ -55,12 +55,12 @@ fn main() -> Result<(), String> {
             .about("Tool to analyse test coverage of cargo projects")
             .version(concat!("version: ", crate_version!()))
             .args_from_usage(
-                 "--config [FILE] 'path to a toml file specifying a list of options this will override any other options set'
-                 --ignore-config 'ignore any project config files'
+                 "--config [FILE] 'Path to a toml file specifying a list of options this will override any other options set'
+                 --ignore-config 'Ignore any project config files'
                  --debug 'Show debug output - this is used for diagnosing issues with tarpaulin'
                  --verbose -v 'Show extra output'
-                 --ignore-tests 'ignore lines of test functions when collecting coverage'
-                 --ignore-panics 'ignore panic macros in tests'
+                 --ignore-tests 'Ignore lines of test functions when collecting coverage'
+                 --ignore-panics 'Ignore panic macros in tests'
                  --count   'Counts the number of hits during coverage'
                  --ignored -i 'Run ignored tests as well'
                  --line -l    'Line coverage'
@@ -72,7 +72,7 @@ fn main() -> Result<(), String> {
                  --no-default-features 'Do not include default features'
                  --features [FEATURE]... 'Features to be included in the target project'
                  --all-features 'Build all available features'
-                 --all        'alias for --workspace (deprecated)'
+                 --all        'Alias for --workspace (deprecated)'
                  --workspace 'Test all packages in the workspace'
                  --packages -p [PACKAGE]... 'Package id specifications for which package should be build. See cargo help pkgid for more info'
                  --exclude -e [PACKAGE]... 'Package id specifications to exclude from coverage. See cargo help pkgid for more info'
@@ -84,7 +84,7 @@ fn main() -> Result<(), String> {
                  --frozen 'Do not update Cargo.lock or any caches'
                  --target-dir [DIR] 'Directory for all generated artifacts'
                  --offline 'Run without accessing the network'
-                 -Z [FEATURES]...   'list of unstable nightly only flags'")
+                 -Z [FEATURES]...   'List of unstable nightly only flags'")
             .args(&[
                 Arg::from_usage("--out -o [FMT]   'Output format of coverage report'")
                     .possible_values(&OutputFile::variants())

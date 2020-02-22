@@ -33,7 +33,7 @@ USAGE:
     cargo tarpaulin [FLAGS] [OPTIONS] [-- <args>...]
 
 FLAGS:
-        --all                    alias for --workspace (deprecated)
+        --all                    Alias for --workspace (deprecated)
         --all-features           Build all available features
     -b, --branch                 Branch coverage: NOT IMPLEMENTED
         --count                  Counts the number of hits during coverage
@@ -42,8 +42,9 @@ FLAGS:
     -f, --forward                Forwards unexpected signals to test. Tarpaulin will still take signals it is expecting.
         --frozen                 Do not update Cargo.lock or any caches
     -h, --help                   Prints help information
-        --ignore-panics          ignore panic macros in tests
-        --ignore-tests           ignore lines of test functions when collecting coverage
+        --ignore-config          Ignore any project config files
+        --ignore-panics          Ignore panic macros in tests
+        --ignore-tests           Ignore lines of test functions when collecting coverage
     -i, --ignored                Run ignored tests as well
     -l, --line                   Line coverage
         --locked                 Do not update Cargo.lock
@@ -56,11 +57,13 @@ FLAGS:
         --workspace              Test all packages in the workspace
 
 OPTIONS:
-    -Z <FEATURES>...                 list of unstable nightly only flags
+    -Z <FEATURES>...                 List of unstable nightly only flags
         --ciserver <SERVICE>         Name of service, supported services are:
                                      travis-ci, travis-pro, circle-ci, semaphore, jenkins and codeship.
                                      If you are interfacing with coveralls.io or another site you can also specify a
                                      name that they will recognise. Refer to their documentation for this.
+        --config <FILE>              Path to a toml file specifying a list of options this will override any other
+                                     options set
         --coveralls <KEY>            Coveralls key, either the repo token, or if you're using travis use $TRAVIS_JOB_ID
                                      and specify travis-{ci|pro} in --ciserver
     -e, --exclude <PACKAGE>...       Package id specifications to exclude from coverage. See cargo help pkgid for more
@@ -329,13 +332,16 @@ docker run --security-opt seccomp=unconfined -v "${PWD}:/volume" xd009642/tarpau
 ### Config file
 
 Tarpaulin has a config file setting where multiple coverage setups can be
-encoded in a toml file. Below is an example file:
+encoded in a toml file. This can be provided by an argumnet or if a 
+`.tarpaulin.toml` or `tarpaulin.toml` is present in the same directory as
+the projects manifest or in the root directory that will be used unless 
+`--ignore-config` is passed. Below is an example file:
 
 ```toml
-[feature_a]
+[feature_a_coverage]
 features = ["feature_a"]
 
-[feature_b]
+[feature_b_coverage]
 features = ["feature_b"]
 release = true
 
@@ -353,7 +359,8 @@ chosen will have no effect on the output of tarpaulin.
 
 For reference on available keys and their types refer to the CLI help text
 at the start of the readme or `src/config/mod.rs` for the concrete types
-if anything is unclear.
+if anything is unclear. For arguments to be passed into the test binary that
+follow `--` in tarpaulin use `args` in the toml file.
 
 Setting the field `config` will have no effect on the run as it won't be parsed
 for additional configuration.
