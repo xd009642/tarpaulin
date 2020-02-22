@@ -120,6 +120,11 @@ fn method_calls_expr_coverage() {
 }
 
 #[test]
+fn config_file_coverage() {
+    check_percentage("configs", 1.0f64, true);
+}
+
+#[test]
 #[ignore]
 fn benchmark_coverage() {
     let test = "benchmark_coverage";

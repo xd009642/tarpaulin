@@ -60,6 +60,7 @@ pub fn run(configs: &[Config]) -> Result<(), RunError> {
             }
         }
     }
+    tracemap.dedup();
     if configs.len() == 1 {
         report_coverage(&configs[0], &tracemap)?;
     } else if !configs.is_empty() {

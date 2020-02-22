@@ -316,6 +316,8 @@ impl Config {
         }
     }
 
+    /// Given a config made from args ignoring the config file take the
+    /// relevant settings that should be carried across and move them
     pub fn merge(&mut self, other: &Config) {
         if other.debug {
             self.debug = other.debug;
@@ -323,6 +325,8 @@ impl Config {
         } else if other.verbose {
             self.verbose = other.verbose;
         }
+        self.manifest = other.manifest.clone();
+        self.root = other.root.clone();
         let mut conf_files = self.excluded_files.borrow_mut();
         let other_files = other.excluded_files.borrow();
         let mut compiled = regexes_from_excluded(&self.excluded_files_raw);
