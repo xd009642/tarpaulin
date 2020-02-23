@@ -38,9 +38,43 @@ mod ptrace_control;
 
 static DOCTEST_FOLDER: &str = "target/doctests";
 
-pub fn run(config: &Config) -> Result<(), RunError> {
-    let (tracemap, ret) = launch_tarpaulin(config)?;
-    report_coverage(config, &tracemap)?;
+pub fn run(configs: &[Config]) -> Result<(), RunError> {
+    let mut tracemap = TraceMap::new();
+    let mut ret = 0i32;
+    let mut failure = Ok(());
+
+    for config in configs.iter() {
+        if config.name == "report" {
+            continue;
+        }
+        match launch_tarpaulin(config) {
+            Ok((t, r)) => {
+                tracemap.merge(&t);
+                ret |= r;
+            }
+            Err(e) => {
+                info!("Failure {}", e);
+                if failure.is_ok() {
+                    failure = Err(e);
+                }
+            }
+        }
+    }
+    tracemap.dedup();
+    if configs.len() == 1 {
+        report_coverage(&configs[0], &tracemap)?;
+    } else if !configs.is_empty() {
+        let mut reported = false;
+        for c in configs.iter() {
+            if c.name == "report" {
+                reported = true;
+                report_coverage(c, &tracemap)?;
+            }
+        }
+        if !reported {
+            report_coverage(&configs[0], &tracemap)?;
+        }
+    }
 
     if ret == 0 {
         Ok(())
@@ -51,6 +85,9 @@ pub fn run(config: &Config) -> Result<(), RunError> {
 
 /// Launches tarpaulin with the given configuration.
 pub fn launch_tarpaulin(config: &Config) -> Result<(TraceMap, i32), RunError> {
+    if !config.name.is_empty() {
+        info!("Running config {}", config.name);
+    }
     setup_environment(&config);
     cargo::core::enable_nightly_features();
     let cwd = match config.manifest.parent() {

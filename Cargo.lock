@@ -147,7 +147,7 @@ dependencies = [
  "glob",
  "hex 0.4.0",
  "home",
- "humantime",
+ "humantime 1.3.0",
  "ignore",
  "im-rc",
  "jobserver",
@@ -203,6 +203,7 @@ dependencies = [
  "fallible-iterator",
  "gimli",
  "git2",
+ "humantime-serde",
  "lazy_static",
  "libc",
  "log",
@@ -217,6 +218,7 @@ dependencies = [
  "serde",
  "serde_json",
  "syn",
+ "toml",
  "void",
  "walkdir",
 ]
@@ -298,9 +300,9 @@ checksum = "b3a71ab494c0b5b860bdc8407ae08978052417070c2ced38573a9157ad75b8ac"
 
 [[package]]
 name = "coveralls-api"
-version = "0.4.0"
+version = "0.5.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "08077f00788d0871245bec89418b0da009de85a0d5b06c04739bab0533af5b24"
+checksum = "94c45ef25d64e6b7229f6e4e0c3c2feeacfff3ad65b1dff162aefc43b2e6157d"
 dependencies = [
  "curl",
  "deflate",
@@ -399,9 +401,9 @@ dependencies = [
 
 [[package]]
 name = "deflate"
-version = "0.7.20"
+version = "0.8.2"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "707b6a7b384888a70c8d2e8650b3e60170dfc6a67bb4aa67b6dfca57af4bedb4"
+checksum = "f5f3e14a3476e8360a1bb56f2311549cfe458418c4e1e6a333b104123df078d2"
 dependencies = [
  "adler32",
  "byteorder",
@@ -415,7 +417,7 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "44533bbbb3bb3c1fa17d9f2e4e38bbbaf8396ba82193c4cb1b6445d711445d36"
 dependencies = [
  "atty",
- "humantime",
+ "humantime 1.3.0",
  "log",
  "regex",
  "termcolor",
@@ -646,6 +648,22 @@ dependencies = [
 ]
 
 [[package]]
+name = "humantime"
+version = "2.0.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "b9b6c53306532d3c8e8087b44e6580e10db51a023cf9b433cea2ac38066b92da"
+
+[[package]]
+name = "humantime-serde"
+version = "1.0.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "f1c57351e2c81b7a03e82a6c8f4198b309c158f6d67c4adb707af6af7d91465a"
+dependencies = [
+ "humantime 2.0.0",
+ "serde",
+]
+
+[[package]]
 name = "idna"
 version = "0.2.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -797,9 +815,9 @@ checksum = "7ffc5c5338469d4d3ea17d269fa8ea3512ad247247c30bd2df69e68309ed0a08"
 
 [[package]]
 name = "md5"
-version = "0.3.8"
+version = "0.7.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "79c56d6a0b07f9e19282511c83fc5b086364cbae4ba8c7d5f190c3d9b0425a48"
+checksum = "490cc448043f947bae3cbee9c203358d62dbee0db12107a74be5c30ccfd09771"
 
 [[package]]
 name = "memchr"

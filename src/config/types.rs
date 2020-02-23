@@ -1,11 +1,12 @@
 use cargo::core::compiler::CompileMode;
 use clap::arg_enum;
 use coveralls_api::CiService;
+use serde::{Deserialize, Serialize};
 use std::str::FromStr;
 use void::Void;
 
 arg_enum! {
-    #[derive(Debug, Copy, Clone, PartialEq, Eq, Ord, PartialOrd)]
+    #[derive(Debug, Copy, Clone, PartialEq, Eq, Ord, PartialOrd, Deserialize, Serialize)]
     pub enum RunType {
         Tests,
         Doctests,
@@ -15,7 +16,7 @@ arg_enum! {
 }
 
 arg_enum! {
-    #[derive(Debug)]
+    #[derive(Debug, Clone, Eq, PartialEq, Ord, PartialOrd, Hash, Deserialize, Serialize)]
     pub enum OutputFile {
         Json,
         Toml,
@@ -33,6 +34,7 @@ impl Default for OutputFile {
     }
 }
 
+#[derive(Debug, Eq, PartialEq, Ord, PartialOrd, Deserialize, Serialize)]
 pub struct Ci(pub CiService);
 
 impl From<RunType> for CompileMode {
