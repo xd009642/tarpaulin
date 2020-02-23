@@ -327,14 +327,13 @@ impl Config {
         }
         self.manifest = other.manifest.clone();
         self.root = other.root.clone();
-        let mut conf_files = self.excluded_files.borrow_mut();
-        let other_files = other.excluded_files.borrow();
-        let mut compiled = regexes_from_excluded(&self.excluded_files_raw);
-        conf_files.append(&mut compiled);
-        if !other_files.is_empty() {
-            conf_files.extend_from_slice(&other_files);
+        if !other.excluded_files_raw.is_empty() {
             self.excluded_files_raw
                 .extend_from_slice(&other.excluded_files_raw);
+
+            // Now invalidated the compiled regex cache so clear it
+            let mut excluded_files = self.excluded_files.borrow_mut();
+            excluded_files.clear();
         }
     }
 
@@ -348,6 +347,7 @@ impl Config {
         if self.excluded_files.borrow().len() != self.excluded_files_raw.len() {
             let mut excluded_files = self.excluded_files.borrow_mut();
             let mut compiled = regexes_from_excluded(&self.excluded_files_raw);
+            excluded_files.clear();
             excluded_files.append(&mut compiled);
         }
         let project = self.strip_base_dir(path);
@@ -533,6 +533,26 @@ mod tests {
                 panic!("Unexpected name {}", c.name);
             }
         }
+    }
+
+    #[test]
+    fn excluded_merge() {
+        let toml = r#"[a]
+        exclude-files = ["target/*"]
+        [b]
+        exclude-files = ["foo.rs"]
+        "#;
+
+        let mut configs = Config::parse_config_toml(toml.as_bytes()).unwrap();
+        let mut config = configs.remove(0);
+        config.merge(&configs[0]);
+        println!("{:?}", configs[0].excluded_files_raw);
+        println!("{:?}", config.excluded_files_raw);
+        assert!(config.excluded_files_raw.contains(&"target/*".to_string()));
+        assert!(config.excluded_files_raw.contains(&"foo.rs".to_string()));
+
+        assert_eq!(config.excluded_files_raw.len(), 2);
+        assert_eq!(configs[0].excluded_files_raw.len(), 1);
     }
 
     #[test]
