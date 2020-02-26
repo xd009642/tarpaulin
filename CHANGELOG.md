@@ -5,6 +5,13 @@ file.
 
 ## [Unreleased]
 ### Added
+
+### Changed
+
+### Removed
+
+## [0.11.0] 2020-02-26
+### Added
 - Change in coverage between last 2 runs in HTML report
 - Filter attributes on match arms
 - Add toml config files for multiple runs with merged reports and `--config` and `--ignore-config` options 
