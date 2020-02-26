@@ -379,7 +379,10 @@ fn process_items(items: &[Item], ctx: &Context, analysis: &mut LineAnalysis) -> 
                 if let SubResult::Unreachable = visit_macro_call(&i.mac, ctx, analysis) {
                     res = SubResult::Unreachable;
                 }
-            }
+            },
+            Item::Const(ref c) => {
+                analysis.ignore_tokens(c);
+            },
             _ => {}
         }
     }
@@ -1829,6 +1832,23 @@ mod tests {
         process_items(&parser.items, &ctx, &mut lines);
         assert!(lines.ignore.contains(&Lines::Line(5)));
         assert!(lines.ignore.contains(&Lines::Line(7)));
+    }
+
+    #[test]
+    fn filter_consts() {
+        let config = Config::default();
+        let mut lines = LineAnalysis::new();
+        let ctx = Context {
+            config: &config,
+            file_contents: "fn boo() {
+            const x: u32 = 3;
+            }",
+            file: Path::new(""),
+            ignore_mods: RefCell::new(HashSet::new())
+        };
+        let parser = parse_file(ctx.file_contents).unwrap();
+        process_items(&parser.items, &ctx, &mut lines);
+        assert!(lines.ignore.contains(&Lines::Line(2)));
     }
 
     #[test]

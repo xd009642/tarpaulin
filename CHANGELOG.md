@@ -11,6 +11,7 @@ file.
 
 ### Changed
 - Now instrument multiple points in the same binary for the same line to remove false negatives
+- Filter out constants from coverage results
 
 ### Removed
 
