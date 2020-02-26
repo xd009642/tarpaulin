@@ -1,6 +1,8 @@
 use crate::utils::get_test_path;
-use cargo_tarpaulin::config::{Config, RunType};
+use cargo_tarpaulin::config::{Config, ConfigWrapper, RunType};
 use cargo_tarpaulin::launch_tarpaulin;
+use cargo_tarpaulin::traces::*;
+use clap::App;
 use std::env;
 use std::time::Duration;
 
@@ -10,13 +12,42 @@ mod line_coverage;
 mod test_types;
 mod utils;
 
+pub fn check_percentage_with_cli_args(minimum_coverage: f64, has_lines: bool, args: &[String]) {
+    let restore_dir = env::current_dir().unwrap();
+    let matches = App::new("tarpaulin")
+        .args_from_usage(
+             "--config [FILE] 'Path to a toml file specifying a list of options this will override any other options set'
+             --ignore-config 'Ignore any project config files'
+             --debug 'Show debug output - this is used for diagnosing issues with tarpaulin'
+             --verbose -v 'Show extra output'
+             --root -r [DIR] 'directory'"
+        ).get_matches_from(args);
+
+    let configs = ConfigWrapper::from(&matches).0;
+    let mut res = TraceMap::new();
+    for config in &configs {
+        let (t, _) = launch_tarpaulin(&config).unwrap();
+        res.merge(&t);
+    }
+    res.dedup();
+    env::set_current_dir(restore_dir).unwrap();
+    assert!(
+        res.coverage_percentage() >= minimum_coverage,
+        "Assertion failed {} >= {}",
+        res.coverage_percentage(),
+        minimum_coverage
+    );
+    if has_lines {
+        assert!(res.total_coverable() > 0);
+    }
+}
+
 pub fn check_percentage_with_config(
     project_name: &str,
     minimum_coverage: f64,
     has_lines: bool,
     mut config: Config,
 ) {
-    config.verbose = true;
     config.test_timeout = Duration::from_secs(60);
     let restore_dir = env::current_dir().unwrap();
     let test_dir = get_test_path(project_name);
@@ -27,7 +58,12 @@ pub fn check_percentage_with_config(
     let (res, _) = launch_tarpaulin(&config).unwrap();
 
     env::set_current_dir(restore_dir).unwrap();
-    assert!(res.coverage_percentage() >= minimum_coverage);
+    assert!(
+        res.coverage_percentage() >= minimum_coverage,
+        "Assertion failed {} >= {}",
+        res.coverage_percentage(),
+        minimum_coverage
+    );
     if has_lines {
         assert!(res.total_coverable() > 0);
     }
@@ -95,7 +131,6 @@ fn paths_coverage() {
 }
 
 #[test]
-#[ignore]
 fn futures_coverage() {
     check_percentage("futures", 1.0f64, true);
 }
@@ -110,14 +145,32 @@ fn continues_expr_coverage() {
     check_percentage("continues", 1.0f64, true);
 }
 
-// This test is currently being ignored because it contains cases which Tarpaulin
-// does not handle correctly yet. So, once (#136) [https://github.com/xd009642/tarpaulin/issues/136]
-// is updated to resolve method call coverage and multi-line expressions, then
-// the #[ignore] can be removed from this test.
 #[test]
-#[ignore]
+fn boxes_coverage() {
+    check_percentage("boxes", 1.0f64, true);
+}
+
+#[test]
 fn method_calls_expr_coverage() {
     check_percentage("method_calls", 1.0f64, true);
+}
+
+#[test]
+fn config_file_coverage() {
+    let test_dir = get_test_path("configs");
+    let mut args = vec![
+        "tarpaulin".to_string(),
+        "--root".to_string(),
+        test_dir.display().to_string(),
+    ];
+    check_percentage_with_cli_args(1.0f64, true, &args);
+    args.push("--ignore-config".to_string());
+    check_percentage_with_cli_args(0.0f64, true, &args);
+}
+
+#[test]
+fn match_expr_coverage() {
+    check_percentage("matches", 1.0f64, true);
 }
 
 #[test]

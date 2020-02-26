@@ -10,6 +10,18 @@ file.
 
 ### Removed
 
+## [0.11.0] 2020-02-26
+### Added
+- Change in coverage between last 2 runs in HTML report
+- Filter attributes on match arms
+- Add toml config files for multiple runs with merged reports and `--config` and `--ignore-config` options 
+
+### Changed
+- Now instrument multiple points in the same binary for the same line to remove false negatives
+- Filter out constants from coverage results
+
+### Removed
+
 ## [0.10.2] 2020-01-15
 ### Added
 
@@ -28,7 +40,7 @@ file.
 
 ### Removed
 
-## [0.10.0] 2019-12-07  
+## [0.10.0] 2019-12-07
 ### Added
 - `--locked` and `--frozen` options to mirror `cargo test` options
 - `--target-dir` option to mirror `cargo test` and `cargo build` options

@@ -62,6 +62,10 @@ function findFolders(files) {
       children,
       covered: children.reduce((sum, file) => sum + file.covered, 0),
       coverable: children.reduce((sum, file) => sum + file.coverable, 0),
+      prevRun: {
+        covered: children.reduce((sum, file) => sum + file.prevRun.covered, 0),
+        coverable: children.reduce((sum, file) => sum + file.prevRun.coverable, 0),
+      }
     };
   });
 
@@ -169,6 +173,8 @@ function FilesList({folder, onSelectFile, onBack}) {
 
 function File({file, onClick}) {
   const coverage = file.coverable ? file.covered / file.coverable * 100 : -1;
+  const coverageDelta = file.prevRun &&
+    (file.covered / file.coverable * 100 - file.prevRun.covered / file.prevRun.coverable * 100);
 
   return e('tr', {
       className: 'files-list__file'
@@ -181,7 +187,9 @@ function File({file, onClick}) {
     e('td', null, pathToString(file.path)),
     e('td', null,
       file.covered + ' / ' + file.coverable +
-      (coverage >= 0 ? ' (' + coverage.toFixed(2) + '%)' : '')
+      (coverage >= 0 ? ' (' + coverage.toFixed(2) + '%)' : ''),
+      e('span', {title: 'Change from the previous run'},
+        (coverageDelta ? ` (${coverageDelta > 0 ? '+' : ''}${coverageDelta.toFixed(2)}%)` : ''))
     )
   );
 }
@@ -194,12 +202,17 @@ function DisplayFile({file, onBack}) {
 }
 
 function FileHeader({file, onBack}) {
+  const coverage = file.covered / file.coverable * 100;
+  const coverageDelta = file.prevRun && (coverage - file.prevRun.covered / file.prevRun.coverable * 100);
+
   return e('div', {className: 'file-header'},
     onBack ? e('a', {className: 'file-header__back', onClick: onBack}, 'Back') : null,
     e('div', {className: 'file-header__name'}, pathToString([...file.parent, ...file.path])),
     e('div', {className: 'file-header__stat'},
       'Covered: ' + file.covered + ' of ' + file.coverable +
-      (file.coverable ? ' (' + (file.covered / file.coverable * 100).toFixed(2) + '%)' : '')
+      (file.coverable ? ' (' + coverage.toFixed(2) + '%)' : ''),
+      e('span', {title: 'Change from the previous run'},
+        (coverageDelta ? ` (${coverageDelta > 0 ? '+' : ''}${coverageDelta.toFixed(2)}%)` : ''))
     )
   );
 }
@@ -222,7 +235,24 @@ function FileContent({file}) {
 
 (function(){
   const commonPath = findCommonPath(data.files);
-  const files = data.files.map(file => ({...file, path: file.path.slice(commonPath.length), parent: commonPath}));
+  const prevFilesMap = new Map();
+
+  previousData && previousData.files.forEach((file) => {
+    const path = file.path.slice(commonPath.length).join('/');
+    prevFilesMap.set(path, file);
+  });
+
+  const files = data.files.map((file) => {
+    const path = file.path.slice(commonPath.length);
+    const { covered = 0, coverable = 0 } = prevFilesMap.get(path.join('/')) || {};
+    return {
+      ...file,
+      path,
+      parent: commonPath,
+      prevRun: { covered, coverable },
+    };
+  });
+
   const children = findFolders(files);
 
   const root = {
@@ -232,7 +262,11 @@ function FileContent({file}) {
     parent: [],
     covered: children.reduce((sum, file) => sum + file.covered, 0),
     coverable: children.reduce((sum, file) => sum + file.coverable, 0),
+    prevRun: {
+      covered: children.reduce((sum, file) => sum + file.prevRun.covered, 0),
+      coverable: children.reduce((sum, file) => sum + file.prevRun.coverable, 0),
+    }
   };
 
-  ReactDOM.render(e(App, {root}), document.getElementById('root'));
+  ReactDOM.render(e(App, {root, prevFilesMap}), document.getElementById('root'));
 }());
