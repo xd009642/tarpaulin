@@ -277,6 +277,16 @@ release built on travis to your travis instance and significantly speeds up the 
 builds. You can install via that script using 
 `bash <(curl https://raw.githubusercontent.com/xd009642/tarpaulin/master/travis-install.sh)`.
 
+The prebuilt binary doesn't work on xenial or trusty, but it works on bionic. You must install the
+`libssl-dev` package:
+```yaml
+dist: bionic
+
+apt:
+  packages:
+    - libssl-dev
+```
+
 ### CircleCI
 
 To run tarpaulin on CircleCI you need to run tarpaulin in docker and set the
