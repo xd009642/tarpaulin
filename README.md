@@ -256,7 +256,7 @@ matrix:
   allow_failures:
     - rust: nightly
 
-before_cache: |
+before_script: |
   if [[ "$TRAVIS_RUST_VERSION" == stable ]]; then
     cargo install cargo-tarpaulin
   fi
@@ -276,6 +276,10 @@ after_success: |
     # bash <(curl -s https://codecov.io/bash)
   fi
 ```
+
+If you rely on certain nightly features you may need to change the `before_script` to
+`before_cache` to force tarpaulin to reinstall each time. However, if it can be avoided it
+will speed up your CI runs.
 
 Alternatively, there are the prebuilt docker images or the travis-install shell script.
 The travis-install script will install the latest tagged release built on travis to your 
