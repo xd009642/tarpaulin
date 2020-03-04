@@ -45,6 +45,8 @@ pub enum RunError {
     XML(cobertura::Error),
     #[fail(display = "Failed to generate Lcov report! Error: {}", _0)]
     Lcov(String),
+    #[fail(display = "Failed to generate JSON report! Error: {}", _0)]
+    Json(String),
     #[fail(display = "Tarpaulin experienced an internal error")]
     Internal,
 }
@@ -64,5 +66,11 @@ impl From<nix::Error> for RunError {
 impl From<cobertura::Error> for RunError {
     fn from(e: cobertura::Error) -> Self {
         RunError::XML(e)
+    }
+}
+
+impl From<serde_json::error::Error> for RunError {
+    fn from(e: serde_json::error::Error) -> Self {
+        RunError::Json(e.to_string())
     }
 }
