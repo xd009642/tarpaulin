@@ -38,7 +38,7 @@ mod ptrace_control;
 
 static DOCTEST_FOLDER: &str = "target/doctests";
 
-pub fn run(configs: &[Config]) -> Result<(), RunError> {
+pub fn trace(configs: &[Config]) -> Result<TraceMap, RunError> {
     let mut tracemap = TraceMap::new();
     let mut ret = 0i32;
     let mut failure = Ok(());
@@ -47,6 +47,7 @@ pub fn run(configs: &[Config]) -> Result<(), RunError> {
         if config.name == "report" {
             continue;
         }
+        //let result = result?;
         match launch_tarpaulin(config) {
             Ok((t, r)) => {
                 tracemap.merge(&t);
@@ -61,6 +62,15 @@ pub fn run(configs: &[Config]) -> Result<(), RunError> {
         }
     }
     tracemap.dedup();
+    if ret == 0 {
+        Ok(tracemap)
+    } else {
+        Err(RunError::TestFailed)
+    }
+}
+
+pub fn run(configs: &[Config]) -> Result<(), RunError> {
+    let tracemap = trace(configs)?;
     if configs.len() == 1 {
         report_coverage(&configs[0], &tracemap)?;
     } else if !configs.is_empty() {
@@ -76,11 +86,7 @@ pub fn run(configs: &[Config]) -> Result<(), RunError> {
         }
     }
 
-    if ret == 0 {
-        Ok(())
-    } else {
-        Err(RunError::TestFailed)
-    }
+    Ok(())
 }
 
 /// Launches tarpaulin with the given configuration.
