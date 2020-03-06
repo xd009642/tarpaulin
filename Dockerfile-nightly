@@ -1,4 +1,4 @@
-FROM rustlang/rust:nightly
+FROM rustlang/rust:nightly-slim as builder
 
 RUN apt-get update && \
     apt-get install -y cmake && \
@@ -13,12 +13,16 @@ COPY Cargo.lock .
 RUN mkdir .cargo
 RUN cargo vendor > .cargo/config
 
-COPY . /opt/tarpaulin/
+COPY src /opt/tarpaulin/src
 
 RUN cd /opt/tarpaulin/ && \
     cargo install --locked --path . && \
     rm -rf /opt/tarpaulin/ && \
     rm -rf /usr/local/cargo/registry/
+
+FROM rustlang/rust:nightly-slim
+
+COPY --from=builder /usr/local/cargo/bin/cargo-tarpaulin /usr/local/cargo/bin/cargo-tarpaulin
 
 WORKDIR /volume
 
