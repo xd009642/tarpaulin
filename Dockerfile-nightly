@@ -1,7 +1,7 @@
 FROM rustlang/rust:nightly-slim as builder
 
 RUN apt-get update && \
-    apt-get install -y cmake && \
+    apt-get install -y libssl-dev pkg-config cmake zlib1g-dev && \
     rm -rf /var/lib/apt/lists/*
 
 WORKDIR /opt/tarpaulin
