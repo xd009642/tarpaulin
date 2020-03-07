@@ -1,6 +1,7 @@
 pub use self::types::*;
 
 use self::parse::*;
+use cargo_metadata::MetadataCommand;
 use clap::ArgMatches;
 use coveralls_api::CiService;
 use humantime_serde::deserialize as humantime_serde;
@@ -241,6 +242,13 @@ impl<'a> From<&'a ArgMatches<'a>> for ConfigWrapper {
 }
 
 impl Config {
+    pub fn root(&self) -> PathBuf {
+        match MetadataCommand::new().manifest_path(&self.manifest).exec() {
+            Ok(meta) => meta.workspace_root,
+            _ => self.manifest.parent().unwrap_or_default().to_path_buf(),
+        }
+    }
+
     pub fn get_config_vec(file_configs: std::io::Result<Vec<Self>>, backup: Self) -> ConfigWrapper {
         if file_configs.is_err() {
             warn!("Failed to deserialize config file falling back to provided args");

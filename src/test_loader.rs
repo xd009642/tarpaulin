@@ -1,7 +1,6 @@
 use crate::config::Config;
 use crate::source_analysis::*;
 use crate::traces::*;
-use cargo::core::Workspace;
 use gimli::*;
 use log::{debug, trace};
 use memmap::MmapOptions;
@@ -367,12 +366,11 @@ fn open_symbols_file(test: &Path) -> io::Result<File> {
 }
 
 pub fn generate_tracemap(
-    project: &Workspace,
     test: &Path,
     analysis: &HashMap<PathBuf, LineAnalysis>,
     config: &Config,
 ) -> io::Result<TraceMap> {
-    let manifest = project.root();
+    let manifest = config.root();
     let file = open_symbols_file(test)?;
     let file = unsafe { MmapOptions::new().map(&file)? };
     if let Ok(obj) = OFile::parse(&*file) {

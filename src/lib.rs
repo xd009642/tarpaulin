@@ -6,16 +6,6 @@ use crate::source_analysis::LineAnalysis;
 use crate::statemachine::*;
 use crate::test_loader::*;
 use crate::traces::*;
-use cargo::core::{
-    compiler::{CompileMode, ProfileKind},
-    Package, Shell, Workspace,
-};
-use cargo::ops;
-use cargo::ops::{
-    clean, compile, CleanOptions, CompileFilter, CompileOptions, FilterRule, LibRule, Packages,
-    TestOptions,
-};
-use cargo::util::{homedir, Config as CargoConfig};
 use log::{debug, info, trace, warn};
 use nix::unistd::*;
 use std::collections::HashMap;
@@ -25,6 +15,7 @@ use std::path::{Path, PathBuf};
 use walkdir::WalkDir;
 
 pub mod breakpoint;
+mod cargo;
 pub mod config;
 pub mod errors;
 mod process_handling;
@@ -101,41 +92,9 @@ pub fn launch_tarpaulin(config: &Config) -> Result<(TraceMap, i32), RunError> {
             PathBuf::new()
         }
     };
-    let mut cargo_config = CargoConfig::new(Shell::new(), cwd, home);
-    let flag_quiet = if config.verbose { None } else { Some(true) };
-
-    // This shouldn't fail so no checking the error.
-    let _ = cargo_config.configure(
-        0u32,
-        flag_quiet,
-        &None,
-        config.frozen,
-        config.locked,
-        config.offline,
-        &config.target_dir,
-        &config.unstable_features,
-    );
-
-    let workspace = Workspace::new(config.manifest.as_path(), &cargo_config)
-        .map_err(|e| RunError::Manifest(e.to_string()))?;
-
-    let mut compile_options = get_compile_options(&config, &cargo_config)?;
 
     info!("Running Tarpaulin");
 
-    if config.force_clean {
-        debug!("Cleaning project");
-        // Clean isn't expected to fail and if it does it likely won't have an effect
-        let clean_opt = CleanOptions {
-            config: &cargo_config,
-            spec: vec![],
-            target: None,
-            profile_specified: config.force_clean,
-            profile_kind: ProfileKind::Dev,
-            doc: false,
-        };
-        let _ = clean(&workspace, &clean_opt);
-    }
     let mut result = TraceMap::new();
     let mut return_code = 0i32;
     let project_analysis = source_analysis::get_line_analysis(&workspace, config);
@@ -181,15 +140,9 @@ fn run_tests(
             {
                 // If we have binaries we have other artefacts to run
                 for binary in comp.binaries {
-                    if let Some(res) = get_test_coverage(
-                        &workspace,
-                        None,
-                        binary.as_path(),
-                        analysis,
-                        config,
-                        false,
-                        false,
-                    )? {
+                    if let Some(res) =
+                        get_test_coverage(None, binary.as_path(), analysis, config, false, false)?
+                    {
                         result.merge(&res.0);
                         return_code |= res.1;
                     }
@@ -197,21 +150,14 @@ fn run_tests(
             }
             for &(ref package, ref name, ref path) in &comp.tests {
                 debug!("Processing {}", name);
-                if let Some(res) = get_test_coverage(
-                    &workspace,
-                    Some(package),
-                    path.as_path(),
-                    analysis,
-                    config,
-                    true,
-                    false,
-                )? {
+                if let Some(res) =
+                    get_test_coverage(Some(package), path.as_path(), analysis, config, true, false)?
+                {
                     result.merge(&res.0);
                     return_code |= res.1;
                 }
                 if config.run_ignored {
                     if let Some(res) = get_test_coverage(
-                        &workspace,
                         Some(package),
                         path.as_path(),
                         analysis,
@@ -283,59 +229,6 @@ fn run_doctests(
     Ok((result, return_code))
 }
 
-fn get_compile_options<'a>(
-    config: &Config,
-    cargo_config: &'a CargoConfig,
-) -> Result<Vec<CompileOptions<'a>>, RunError> {
-    let mut result = Vec::new();
-    for run_type in &config.run_types {
-        let mut copt = CompileOptions::new(cargo_config, (*run_type).into())
-            .map_err(|e| RunError::Cargo(e.to_string()))?;
-        if run_type == &RunType::Tests {
-            if let CompileFilter::Default {
-                ref mut required_features_filterable,
-            } = copt.filter
-            {
-                *required_features_filterable = true;
-            }
-        } else if run_type == &RunType::Doctests {
-            copt.filter = CompileFilter::new(
-                LibRule::True,
-                FilterRule::Just(vec![]),
-                FilterRule::Just(vec![]),
-                FilterRule::Just(vec![]),
-                FilterRule::Just(vec![]),
-            );
-        } else if run_type == &RunType::Examples {
-            copt.filter = CompileFilter::new(
-                LibRule::True,
-                FilterRule::Just(vec![]),
-                FilterRule::Just(vec![]),
-                FilterRule::All,
-                FilterRule::Just(vec![]),
-            );
-        }
-
-        copt.features = config.features.clone();
-        copt.all_features = config.all_features;
-        copt.no_default_features = config.no_default_features;
-        copt.build_config.profile_kind = match config.release {
-            true => ProfileKind::Release,
-            false => ProfileKind::Dev,
-        };
-        copt.spec =
-            match Packages::from_flags(config.all, config.exclude.clone(), config.packages.clone())
-            {
-                Ok(spec) => spec,
-                Err(e) => {
-                    return Err(RunError::Packages(e.to_string()));
-                }
-            };
-        result.push(copt);
-    }
-    Ok(result)
-}
-
 fn setup_environment(config: &Config) {
     env::set_var("TARPAULIN", "1");
     let common_opts =
@@ -365,7 +258,6 @@ fn setup_environment(config: &Config) {
 
 /// Returns the coverage statistics for a test executable in the given workspace
 pub fn get_test_coverage(
-    project: &Workspace,
     package: Option<&Package>,
     test: &Path,
     analysis: &HashMap<PathBuf, LineAnalysis>,
@@ -380,12 +272,10 @@ pub fn get_test_coverage(
         warn!("Failed to set processor affinity {}", e);
     }
     match fork() {
-        Ok(ForkResult::Parent { child }) => {
-            match collect_coverage(project, test, child, analysis, config) {
-                Ok(t) => Ok(Some(t)),
-                Err(e) => Err(RunError::TestCoverage(e.to_string())),
-            }
-        }
+        Ok(ForkResult::Parent { child }) => match collect_coverage(test, child, analysis, config) {
+            Ok(t) => Ok(Some(t)),
+            Err(e) => Err(RunError::TestCoverage(e.to_string())),
+        },
         Ok(ForkResult::Child) => {
             info!("Launching test");
             execute_test(test, package, ignored, can_quiet, config)?;
@@ -401,14 +291,13 @@ pub fn get_test_coverage(
 
 /// Collects the coverage data from the launched test
 fn collect_coverage(
-    project: &Workspace,
     test_path: &Path,
     test: Pid,
     analysis: &HashMap<PathBuf, LineAnalysis>,
     config: &Config,
 ) -> Result<(TraceMap, i32), RunError> {
     let mut ret_code = 0;
-    let mut traces = generate_tracemap(project, test_path, analysis, config)?;
+    let mut traces = generate_tracemap(test_path, analysis, config)?;
     {
         trace!("Test PID is {}", test);
         let (mut state, mut data) = create_state_machine(test, &mut traces, config);
