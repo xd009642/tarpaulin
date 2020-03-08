@@ -87,12 +87,7 @@ fn create_command(manifest_path: &str, config: &Config, ty: &RunType) -> Command
         }
         test_cmd.args(&["test", "--no-run"]);
     }
-    test_cmd.args(&[
-        "--message-format",
-        "json",
-        "--manifest-path",
-        manifest_path,
-    ]);
+    test_cmd.args(&["--message-format", "json", "--manifest-path", manifest_path]);
     match ty {
         RunType::Tests => test_cmd.arg("--tests"),
         RunType::Doctests => test_cmd.arg("--doc"),
