@@ -6,7 +6,7 @@ use crate::source_analysis::LineAnalysis;
 use crate::statemachine::*;
 use crate::test_loader::*;
 use crate::traces::*;
-use log::{debug, info, trace, warn};
+use log::{info, trace, warn};
 use nix::unistd::*;
 use std::collections::HashMap;
 use std::env;
@@ -200,18 +200,4 @@ fn execute_test(
     }
 
     execute(exec_path, &argv, envars.as_slice())
-}
-
-#[cfg(test)]
-mod tests {
-    use super::*;
-
-    #[test]
-    fn check_env() {
-        let conf = Config::default();
-        setup_environment(&conf);
-
-        let tarp_var = env::var("TARPAULIN").unwrap();
-        assert_eq!(tarp_var, "1");
-    }
 }

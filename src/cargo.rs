@@ -4,6 +4,7 @@ use cargo_metadata::{parse_messages, Message};
 use std::env;
 use std::path::{Path, PathBuf};
 use std::process::{Command, Stdio};
+use walkdir::WalkDir;
 
 static DOCTEST_FOLDER: &str = "target/doctests";
 
@@ -34,11 +35,36 @@ pub fn get_tests(config: &Config) -> Result<Vec<TestBinary>, RunError> {
             .stdout(Stdio::piped())
             .spawn()
             .map_err(|e| RunError::Cargo(e.to_string()))?;
+        if ty != &RunType::Doctests {
+            for msg in parse_messages(cmd.stdout.take().unwrap()) {
+                if let Ok(Message::CompilerArtifact(art)) = msg {
+                    if let Some(path) = art.executable {
+                        result.push(TestBinary { path, ty: *ty });
+                    }
+                }
+            }
+        } else {
+            // Need to get the packages...
+            let package_roots = config
+                .get_packages()
+                .iter()
+                .filter_map(|x| x.manifest_path.parent())
+                .map(|x| x.join(DOCTEST_FOLDER))
+                .collect::<Vec<PathBuf>>();
 
-        for msg in parse_messages(cmd.stdout.take().unwrap()) {
-            if let Ok(Message::CompilerArtifact(art)) = msg {
-                if let Some(path) = art.executable {
-                    result.push(TestBinary { path, ty: *ty });
+            for dir in &package_roots {
+                let walker = WalkDir::new(dir).into_iter();
+                for dt in walker
+                    .filter_map(|e| e.ok())
+                    .filter(|e| match e.metadata() {
+                        Ok(ref m) if m.is_file() && m.len() != 0 => true,
+                        _ => false,
+                    })
+                {
+                    result.push(TestBinary {
+                        path: dt.path().to_path_buf(),
+                        ty: *ty,
+                    });
                 }
             }
         }
@@ -49,11 +75,22 @@ pub fn get_tests(config: &Config) -> Result<Vec<TestBinary>, RunError> {
 
 fn create_command(manifest_path: &str, config: &Config, ty: &RunType) -> Command {
     let mut test_cmd = Command::new("cargo");
+    if *ty == RunType::Doctests {
+        test_cmd.arg("+nightly");
+    } else {
+        if let Ok(toolchain) = env::var("RUSTUP_TOOLCHAIN") {
+            if toolchain.starts_with("nightly") {
+                test_cmd.arg("+nightly");
+            } else if toolchain.starts_with("beta") {
+                test_cmd.arg("+beta");
+            }
+        }
+        test_cmd.arg("--no-run");
+    }
     test_cmd.args(&[
         "test",
         "--message-format",
         "json",
-        "--no-run",
         "--manifest-path",
         manifest_path,
     ]);
@@ -66,7 +103,6 @@ fn create_command(manifest_path: &str, config: &Config, ty: &RunType) -> Command
     init_args(&mut test_cmd, config);
     setup_environment(&mut test_cmd, config);
 
-    println!("{:?}", test_cmd);
     test_cmd
 }
 
