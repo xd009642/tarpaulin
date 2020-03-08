@@ -76,7 +76,7 @@ pub fn get_tests(config: &Config) -> Result<Vec<TestBinary>, RunError> {
 fn create_command(manifest_path: &str, config: &Config, ty: &RunType) -> Command {
     let mut test_cmd = Command::new("cargo");
     if *ty == RunType::Doctests {
-        test_cmd.arg("+nightly");
+        test_cmd.args(&["+nightly", "test"]);
     } else {
         if let Ok(toolchain) = env::var("RUSTUP_TOOLCHAIN") {
             if toolchain.starts_with("nightly") {
@@ -85,10 +85,9 @@ fn create_command(manifest_path: &str, config: &Config, ty: &RunType) -> Command
                 test_cmd.arg("+beta");
             }
         }
-        test_cmd.arg("--no-run");
+        test_cmd.args(&["test", "--no-run"]);
     }
     test_cmd.args(&[
-        "test",
         "--message-format",
         "json",
         "--manifest-path",
