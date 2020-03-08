@@ -245,7 +245,11 @@ impl Config {
     pub fn root(&self) -> PathBuf {
         match MetadataCommand::new().manifest_path(&self.manifest).exec() {
             Ok(meta) => meta.workspace_root,
-            _ => self.manifest.parent().unwrap_or_default().to_path_buf(),
+            _ => self
+                .manifest
+                .parent()
+                .map(|x| x.to_path_buf())
+                .unwrap_or_default(),
         }
     }
 

@@ -1,24 +1,55 @@
 use crate::config::*;
-use cargo_metadata::parse_messages;
-use std::path::PathBuf;
-use std::process::Command;
+use crate::errors::RunError;
+use cargo_metadata::{parse_messages, Message};
+use std::env;
+use std::path::{Path, PathBuf};
+use std::process::{Command, Stdio};
 
 static DOCTEST_FOLDER: &str = "target/doctests";
 
-fn get_tests(config: &Config) -> Result<Vec<PathBuf>, String> {
+#[derive(Clone, PartialEq, Eq, PartialOrd, Ord, Hash)]
+pub struct TestBinary {
+    path: PathBuf,
+    ty: RunType,
+}
+
+impl TestBinary {
+    pub fn path(&self) -> &Path {
+        &self.path
+    }
+
+    pub fn run_type(&self) -> RunType {
+        self.ty
+    }
+}
+
+pub fn get_tests(config: &Config) -> Result<Vec<TestBinary>, RunError> {
+    let mut result = vec![];
     let manifest = match config.manifest.as_path().to_str() {
         Some(s) => s,
         None => "Cargo.toml",
     };
-    let cmd = create_command(manifest, config)
-        .spawn()
-        .map_err(|e| format!("Cargo error: {}", e))?;
+    for ty in &config.run_types {
+        let mut cmd = create_command(manifest, config, ty)
+            .stdout(Stdio::piped())
+            .spawn()
+            .map_err(|e| RunError::Cargo(e.to_string()))?;
 
-    for msg in parse_messages(cmd.stdout.take().unwrap()) {}
+        for msg in parse_messages(cmd.stdout.take().unwrap()) {
+            if let Ok(Message::CompilerArtifact(art)) = msg {
+                if let Some(path) = art.executable {
+                    result.push(TestBinary { path, ty: *ty });
+                }
+            }
+        }
+        cmd.wait().map_err(|e| RunError::Cargo(e.to_string()))?;
+    }
+    Ok(result)
 }
 
-fn create_command(manifest_path: &str, config: &Config) -> Command {
-    let mut test_cmd = Command::new("cargo").args(&[
+fn create_command(manifest_path: &str, config: &Config, ty: &RunType) -> Command {
+    let mut test_cmd = Command::new("cargo");
+    test_cmd.args(&[
         "test",
         "--message-format",
         "json",
@@ -26,9 +57,21 @@ fn create_command(manifest_path: &str, config: &Config) -> Command {
         "--manifest-path",
         manifest_path,
     ]);
+    match ty {
+        RunType::Tests => test_cmd.arg("--tests"),
+        RunType::Doctests => test_cmd.arg("--doc"),
+        RunType::Benchmarks => test_cmd.arg("--benches"),
+        RunType::Examples => test_cmd.arg("--examples"),
+    };
+    init_args(&mut test_cmd, config);
+    setup_environment(&mut test_cmd, config);
 
+    println!("{:?}", test_cmd);
+    test_cmd
+}
+
+fn init_args(test_cmd: &mut Command, config: &Config) {
     // TODO Missing +nightly etc commands, flag_quiet/verbosity
-
     if config.locked {
         test_cmd.arg("--locked");
     }
@@ -52,10 +95,10 @@ fn create_command(manifest_path: &str, config: &Config) -> Command {
     if config.release {
         test_cmd.arg("--release");
     }
-    if config.target_dir.is_some() {
+    if let Some(ref target_dir) = config.target_dir {
         let args = vec![
             "--target-dir".to_string(),
-            format!("{}", config.target_dir.unwrap().display()),
+            format!("{}", target_dir.display()),
         ];
         test_cmd.args(args);
     }
@@ -70,5 +113,31 @@ fn create_command(manifest_path: &str, config: &Config) -> Command {
         args.extend_from_slice(&config.varargs);
         test_cmd.args(args);
     }
-    test_cmd
+}
+
+fn setup_environment(cmd: &mut Command, config: &Config) {
+    cmd.env("TARPAULIN", "1");
+    let rustflags = "RUSTFLAGS";
+    let common_opts =
+        " -C relocation-model=dynamic-no-pic -C link-dead-code -C opt-level=0 -C debuginfo=2 ";
+    let mut value = common_opts.to_string();
+    if config.release {
+        value = format!("{}-C debug-assertions=off ", value);
+    }
+    if let Ok(vtemp) = env::var(rustflags) {
+        value.push_str(vtemp.as_ref());
+    }
+    cmd.env(rustflags, value);
+    // doesn't matter if we don't use it
+    let rustdoc = "RUSTDOCFLAGS";
+    let mut value = format!(
+        "{} --persist-doctests {} -Z unstable-options ",
+        common_opts, DOCTEST_FOLDER
+    );
+    if let Ok(vtemp) = env::var(rustdoc) {
+        if !vtemp.contains("--persist-doctests") {
+            value.push_str(vtemp.as_ref());
+        }
+    }
+    cmd.env(rustdoc, value);
 }

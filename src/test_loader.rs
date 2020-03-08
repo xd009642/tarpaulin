@@ -379,7 +379,7 @@ pub fn generate_tracemap(
         } else {
             RunTimeEndian::Big
         };
-        if let Ok(result) = get_line_addresses(endian, manifest, &obj, &analysis, config) {
+        if let Ok(result) = get_line_addresses(endian, &manifest, &obj, &analysis, config) {
             Ok(result)
         } else {
             Err(io::Error::new(
