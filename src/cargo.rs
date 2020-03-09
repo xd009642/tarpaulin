@@ -1,6 +1,7 @@
 use crate::config::*;
 use crate::errors::RunError;
-use cargo_metadata::{parse_messages, Message};
+use cargo_metadata::{diagnostic::DiagnosticLevel, parse_messages, Message};
+use log::error;
 use std::env;
 use std::path::{Path, PathBuf};
 use std::process::{Command, Stdio};
@@ -37,10 +38,22 @@ pub fn get_tests(config: &Config) -> Result<Vec<TestBinary>, RunError> {
             .map_err(|e| RunError::Cargo(e.to_string()))?;
         if ty != &RunType::Doctests {
             for msg in parse_messages(cmd.stdout.take().unwrap()) {
-                if let Ok(Message::CompilerArtifact(art)) = msg {
-                    if let Some(path) = art.executable {
-                        result.push(TestBinary { path, ty: *ty });
+                match msg {
+                    Ok(Message::CompilerArtifact(art)) => {
+                        if let Some(path) = art.executable {
+                            result.push(TestBinary { path, ty: *ty });
+                        }
                     }
+                    Ok(Message::CompilerMessage(m)) => match m.message.level {
+                        DiagnosticLevel::Error | DiagnosticLevel::Ice => {
+                            return Err(RunError::TestCompile(m.message.message));
+                        }
+                        _ => {}
+                    },
+                    Err(e) => {
+                        error!("Error parsing cargo messages {}", e);
+                    }
+                    _ => {}
                 }
             }
         } else {
