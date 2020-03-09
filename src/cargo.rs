@@ -34,6 +34,7 @@ pub fn get_tests(config: &Config) -> Result<Vec<TestBinary>, RunError> {
     for ty in &config.run_types {
         let mut cmd = create_command(manifest, config, ty)
             .stdout(Stdio::piped())
+            .stderr(Stdio::null())
             .spawn()
             .map_err(|e| RunError::Cargo(e.to_string()))?;
         if ty != &RunType::Doctests {
@@ -98,7 +99,11 @@ fn create_command(manifest_path: &str, config: &Config, ty: &RunType) -> Command
                 test_cmd.arg("+beta");
             }
         }
-        test_cmd.args(&["test", "--no-run"]);
+        if *ty != RunType::Examples {
+            test_cmd.args(&["test", "--no-run"]);
+        } else {
+            test_cmd.arg("build");
+        }
     }
     test_cmd.args(&["--message-format", "json", "--manifest-path", manifest_path]);
     match ty {
@@ -109,7 +114,6 @@ fn create_command(manifest_path: &str, config: &Config, ty: &RunType) -> Command
     };
     init_args(&mut test_cmd, config);
     setup_environment(&mut test_cmd, config);
-
     test_cmd
 }
 
