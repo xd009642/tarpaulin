@@ -198,7 +198,7 @@ dependencies = [
 
 [[package]]
 name = "cargo-tarpaulin"
-version = "0.11.0"
+version = "0.11.1"
 dependencies = [
  "cargo",
  "chrono",
