@@ -10,7 +10,7 @@ file.
 
 ### Removed
 
-## [0.11.1] 2020-03-04
+## [0.11.1] 2020-03-13
 ### Added
 - Add support for JSON output, including public functions for querying reports programmatically.
 
