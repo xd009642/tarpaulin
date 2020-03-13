@@ -10,6 +10,15 @@ file.
 
 ### Removed
 
+## [0.11.1] 2020-03-13
+### Added
+- Add support for JSON output, including public functions for querying reports programmatically.
+
+### Changed
+- Pulled `trace` function out of `run` in `main.rs` in order to expose public function for creating
+  `TraceMap` structs.
+
+
 ## [0.11.0] 2020-02-26
 ### Added
 - Change in coverage between last 2 runs in HTML report

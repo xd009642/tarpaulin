@@ -231,13 +231,18 @@ rustc you require. Tarpaulin is installed in `before_cache` to allow it to be ca
 and prevent having to reinstall every Travis run. You can also replace `cargo test`
 with a verbose run of tarpaulin to see the test results as well as coverage output.
 
+Tarpaulin is ran after success as there are still some unstable features which could
+cause coverage runs to fail. If you don't rely on any of these features you can
+alternatively replace `cargo test` with a call to `cargo tarpaulin`.
+
 For codecov.io you'll need to export CODECOV_TOKEN are instructions on this in
 the settings of your codecov project.
 
 ```yml
 language: rust
-sudo: required
-dist: trusty
+sudo: required # required for some configurations
+# tarpaulin has only been tested on bionic and trusty other distros may have issues
+dist: bionic 
 addons:
     apt:
         packages:
@@ -251,7 +256,7 @@ matrix:
   allow_failures:
     - rust: nightly
 
-before_cache: |
+before_script: |
   if [[ "$TRAVIS_RUST_VERSION" == stable ]]; then
     cargo install cargo-tarpaulin
   fi
@@ -272,10 +277,18 @@ after_success: |
   fi
 ```
 
-Alternative, there is the travis-install shell script will install the latest tagged 
-release built on travis to your travis instance and significantly speeds up the travis 
-builds. You can install via that script using 
-`bash <(curl https://raw.githubusercontent.com/xd009642/tarpaulin/master/travis-install.sh)`.
+If you rely on certain nightly features you may need to change the `before_script` to
+`before_cache` to force tarpaulin to reinstall each time. However, if it can be avoided it
+will speed up your CI runs.
+
+Alternatively, there are the prebuilt docker images or the travis-install shell script.
+The travis-install script will install the latest tagged release built on travis to your 
+travis instance and significantly speeds up the travis builds. You can install via that script 
+using `bash <(curl https://raw.githubusercontent.com/xd009642/tarpaulin/master/travis-install.sh)`.
+
+The prebuilt binary is built using github actions ubuntu:latest image, because of this it
+doesn't work on xenial or trusty, but it works on bionic. You should still keep the rest
+of the recommended travis settings.
 
 ### CircleCI
 

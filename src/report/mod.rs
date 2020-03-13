@@ -10,6 +10,7 @@ use std::io::BufReader;
 pub mod cobertura;
 pub mod coveralls;
 pub mod html;
+pub mod json;
 pub mod lcov;
 mod safe_json;
 /// Trait for report formats to implement.
@@ -73,6 +74,9 @@ fn generate_requested_reports(config: &Config, result: &TraceMap) -> Result<(), 
             }
             OutputFile::Lcov => {
                 lcov::export(result, config)?;
+            }
+            OutputFile::Json => {
+                json::export(result, config)?;
             }
             _ => {
                 return Err(RunError::OutFormat(
