@@ -6,10 +6,7 @@ use crate::source_analysis::LineAnalysis;
 use crate::statemachine::*;
 use crate::test_loader::*;
 use crate::traces::*;
-use cargo::core::{
-    compiler::CompileMode,
-    InternedString, Package, Shell, Workspace,
-};
+use cargo::core::{compiler::CompileMode, InternedString, Package, Shell, Workspace};
 use cargo::ops;
 use cargo::ops::{
     clean, compile, CleanOptions, CompileFilter, CompileOptions, FilterRule, LibRule, Packages,
