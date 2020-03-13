@@ -6,10 +6,7 @@ use crate::source_analysis::LineAnalysis;
 use crate::statemachine::*;
 use crate::test_loader::*;
 use crate::traces::*;
-use cargo::core::{
-    compiler::{CompileMode, ProfileKind},
-    Package, Shell, Workspace,
-};
+use cargo::core::{compiler::CompileMode, InternedString, Package, Shell, Workspace};
 use cargo::ops;
 use cargo::ops::{
     clean, compile, CleanOptions, CompileFilter, CompileOptions, FilterRule, LibRule, Packages,
@@ -114,12 +111,13 @@ pub fn launch_tarpaulin(config: &Config) -> Result<(TraceMap, i32), RunError> {
     let _ = cargo_config.configure(
         0u32,
         flag_quiet,
-        &None,
+        None,
         config.frozen,
         config.locked,
         config.offline,
         &config.target_dir,
         &config.unstable_features,
+        &[],
     );
 
     let workspace = Workspace::new(config.manifest.as_path(), &cargo_config)
@@ -137,7 +135,7 @@ pub fn launch_tarpaulin(config: &Config) -> Result<(TraceMap, i32), RunError> {
             spec: vec![],
             target: None,
             profile_specified: config.force_clean,
-            profile_kind: ProfileKind::Dev,
+            requested_profile: InternedString::new("dev"),
             doc: false,
         };
         let _ = clean(&workspace, &clean_opt);
@@ -325,9 +323,9 @@ fn get_compile_options<'a>(
         copt.features = config.features.clone();
         copt.all_features = config.all_features;
         copt.no_default_features = config.no_default_features;
-        copt.build_config.profile_kind = match config.release {
-            true => ProfileKind::Release,
-            false => ProfileKind::Dev,
+        copt.build_config.requested_profile = match config.release {
+            true => InternedString::new("release"),
+            false => InternedString::new("dev"),
         };
         copt.spec =
             match Packages::from_flags(config.all, config.exclude.clone(), config.packages.clone())
