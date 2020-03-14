@@ -1,5 +1,4 @@
 use crate::config::{Config, RunType};
-use cargo::core::Workspace;
 use lazy_static::lazy_static;
 use log::trace;
 use proc_macro2::{Span, TokenStream, TokenTree};
@@ -169,25 +168,20 @@ fn is_target_folder(entry: &DirEntry, root: &Path) -> bool {
 }
 
 /// Returns a list of files and line numbers to ignore (not indexes!)
-pub fn get_line_analysis(project: &Workspace, config: &Config) -> HashMap<PathBuf, LineAnalysis> {
+pub fn get_line_analysis(config: &Config) -> HashMap<PathBuf, LineAnalysis> {
     let mut result: HashMap<PathBuf, LineAnalysis> = HashMap::new();
 
     let mut ignored_files: HashSet<PathBuf> = HashSet::new();
+    let root = config.root();
 
-    let walker = WalkDir::new(project.root()).into_iter();
+    let walker = WalkDir::new(&root).into_iter();
     for e in walker
-        .filter_entry(|e| !is_target_folder(e, project.root()))
+        .filter_entry(|e| !is_target_folder(e, &root))
         .filter_map(|e| e.ok())
         .filter(|e| is_source_file(e))
     {
         if !ignored_files.contains(e.path()) {
-            analyse_package(
-                e.path(),
-                project.root(),
-                &config,
-                &mut result,
-                &mut ignored_files,
-            );
+            analyse_package(e.path(), &root, &config, &mut result, &mut ignored_files);
         } else {
             let mut analysis = LineAnalysis::new();
             analysis.ignore_all();

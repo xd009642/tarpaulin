@@ -78,7 +78,8 @@ pub fn check_percentage(project_name: &str, minimum_coverage: f64, has_lines: bo
 fn incorrect_manifest_path() {
     let mut config = Config::default();
     config.manifest.push("__invalid_dir__");
-    assert!(launch_tarpaulin(&config).is_err());
+    let launch = launch_tarpaulin(&config);
+    assert_eq!(launch.unwrap().0.total_coverable(), 0);
 }
 
 #[test]
