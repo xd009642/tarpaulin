@@ -32,13 +32,15 @@ pub fn get_tests(config: &Config) -> Result<Vec<TestBinary>, RunError> {
         None => "Cargo.toml",
     };
     for ty in &config.run_types {
-        let mut cmd = create_command(manifest, config, ty)
-            .stdout(Stdio::piped())
-            .stderr(Stdio::null())
-            .spawn()
-            .map_err(|e| RunError::Cargo(e.to_string()))?;
+        let mut cmd = create_command(manifest, config, ty);
+        cmd.stdout(Stdio::piped());
+        if !config.verbose {
+            cmd.stderr(Stdio::null());
+        }
+        let mut child = cmd.spawn().map_err(|e| RunError::Cargo(e.to_string()))?;
+
         if ty != &RunType::Doctests {
-            for msg in parse_messages(cmd.stdout.take().unwrap()) {
+            for msg in parse_messages(child.stdout.take().unwrap()) {
                 match msg {
                     Ok(Message::CompilerArtifact(art)) => {
                         if let Some(path) = art.executable {
@@ -47,7 +49,7 @@ pub fn get_tests(config: &Config) -> Result<Vec<TestBinary>, RunError> {
                     }
                     Ok(Message::CompilerMessage(m)) => match m.message.level {
                         DiagnosticLevel::Error | DiagnosticLevel::Ice => {
-                            let _ = cmd.wait();
+                            let _ = child.wait();
                             return Err(RunError::TestCompile(m.message.message));
                         }
                         _ => {}
@@ -83,7 +85,7 @@ pub fn get_tests(config: &Config) -> Result<Vec<TestBinary>, RunError> {
                 }
             }
         }
-        cmd.wait().map_err(|e| RunError::Cargo(e.to_string()))?;
+        child.wait().map_err(|e| RunError::Cargo(e.to_string()))?;
     }
     Ok(result)
 }
@@ -119,7 +121,6 @@ fn create_command(manifest_path: &str, config: &Config, ty: &RunType) -> Command
 }
 
 fn init_args(test_cmd: &mut Command, config: &Config) {
-    // TODO Missing +nightly etc commands, flag_quiet/verbosity
     if config.locked {
         test_cmd.arg("--locked");
     }

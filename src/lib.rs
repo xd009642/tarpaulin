@@ -85,19 +85,13 @@ pub fn launch_tarpaulin(config: &Config) -> Result<(TraceMap, i32), RunError> {
     info!("Building project");
     let executables = cargo::get_tests(config)?;
     for exe in &executables {
-        // Is the --quiet flag supported?
-        let can_quiet = match exe.run_type() {
-            RunType::Tests => true,
-            _ => false,
-        };
-        let coverage = get_test_coverage(exe.path(), &project_analysis, config, can_quiet, false)?;
+        let coverage = get_test_coverage(exe.path(), &project_analysis, config, false)?;
         if let Some(res) = coverage {
             result.merge(&res.0);
             return_code |= res.1;
         }
         if config.run_ignored && exe.run_type() == RunType::Tests {
-            let coverage =
-                get_test_coverage(exe.path(), &project_analysis, config, can_quiet, true)?;
+            let coverage = get_test_coverage(exe.path(), &project_analysis, config, true)?;
             if let Some(res) = coverage {
                 result.merge(&res.0);
                 return_code |= res.1;
@@ -113,7 +107,6 @@ pub fn get_test_coverage(
     test: &Path,
     analysis: &HashMap<PathBuf, LineAnalysis>,
     config: &Config,
-    can_quiet: bool,
     ignored: bool,
 ) -> Result<Option<(TraceMap, i32)>, RunError> {
     if !test.exists() {
@@ -129,7 +122,7 @@ pub fn get_test_coverage(
         },
         Ok(ForkResult::Child) => {
             info!("Launching test");
-            execute_test(test, ignored, can_quiet, config)?;
+            execute_test(test, ignored, config)?;
             Ok(None)
         }
         Err(err) => Err(RunError::TestCoverage(format!(
@@ -166,12 +159,7 @@ fn collect_coverage(
 }
 
 /// Launches the test executable
-fn execute_test(
-    test: &Path,
-    ignored: bool,
-    can_quiet: bool,
-    config: &Config,
-) -> Result<(), RunError> {
+fn execute_test(test: &Path, ignored: bool, config: &Config) -> Result<(), RunError> {
     let exec_path = CString::new(test.to_str().unwrap()).unwrap();
     info!("running {}", test.display());
     let _ = env::set_current_dir(&config.root());
@@ -192,8 +180,6 @@ fn execute_test(
     };
     if config.verbose {
         envars.push(CString::new("RUST_BACKTRACE=1").unwrap());
-    } else if can_quiet {
-        argv.push(CString::new("--quiet").unwrap());
     }
     for s in &config.varargs {
         argv.push(CString::new(s.as_bytes()).unwrap_or_default());
