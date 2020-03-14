@@ -47,6 +47,7 @@ pub fn get_tests(config: &Config) -> Result<Vec<TestBinary>, RunError> {
                     }
                     Ok(Message::CompilerMessage(m)) => match m.message.level {
                         DiagnosticLevel::Error | DiagnosticLevel::Ice => {
+                            let _ = cmd.wait();
                             return Err(RunError::TestCompile(m.message.message));
                         }
                         _ => {}
