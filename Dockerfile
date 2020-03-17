@@ -20,7 +20,7 @@ RUN cd /opt/tarpaulin/ && \
     rm -rf /opt/tarpaulin/ && \
     rm -rf /usr/local/cargo/registry/
 
-FROM rust:slim
+FROM rust
 
 COPY --from=builder /usr/local/cargo/bin/cargo-tarpaulin /usr/local/cargo/bin/cargo-tarpaulin
 
