@@ -7,6 +7,7 @@ file.
 ### Added
 
 ### Changed
+- Reverted Dockerfiles to full images added dockerfiles with `-slim` postfix for slim images
 
 ### Removed
 
@@ -17,7 +18,7 @@ file.
 ### Changed
 - Pulled `trace` function out of `run` in `main.rs` in order to expose public function for creating
   `TraceMap` structs.
-
+- Moved Dockerfiles to slim images
 
 ## [0.11.0] 2020-02-26
 ### Added
