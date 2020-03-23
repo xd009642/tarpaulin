@@ -34,7 +34,7 @@ libc = "0.2.68"
 log = "0.4.8"
 memmap = "0.7.0"
 nix = "0.17.0"
-object = "0.17"
+object = "0.18"
 proc-macro2 = { version = "1.0", features = ["span-locations"] }
 quick-xml = "0.18"
 quote = "1.0"
