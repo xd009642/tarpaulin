@@ -211,7 +211,7 @@ fn main() {
 
 Tarpaulin aims to be easy to add to your CI workflow. With well tested support
 for Travis-CI it also supports sending CI specific meta-data to coveralls.io for
-Circle, Semaphore, Jenkins and Codeship (though only Jenkin's has been tested).
+Circle, Semaphore, Jenkins and Codeship (though only Jenkins has been tested).
 
 You can also use Tarpaulin on Azure, check out
 [crate-ci/azure-pipelines](https://github.com/crate-ci/azure-pipelines) for an
@@ -395,7 +395,7 @@ this purpose, and its documentation describes how to use it with Tarpaulin.
 
 [`pycobertura`](https://pypi.python.org/pypi/pycobertura) is a python library
 for working with cobertura reports. It offers a report diffing tool as well as
-it's own report implementations.
+its own report implementations.
 
 To generate a `cobertura.xml` simply run the following tarpaulin command:
 
