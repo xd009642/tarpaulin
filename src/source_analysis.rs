@@ -937,7 +937,8 @@ fn visit_macro_call(mac: &Macro, ctx: &Context, analysis: &mut LineAnalysis) -> 
     }) = mac.path.segments.last()
     {
         let unreachable = ident == "unreachable";
-        let standard_ignores = ident == "unimplemented" || ident == "include" || ident == "cfg";
+        let standard_ignores =
+            ident == "unimplemented" || ident == "include" || ident == "cfg" || ident == "todo";
         let ignore_panic = ctx.config.ignore_panics && ident == "panic";
         if standard_ignores || ignore_panic || unreachable {
             analysis.ignore_tokens(mac);

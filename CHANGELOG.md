@@ -8,6 +8,7 @@ file.
 
 ### Changed
 - Reverted Dockerfiles to full images added dockerfiles with `-slim` postfix for slim images
+- `todo!()` macros are now ignored with the `--ignore-panics` flag
 
 ### Removed
 
