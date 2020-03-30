@@ -4,7 +4,7 @@ use crate::report::{get_previous_result, safe_json};
 use crate::traces::{Trace, TraceMap};
 use serde::Serialize;
 use std::fs::{read_to_string, File};
-use std::io::Write;
+use std::io::{self, Write};
 
 #[derive(Serialize)]
 struct SourceFile {
@@ -20,17 +20,28 @@ struct CoverageReport {
     pub files: Vec<SourceFile>,
 }
 
-fn get_json(coverage_data: &TraceMap) -> Result<String, RunError> {
+#[derive(PartialEq)]
+enum Context {
+    CurrentResults,
+    PreviousResults,
+}
+
+fn get_json(coverage_data: &TraceMap, context: Context) -> Result<String, RunError> {
     let mut report = CoverageReport { files: Vec::new() };
 
     for (path, traces) in coverage_data.iter() {
         let content = match read_to_string(path) {
             Ok(k) => k,
             Err(e) => {
+                if context == Context::PreviousResults && e.kind() == io::ErrorKind::NotFound {
+                    // Assume the file has been deleted since the last run.
+                    continue;
+                }
+
                 return Err(RunError::Html(format!(
                     "Unable to read source file to string: {}",
                     e.to_string()
-                )))
+                )));
             }
         };
 
@@ -62,9 +73,9 @@ pub fn export(coverage_data: &TraceMap, config: &Config) -> Result<(), RunError>
         }
     };
 
-    let report_json = get_json(coverage_data)?;
+    let report_json = get_json(coverage_data, Context::CurrentResults)?;
     let previous_report_json = match get_previous_result(&config) {
-        Some(result) => get_json(&result)?,
+        Some(result) => get_json(&result, Context::PreviousResults)?,
         None => String::from("null"),
     };
 
