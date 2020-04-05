@@ -15,15 +15,18 @@ use std::path::{Path, PathBuf};
 use syn::{punctuated::Pair, punctuated::Punctuated, spanned::Spanned, token::Comma, *};
 use walkdir::{DirEntry, WalkDir};
 
+/// Enumeration representing which lines to ignore
 #[derive(Copy, Clone, Debug, Eq, PartialEq, Hash)]
 pub enum Lines {
+    /// Ignore all lines in the file
     All,
+    /// A single line to ignore in the file
     Line(usize),
 }
 
 /// Represents the results of analysis of a single file. Does not store the file
 /// in question as this is expected to be maintained by the user.
-#[derive(Clone, Debug)]
+#[derive(Clone, Debug, Default)]
 pub struct LineAnalysis {
     /// This represents lines that should be ignored in coverage
     /// but may be identifed as coverable in the DWARF tables
@@ -32,9 +35,13 @@ pub struct LineAnalysis {
     /// But may be ignored. Doesn't make sense to cover ALL the lines so this
     /// is just an index.
     pub cover: HashSet<usize>,
+    /// Some logical lines may be split between physical lines this shows the
+    /// mapping from physical line to logical line to prevent false positives
+    /// from expressions split across physical lines
+    pub logical_lines: HashMap<usize, usize>,
 }
 
-/// When the LineAnalysis results are mapped to their files there needs to be
+/// When the `LineAnalysis` results are mapped to their files there needs to be
 /// an easy way to get the information back. For the container used implement
 /// this trait
 pub trait SourceAnalysisQuery {
@@ -60,10 +67,7 @@ impl SourceAnalysisQuery for HashMap<PathBuf, LineAnalysis> {
 impl LineAnalysis {
     /// Creates a new LineAnalysis object
     fn new() -> LineAnalysis {
-        LineAnalysis {
-            ignore: HashSet::new(),
-            cover: HashSet::new(),
-        }
+        Default::default()
     }
 
     pub fn ignore_all(&mut self) {
@@ -980,6 +984,26 @@ fn process_mac_args(tokens: &TokenStream) -> HashSet<usize> {
 mod tests {
     use super::*;
     use syn::parse_file;
+
+    #[test]
+    fn logical_lines_let_bindings() {
+        let config = Config::default();
+        let mut lines = LineAnalysis::new();
+        let ctx = Context {
+            config: &config,
+            file_contents: "fn foo() {
+                let x 
+                      =
+                        5;
+            }",
+            file: Path::new(""),
+            ignore_mods: RefCell::new(HashSet::new()),
+        };
+        let parser = parse_file(ctx.file_contents).unwrap();
+        process_items(&parser.items, &ctx, &mut lines);
+        assert_eq!(lines.logical_lines.get(&3).copied(), Some(2));
+        assert_eq!(lines.logical_lines.get(&4).copied(), Some(2));
+    }
 
     #[test]
     fn line_analysis_works() {
