@@ -9,6 +9,7 @@ file.
 
 ### Changed
 - Reverted Dockerfiles to full images added dockerfiles with `-slim` postfix for slim images
+- Added cURL to the slim images
 - `todo!()` macros are now ignored with the `--ignore-panics` flag
 - The HTML output report will no longer fail if a previous run contains a source file that no longer exists
 - Process expression preceding method call in source analysis
