@@ -1,13 +1,14 @@
 pub use self::types::*;
 
 use self::parse::*;
+use cargo_metadata::{Metadata, MetadataCommand, Package};
 use clap::ArgMatches;
 use coveralls_api::CiService;
 use humantime_serde::deserialize as humantime_serde;
 use log::{error, info, warn};
 use regex::Regex;
 use serde::{Deserialize, Serialize};
-use std::cell::RefCell;
+use std::cell::{Ref, RefCell};
 use std::collections::HashMap;
 use std::env;
 use std::fs::File;
@@ -123,6 +124,8 @@ pub struct Config {
     /// Output files to generate
     #[serde(rename = "out")]
     pub generate: Vec<OutputFile>,
+    #[serde(skip_deserializing, skip_serializing)]
+    pub metadata: RefCell<Option<Metadata>>,
 }
 
 impl Default for Config {
@@ -165,6 +168,7 @@ impl Default for Config {
             frozen: false,
             target_dir: None,
             offline: false,
+            metadata: RefCell::new(None),
         }
     }
 }
@@ -215,6 +219,7 @@ impl<'a> From<&'a ArgMatches<'a>> for ConfigWrapper {
             frozen: args.is_present("frozen"),
             target_dir: get_target_dir(args),
             offline: args.is_present("offline"),
+            metadata: RefCell::new(None),
         };
         if args.is_present("ignore-config") {
             Self(vec![args_config])
@@ -241,6 +246,35 @@ impl<'a> From<&'a ArgMatches<'a>> for ConfigWrapper {
 }
 
 impl Config {
+    fn get_metadata(&self) -> Ref<Option<Metadata>> {
+        if self.metadata.borrow().is_none() {
+            match MetadataCommand::new().manifest_path(&self.manifest).exec() {
+                Ok(meta) => {
+                    self.metadata.replace(Some(meta));
+                }
+                Err(e) => warn!("Couldn't get project metadata {}", e),
+            }
+        }
+        self.metadata.borrow()
+    }
+    pub fn root(&self) -> PathBuf {
+        match *self.get_metadata() {
+            Some(ref meta) => meta.workspace_root.clone(),
+            _ => self
+                .manifest
+                .parent()
+                .map(|x| x.to_path_buf())
+                .unwrap_or_default(),
+        }
+    }
+
+    pub fn get_packages(&self) -> Vec<Package> {
+        match *self.get_metadata() {
+            Some(ref meta) => meta.packages.clone(),
+            None => vec![],
+        }
+    }
+
     pub fn get_config_vec(file_configs: std::io::Result<Vec<Self>>, backup: Self) -> ConfigWrapper {
         if file_configs.is_err() {
             warn!("Failed to deserialize config file falling back to provided args");

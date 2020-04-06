@@ -26,7 +26,7 @@ Below is the help-text for a thorough explanation of the flags and features
 available:
 
 ```
-cargo-tarpaulin version: 0.10.2
+cargo-tarpaulin version: 0.12.0
 Tool to analyse test coverage of cargo projects
 
 USAGE:
@@ -107,20 +107,16 @@ a repo and the commit containing your project and paste the verbose output).
 
 ### Installation
 
-Tarpaulin depends on cargo which depends on SSL. Make sure you've installed
-your distros SSL development libraries and they are on your path before
-attempting to install tarpaulin. For example for Debian/Ubuntu:
-
-```text
-apt-get update && apt-get install libssl-dev pkg-config cmake zlib1g-dev
-```
-
 Tarpaulin is a command-line program, you install it into your linux development
 environment with cargo install:
 
 ```text
 cargo install cargo-tarpaulin
 ```
+
+Tarpaulin used to rely on Cargo as a dependency and then require an ssl install
+as well as other libraries but now it uses your system cargo simplifying the
+installation and massively reducing the install time on CI.
 
 ### Command line
 
@@ -211,7 +207,7 @@ fn main() {
 
 Tarpaulin aims to be easy to add to your CI workflow. With well tested support
 for Travis-CI it also supports sending CI specific meta-data to coveralls.io for
-Circle, Semaphore, Jenkins and Codeship (though only Jenkin's has been tested).
+Circle, Semaphore, Jenkins and Codeship (though only Jenkins has been tested).
 
 You can also use Tarpaulin on Azure, check out
 [crate-ci/azure-pipelines](https://github.com/crate-ci/azure-pipelines) for an
@@ -395,7 +391,7 @@ this purpose, and its documentation describes how to use it with Tarpaulin.
 
 [`pycobertura`](https://pypi.python.org/pypi/pycobertura) is a python library
 for working with cobertura reports. It offers a report diffing tool as well as
-it's own report implementations.
+its own report implementations.
 
 To generate a `cobertura.xml` simply run the following tarpaulin command:
 

@@ -1,7 +1,6 @@
 use crate::config::Config;
 use crate::source_analysis::*;
 use crate::traces::*;
-use cargo::core::Workspace;
 use gimli::*;
 use log::{debug, trace};
 use memmap::MmapOptions;
@@ -44,6 +43,15 @@ pub enum LineType {
 struct SourceLocation {
     pub path: PathBuf,
     pub line: u64,
+}
+
+impl From<(PathBuf, usize)> for SourceLocation {
+    fn from(other: (PathBuf, usize)) -> Self {
+        Self {
+            path: other.0,
+            line: other.1 as u64,
+        }
+    }
 }
 
 #[derive(Debug, Clone)]
@@ -281,6 +289,11 @@ fn get_line_addresses(
                     .filter(|&(ref k, _)| {
                         !analysis.should_ignore(k.path.as_ref(), &(k.line as usize))
                     })
+                    .map(|(k, v)| {
+                        let ret = analysis.normalise(k.path.as_ref(), k.line as usize);
+                        let k_n = SourceLocation::from(ret);
+                        (k_n, v)
+                    })
                     .collect::<HashMap<SourceLocation, Vec<TracerData>>>();
 
                 let mut tracemap = TraceMap::new();
@@ -367,12 +380,11 @@ fn open_symbols_file(test: &Path) -> io::Result<File> {
 }
 
 pub fn generate_tracemap(
-    project: &Workspace,
     test: &Path,
     analysis: &HashMap<PathBuf, LineAnalysis>,
     config: &Config,
 ) -> io::Result<TraceMap> {
-    let manifest = project.root();
+    let manifest = config.root();
     let file = open_symbols_file(test)?;
     let file = unsafe { MmapOptions::new().map(&file)? };
     if let Ok(obj) = OFile::parse(&*file) {
@@ -381,7 +393,7 @@ pub fn generate_tracemap(
         } else {
             RunTimeEndian::Big
         };
-        if let Ok(result) = get_line_addresses(endian, manifest, &obj, &analysis, config) {
+        if let Ok(result) = get_line_addresses(endian, &manifest, &obj, &analysis, config) {
             Ok(result)
         } else {
             Err(io::Error::new(

@@ -5,8 +5,14 @@ file.
 
 ## [Unreleased]
 ### Added
+- Concept of logical lines to map multiple physical lines to a single line for statistics added for split lets statements
 
 ### Changed
+- Reverted Dockerfiles to full images added dockerfiles with `-slim` postfix for slim images
+- Added cURL to the slim images
+- `todo!()` macros are now ignored with the `--ignore-panics` flag
+- The HTML output report will no longer fail if a previous run contains a source file that no longer exists
+- Process expression preceding method call in source analysis
 
 ### Removed
 
@@ -17,7 +23,7 @@ file.
 ### Changed
 - Pulled `trace` function out of `run` in `main.rs` in order to expose public function for creating
   `TraceMap` structs.
-
+- Moved Dockerfiles to slim images
 
 ## [0.11.0] 2020-02-26
 ### Added

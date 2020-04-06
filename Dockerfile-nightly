@@ -1,8 +1,4 @@
-FROM rustlang/rust:nightly-slim as builder
-
-RUN apt-get update && \
-    apt-get install -y libssl-dev pkg-config cmake zlib1g-dev && \
-    rm -rf /var/lib/apt/lists/*
+FROM rustlang/rust:nightly as builder
 
 WORKDIR /opt/tarpaulin
 
@@ -20,7 +16,7 @@ RUN cd /opt/tarpaulin/ && \
     rm -rf /opt/tarpaulin/ && \
     rm -rf /usr/local/cargo/registry/
 
-FROM rustlang/rust:nightly-slim
+FROM rustlang/rust:nightly
 
 COPY --from=builder /usr/local/cargo/bin/cargo-tarpaulin /usr/local/cargo/bin/cargo-tarpaulin
 

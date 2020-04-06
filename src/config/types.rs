@@ -1,4 +1,3 @@
-use cargo::core::compiler::CompileMode;
 use clap::arg_enum;
 use coveralls_api::CiService;
 use serde::{Deserialize, Serialize};
@@ -6,7 +5,7 @@ use std::str::FromStr;
 use void::Void;
 
 arg_enum! {
-    #[derive(Debug, Copy, Clone, PartialEq, Eq, Ord, PartialOrd, Deserialize, Serialize)]
+    #[derive(Debug, Copy, Clone, PartialEq, Eq, Hash, Ord, PartialOrd, Deserialize, Serialize)]
     pub enum RunType {
         Tests,
         Doctests,
@@ -36,17 +35,6 @@ impl Default for OutputFile {
 
 #[derive(Debug, Eq, PartialEq, Ord, PartialOrd, Deserialize, Serialize)]
 pub struct Ci(pub CiService);
-
-impl From<RunType> for CompileMode {
-    fn from(run: RunType) -> Self {
-        match run {
-            RunType::Tests => CompileMode::Test,
-            RunType::Examples => CompileMode::Build,
-            RunType::Doctests => CompileMode::Doctest,
-            RunType::Benchmarks => CompileMode::Bench,
-        }
-    }
-}
 
 impl FromStr for Ci {
     /// This can never fail, so the error type is uninhabited.
