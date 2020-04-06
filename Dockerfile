@@ -1,8 +1,4 @@
-FROM rust:slim as builder
-
-RUN apt-get update && \
-    apt-get install -y libssl-dev pkg-config cmake zlib1g-dev && \
-    rm -rf /var/lib/apt/lists/*
+FROM rust as builder
 
 WORKDIR /opt/tarpaulin
 
@@ -10,6 +6,7 @@ RUN env USER=root cargo init .
 
 COPY Cargo.toml .
 COPY Cargo.lock .
+
 RUN mkdir .cargo
 RUN cargo vendor > .cargo/config
 
