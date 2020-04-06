@@ -45,7 +45,11 @@ pub struct LineAnalysis {
 /// an easy way to get the information back. For the container used implement
 /// this trait
 pub trait SourceAnalysisQuery {
+    /// Returns true if the line in the given file should be ignored
     fn should_ignore(&self, path: &Path, l: &usize) -> bool;
+    /// Takes a path and line number and normalises it to the logical line
+    /// that should be represented in the statistics
+    fn normalise(&self, path: &Path, l: usize) -> (PathBuf, usize);
 }
 
 #[derive(Copy, Clone, Debug)]
@@ -62,6 +66,17 @@ impl SourceAnalysisQuery for HashMap<PathBuf, LineAnalysis> {
             false
         }
     }
+
+    fn normalise(&self, path: &Path, l: usize) -> (PathBuf, usize) {
+        let pb = path.to_path_buf();
+        match self.get(path) {
+            Some(s) => match s.logical_lines.get(&l) {
+                Some(o) => (pb, *o),
+                _ => (pb, l),
+            },
+            _ => (pb, l),
+        }
+    }
 }
 
 impl LineAnalysis {
@@ -70,12 +85,14 @@ impl LineAnalysis {
         Default::default()
     }
 
+    /// Ignore all lines in the file
     pub fn ignore_all(&mut self) {
         self.ignore.clear();
         self.cover.clear();
         self.ignore.insert(Lines::All);
     }
 
+    /// Ignore all tokens in the given token stream
     pub fn ignore_tokens<T>(&mut self, tokens: T)
     where
         T: ToTokens,
@@ -98,6 +115,7 @@ impl LineAnalysis {
         }
     }
 
+    /// Cover all tokens in the given tokenstream
     pub fn cover_token_stream(&mut self, tokens: TokenStream, contents: Option<&str>) {
         for token in tokens {
             self.cover_span(token.span(), contents);
@@ -161,11 +179,13 @@ impl LineAnalysis {
     }
 }
 
+/// Returns true if the file is a rust source file
 fn is_source_file(entry: &DirEntry) -> bool {
     let p = entry.path();
     p.extension() == Some(OsStr::new("rs"))
 }
 
+/// Returns true if the folder is a target folder
 fn is_target_folder(entry: &DirEntry, root: &Path) -> bool {
     let target = root.join("target");
     entry.path().starts_with(&target)
@@ -204,6 +224,8 @@ pub fn get_line_analysis(config: &Config) -> HashMap<PathBuf, LineAnalysis> {
     result
 }
 
+/// Printout a debug summary of the results of source analysis if debug logging
+/// is enabled
 pub fn debug_printout(result: &HashMap<PathBuf, LineAnalysis>, config: &Config) {
     if config.debug {
         for (ref path, ref analysis) in result {
@@ -928,7 +950,8 @@ fn visit_methodcall(
     analysis: &mut LineAnalysis,
 ) -> SubResult {
     if check_attr_list(&meth.attrs, ctx, analysis) {
-        let start = meth.receiver.span().start().line + 1;
+        process_expr(&meth.receiver, ctx, analysis);
+        let start = meth.receiver.span().end().line + 1;
         let range = get_line_range(meth);
         let lines = get_coverable_args(&meth.args);
         let lines = (start..range.end)
@@ -1069,6 +1092,37 @@ mod tests {
         process_items(&parser.items, &ctx, &mut lines);
         assert_eq!(lines.logical_lines.get(&3).copied(), Some(2));
         assert_eq!(lines.logical_lines.get(&4).copied(), Some(2));
+
+        let ctx = Context {
+            config: &config,
+            file_contents: "fn foo() {
+            let x = (0..15).iter()
+                .filter(|x| {
+                    if x % 3 == 0 {
+                        true
+                    } else {
+                        false
+                    }
+                })
+                .cloned()
+                .collect::<Vec<u32>>();
+            }",
+            file: Path::new(""),
+            ignore_mods: RefCell::new(HashSet::new()),
+        };
+
+        let mut lines = LineAnalysis::new();
+        let parser = parse_file(ctx.file_contents).unwrap();
+        process_items(&parser.items, &ctx, &mut lines);
+        println!("Lines {:?}", lines);
+        assert!(!lines.logical_lines.contains_key(&4));
+        assert!(!lines.logical_lines.contains_key(&5));
+        assert!(!lines.logical_lines.contains_key(&6));
+        assert!(!lines.logical_lines.contains_key(&7));
+        assert!(!lines.logical_lines.contains_key(&8));
+        assert!(!lines.logical_lines.contains_key(&9));
+        assert!(!lines.logical_lines.contains_key(&10));
+        assert!(!lines.logical_lines.contains_key(&11));
     }
 
     #[test]

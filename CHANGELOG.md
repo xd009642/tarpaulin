@@ -5,11 +5,13 @@ file.
 
 ## [Unreleased]
 ### Added
+- Concept of logical lines to map multiple physical lines to a single line for statistics added for split lets statements
 
 ### Changed
 - Reverted Dockerfiles to full images added dockerfiles with `-slim` postfix for slim images
 - `todo!()` macros are now ignored with the `--ignore-panics` flag
 - The HTML output report will no longer fail if a previous run contains a source file that no longer exists
+- Process expression preceding method call in source analysis
 
 ### Removed
 

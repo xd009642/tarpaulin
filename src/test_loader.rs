@@ -45,6 +45,15 @@ struct SourceLocation {
     pub line: u64,
 }
 
+impl From<(PathBuf, usize)> for SourceLocation {
+    fn from(other: (PathBuf, usize)) -> Self {
+        Self {
+            path: other.0,
+            line: other.1 as u64,
+        }
+    }
+}
+
 #[derive(Debug, Clone)]
 pub struct TracerData {
     /// Currently used to find generated __test::main and remove from coverage,
@@ -279,6 +288,11 @@ fn get_line_addresses(
                     .filter(|&(ref k, _)| !(config.exclude_path(&k.path)))
                     .filter(|&(ref k, _)| {
                         !analysis.should_ignore(k.path.as_ref(), &(k.line as usize))
+                    })
+                    .map(|(k, v)| {
+                        let ret = analysis.normalise(k.path.as_ref(), k.line as usize);
+                        let k_n = SourceLocation::from(ret);
+                        (k_n, v)
                     })
                     .collect::<HashMap<SourceLocation, Vec<TracerData>>>();
 
