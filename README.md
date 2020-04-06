@@ -26,7 +26,7 @@ Below is the help-text for a thorough explanation of the flags and features
 available:
 
 ```
-cargo-tarpaulin version: 0.10.2
+cargo-tarpaulin version: 0.12.0
 Tool to analyse test coverage of cargo projects
 
 USAGE:
@@ -107,20 +107,16 @@ a repo and the commit containing your project and paste the verbose output).
 
 ### Installation
 
-Tarpaulin depends on cargo which depends on SSL. Make sure you've installed
-your distros SSL development libraries and they are on your path before
-attempting to install tarpaulin. For example for Debian/Ubuntu:
-
-```text
-apt-get update && apt-get install libssl-dev pkg-config cmake zlib1g-dev
-```
-
 Tarpaulin is a command-line program, you install it into your linux development
 environment with cargo install:
 
 ```text
 cargo install cargo-tarpaulin
 ```
+
+Tarpaulin used to rely on Cargo as a dependency and then require an ssl install
+as well as other libraries but now it uses your system cargo simplifying the
+installation and massively reducing the install time on CI.
 
 ### Command line
 
