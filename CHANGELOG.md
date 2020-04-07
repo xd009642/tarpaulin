@@ -5,6 +5,14 @@ file.
 
 ## [Unreleased]
 ### Added
+
+### Changed
+- Can now pass a list of values for `--run-types`
+
+### Removed
+
+## [0.12.0] 2020-04-06
+### Added
 - Concept of logical lines to map multiple physical lines to a single line for statistics added for split lets statements
 
 ### Changed
