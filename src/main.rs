@@ -90,7 +90,7 @@ fn main() -> Result<(), String> {
                     .possible_values(&OutputFile::variants())
                     .multiple(true),
                 Arg::from_usage("--output-dir [PATH] 'Specify a custom directory to write report files'"),
-                Arg::from_usage("--run-types [TYPE] 'Type of the coverage run'")
+                Arg::from_usage("--run-types [TYPE]... 'Type of the coverage run'")
                     .possible_values(&RunType::variants())
                     .multiple(true),
                 Arg::from_usage("--root -r [DIR]  'Calculates relative paths to root directory. If --manifest-path isn't specified it will look for a Cargo.toml in root'")
