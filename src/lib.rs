@@ -1,3 +1,4 @@
+use crate::cargo::TestBinary;
 use crate::config::*;
 use crate::errors::*;
 use crate::process_handling::*;
@@ -90,13 +91,13 @@ pub fn launch_tarpaulin(config: &Config) -> Result<(TraceMap, i32), RunError> {
     info!("Building project");
     let executables = cargo::get_tests(config)?;
     for exe in &executables {
-        let coverage = get_test_coverage(exe.path(), &project_analysis, config, false)?;
+        let coverage = get_test_coverage(&exe, &project_analysis, config, false)?;
         if let Some(res) = coverage {
             result.merge(&res.0);
             return_code |= res.1;
         }
         if config.run_ignored && exe.run_type() == RunType::Tests {
-            let coverage = get_test_coverage(exe.path(), &project_analysis, config, true)?;
+            let coverage = get_test_coverage(&exe, &project_analysis, config, true)?;
             if let Some(res) = coverage {
                 result.merge(&res.0);
                 return_code |= res.1;
@@ -109,22 +110,24 @@ pub fn launch_tarpaulin(config: &Config) -> Result<(TraceMap, i32), RunError> {
 
 /// Returns the coverage statistics for a test executable in the given workspace
 pub fn get_test_coverage(
-    test: &Path,
+    test: &TestBinary,
     analysis: &HashMap<PathBuf, LineAnalysis>,
     config: &Config,
     ignored: bool,
 ) -> Result<Option<(TraceMap, i32)>, RunError> {
-    if !test.exists() {
+    if !test.path().exists() {
         return Ok(None);
     }
     if let Err(e) = limit_affinity() {
         warn!("Failed to set processor affinity {}", e);
     }
     match fork() {
-        Ok(ForkResult::Parent { child }) => match collect_coverage(test, child, analysis, config) {
-            Ok(t) => Ok(Some(t)),
-            Err(e) => Err(RunError::TestCoverage(e.to_string())),
-        },
+        Ok(ForkResult::Parent { child }) => {
+            match collect_coverage(test.path(), child, analysis, config) {
+                Ok(t) => Ok(Some(t)),
+                Err(e) => Err(RunError::TestCoverage(e.to_string())),
+            }
+        }
         Ok(ForkResult::Child) => {
             info!("Launching test");
             execute_test(test, ignored, config)?;
@@ -132,7 +135,7 @@ pub fn get_test_coverage(
         }
         Err(err) => Err(RunError::TestCoverage(format!(
             "Failed to run test {}, Error: {}",
-            test.display(),
+            test.path().display(),
             err.to_string()
         ))),
     }
@@ -164,10 +167,13 @@ fn collect_coverage(
 }
 
 /// Launches the test executable
-fn execute_test(test: &Path, ignored: bool, config: &Config) -> Result<(), RunError> {
-    let exec_path = CString::new(test.to_str().unwrap()).unwrap();
-    info!("running {}", test.display());
-    let _ = env::set_current_dir(&config.root());
+fn execute_test(test: &TestBinary, ignored: bool, config: &Config) -> Result<(), RunError> {
+    let exec_path = CString::new(test.path().to_str().unwrap()).unwrap();
+    info!("running {}", test.path().display());
+    let _ = match test.manifest_dir() {
+        Some(md) => env::set_current_dir(&md),
+        None => env::set_current_dir(&config.root()),
+    };
 
     let mut envars: Vec<CString> = Vec::new();
 

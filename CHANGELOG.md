@@ -11,6 +11,9 @@ file.
 
 ### Removed
 
+### Fixed
+- Get manifest directory for packages in workspace so working directory is the same as before 0.12.0
+
 ## [0.12.0] 2020-04-06
 ### Added
 - Concept of logical lines to map multiple physical lines to a single line for statistics added for split lets statements
