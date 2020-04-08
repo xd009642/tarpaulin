@@ -79,7 +79,7 @@ fn incorrect_manifest_path() {
     let mut config = Config::default();
     config.manifest.push("__invalid_dir__");
     let launch = launch_tarpaulin(&config);
-    assert_eq!(launch.unwrap().0.total_coverable(), 0);
+    assert!(launch.is_err());
 }
 
 #[test]

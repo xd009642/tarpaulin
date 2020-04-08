@@ -87,9 +87,9 @@ pub fn launch_tarpaulin(config: &Config) -> Result<(TraceMap, i32), RunError> {
 
     let mut result = TraceMap::new();
     let mut return_code = 0i32;
-    let project_analysis = source_analysis::get_line_analysis(config);
     info!("Building project");
     let executables = cargo::get_tests(config)?;
+    let project_analysis = source_analysis::get_line_analysis(config);
     for exe in &executables {
         let coverage = get_test_coverage(&exe, &project_analysis, config, false)?;
         if let Some(res) = coverage {

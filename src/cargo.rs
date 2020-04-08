@@ -38,6 +38,12 @@ pub fn get_tests(config: &Config) -> Result<Vec<TestBinary>, RunError> {
         Some(s) => s,
         None => "Cargo.toml",
     };
+    let metadata = MetadataCommand::new()
+        .manifest_path(manifest)
+        .features(CargoOpt::AllFeatures)
+        .exec()
+        .map_err(|e| RunError::Cargo(e.to_string()))?;
+
     for ty in &config.run_types {
         let mut cmd = create_command(manifest, config, ty);
         cmd.stdout(Stdio::piped());
@@ -73,12 +79,6 @@ pub fn get_tests(config: &Config) -> Result<Vec<TestBinary>, RunError> {
                     _ => {}
                 }
             }
-            let metadata = MetadataCommand::new()
-                .manifest_path(manifest)
-                .features(CargoOpt::AllFeatures)
-                .exec()
-                .map_err(|e| RunError::Cargo(e.to_string()))?;
-
             for (res, package) in result.iter_mut().zip(package_ids.iter()) {
                 let package = &metadata[package];
                 res.cargo_dir = package.manifest_path.parent().map(|x| x.to_path_buf());
