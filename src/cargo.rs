@@ -1,7 +1,9 @@
 use crate::config::*;
 use crate::errors::RunError;
-use cargo_metadata::{diagnostic::DiagnosticLevel, parse_messages, Message};
-use log::error;
+use cargo_metadata::{
+    diagnostic::DiagnosticLevel, parse_messages, CargoOpt, Message, MetadataCommand,
+};
+use log::{error, info};
 use std::env;
 use std::path::{Path, PathBuf};
 use std::process::{Command, Stdio};
@@ -12,6 +14,7 @@ static DOCTEST_FOLDER: &str = "target/doctests";
 #[derive(Clone, PartialEq, Eq, PartialOrd, Ord, Hash)]
 pub struct TestBinary {
     path: PathBuf,
+    cargo_dir: Option<PathBuf>,
     ty: RunType,
 }
 
@@ -23,6 +26,10 @@ impl TestBinary {
     pub fn run_type(&self) -> RunType {
         self.ty
     }
+
+    pub fn manifest_dir(&self) -> &Option<PathBuf> {
+        &self.cargo_dir
+    }
 }
 
 pub fn get_tests(config: &Config) -> Result<Vec<TestBinary>, RunError> {
@@ -31,6 +38,12 @@ pub fn get_tests(config: &Config) -> Result<Vec<TestBinary>, RunError> {
         Some(s) => s,
         None => "Cargo.toml",
     };
+    let metadata = MetadataCommand::new()
+        .manifest_path(manifest)
+        .features(CargoOpt::AllFeatures)
+        .exec()
+        .map_err(|e| RunError::Cargo(e.to_string()))?;
+
     for ty in &config.run_types {
         let mut cmd = create_command(manifest, config, ty);
         cmd.stdout(Stdio::piped());
@@ -40,11 +53,17 @@ pub fn get_tests(config: &Config) -> Result<Vec<TestBinary>, RunError> {
         let mut child = cmd.spawn().map_err(|e| RunError::Cargo(e.to_string()))?;
 
         if ty != &RunType::Doctests {
+            let mut package_ids = vec![];
             for msg in parse_messages(child.stdout.take().unwrap()) {
                 match msg {
                     Ok(Message::CompilerArtifact(art)) => {
                         if let Some(path) = art.executable {
-                            result.push(TestBinary { path, ty: *ty });
+                            result.push(TestBinary {
+                                path,
+                                ty: *ty,
+                                cargo_dir: None,
+                            });
+                            package_ids.push(art.package_id.clone());
                         }
                     }
                     Ok(Message::CompilerMessage(m)) => match m.message.level {
@@ -59,6 +78,15 @@ pub fn get_tests(config: &Config) -> Result<Vec<TestBinary>, RunError> {
                     }
                     _ => {}
                 }
+            }
+            for (res, package) in result.iter_mut().zip(package_ids.iter()) {
+                let package = &metadata[package];
+                res.cargo_dir = package.manifest_path.parent().map(|x| x.to_path_buf());
+                info!(
+                    "Cargo directory for {} is {:?}",
+                    res.path.display(),
+                    res.cargo_dir
+                );
             }
         } else {
             // Need to get the packages...
@@ -81,6 +109,7 @@ pub fn get_tests(config: &Config) -> Result<Vec<TestBinary>, RunError> {
                     result.push(TestBinary {
                         path: dt.path().to_path_buf(),
                         ty: *ty,
+                        cargo_dir: None,
                     });
                 }
             }

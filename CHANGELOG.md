@@ -4,6 +4,19 @@ From 2019 onwards, all notable changes to tarpaulin will be documented in this
 file.
 
 ## [Unreleased]
+
+## [0.12.1] 2020-04-09
+### Added
+
+### Changed
+- Can now pass a list of values for `--run-types`
+
+### Removed
+
+### Fixed
+- Get manifest directory for packages in workspace so working directory is the same as before 0.12.0
+
+## [0.12.0] 2020-04-06
 ### Added
 - Concept of logical lines to map multiple physical lines to a single line for statistics added for split lets statements
 
