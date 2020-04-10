@@ -4,6 +4,13 @@ From 2019 onwards, all notable changes to tarpaulin will be documented in this
 file.
 
 ## [Unreleased]
+### Added
+
+### Changed
+- Fill in `CARGO_PKG_NAME`, `CARG_PKG_VERSION`, `CARGO_PKG_AUTHORS` and 
+`CARGO_MANIFEST_DIR` environment variables when launching tests
+
+### Removed
 
 ## [0.12.1] 2020-04-09
 ### Added
