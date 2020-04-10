@@ -23,13 +23,13 @@ pub struct TestBinary {
 
 impl TestBinary {
     pub fn new(path: PathBuf, ty: RunType) -> Self {
-        Self{
+        Self {
             path,
             ty,
             pkg_name: None,
             pkg_version: None,
             pkg_authors: None,
-            cargo_dir: None
+            cargo_dir: None,
         }
     }
 

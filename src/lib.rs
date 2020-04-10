@@ -206,7 +206,8 @@ fn execute_test(test: &TestBinary, ignored: bool, config: &Config) -> Result<(),
         envars.push(CString::new(format!("CARGO_PKG_AUTHORS={}", s.join(":"))).unwrap_or_default());
     }
     if let Some(s) = test.manifest_dir() {
-        envars.push(CString::new(format!("CARGO_MANIFEST_DIR={}", s.display())).unwrap_or_default());
+        envars
+            .push(CString::new(format!("CARGO_MANIFEST_DIR={}", s.display())).unwrap_or_default());
     }
 
     execute(exec_path, &argv, envars.as_slice())
