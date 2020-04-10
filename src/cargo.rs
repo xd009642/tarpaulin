@@ -3,7 +3,7 @@ use crate::errors::RunError;
 use cargo_metadata::{
     diagnostic::DiagnosticLevel, parse_messages, CargoOpt, Message, MetadataCommand,
 };
-use log::{error, info};
+use log::error;
 use std::env;
 use std::path::{Path, PathBuf};
 use std::process::{Command, Stdio};
@@ -14,11 +14,25 @@ static DOCTEST_FOLDER: &str = "target/doctests";
 #[derive(Clone, PartialEq, Eq, PartialOrd, Ord, Hash)]
 pub struct TestBinary {
     path: PathBuf,
-    cargo_dir: Option<PathBuf>,
     ty: RunType,
+    cargo_dir: Option<PathBuf>,
+    pkg_name: Option<String>,
+    pkg_version: Option<String>,
+    pkg_authors: Option<Vec<String>>,
 }
 
 impl TestBinary {
+    pub fn new(path: PathBuf, ty: RunType) -> Self {
+        Self{
+            path,
+            ty,
+            pkg_name: None,
+            pkg_version: None,
+            pkg_authors: None,
+            cargo_dir: None
+        }
+    }
+
     pub fn path(&self) -> &Path {
         &self.path
     }
@@ -29,6 +43,18 @@ impl TestBinary {
 
     pub fn manifest_dir(&self) -> &Option<PathBuf> {
         &self.cargo_dir
+    }
+
+    pub fn pkg_name(&self) -> &Option<String> {
+        &self.pkg_name
+    }
+
+    pub fn pkg_version(&self) -> &Option<String> {
+        &self.pkg_version
+    }
+
+    pub fn pkg_authors(&self) -> &Option<Vec<String>> {
+        &self.pkg_authors
     }
 }
 
@@ -58,11 +84,7 @@ pub fn get_tests(config: &Config) -> Result<Vec<TestBinary>, RunError> {
                 match msg {
                     Ok(Message::CompilerArtifact(art)) => {
                         if let Some(path) = art.executable {
-                            result.push(TestBinary {
-                                path,
-                                ty: *ty,
-                                cargo_dir: None,
-                            });
+                            result.push(TestBinary::new(path, *ty));
                             package_ids.push(art.package_id.clone());
                         }
                     }
@@ -82,11 +104,9 @@ pub fn get_tests(config: &Config) -> Result<Vec<TestBinary>, RunError> {
             for (res, package) in result.iter_mut().zip(package_ids.iter()) {
                 let package = &metadata[package];
                 res.cargo_dir = package.manifest_path.parent().map(|x| x.to_path_buf());
-                info!(
-                    "Cargo directory for {} is {:?}",
-                    res.path.display(),
-                    res.cargo_dir
-                );
+                res.pkg_name = Some(package.name.clone());
+                res.pkg_version = Some(package.version.to_string());
+                res.pkg_authors = Some(package.authors.clone());
             }
         } else {
             // Need to get the packages...
@@ -106,11 +126,7 @@ pub fn get_tests(config: &Config) -> Result<Vec<TestBinary>, RunError> {
                         _ => false,
                     })
                 {
-                    result.push(TestBinary {
-                        path: dt.path().to_path_buf(),
-                        ty: *ty,
-                        cargo_dir: None,
-                    });
+                    result.push(TestBinary::new(dt.path().to_path_buf(), *ty));
                 }
             }
         }
