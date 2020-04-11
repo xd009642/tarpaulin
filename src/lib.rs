@@ -196,5 +196,19 @@ fn execute_test(test: &TestBinary, ignored: bool, config: &Config) -> Result<(),
         argv.push(CString::new(s.as_bytes()).unwrap_or_default());
     }
 
+    if let Some(s) = test.pkg_name() {
+        envars.push(CString::new(format!("CARGO_PKG_NAME={}", s)).unwrap_or_default());
+    }
+    if let Some(s) = test.pkg_version() {
+        envars.push(CString::new(format!("CARGO_PKG_VERSION={}", s)).unwrap_or_default());
+    }
+    if let Some(s) = test.pkg_authors() {
+        envars.push(CString::new(format!("CARGO_PKG_AUTHORS={}", s.join(":"))).unwrap_or_default());
+    }
+    if let Some(s) = test.manifest_dir() {
+        envars
+            .push(CString::new(format!("CARGO_MANIFEST_DIR={}", s.display())).unwrap_or_default());
+    }
+
     execute(exec_path, &argv, envars.as_slice())
 }
