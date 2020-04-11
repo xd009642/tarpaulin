@@ -84,6 +84,9 @@ pub fn get_tests(config: &Config) -> Result<Vec<TestBinary>, RunError> {
                 match msg {
                     Ok(Message::CompilerArtifact(art)) => {
                         if let Some(path) = art.executable {
+                            if !art.profile.test && ty == &RunType::Tests {
+                                continue;
+                            }
                             result.push(TestBinary::new(path, *ty));
                             package_ids.push(art.package_id.clone());
                         }
