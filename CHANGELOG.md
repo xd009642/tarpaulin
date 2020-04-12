@@ -7,6 +7,8 @@ file.
 ### Added
 
 ### Changed
+- Update object and if an ELF section can't be parsed return an io error instead of letting it continue 
+with an empty section
 
 ### Removed
 
