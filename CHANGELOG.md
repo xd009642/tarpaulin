@@ -11,6 +11,7 @@ file.
 with an empty section
 - Removed forcing of `opt-level` to 0
 - When `--debug` is provided now print the cargo command/arg list and pass `-vvv` to cargo
+- Create target directory if option given via `--target-dir` doesn't exist
 
 ### Removed
 

@@ -6,6 +6,7 @@ use regex::Regex;
 use serde::de::{self, Deserializer};
 use std::env;
 use std::fmt;
+use std::fs::create_dir_all;
 use std::path::PathBuf;
 use std::str::FromStr;
 use std::time::Duration;
@@ -60,6 +61,9 @@ pub(super) fn default_manifest() -> PathBuf {
 pub(super) fn get_target_dir(args: &ArgMatches) -> Option<PathBuf> {
     if let Some(path) = args.value_of("target-dir") {
         let path = PathBuf::from(path);
+        if !path.exists() {
+            let _ = create_dir_all(&path);
+        }
         let path = if path.is_relative() {
             env::current_dir()
                 .unwrap()
