@@ -3,7 +3,7 @@ use crate::errors::RunError;
 use cargo_metadata::{
     diagnostic::DiagnosticLevel, parse_messages, CargoOpt, Message, MetadataCommand,
 };
-use log::error;
+use log::{error, trace};
 use std::env;
 use std::path::{Path, PathBuf};
 use std::process::{Command, Stdio};
@@ -76,6 +76,7 @@ pub fn get_tests(config: &Config) -> Result<Vec<TestBinary>, RunError> {
         if !config.verbose {
             cmd.stderr(Stdio::null());
         }
+        trace!("Running command {:?}", cmd);
         let mut child = cmd.spawn().map_err(|e| RunError::Cargo(e.to_string()))?;
 
         if ty != &RunType::Doctests {
@@ -169,6 +170,9 @@ fn create_command(manifest_path: &str, config: &Config, ty: &RunType) -> Command
 }
 
 fn init_args(test_cmd: &mut Command, config: &Config) {
+    if config.debug {
+        test_cmd.arg("-vvv");
+    }
     if config.locked {
         test_cmd.arg("--locked");
     }
@@ -215,8 +219,7 @@ fn init_args(test_cmd: &mut Command, config: &Config) {
 fn setup_environment(cmd: &mut Command, config: &Config) {
     cmd.env("TARPAULIN", "1");
     let rustflags = "RUSTFLAGS";
-    let common_opts =
-        " -C relocation-model=dynamic-no-pic -C link-dead-code -C opt-level=0 -C debuginfo=2 ";
+    let common_opts = " -C relocation-model=dynamic-no-pic -C link-dead-code -C debuginfo=2 ";
     let mut value = common_opts.to_string();
     if config.release {
         value = format!("{}-C debug-assertions=off ", value);

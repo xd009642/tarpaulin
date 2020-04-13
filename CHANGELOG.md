@@ -9,6 +9,8 @@ file.
 ### Changed
 - Update object and if an ELF section can't be parsed return an io error instead of letting it continue 
 with an empty section
+- Removed forcing of `opt-level` to 0
+- When `--debug` is provided now print the cargo command/arg list and pass `-vvv` to cargo
 
 ### Removed
 
