@@ -10,7 +10,7 @@ use std::collections::{HashMap, HashSet};
 use std::ffi::OsStr;
 use std::fs::File;
 use std::io::{BufRead, BufReader, Read};
-use std::path::{Path, PathBuf};
+use std::path::{Component, Path, PathBuf};
 use syn::*;
 use walkdir::{DirEntry, WalkDir};
 
@@ -206,6 +206,13 @@ fn is_target_folder(entry: &DirEntry, root: &Path) -> bool {
     entry.path().starts_with(&target)
 }
 
+fn is_hidden(entry: &DirEntry) -> bool {
+    entry
+        .path()
+        .into_iter()
+        .any(|x| x.to_string_lossy().starts_with("."))
+}
+
 /// Returns a list of files and line numbers to ignore (not indexes!)
 pub fn get_line_analysis(config: &Config) -> HashMap<PathBuf, LineAnalysis> {
     let mut result: HashMap<PathBuf, LineAnalysis> = HashMap::new();
@@ -215,7 +222,7 @@ pub fn get_line_analysis(config: &Config) -> HashMap<PathBuf, LineAnalysis> {
 
     let walker = WalkDir::new(&root).into_iter();
     for e in walker
-        .filter_entry(|e| !is_target_folder(e, &root))
+        .filter_entry(|e| !(is_target_folder(e, &root) || is_hidden(e)))
         .filter_map(|e| e.ok())
         .filter(|e| is_source_file(e))
     {
