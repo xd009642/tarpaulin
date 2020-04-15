@@ -5,6 +5,7 @@ file.
 
 ## [Unreleased]
 ### Added
+- Ignore hidden files and folders based on a dot prefix to the folder or filename 
 
 ### Changed
 - Update object and if an ELF section can't be parsed return an io error instead of letting it continue 

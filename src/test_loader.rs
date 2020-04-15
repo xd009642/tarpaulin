@@ -185,9 +185,12 @@ where
                 } else {
                     path.starts_with(project.join("target"))
                 };
+                let is_hidden = path
+                    .into_iter()
+                    .any(|x| x.to_string_lossy().starts_with("."));
 
                 // Source is part of project so we cover it.
-                if !is_target && path.starts_with(project) {
+                if !is_target && !is_hidden && path.starts_with(project) {
                     if let Some(file) = ln_row.file(header) {
                         let line = ln_row.line().unwrap();
                         let file = file.path_name();
