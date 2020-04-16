@@ -5,6 +5,13 @@ file.
 
 ## [Unreleased]
 ### Added
+
+### Changed
+
+### Removed
+
+## [0.12.3] - 2020-04-16
+### Added
 - Ignore hidden files and folders based on a dot prefix to the folder or filename 
 
 ### Changed
