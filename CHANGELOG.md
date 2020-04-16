@@ -10,6 +10,19 @@ file.
 
 ### Removed
 
+## [0.12.3] - 2020-04-16
+### Added
+- Ignore hidden files and folders based on a dot prefix to the folder or filename 
+
+### Changed
+- Update object and if an ELF section can't be parsed return an io error instead of letting it continue 
+with an empty section
+- Removed forcing of `opt-level` to 0
+- When `--debug` is provided now print the cargo command/arg list and pass `-vvv` to cargo
+- Create target directory if option given via `--target-dir` doesn't exist
+
+### Removed
+
 ## [0.12.2] 2020-04-11
 ### Changed
 - Fill in `CARGO_PKG_NAME`, `CARG_PKG_VERSION`, `CARGO_PKG_AUTHORS` and 

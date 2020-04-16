@@ -26,7 +26,7 @@ Below is the help-text for a thorough explanation of the flags and features
 available:
 
 ```
-cargo-tarpaulin version: 0.12.1
+cargo-tarpaulin version: 0.12.3
 Tool to analyse test coverage of cargo projects
 
 USAGE:
@@ -87,6 +87,14 @@ OPTIONS:
 ARGS:
     <args>...    Arguments to be passed to the test executables can be used to filter or skip certain tests
 ```
+
+### Note on tests using signals
+
+If your tests or application make use of unix signals they may not work with
+tarpaulin. This is because tarpaulin relies on the sigtrap signal to catch when
+the instrumentation points are hit. The `--forward` option results in 
+forwarding the signals from process stops not caused by SIGSTOP, SIGSEGV or 
+SIGILL to the test binary.
 
 ## Features
 

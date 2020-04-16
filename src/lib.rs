@@ -12,6 +12,7 @@ use nix::unistd::*;
 use std::collections::HashMap;
 use std::env;
 use std::ffi::CString;
+use std::fs::create_dir_all;
 use std::path::{Path, PathBuf};
 
 pub mod breakpoint;
@@ -35,6 +36,14 @@ pub fn trace(configs: &[Config]) -> Result<TraceMap, RunError> {
     for config in configs.iter() {
         if config.name == "report" {
             continue;
+        }
+        if let Some(tgt) = &config.target_dir {
+            if !tgt.exists() {
+                let ret = create_dir_all(&tgt);
+                if let Err(e) = ret {
+                    warn!("Failed to create target-dir {}", e);
+                }
+            }
         }
         match launch_tarpaulin(config) {
             Ok((t, r)) => {
