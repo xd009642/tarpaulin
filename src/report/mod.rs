@@ -30,15 +30,16 @@ pub fn report_coverage(config: &Config, result: &TraceMap) -> Result<(), RunErro
         }
         print_summary(config, result);
         generate_requested_reports(config, result)?;
-        if let Some(project_dir) = config.manifest.parent() {
-            let mut report_dir = project_dir.join("target");
-            report_dir.push("tarpaulin");
-            report_dir.push("coverage.json");
-            let file = File::create(&report_dir)
-                .map_err(|_| RunError::CovReport("Failed to create run report".to_string()))?;
-            serde_json::to_writer(&file, &result)
-                .map_err(|_| RunError::CovReport("Failed to save run report".to_string()))?;
+        let mut report_dir = config.target_dir();
+        report_dir.push("tarpaulin");
+        if !report_dir.exists() {
+            let _ = create_dir_all(&report_dir);
         }
+        report_dir.push("coverage.json");
+        let file = File::create(&report_dir)
+            .map_err(|_| RunError::CovReport("Failed to create run report".to_string()))?;
+        serde_json::to_writer(&file, &result)
+            .map_err(|_| RunError::CovReport("Failed to save run report".to_string()))?;
         Ok(())
     } else if !config.no_run {
         Err(RunError::CovReport(
@@ -125,7 +126,7 @@ fn get_previous_result(config: &Config) -> Option<TraceMap> {
             serde_json::from_reader(reader).ok()
         } else {
             // make directory
-            std::fs::create_dir(&report_dir)
+            create_dir_all(&report_dir)
                 .unwrap_or_else(|e| error!("Failed to create report directory: {}", e));
             None
         }

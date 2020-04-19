@@ -97,7 +97,7 @@ pub struct Config {
     pub frozen: bool,
     /// Directory for generated artifacts
     #[serde(rename = "target-dir")]
-    pub target_dir: Option<PathBuf>,
+    target_dir: Option<PathBuf>,
     /// Run tarpaulin on project without accessing the network
     pub offline: bool,
     /// Types of tests for tarpaulin to collect coverage on
@@ -246,6 +246,22 @@ impl<'a> From<&'a ArgMatches<'a>> for ConfigWrapper {
 }
 
 impl Config {
+    pub fn target_dir(&self) -> PathBuf {
+        if let Some(s) = &self.target_dir {
+            s.clone()
+        } else {
+            match *self.get_metadata() {
+                Some(ref meta) => meta.target_directory.clone(),
+                _ => self
+                    .manifest
+                    .parent()
+                    .map(|x| x.to_path_buf())
+                    .unwrap_or_default()
+                    .join("target"),
+            }
+        }
+    }
+
     fn get_metadata(&self) -> Ref<Option<Metadata>> {
         if self.metadata.borrow().is_none() {
             match MetadataCommand::new().manifest_path(&self.manifest).exec() {

@@ -196,13 +196,11 @@ fn init_args(test_cmd: &mut Command, config: &Config) {
     if config.release {
         test_cmd.arg("--release");
     }
-    if let Some(ref target_dir) = config.target_dir {
-        let args = vec![
-            "--target-dir".to_string(),
-            format!("{}", target_dir.display()),
-        ];
-        test_cmd.args(args);
-    }
+    let args = vec![
+        "--target-dir".to_string(),
+        format!("{}", config.target_dir().display()),
+    ];
+    test_cmd.args(args);
     if config.offline {
         test_cmd.arg("--offline");
     }

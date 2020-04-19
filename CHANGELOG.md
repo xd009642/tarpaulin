@@ -7,6 +7,7 @@ file.
 ### Added
 
 ### Changed
+- Find target folder from metadata if not provided and place reports there (fixes running from packages inside workspaces)
 
 ### Removed
 

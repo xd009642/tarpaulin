@@ -37,12 +37,11 @@ pub fn trace(configs: &[Config]) -> Result<TraceMap, RunError> {
         if config.name == "report" {
             continue;
         }
-        if let Some(tgt) = &config.target_dir {
-            if !tgt.exists() {
-                let ret = create_dir_all(&tgt);
-                if let Err(e) = ret {
-                    warn!("Failed to create target-dir {}", e);
-                }
+        let tgt = config.target_dir();
+        if !tgt.exists() {
+            let ret = create_dir_all(&tgt);
+            if let Err(e) = ret {
+                warn!("Failed to create target-dir {}", e);
             }
         }
         match launch_tarpaulin(config) {
