@@ -32,6 +32,9 @@ pub fn report_coverage(config: &Config, result: &TraceMap) -> Result<(), RunErro
         generate_requested_reports(config, result)?;
         let mut report_dir = config.target_dir();
         report_dir.push("tarpaulin");
+        if !report_dir.exists() {
+            let _ = create_dir_all(&report_dir);
+        }
         report_dir.push("coverage.json");
         let file = File::create(&report_dir)
             .map_err(|_| RunError::CovReport("Failed to create run report".to_string()))?;
@@ -123,7 +126,7 @@ fn get_previous_result(config: &Config) -> Option<TraceMap> {
             serde_json::from_reader(reader).ok()
         } else {
             // make directory
-            std::fs::create_dir(&report_dir)
+            create_dir_all(&report_dir)
                 .unwrap_or_else(|e| error!("Failed to create report directory: {}", e));
             None
         }
