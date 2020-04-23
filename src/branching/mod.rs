@@ -1,19 +1,34 @@
-use std::collections::HashMap;
+use std::collections::{BTreeMap, HashMap};
+use std::path::{Path, PathBuf};
 
-/// The start and end of contiguous range of lines. The range is contained within
-/// `start..end`
-#[derive(Copy, Clone, Debug, Eq, PartialEq, Hash)]
-pub struct LineRange {
-    /// Start of the line range (inclusive)
-    start: usize,
-    /// End of the line range (exclusive)
-    end: usize,
+#[derive(Clone, Debug, Default, Eq, PartialEq)]
+pub struct BranchContext {
+    files: HashMap<PathBuf, BranchAnalysis>,
 }
 
-impl LineRange {
-    /// Returns true if the line is contained within the line range
-    pub fn contains(&self, line: usize) -> bool {
-        line >= self.start && line < self.end
+impl BranchContext {
+    pub fn is_branch<P: AsRef<Path>>(&self, path: P, line: usize) -> bool {
+        if let Some(file) = self.files.get(path.as_ref()) {
+            file.is_branch(line)
+        } else {
+            false
+        }
+    }
+}
+
+/// Coverage context for all the branches
+#[derive(Clone, Debug, Default, Eq, PartialEq)]
+pub struct BranchAnalysis {
+    /// Each key is `LineRange` showing a region of the code containing a set of branches with the
+    /// value being a `LineRange` for each branch in the code
+    /// TODO consider BTreeMap then can order on line range start
+    branches: BTreeMap<LineRange, Branches>,
+}
+
+impl BranchAnalysis {
+    /// Returns true if the line is part of a branch
+    pub fn is_branch(&self, line: usize) -> bool {
+        self.branches.iter().any(|(k, _)| k.contains(line))
     }
 }
 
@@ -27,18 +42,19 @@ pub struct Branches {
     implicit_default: bool,
 }
 
-/// Coverage context for all the branches
-#[derive(Clone, Debug, Default, Eq, PartialEq)]
-pub struct BranchAnalysis {
-    /// Each key is `LineRange` showing a region of the code containing a set of branches with the
-    /// value being a `LineRange` for each branch in the code
-    /// TODO consider BTreeMap then can order on line range start
-    branches: HashMap<LineRange, Branches>,
+/// The start and end of contiguous range of lines. The range is contained within
+/// `start..end`
+#[derive(Copy, Clone, Debug, Eq, PartialEq, Hash, Ord, PartialOrd)]
+pub struct LineRange {
+    /// Start of the line range (inclusive)
+    start: usize,
+    /// End of the line range (exclusive)
+    end: usize,
 }
 
-impl BranchAnalysis {
-    /// Returns true if the line is part of a branch
-    pub fn is_branch(&self, line: usize) -> bool {
-        self.branches.iter().any(|(k, _)| k.contains(line))
+impl LineRange {
+    /// Returns true if the line is contained within the line range
+    pub fn contains(&self, line: usize) -> bool {
+        line >= self.start && line < self.end
     }
 }
