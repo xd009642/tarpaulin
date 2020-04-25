@@ -1,5 +1,6 @@
 use std::collections::{BTreeMap, HashMap};
 use std::path::{Path, PathBuf};
+use syn::*;
 
 #[derive(Clone, Debug, Default, Eq, PartialEq)]
 pub struct BranchContext {
@@ -30,6 +31,25 @@ impl BranchAnalysis {
     pub fn is_branch(&self, line: usize) -> bool {
         self.branches.iter().any(|(k, _)| k.contains(line))
     }
+
+    pub fn register_expr(&mut self, expr: &Expr) {
+        let range = LineRange::from(expr);
+        match *expr {
+            Expr::If(ref e) => {
+                self.branches.insert(range, e.into());
+            }
+            Expr::Match(ref e) => {
+                self.branches.insert(range, e.into());
+            }
+            Expr::ForLoop(ref e) => {
+                self.branches.insert(range, e.into());
+            }
+            Expr::While(ref e) => {
+                self.branches.insert(range, e.into());
+            }
+            _ => {}
+        }
+    }
 }
 
 /// Represents possible branches through an execution
@@ -42,6 +62,36 @@ pub struct Branches {
     implicit_default: bool,
 }
 
+impl From<&ExprIf> for Branches {
+    fn from(expr: &ExprIf) -> Self {
+        todo!()
+    }
+}
+
+impl From<&ExprMatch> for Branches {
+    fn from(expr: &ExprMatch) -> Self {
+        todo!()
+    }
+}
+
+impl From<&ExprForLoop> for Branches {
+    fn from(expr: &ExprForLoop) -> Self {
+        Self {
+            implicit_default: true,
+            ranges: vec![expr.body.clone().into()],
+        }
+    }
+}
+
+impl From<&ExprWhile> for Branches {
+    fn from(expr: &ExprWhile) -> Self {
+        Self {
+            implicit_default: true,
+            ranges: vec![expr.body.clone().into()],
+        }
+    }
+}
+
 /// The start and end of contiguous range of lines. The range is contained within
 /// `start..end`
 #[derive(Copy, Clone, Debug, Eq, PartialEq, Hash, Ord, PartialOrd)]
@@ -50,6 +100,18 @@ pub struct LineRange {
     start: usize,
     /// End of the line range (exclusive)
     end: usize,
+}
+
+impl<T> From<T> for LineRange
+where
+    T: spanned::Spanned,
+{
+    fn from(t: T) -> Self {
+        Self {
+            start: t.span().start().line,
+            end: t.span().end().line + 1,
+        }
+    }
 }
 
 impl LineRange {
