@@ -142,7 +142,14 @@ pub fn get_tests(config: &Config) -> Result<Vec<TestBinary>, RunError> {
 fn create_command(manifest_path: &str, config: &Config, ty: &RunType) -> Command {
     let mut test_cmd = Command::new("cargo");
     if *ty == RunType::Doctests {
-        test_cmd.args(&["+nightly", "test"]);
+        if let Some(toolchain) = env::var("RUSTUP_TOOLCHAIN")
+            .ok()
+            .filter(|t| t.starts_with("nightly"))
+        {
+            test_cmd.args(&[format!("+{}", toolchain).as_str(), "test"]);
+        } else {
+            test_cmd.args(&["+nightly", "test"]);
+        }
     } else {
         if let Ok(toolchain) = env::var("RUSTUP_TOOLCHAIN") {
             test_cmd.arg(format!("+{}", toolchain));
