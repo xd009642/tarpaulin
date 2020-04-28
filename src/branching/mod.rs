@@ -64,13 +64,44 @@ pub struct Branches {
 
 impl From<&ExprIf> for Branches {
     fn from(expr: &ExprIf) -> Self {
-        todo!()
+        let mut ranges = vec![];
+        let mut else_block = expr.else_branch.as_ref().map(|x| x.1.clone());
+        let mut implicit_default = else_block.is_none();
+        while let Some(el) = else_block {
+            let mut lr = LineRange::from(&el);
+            if let Expr::If(ref i) = *el {
+                else_block = i.else_branch.as_ref().map(|x| x.1.clone());
+                implicit_default = else_block.is_none();
+                if let Some(s) = &else_block {
+                    let lr2 = LineRange::from(s);
+                    if lr2.start < lr.end {
+                        lr.end = lr2.start - 1;
+                    }
+                    ranges.push(lr);
+                }
+            } else {
+                else_block = None;
+                ranges.push(lr);
+            }
+        }
+        Self {
+            ranges,
+            implicit_default,
+        }
     }
 }
 
 impl From<&ExprMatch> for Branches {
     fn from(expr: &ExprMatch) -> Self {
-        todo!()
+        let ranges = expr
+            .arms
+            .iter()
+            .map(|x| LineRange::from(x))
+            .collect::<Vec<_>>();
+        Self {
+            implicit_default: false,
+            ranges,
+        }
     }
 }
 
