@@ -376,7 +376,12 @@ impl Config {
             self.verbose = other.verbose;
         }
         self.manifest = other.manifest.clone();
-        self.root = other.root.clone();
+        self.root = Config::pick_optional_config(&self.root, &other.root);
+        self.coveralls = Config::pick_optional_config(&self.coveralls, &other.coveralls);
+        self.ci_tool = Config::pick_optional_config(&self.ci_tool, &other.ci_tool);
+        self.report_uri = Config::pick_optional_config(&self.report_uri, &other.report_uri);
+        self.target_dir = Config::pick_optional_config(&self.target_dir, &other.target_dir);
+
         if !other.excluded_files_raw.is_empty() {
             self.excluded_files_raw
                 .extend_from_slice(&other.excluded_files_raw);
@@ -384,6 +389,17 @@ impl Config {
             // Now invalidated the compiled regex cache so clear it
             let mut excluded_files = self.excluded_files.borrow_mut();
             excluded_files.clear();
+        }
+    }
+
+    pub fn pick_optional_config<T: Clone>(
+        base_config: &Option<T>,
+        override_config: &Option<T>,
+    ) -> Option<T> {
+        if override_config.is_some() {
+            override_config.clone()
+        } else {
+            base_config.clone()
         }
     }
 
@@ -603,6 +619,32 @@ mod tests {
 
         assert_eq!(config.excluded_files_raw.len(), 2);
         assert_eq!(configs[0].excluded_files_raw.len(), 1);
+    }
+
+    #[test]
+    fn coveralls_merge() {
+        let toml = r#"[a]
+        coveralls = "abcd"
+        report-uri = "https://example.com/report"
+
+        [b]
+        coveralls = "xyz"
+        ciserver = "coveralls-ruby"
+        "#;
+
+        let configs = Config::parse_config_toml(toml.as_bytes()).unwrap();
+        let mut a_config = configs.iter().find(|x| x.name == "a").unwrap().clone();
+        let b_config = configs.iter().find(|x| x.name == "b").unwrap();
+        a_config.merge(b_config);
+        assert_eq!(a_config.coveralls, Some("xyz".to_string()));
+        assert_eq!(
+            a_config.ci_tool,
+            Some(CiService::Other("coveralls-ruby".to_string()))
+        );
+        assert_eq!(
+            a_config.report_uri,
+            Some("https://example.com/report".to_string())
+        );
     }
 
     #[test]
