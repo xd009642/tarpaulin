@@ -146,8 +146,69 @@ where
 }
 
 impl LineRange {
+    pub fn new(start: usize, end: usize) -> Self {
+        Self { start, end }
+    }
+
     /// Returns true if the line is contained within the line range
     pub fn contains(&self, line: usize) -> bool {
         line >= self.start && line < self.end
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use syn::{parse_file, Expr, Item, Stmt};
+
+    #[test]
+    fn if_branches() {
+        let source = "fn foo(x: i32) {
+            if x > 0 {
+                println!(\"BOO\");
+            } else if x < 0 {
+                todo!()
+            }
+        }";
+        let parser = parse_file(source).unwrap();
+        let func = &parser.items[0];
+        let mut branches = None;
+        if let Item::Fn(func) = func {
+            for stmt in &func.block.stmts {
+                match stmt {
+                    Stmt::Expr(e) => {
+                        if let Expr::If(i) = e {
+                            branches = Some(Branches::from(i));
+                        }
+                    }
+                    Stmt::Semi(e, _) => {
+                        if let Expr::If(i) = e {
+                            branches = Some(Branches::from(i));
+                        }
+                    }
+                    _ => {}
+                }
+            }
+        }
+        let branches = branches.unwrap();
+        assert!(branches.implicit_default);
+        assert_eq!(branches.ranges.len(), 2);
+        assert_eq!(branches.ranges[0], LineRange::new(2, 4));
+        assert_eq!(branches.ranges[1], LineRange::new(4, 6));
+    }
+
+    #[test]
+    fn match_branches() {
+        todo!()
+    }
+
+    #[test]
+    fn for_branches() {
+        todo!()
+    }
+
+    #[test]
+    fn while_branches() {
+        todo!()
     }
 }
