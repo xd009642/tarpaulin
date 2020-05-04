@@ -120,7 +120,7 @@ impl Report {
     }
 
     pub fn export(&self, config: &Config) -> Result<(), Error> {
-        let file_path = config.output_directory.join("cobertura.xml");
+        let file_path = config.output_dir().join("cobertura.xml");
         let mut file =
             File::create(file_path).map_err(|e| Error::ExportError(quick_xml::Error::Io(e)))?;
 

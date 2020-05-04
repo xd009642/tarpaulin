@@ -5,7 +5,7 @@ use std::fs::File;
 use std::io::Write;
 
 pub fn export(coverage_data: &TraceMap, config: &Config) -> Result<(), RunError> {
-    let file_path = config.output_directory.join("lcov.info");
+    let file_path = config.output_dir().join("lcov.info");
     let mut file = match File::create(file_path) {
         Ok(k) => k,
         Err(e) => {

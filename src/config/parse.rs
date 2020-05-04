@@ -99,11 +99,8 @@ pub(super) fn get_outputs(args: &ArgMatches) -> Vec<OutputFile> {
     values_t!(args.values_of("out"), OutputFile).unwrap_or(vec![])
 }
 
-pub(super) fn get_output_directory(args: &ArgMatches) -> PathBuf {
-    if let Some(path) = args.value_of("output-dir") {
-        return PathBuf::from(path);
-    }
-    env::current_dir().unwrap()
+pub(super) fn get_output_directory(args: &ArgMatches) -> Option<PathBuf> {
+    args.value_of("output-dir").map(|path| PathBuf::from(path))
 }
 
 pub(super) fn get_run_types(args: &ArgMatches) -> Vec<RunType> {
