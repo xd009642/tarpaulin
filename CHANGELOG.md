@@ -9,6 +9,9 @@ file.
 ### Changed
 - Find target folder from metadata if not provided and place reports there (fixes running from packages inside workspaces)
 - Using date-locked toolchains no longer defaults to trying to use a toolchain with the channel name and no date
+- The following CLI options now take effect even when a custom config file is
+  in place: `output-dir`, `target-dir`, `root`, `coveralls`, `ciserver`,
+  `report-uri`.
 
 ### Removed
 

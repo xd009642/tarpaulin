@@ -59,7 +59,7 @@ pub struct Config {
     pub branch_coverage: bool,
     /// Directory to write output files
     #[serde(rename = "output-dir")]
-    pub output_directory: PathBuf,
+    pub output_directory: Option<PathBuf>,
     /// Key relating to coveralls service or repo
     pub coveralls: Option<String>,
     /// Enum representing CI tool used.
@@ -291,6 +291,14 @@ impl Config {
         }
     }
 
+    pub fn output_dir(&self) -> PathBuf {
+        if let Some(ref path) = self.output_directory {
+            path.clone()
+        } else {
+            env::current_dir().unwrap()
+        }
+    }
+
     pub fn get_config_vec(file_configs: std::io::Result<Vec<Self>>, backup: Self) -> ConfigWrapper {
         if file_configs.is_err() {
             warn!("Failed to deserialize config file falling back to provided args");
@@ -381,6 +389,8 @@ impl Config {
         self.ci_tool = Config::pick_optional_config(&self.ci_tool, &other.ci_tool);
         self.report_uri = Config::pick_optional_config(&self.report_uri, &other.report_uri);
         self.target_dir = Config::pick_optional_config(&self.target_dir, &other.target_dir);
+        self.output_directory =
+            Config::pick_optional_config(&self.output_directory, &other.output_directory);
 
         if !other.excluded_files_raw.is_empty() {
             self.excluded_files_raw
@@ -451,7 +461,7 @@ impl Config {
 
     #[inline]
     pub fn is_default_output_dir(&self) -> bool {
-        self.output_directory == env::current_dir().unwrap()
+        self.output_directory.is_none()
     }
 }
 
@@ -645,6 +655,48 @@ mod tests {
             a_config.report_uri,
             Some("https://example.com/report".to_string())
         );
+    }
+
+    #[test]
+    fn output_dir_merge() {
+        let toml = r#"[has_dir]
+        output-dir = "foo"
+
+        [no_dir]
+        coveralls = "xyz"
+        
+        [other_dir]
+        output-dir = "bar"
+        "#;
+
+        let configs = Config::parse_config_toml(toml.as_bytes()).unwrap();
+        let has_dir = configs
+            .iter()
+            .find(|x| x.name == "has_dir")
+            .unwrap()
+            .clone();
+        let no_dir = configs.iter().find(|x| x.name == "no_dir").unwrap().clone();
+        let other_dir = configs
+            .iter()
+            .find(|x| x.name == "other_dir")
+            .unwrap()
+            .clone();
+
+        let mut merged_into_has_dir = has_dir.clone();
+        merged_into_has_dir.merge(&no_dir);
+        assert_eq!(merged_into_has_dir.output_dir(), PathBuf::from("foo"));
+
+        let mut merged_into_no_dir = no_dir.clone();
+        merged_into_no_dir.merge(&has_dir);
+        assert_eq!(merged_into_no_dir.output_dir(), PathBuf::from("foo"));
+
+        let mut neither_merged_dir = no_dir.clone();
+        neither_merged_dir.merge(&no_dir);
+        assert_eq!(neither_merged_dir.output_dir(), env::current_dir().unwrap());
+
+        let mut both_merged_dir = has_dir.clone();
+        both_merged_dir.merge(&other_dir);
+        assert_eq!(both_merged_dir.output_dir(), PathBuf::from("bar"));
     }
 
     #[test]
