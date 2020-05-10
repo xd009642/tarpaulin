@@ -6,6 +6,13 @@ file.
 ## [Unreleased]
 ### Added
 
+### Changed
+
+### Removed
+
+## [0.12.4] - 2020-05-10
+### Added
+
 - The `CARGO_TARPAULIN_TARGET_DIR` environment variable may be used to set the
   default target directory for tarpaulin artifacts. The command line argument
   has precedence.
