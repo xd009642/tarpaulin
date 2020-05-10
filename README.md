@@ -244,7 +244,6 @@ the settings of your codecov project.
 
 ```yml
 language: rust
-sudo: required # required for some configurations
 # tarpaulin has only been tested on bionic and trusty other distros may have issues
 dist: bionic
 addons:
