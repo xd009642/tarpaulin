@@ -1,54 +1,61 @@
 use crate::report::cobertura;
-use failure::Fail;
+use std::fmt::{self, Display, Formatter};
 /// Error states that could be returned from tarpaulin
-#[derive(Fail, Debug)]
+#[derive(Debug)]
 pub enum RunError {
     /// Error in cargo manifests
-    #[fail(display = "Failed to parse Cargo.toml! Error: {}", _0)]
     Manifest(String),
     /// Cargo failed to run
-    #[fail(display = "Cargo failed to run! Error: {}", _0)]
     Cargo(String),
     /// Error trying to resolve package configuration in manifest
-    #[fail(display = "Failed to resolve package in manifest! Error: {}", _0)]
     Packages(String),
     /// Tests failed to compile
-    #[fail(display = "Failed to compile tests! Error: {}", _0)]
     TestCompile(String),
     /// Test failed during run
-    #[fail(display = "Failed to run tests: {}", _0)]
     TestRuntime(String),
-    #[fail(display = "Test failed during run")]
     TestFailed,
     /// Failed to parse
-    #[fail(display = "Error while parsing: {}", _0)]
     Parse(std::io::Error),
     /// Failed to get test coverage
-    #[fail(display = "Failed to get test coverage! Error: {}", _0)]
     TestCoverage(String),
-    #[fail(display = "Failed to trace! Error: {}", _0)]
     Trace(String),
-    #[fail(display = "Failed to report coverage! Error: {}", _0)]
     CovReport(String),
-    #[fail(display = "{}", _0)]
     OutFormat(String),
-    #[fail(display = "{}", _0)]
     IO(std::io::Error),
-    #[fail(display = "Error running test: {}", _0)]
     StateMachine(String),
-    //TODO: Better error message!
-    #[fail(display = "{}", _0)]
     NixError(nix::Error),
-    #[fail(display = "Failed to generate HTML report! Error: {}", _0)]
     Html(String),
-    #[fail(display = "Failed to generate XML report! Error: {}", _0)]
     XML(cobertura::Error),
-    #[fail(display = "Failed to generate Lcov report! Error: {}", _0)]
     Lcov(String),
-    #[fail(display = "Failed to generate JSON report! Error: {}", _0)]
     Json(String),
-    #[fail(display = "Tarpaulin experienced an internal error")]
     Internal,
+}
+
+impl Display for RunError {
+    fn fmt(&self, f: &mut Formatter) -> fmt::Result {
+        match self {
+            Self::Manifest(e) => write!(f, "Failed to parse Cargo.toml! Error: {}", e),
+            Self::Cargo(e) => write!(f, "Cargo failed to run! Error: {}", e),
+            Self::Packages(e) => write!(f, "Failed to resolve package in manifest! Error: {}", e),
+            Self::TestCompile(e) => write!(f, "Failed to compile tests! Error: {}", e),
+            Self::TestRuntime(e) => write!(f, "Failed to run tests: {}", e),
+            Self::TestFailed => write!(f, "Test failed during run"),
+            Self::Parse(e) => write!(f, "Error while parsing: {}", e),
+            Self::TestCoverage(e) => write!(f, "Failed to get test coverage! Error: {}", e),
+            // TODO: Better error message!
+            Self::Trace(e) => write!(f, "Failed to trace! Error: {}", e),
+            Self::CovReport(e) => write!(f, "Failed to report coverage! Error: {}", e),
+            Self::OutFormat(e) => write!(f, "{}", e),
+            Self::IO(e) => write!(f, "{}", e),
+            Self::StateMachine(e) => write!(f, "Error running test: {}", e),
+            Self::NixError(e) => write!(f, "{}", e),
+            Self::Html(e) => write!(f, "Failed to generate HTML report! Error: {}", e),
+            Self::XML(e) => write!(f, "Failed to generate XML report! Error: {}", e),
+            Self::Lcov(e) => write!(f, "Failed to generate Lcov report! Error: {}", e),
+            Self::Json(e) => write!(f, "Failed to generate JSON report! Error: {}", e),
+            Self::Internal => write!(f, "Tarpaulin experienced an internal error"),
+        }
+    }
 }
 
 impl From<std::io::Error> for RunError {
