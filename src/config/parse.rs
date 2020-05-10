@@ -59,24 +59,27 @@ pub(super) fn default_manifest() -> PathBuf {
 }
 
 pub(super) fn get_target_dir(args: &ArgMatches) -> Option<PathBuf> {
-    if let Some(path) = args.value_of("target-dir") {
-        let path = PathBuf::from(path);
-        if !path.exists() {
-            let _ = create_dir_all(&path);
-        }
-        let path = if path.is_relative() {
-            env::current_dir()
-                .unwrap()
-                .join(path)
-                .canonicalize()
-                .unwrap()
-        } else {
-            path
-        };
-        Some(path)
+    let path = if let Some(path) = args.value_of("target-dir") {
+        PathBuf::from(path)
+    } else if let Some(envvar) = env::var_os("CARGO_TARPAULIN_TARGET_DIR") {
+        PathBuf::from(envvar)
     } else {
-        None
+        return None;
+    };
+
+    if !path.exists() {
+        let _ = create_dir_all(&path);
     }
+    let path = if path.is_relative() {
+        env::current_dir()
+            .unwrap()
+            .join(path)
+            .canonicalize()
+            .unwrap()
+    } else {
+        path
+    };
+    Some(path)
 }
 
 pub(super) fn get_root(args: &ArgMatches) -> Option<String> {
