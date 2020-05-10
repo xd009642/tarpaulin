@@ -5,6 +5,7 @@ use syn::*;
 
 #[derive(Clone, Debug, Default, Eq, PartialEq)]
 pub struct BranchContext {
+    /// Map of files and the branches contained within them
     files: HashMap<PathBuf, BranchAnalysis>,
 }
 
@@ -23,7 +24,6 @@ impl BranchContext {
 pub struct BranchAnalysis {
     /// Each key is `LineRange` showing a region of the code containing a set of branches with the
     /// value being a `LineRange` for each branch in the code
-    /// TODO consider BTreeMap then can order on line range start
     branches: BTreeMap<LineRange, Branches>,
 }
 
