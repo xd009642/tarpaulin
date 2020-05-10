@@ -10,6 +10,22 @@ file.
 
 ### Removed
 
+## [0.12.4] - 2020-05-10
+### Added
+
+- The `CARGO_TARPAULIN_TARGET_DIR` environment variable may be used to set the
+  default target directory for tarpaulin artifacts. The command line argument
+  has precedence.
+
+### Changed
+- Find target folder from metadata if not provided and place reports there (fixes running from packages inside workspaces)
+- Using date-locked toolchains no longer defaults to trying to use a toolchain with the channel name and no date
+- The following CLI options now take effect even when a custom config file is
+  in place: `output-dir`, `target-dir`, `root`, `coveralls`, `ciserver`,
+  `report-uri`.
+
+### Removed
+
 ## [0.12.3] - 2020-04-16
 ### Added
 - Ignore hidden files and folders based on a dot prefix to the folder or filename 

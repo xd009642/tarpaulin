@@ -75,7 +75,7 @@ impl Into<JsonStringResult> for &TraceMap {
 }
 
 pub fn export(coverage_data: &TraceMap, config: &Config) -> Result<(), RunError> {
-    let file_path = config.output_directory.join("tarpaulin-report.json");
+    let file_path = config.output_dir().join("tarpaulin-report.json");
     let report: JsonStringResult = coverage_data.into();
     fs::File::create(file_path)?
         .write_all(report?.as_bytes())

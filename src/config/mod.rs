@@ -59,7 +59,7 @@ pub struct Config {
     pub branch_coverage: bool,
     /// Directory to write output files
     #[serde(rename = "output-dir")]
-    pub output_directory: PathBuf,
+    pub output_directory: Option<PathBuf>,
     /// Key relating to coveralls service or repo
     pub coveralls: Option<String>,
     /// Enum representing CI tool used.
@@ -97,7 +97,7 @@ pub struct Config {
     pub frozen: bool,
     /// Directory for generated artifacts
     #[serde(rename = "target-dir")]
-    pub target_dir: Option<PathBuf>,
+    target_dir: Option<PathBuf>,
     /// Run tarpaulin on project without accessing the network
     pub offline: bool,
     /// Types of tests for tarpaulin to collect coverage on
@@ -246,6 +246,22 @@ impl<'a> From<&'a ArgMatches<'a>> for ConfigWrapper {
 }
 
 impl Config {
+    pub fn target_dir(&self) -> PathBuf {
+        if let Some(s) = &self.target_dir {
+            s.clone()
+        } else {
+            match *self.get_metadata() {
+                Some(ref meta) => meta.target_directory.clone(),
+                _ => self
+                    .manifest
+                    .parent()
+                    .map(|x| x.to_path_buf())
+                    .unwrap_or_default()
+                    .join("target"),
+            }
+        }
+    }
+
     fn get_metadata(&self) -> Ref<Option<Metadata>> {
         if self.metadata.borrow().is_none() {
             match MetadataCommand::new().manifest_path(&self.manifest).exec() {
@@ -272,6 +288,14 @@ impl Config {
         match *self.get_metadata() {
             Some(ref meta) => meta.packages.clone(),
             None => vec![],
+        }
+    }
+
+    pub fn output_dir(&self) -> PathBuf {
+        if let Some(ref path) = self.output_directory {
+            path.clone()
+        } else {
+            env::current_dir().unwrap()
         }
     }
 
@@ -360,7 +384,14 @@ impl Config {
             self.verbose = other.verbose;
         }
         self.manifest = other.manifest.clone();
-        self.root = other.root.clone();
+        self.root = Config::pick_optional_config(&self.root, &other.root);
+        self.coveralls = Config::pick_optional_config(&self.coveralls, &other.coveralls);
+        self.ci_tool = Config::pick_optional_config(&self.ci_tool, &other.ci_tool);
+        self.report_uri = Config::pick_optional_config(&self.report_uri, &other.report_uri);
+        self.target_dir = Config::pick_optional_config(&self.target_dir, &other.target_dir);
+        self.output_directory =
+            Config::pick_optional_config(&self.output_directory, &other.output_directory);
+
         if !other.excluded_files_raw.is_empty() {
             self.excluded_files_raw
                 .extend_from_slice(&other.excluded_files_raw);
@@ -368,6 +399,17 @@ impl Config {
             // Now invalidated the compiled regex cache so clear it
             let mut excluded_files = self.excluded_files.borrow_mut();
             excluded_files.clear();
+        }
+    }
+
+    pub fn pick_optional_config<T: Clone>(
+        base_config: &Option<T>,
+        override_config: &Option<T>,
+    ) -> Option<T> {
+        if override_config.is_some() {
+            override_config.clone()
+        } else {
+            base_config.clone()
         }
     }
 
@@ -419,7 +461,7 @@ impl Config {
 
     #[inline]
     pub fn is_default_output_dir(&self) -> bool {
-        self.output_directory == env::current_dir().unwrap()
+        self.output_directory.is_none()
     }
 }
 
@@ -587,6 +629,74 @@ mod tests {
 
         assert_eq!(config.excluded_files_raw.len(), 2);
         assert_eq!(configs[0].excluded_files_raw.len(), 1);
+    }
+
+    #[test]
+    fn coveralls_merge() {
+        let toml = r#"[a]
+        coveralls = "abcd"
+        report-uri = "https://example.com/report"
+
+        [b]
+        coveralls = "xyz"
+        ciserver = "coveralls-ruby"
+        "#;
+
+        let configs = Config::parse_config_toml(toml.as_bytes()).unwrap();
+        let mut a_config = configs.iter().find(|x| x.name == "a").unwrap().clone();
+        let b_config = configs.iter().find(|x| x.name == "b").unwrap();
+        a_config.merge(b_config);
+        assert_eq!(a_config.coveralls, Some("xyz".to_string()));
+        assert_eq!(
+            a_config.ci_tool,
+            Some(CiService::Other("coveralls-ruby".to_string()))
+        );
+        assert_eq!(
+            a_config.report_uri,
+            Some("https://example.com/report".to_string())
+        );
+    }
+
+    #[test]
+    fn output_dir_merge() {
+        let toml = r#"[has_dir]
+        output-dir = "foo"
+
+        [no_dir]
+        coveralls = "xyz"
+        
+        [other_dir]
+        output-dir = "bar"
+        "#;
+
+        let configs = Config::parse_config_toml(toml.as_bytes()).unwrap();
+        let has_dir = configs
+            .iter()
+            .find(|x| x.name == "has_dir")
+            .unwrap()
+            .clone();
+        let no_dir = configs.iter().find(|x| x.name == "no_dir").unwrap().clone();
+        let other_dir = configs
+            .iter()
+            .find(|x| x.name == "other_dir")
+            .unwrap()
+            .clone();
+
+        let mut merged_into_has_dir = has_dir.clone();
+        merged_into_has_dir.merge(&no_dir);
+        assert_eq!(merged_into_has_dir.output_dir(), PathBuf::from("foo"));
+
+        let mut merged_into_no_dir = no_dir.clone();
+        merged_into_no_dir.merge(&has_dir);
+        assert_eq!(merged_into_no_dir.output_dir(), PathBuf::from("foo"));
+
+        let mut neither_merged_dir = no_dir.clone();
+        neither_merged_dir.merge(&no_dir);
+        assert_eq!(neither_merged_dir.output_dir(), env::current_dir().unwrap());
+
+        let mut both_merged_dir = has_dir.clone();
+        both_merged_dir.merge(&other_dir);
+        assert_eq!(both_merged_dir.output_dir(), PathBuf::from("bar"));
     }
 
     #[test]

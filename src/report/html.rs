@@ -62,7 +62,7 @@ fn get_json(coverage_data: &TraceMap, context: Context) -> Result<String, RunErr
 }
 
 pub fn export(coverage_data: &TraceMap, config: &Config) -> Result<(), RunError> {
-    let file_path = config.output_directory.join("tarpaulin-report.html");
+    let file_path = config.output_dir().join("tarpaulin-report.html");
     let mut file = match File::create(file_path) {
         Ok(k) => k,
         Err(e) => {

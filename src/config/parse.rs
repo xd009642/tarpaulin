@@ -59,24 +59,27 @@ pub(super) fn default_manifest() -> PathBuf {
 }
 
 pub(super) fn get_target_dir(args: &ArgMatches) -> Option<PathBuf> {
-    if let Some(path) = args.value_of("target-dir") {
-        let path = PathBuf::from(path);
-        if !path.exists() {
-            let _ = create_dir_all(&path);
-        }
-        let path = if path.is_relative() {
-            env::current_dir()
-                .unwrap()
-                .join(path)
-                .canonicalize()
-                .unwrap()
-        } else {
-            path
-        };
-        Some(path)
+    let path = if let Some(path) = args.value_of("target-dir") {
+        PathBuf::from(path)
+    } else if let Some(envvar) = env::var_os("CARGO_TARPAULIN_TARGET_DIR") {
+        PathBuf::from(envvar)
     } else {
-        None
+        return None;
+    };
+
+    if !path.exists() {
+        let _ = create_dir_all(&path);
     }
+    let path = if path.is_relative() {
+        env::current_dir()
+            .unwrap()
+            .join(path)
+            .canonicalize()
+            .unwrap()
+    } else {
+        path
+    };
+    Some(path)
 }
 
 pub(super) fn get_root(args: &ArgMatches) -> Option<String> {
@@ -99,11 +102,8 @@ pub(super) fn get_outputs(args: &ArgMatches) -> Vec<OutputFile> {
     values_t!(args.values_of("out"), OutputFile).unwrap_or(vec![])
 }
 
-pub(super) fn get_output_directory(args: &ArgMatches) -> PathBuf {
-    if let Some(path) = args.value_of("output-dir") {
-        return PathBuf::from(path);
-    }
-    env::current_dir().unwrap()
+pub(super) fn get_output_directory(args: &ArgMatches) -> Option<PathBuf> {
+    args.value_of("output-dir").map(|path| PathBuf::from(path))
 }
 
 pub(super) fn get_run_types(args: &ArgMatches) -> Vec<RunType> {
