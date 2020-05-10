@@ -6,6 +6,10 @@ file.
 ## [Unreleased]
 ### Added
 
+- The `CARGO_TARPAULIN_TARGET_DIR` environment variable may be used to set the
+  default target directory for tarpaulin artifacts. The command line argument
+  has precedence.
+
 ### Changed
 - Find target folder from metadata if not provided and place reports there (fixes running from packages inside workspaces)
 - Using date-locked toolchains no longer defaults to trying to use a toolchain with the channel name and no date
