@@ -1,5 +1,9 @@
 use crate::report::cobertura;
-use std::fmt::{self, Display, Formatter};
+use std::{
+    error::Error,
+    fmt::{self, Display, Formatter},
+};
+
 /// Error states that could be returned from tarpaulin
 #[derive(Debug)]
 pub enum RunError {
@@ -54,6 +58,17 @@ impl Display for RunError {
             Self::Lcov(e) => write!(f, "Failed to generate Lcov report! Error: {}", e),
             Self::Json(e) => write!(f, "Failed to generate JSON report! Error: {}", e),
             Self::Internal => write!(f, "Tarpaulin experienced an internal error"),
+        }
+    }
+}
+
+impl Error for RunError {
+    fn source(&self) -> Option<&(dyn Error + 'static)> {
+        match self {
+            Self::Parse(e) | Self::IO(e) => Some(e),
+            Self::XML(e) => Some(e),
+            Self::NixError(e) => Some(e),
+            _ => None,
         }
     }
 }
