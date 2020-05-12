@@ -248,7 +248,7 @@ impl TraceMap {
         self.all_traces()
             .iter()
             .find(|x| x.address.contains(&address))
-            .map(|x| *x)
+            .copied()
     }
 
     /// Gets a mutable reference to a trace at a given address
@@ -354,9 +354,9 @@ mod tests {
         let y = CoverageStat::Line(5);
         let z = CoverageStat::Line(7);
         let xy = x.clone() + y.clone();
-        let yx = y.clone() + x.clone();
+        let yx = y.clone() + x;
         let yy = y.clone() + y.clone();
-        let zy = z.clone() + y.clone();
+        let zy = z + y;
         assert_eq!(&xy, &CoverageStat::Line(5));
         assert_eq!(&yx, &xy);
         assert_eq!(&yy, &CoverageStat::Line(10));

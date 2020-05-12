@@ -47,7 +47,7 @@ impl From<&TraceMap> for Vec<SourceFile> {
                         .components()
                         .map(|c| c.as_os_str().to_string_lossy().to_string())
                         .collect(),
-                    content: content,
+                    content,
                     traces: traces.clone(),
                     covered: coverage_data.covered_in_path(path),
                     coverable: coverage_data.coverable_in_path(path),

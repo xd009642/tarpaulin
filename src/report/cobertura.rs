@@ -100,22 +100,22 @@ impl Report {
         let mut line_rate = 0.0;
         let mut branch_rate = 0.0;
 
-        if packages.len() > 0 {
+        if !packages.is_empty() {
             line_rate = packages.iter().map(|x| x.line_rate).sum::<f64>() / packages.len() as f64;
             branch_rate =
                 packages.iter().map(|x| x.branch_rate).sum::<f64>() / packages.len() as f64;
         }
 
         Ok(Report {
-            timestamp: timestamp,
+            timestamp,
             lines_covered: traces.total_covered(),
             lines_valid: traces.total_coverable(),
-            line_rate: line_rate,
+            line_rate,
             branches_covered: 0,
             branches_valid: 0,
-            branch_rate: branch_rate,
-            sources: sources,
-            packages: packages,
+            branch_rate,
+            sources,
+            packages,
         })
     }
 
@@ -127,7 +127,7 @@ impl Report {
         let mut writer = Writer::new(Cursor::new(vec![]));
         writer
             .write_event(Event::Decl(BytesDecl::new(b"1.0", None, None)))
-            .map_err(|e| Error::ExportError(e))?;
+            .map_err(Error::ExportError)?;
 
         let cov_tag = b"coverage";
         let mut cov = BytesStart::borrowed(cov_tag, cov_tag.len());
@@ -151,17 +151,17 @@ impl Report {
 
         writer
             .write_event(Event::Start(cov))
-            .map_err(|e| Error::ExportError(e))?;
+            .map_err(Error::ExportError)?;
 
         self.export_header(&mut writer)
-            .map_err(|e| Error::ExportError(e))?;
+            .map_err(Error::ExportError)?;
 
         self.export_packages(&mut writer)
-            .map_err(|e| Error::ExportError(e))?;
+            .map_err(Error::ExportError)?;
 
         writer
             .write_event(Event::End(BytesEnd::borrowed(cov_tag)))
-            .map_err(|e| Error::ExportError(e))?;
+            .map_err(Error::ExportError)?;
 
         let result = writer.into_inner().into_inner();
         file.write_all(&result)
@@ -314,8 +314,8 @@ fn render_package(config: &Config, traces: &TraceMap, pkg: &Path) -> Package {
     let line_rate = line_cover / (traces.coverable_in_path(pkg) as f64);
 
     Package {
-        name: name,
-        line_rate: line_rate,
+        name,
+        line_rate,
         branch_rate: 0.0,
         complexity: 0.0,
         classes: render_classes(config, traces, pkg),
@@ -368,12 +368,12 @@ fn render_class(config: &Config, traces: &TraceMap, file: &Path) -> Class {
         .collect();
 
     Class {
-        name: name,
-        file_name: file_name,
-        line_rate: line_rate,
+        name,
+        file_name,
+        line_rate,
         branch_rate: 0.0,
         complexity: 0.0,
-        lines: lines,
+        lines,
         methods: vec![],
     }
 }

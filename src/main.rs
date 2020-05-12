@@ -40,7 +40,7 @@ fn set_up_logging(debug: bool, verbose: bool) {
         .init();
 }
 
-const CI_SERVER_HELP: &'static str = "Name of service, supported services are:
+const CI_SERVER_HELP: &str = "Name of service, supported services are:
 travis-ci, travis-pro, circle-ci, semaphore, jenkins and codeship.
 If you are interfacing with coveralls.io or another site you can \
 also specify a name that they will recognise. Refer to their documentation for this.";

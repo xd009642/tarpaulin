@@ -109,9 +109,10 @@ fn visit_fn(func: &ItemFn, analysis: &mut LineAnalysis, ctx: &Context) {
             }
         }
     }
-    if ignore_span {
-        analysis.ignore_tokens(func);
-    } else if (test_func && ctx.config.ignore_tests) || (ignored_attr && !ctx.config.run_ignored) {
+    if ignore_span
+        || (test_func && ctx.config.ignore_tests)
+        || (ignored_attr && !ctx.config.run_ignored)
+    {
         analysis.ignore_tokens(func);
     } else {
         if is_inline {

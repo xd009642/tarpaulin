@@ -58,7 +58,7 @@ fn get_json(coverage_data: &TraceMap, context: Context) -> Result<String, RunErr
     }
 
     safe_json::to_string_safe(&report)
-        .map_err(|e| RunError::Html(format!("Report isn't serializable: {}", e.to_string())))
+        .map_err(|e| RunError::Html(format!("Report isn't serializable: {}", e)))
 }
 
 pub fn export(coverage_data: &TraceMap, config: &Config) -> Result<(), RunError> {

@@ -103,7 +103,7 @@ pub(super) fn get_outputs(args: &ArgMatches) -> Vec<OutputFile> {
 }
 
 pub(super) fn get_output_directory(args: &ArgMatches) -> Option<PathBuf> {
-    args.value_of("output-dir").map(|path| PathBuf::from(path))
+    args.value_of("output-dir").map(PathBuf::from)
 }
 
 pub(super) fn get_run_types(args: &ArgMatches) -> Vec<RunType> {

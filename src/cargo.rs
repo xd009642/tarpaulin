@@ -1,8 +1,6 @@
 use crate::config::*;
 use crate::errors::RunError;
-use cargo_metadata::{
-    diagnostic::DiagnosticLevel, parse_messages, CargoOpt, Message, MetadataCommand,
-};
+use cargo_metadata::{diagnostic::DiagnosticLevel, CargoOpt, Message, MetadataCommand};
 use log::{error, trace};
 use std::env;
 use std::path::{Path, PathBuf};
@@ -81,7 +79,8 @@ pub fn get_tests(config: &Config) -> Result<Vec<TestBinary>, RunError> {
 
         if ty != &RunType::Doctests {
             let mut package_ids = vec![];
-            for msg in parse_messages(child.stdout.take().unwrap()) {
+            let reader = std::io::BufReader::new(child.stdout.take().unwrap());
+            for msg in Message::parse_stream(reader) {
                 match msg {
                     Ok(Message::CompilerArtifact(art)) => {
                         if let Some(path) = art.executable {

@@ -13,7 +13,7 @@ fn only_test_coverage() {
     let restore_dir = env::current_dir().unwrap();
     let test_dir = get_test_path("all_test_types");
     env::set_current_dir(&test_dir).unwrap();
-    config.manifest = test_dir.clone();
+    config.manifest = test_dir;
     config.manifest.push("Cargo.toml");
 
     let (res, ret) = launch_tarpaulin(&config).unwrap();
@@ -39,7 +39,7 @@ fn only_example_coverage() {
     let restore_dir = env::current_dir().unwrap();
     let test_dir = get_test_path("all_test_types");
     env::set_current_dir(&test_dir).unwrap();
-    config.manifest = test_dir.clone();
+    config.manifest = test_dir;
     config.manifest.push("Cargo.toml");
 
     let (res, ret) = launch_tarpaulin(&config).unwrap();
@@ -66,7 +66,7 @@ fn only_bench_coverage() {
     let restore_dir = env::current_dir().unwrap();
     let test_dir = get_test_path("all_test_types");
     env::set_current_dir(&test_dir).unwrap();
-    config.manifest = test_dir.clone();
+    config.manifest = test_dir;
     config.manifest.push("Cargo.toml");
 
     let (res, ret) = launch_tarpaulin(&config).unwrap();
@@ -93,7 +93,7 @@ fn only_doctest_coverage() {
     let restore_dir = env::current_dir().unwrap();
     let test_dir = get_test_path("all_test_types");
     env::set_current_dir(&test_dir).unwrap();
-    config.manifest = test_dir.clone();
+    config.manifest = test_dir;
     config.manifest.push("Cargo.toml");
 
     let (res, ret) = launch_tarpaulin(&config).unwrap();

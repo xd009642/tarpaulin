@@ -209,8 +209,8 @@ impl<'a> From<&'a ArgMatches<'a>> for ConfigWrapper {
             all: args.is_present("all") | args.is_present("workspace"),
             packages: get_list(args, "packages"),
             exclude: get_list(args, "exclude"),
-            excluded_files: RefCell::new(excluded_files.clone()),
-            excluded_files_raw: excluded_files_raw.clone(),
+            excluded_files: RefCell::new(excluded_files),
+            excluded_files_raw,
             varargs: get_list(args, "args"),
             test_timeout: get_timeout(args),
             release: args.is_present("release"),
@@ -234,13 +234,11 @@ impl<'a> From<&'a ArgMatches<'a>> for ConfigWrapper {
             }
             let confs = Config::load_config_file(&path);
             Config::get_config_vec(confs, args_config)
+        } else if let Some(cfg) = args_config.check_for_configs() {
+            let confs = Config::load_config_file(&cfg);
+            Config::get_config_vec(confs, args_config)
         } else {
-            if let Some(cfg) = args_config.check_for_configs() {
-                let confs = Config::load_config_file(&cfg);
-                Config::get_config_vec(confs, args_config)
-            } else {
-                Self(vec![args_config])
-            }
+            Self(vec![args_config])
         }
     }
 }
@@ -320,12 +318,10 @@ impl Config {
     pub fn check_for_configs(&self) -> Option<PathBuf> {
         if let Some(root) = &self.root {
             Self::check_path_for_configs(&root)
+        } else if let Some(root) = self.manifest.clone().parent() {
+            Self::check_path_for_configs(&root)
         } else {
-            if let Some(root) = self.manifest.clone().parent() {
-                Self::check_path_for_configs(&root)
-            } else {
-                None
-            }
+            None
         }
     }
 
@@ -694,7 +690,7 @@ mod tests {
         neither_merged_dir.merge(&no_dir);
         assert_eq!(neither_merged_dir.output_dir(), env::current_dir().unwrap());
 
-        let mut both_merged_dir = has_dir.clone();
+        let mut both_merged_dir = has_dir;
         both_merged_dir.merge(&other_dir);
         assert_eq!(both_merged_dir.output_dir(), PathBuf::from("bar"));
     }

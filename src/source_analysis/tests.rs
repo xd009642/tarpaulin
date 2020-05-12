@@ -291,7 +291,7 @@ fn filter_macros() {
     process_items(&parser.items, &ctx, &mut lines);
 
     // Braces should be ignored so number could be higher
-    assert!(lines.ignore.len() >= 1);
+    assert!(!lines.ignore.is_empty());
     assert!(lines.ignore.contains(&Lines::Line(4)));
     let mut lines = LineAnalysis::new();
     let ctx = Context {
@@ -302,7 +302,7 @@ fn filter_macros() {
     };
     let parser = parse_file(ctx.file_contents).unwrap();
     process_items(&parser.items, &ctx, &mut lines);
-    assert!(lines.ignore.len() >= 1);
+    assert!(!lines.ignore.is_empty());
     assert!(lines.ignore.contains(&Lines::Line(4)));
 
     let mut lines = LineAnalysis::new();

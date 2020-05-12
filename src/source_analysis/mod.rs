@@ -209,8 +209,8 @@ fn is_target_folder(entry: &DirEntry, root: &Path) -> bool {
 fn is_hidden(entry: &DirEntry) -> bool {
     entry
         .path()
-        .into_iter()
-        .any(|x| x.to_string_lossy().starts_with("."))
+        .iter()
+        .any(|x| x.to_string_lossy().starts_with('.'))
 }
 
 /// Returns a list of files and line numbers to ignore (not indexes!)
@@ -289,7 +289,7 @@ pub fn debug_printout(result: &HashMap<PathBuf, LineAnalysis>, config: &Config) 
 fn analyse_lib_rs(file: &Path, result: &mut HashMap<PathBuf, LineAnalysis>) {
     if let Ok(f) = File::open(file) {
         let read_file = BufReader::new(f);
-        if let Some(Ok(first)) = read_file.lines().nth(0) {
+        if let Some(Ok(first)) = read_file.lines().next() {
             if !(first.starts_with("pub") || first.starts_with("fn")) {
                 let file = file.to_path_buf();
                 if result.contains_key(&file) {
