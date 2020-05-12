@@ -2,7 +2,6 @@ use clap::arg_enum;
 use coveralls_api::CiService;
 use serde::{Deserialize, Serialize};
 use std::str::FromStr;
-use void::Void;
 
 arg_enum! {
     #[derive(Debug, Copy, Clone, PartialEq, Eq, Hash, Ord, PartialOrd, Deserialize, Serialize)]
@@ -38,7 +37,7 @@ pub struct Ci(pub CiService);
 
 impl FromStr for Ci {
     /// This can never fail, so the error type is uninhabited.
-    type Err = Void;
+    type Err = std::convert::Infallible;
 
     #[inline]
     fn from_str(x: &str) -> Result<Ci, Self::Err> {
