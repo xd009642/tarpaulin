@@ -298,11 +298,7 @@ impl Config {
     }
 
     pub fn get_config_vec(file_configs: std::io::Result<Vec<Self>>, backup: Self) -> ConfigWrapper {
-        if file_configs.is_err() {
-            warn!("Failed to deserialize config file falling back to provided args");
-            ConfigWrapper(vec![backup])
-        } else {
-            let mut confs = file_configs.unwrap();
+        if let Ok(mut confs) = file_configs {
             for c in confs.iter_mut() {
                 c.merge(&backup);
             }
@@ -311,6 +307,9 @@ impl Config {
             } else {
                 ConfigWrapper(confs)
             }
+        } else {
+            warn!("Failed to deserialize config file falling back to provided args");
+            ConfigWrapper(vec![backup])
         }
     }
 

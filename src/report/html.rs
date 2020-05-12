@@ -79,7 +79,7 @@ pub fn export(coverage_data: &TraceMap, config: &Config) -> Result<(), RunError>
         None => String::from("null"),
     };
 
-    let html_write = match write!(
+    match write!(
         file,
         r##"<!doctype html>
 <html>
@@ -107,5 +107,5 @@ pub fn export(coverage_data: &TraceMap, config: &Config) -> Result<(), RunError>
         Err(e) => return Err(RunError::Html(e.to_string())),
     };
 
-    Ok(html_write)
+    Ok(())
 }
