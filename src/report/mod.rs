@@ -56,19 +56,17 @@ fn generate_requested_reports(config: &Config, result: &TraceMap) -> Result<(), 
         info!("Coverage data sent");
     }
 
-    if !config.is_default_output_dir() {
-        if create_dir_all(&config.output_dir()).is_err() {
-            return Err(RunError::OutFormat(format!(
-                "Failed to create or locate custom output directory: {:?}",
-                config.output_directory,
-            )));
-        }
+    if !config.is_default_output_dir() && create_dir_all(&config.output_dir()).is_err() {
+        return Err(RunError::OutFormat(format!(
+            "Failed to create or locate custom output directory: {:?}",
+            config.output_directory,
+        )));
     }
 
     for g in &config.generate {
         match *g {
             OutputFile::Xml => {
-                cobertura::report(result, config).map_err(|e| RunError::XML(e))?;
+                cobertura::report(result, config).map_err(RunError::XML)?;
             }
             OutputFile::Html => {
                 html::export(result, config)?;

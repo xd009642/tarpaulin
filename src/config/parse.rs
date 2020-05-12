@@ -19,7 +19,7 @@ pub(super) fn get_line_cov(args: &ArgMatches) -> bool {
     let cover_lines = args.is_present("line");
     let cover_branches = args.is_present("branch");
 
-    cover_lines || !(cover_lines || cover_branches)
+    cover_lines || !cover_branches
 }
 
 pub(super) fn get_branch_cov(args: &ArgMatches) -> bool {
@@ -99,15 +99,15 @@ pub(super) fn get_report_uri(args: &ArgMatches) -> Option<String> {
 }
 
 pub(super) fn get_outputs(args: &ArgMatches) -> Vec<OutputFile> {
-    values_t!(args.values_of("out"), OutputFile).unwrap_or(vec![])
+    values_t!(args.values_of("out"), OutputFile).unwrap_or_else(|_| vec![])
 }
 
 pub(super) fn get_output_directory(args: &ArgMatches) -> Option<PathBuf> {
-    args.value_of("output-dir").map(|path| PathBuf::from(path))
+    args.value_of("output-dir").map(PathBuf::from)
 }
 
 pub(super) fn get_run_types(args: &ArgMatches) -> Vec<RunType> {
-    values_t!(args.values_of("run-types"), RunType).unwrap_or(vec![RunType::Tests])
+    values_t!(args.values_of("run-types"), RunType).unwrap_or_else(|_| vec![RunType::Tests])
 }
 
 pub(super) fn get_excluded(args: &ArgMatches) -> Vec<Regex> {

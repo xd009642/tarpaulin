@@ -149,7 +149,7 @@ where
 fn get_addresses_from_program<R, Offset>(
     prog: IncompleteLineProgram<R>,
     debug_strs: &DebugStr<R>,
-    entries: &Vec<(u64, LineType, &Option<String>)>,
+    entries: &[(u64, LineType, &Option<String>)],
     project: &Path,
     result: &mut HashMap<SourceLocation, Vec<TracerData>>,
 ) -> Result<()>
@@ -185,9 +185,7 @@ where
                 } else {
                     path.starts_with(project.join("target"))
                 };
-                let is_hidden = path
-                    .into_iter()
-                    .any(|x| x.to_string_lossy().starts_with("."));
+                let is_hidden = path.iter().any(|x| x.to_string_lossy().starts_with('.'));
 
                 // Source is part of project so we cover it.
                 if !is_target && !is_hidden && path.starts_with(project) {
@@ -205,7 +203,7 @@ where
                                 .iter()
                                 .filter(|&&(addr, _, _)| addr == address)
                                 .map(|&(_, t, fn_name)| (t, fn_name.to_owned()))
-                                .nth(0)
+                                .next()
                                 .unwrap_or((LineType::Unknown, None));
                             let loc = SourceLocation { path, line };
                             if desc != LineType::TestMain {
