@@ -7,6 +7,7 @@ file.
 ### Added
 
 ### Changed
+- Examples coverage now runs the tests that would be ran with `cargo test --examples`
 
 ### Removed
 

@@ -153,11 +153,7 @@ fn create_command(manifest_path: &str, config: &Config, ty: &RunType) -> Command
         if let Ok(toolchain) = env::var("RUSTUP_TOOLCHAIN") {
             test_cmd.arg(format!("+{}", toolchain));
         }
-        if *ty != RunType::Examples {
-            test_cmd.args(&["test", "--no-run"]);
-        } else {
-            test_cmd.arg("build");
-        }
+        test_cmd.args(&["test", "--no-run"]);
     }
     test_cmd.args(&["--message-format", "json", "--manifest-path", manifest_path]);
     match ty {
