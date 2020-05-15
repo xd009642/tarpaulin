@@ -82,6 +82,7 @@ fn main() -> Result<(), String> {
                  --no-run 'Compile tests but don't run coverage'
                  --locked 'Do not update Cargo.lock'
                  --frozen 'Do not update Cargo.lock or any caches'
+                 --target [TRIPLE] 'Compilation target triple'
                  --target-dir [DIR] 'Directory for all generated artifacts'
                  --offline 'Run without accessing the network'
                  -Z [FEATURES]...   'List of unstable nightly only flags'")

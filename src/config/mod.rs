@@ -95,6 +95,8 @@ pub struct Config {
     pub locked: bool,
     /// Don't update `Cargo.lock` or any caches.
     pub frozen: bool,
+    /// Build for the target triple.
+    pub target: Option<String>,
     /// Directory for generated artifacts
     #[serde(rename = "target-dir")]
     target_dir: Option<PathBuf>,
@@ -166,6 +168,7 @@ impl Default for Config {
             no_run: false,
             locked: false,
             frozen: false,
+            target: None,
             target_dir: None,
             offline: false,
             metadata: RefCell::new(None),
@@ -217,6 +220,7 @@ impl<'a> From<&'a ArgMatches<'a>> for ConfigWrapper {
             no_run: args.is_present("no-run"),
             locked: args.is_present("locked"),
             frozen: args.is_present("frozen"),
+            target: get_target(args),
             target_dir: get_target_dir(args),
             offline: args.is_present("offline"),
             metadata: RefCell::new(None),
@@ -724,6 +728,7 @@ mod tests {
         no-run = true
         locked = true
         frozen = true
+        target = "wasm32-unknown-unknown"
         target-dir = "/tmp"
         offline = true
         Z = ["something-nightly"]
@@ -754,6 +759,8 @@ mod tests {
         assert!(config.no_run);
         assert!(config.locked);
         assert!(config.frozen);
+        assert_eq!(Some(String::from("wasm32-unknown-unknown")), config.target);
+        assert_eq!(Some(Path::new("/tmp").to_path_buf()), config.target_dir);
         assert!(config.offline);
         assert_eq!(config.test_timeout, Duration::from_secs(5));
         assert_eq!(config.unstable_features.len(), 1);
