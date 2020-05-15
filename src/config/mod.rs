@@ -392,6 +392,7 @@ impl Config {
         self.coveralls = Config::pick_optional_config(&self.coveralls, &other.coveralls);
         self.ci_tool = Config::pick_optional_config(&self.ci_tool, &other.ci_tool);
         self.report_uri = Config::pick_optional_config(&self.report_uri, &other.report_uri);
+        self.target = Config::pick_optional_config(&self.target, &other.target);
         self.target_dir = Config::pick_optional_config(&self.target_dir, &other.target_dir);
         self.output_directory =
             Config::pick_optional_config(&self.output_directory, &other.output_directory);
@@ -633,6 +634,27 @@ mod tests {
 
         assert_eq!(config.excluded_files_raw.len(), 2);
         assert_eq!(configs[0].excluded_files_raw.len(), 1);
+    }
+
+    #[test]
+    fn target_merge() {
+        let toml_a = r#""#;
+        let toml_b = r#"target = "wasm32-unknown-unknown""#;
+        let toml_c = r#"target = "x86_64-linux-gnu""#;
+
+        let mut a: Config = toml::from_slice(toml_a.as_bytes()).unwrap();
+        let mut b: Config = toml::from_slice(toml_b.as_bytes()).unwrap();
+        let c: Config = toml::from_slice(toml_c.as_bytes()).unwrap();
+
+        assert_eq!(a.target, None);
+        assert_eq!(b.target, Some(String::from("wasm32-unknown-unknown")));
+        assert_eq!(c.target, Some(String::from("x86_64-linux-gnu")));
+
+        b.merge(&c);
+        assert_eq!(b.target, Some(String::from("x86_64-linux-gnu")));
+
+        a.merge(&b);
+        assert_eq!(a.target, Some(String::from("x86_64-linux-gnu")));
     }
 
     #[test]

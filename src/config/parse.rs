@@ -59,9 +59,7 @@ pub(super) fn default_manifest() -> PathBuf {
 }
 
 pub(super) fn get_target(args: &ArgMatches) -> Option<String> {
-    args.value_of("target").map(String::from).or_else(|| {
-        env::var_os("CARGO_BUILD_TARGET").and_then(|env_var| env_var.into_string().ok())
-    })
+    args.value_of("target").map(String::from)
 }
 
 pub(super) fn get_target_dir(args: &ArgMatches) -> Option<PathBuf> {
