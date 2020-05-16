@@ -126,6 +126,9 @@ Tarpaulin used to rely on Cargo as a dependency and then require an ssl install
 as well as other libraries but now it uses your system cargo simplifying the
 installation and massively reducing the install time on CI.
 
+When using the [Nix](https://nixos.org/nix) package manager, the `nixpkgs.cargo-tarpaulin` package can be used.
+This ensures that tarpaulin will be built with the same rust version as the rest of your packages.
+
 ### Command line
 
 To get detailed help on available arguments when running tarpaulin call:
