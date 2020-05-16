@@ -95,6 +95,8 @@ pub struct Config {
     pub locked: bool,
     /// Don't update `Cargo.lock` or any caches.
     pub frozen: bool,
+    /// Build for the target triple.
+    pub target: Option<String>,
     /// Directory for generated artifacts
     #[serde(rename = "target-dir")]
     target_dir: Option<PathBuf>,
@@ -166,6 +168,7 @@ impl Default for Config {
             no_run: false,
             locked: false,
             frozen: false,
+            target: None,
             target_dir: None,
             offline: false,
             metadata: RefCell::new(None),
@@ -217,6 +220,7 @@ impl<'a> From<&'a ArgMatches<'a>> for ConfigWrapper {
             no_run: args.is_present("no-run"),
             locked: args.is_present("locked"),
             frozen: args.is_present("frozen"),
+            target: get_target(args),
             target_dir: get_target_dir(args),
             offline: args.is_present("offline"),
             metadata: RefCell::new(None),
@@ -383,6 +387,7 @@ impl Config {
         self.coveralls = Config::pick_optional_config(&self.coveralls, &other.coveralls);
         self.ci_tool = Config::pick_optional_config(&self.ci_tool, &other.ci_tool);
         self.report_uri = Config::pick_optional_config(&self.report_uri, &other.report_uri);
+        self.target = Config::pick_optional_config(&self.target, &other.target);
         self.target_dir = Config::pick_optional_config(&self.target_dir, &other.target_dir);
         self.output_directory =
             Config::pick_optional_config(&self.output_directory, &other.output_directory);
@@ -627,6 +632,27 @@ mod tests {
     }
 
     #[test]
+    fn target_merge() {
+        let toml_a = r#""#;
+        let toml_b = r#"target = "wasm32-unknown-unknown""#;
+        let toml_c = r#"target = "x86_64-linux-gnu""#;
+
+        let mut a: Config = toml::from_slice(toml_a.as_bytes()).unwrap();
+        let mut b: Config = toml::from_slice(toml_b.as_bytes()).unwrap();
+        let c: Config = toml::from_slice(toml_c.as_bytes()).unwrap();
+
+        assert_eq!(a.target, None);
+        assert_eq!(b.target, Some(String::from("wasm32-unknown-unknown")));
+        assert_eq!(c.target, Some(String::from("x86_64-linux-gnu")));
+
+        b.merge(&c);
+        assert_eq!(b.target, Some(String::from("x86_64-linux-gnu")));
+
+        a.merge(&b);
+        assert_eq!(a.target, Some(String::from("x86_64-linux-gnu")));
+    }
+
+    #[test]
     fn coveralls_merge() {
         let toml = r#"[a]
         coveralls = "abcd"
@@ -719,6 +745,7 @@ mod tests {
         no-run = true
         locked = true
         frozen = true
+        target = "wasm32-unknown-unknown"
         target-dir = "/tmp"
         offline = true
         Z = ["something-nightly"]
@@ -749,6 +776,8 @@ mod tests {
         assert!(config.no_run);
         assert!(config.locked);
         assert!(config.frozen);
+        assert_eq!(Some(String::from("wasm32-unknown-unknown")), config.target);
+        assert_eq!(Some(Path::new("/tmp").to_path_buf()), config.target_dir);
         assert!(config.offline);
         assert_eq!(config.test_timeout, Duration::from_secs(5));
         assert_eq!(config.unstable_features.len(), 1);

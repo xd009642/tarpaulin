@@ -58,6 +58,10 @@ pub(super) fn default_manifest() -> PathBuf {
     manifest.canonicalize().unwrap_or(manifest)
 }
 
+pub(super) fn get_target(args: &ArgMatches) -> Option<String> {
+    args.value_of("target").map(String::from)
+}
+
 pub(super) fn get_target_dir(args: &ArgMatches) -> Option<PathBuf> {
     let path = if let Some(path) = args.value_of("target-dir") {
         PathBuf::from(path)

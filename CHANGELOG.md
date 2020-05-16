@@ -5,6 +5,7 @@ file.
 
 ## [Unreleased]
 ### Added
+- Compilation target is now accepted through the `--target` parameter.
 
 ### Changed
 - Examples coverage now runs the tests that would be ran with `cargo test --examples`

@@ -80,6 +80,7 @@ OPTIONS:
     -r, --root <DIR>                 Calculates relative paths to root directory. If --manifest-path isn't specified it
                                      will look for a Cargo.toml in root
         --run-types <TYPE>...        Type of the coverage run [possible values: Tests, Doctests, Benchmarks, Examples]
+        --target [TRIPLE]            Compilation target triple
         --target-dir <DIR>           Directory for all generated artifacts
     -t, --timeout <SECONDS>          Integer for the maximum time in seconds without response from test before timeout
                                      (default is 1 minute).

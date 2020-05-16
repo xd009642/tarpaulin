@@ -194,6 +194,9 @@ fn init_args(test_cmd: &mut Command, config: &Config) {
     if config.release {
         test_cmd.arg("--release");
     }
+    if let Some(target) = config.target.as_ref() {
+        test_cmd.args(&["--target", target]);
+    }
     let args = vec![
         "--target-dir".to_string(),
         format!("{}", config.target_dir().display()),
