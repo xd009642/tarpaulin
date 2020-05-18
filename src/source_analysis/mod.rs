@@ -377,10 +377,13 @@ fn analyse_package(
 /// These are often things like close braces, semi colons that may regiser as
 /// false positives.
 fn find_ignorable_lines(content: &str, analysis: &mut LineAnalysis) {
+    lazy_static! {
+        static ref IGNORABLE: Regex = Regex::new(r"^((\s*///)|([\[\]\{\}\(\)\s;\?,/]*$))").unwrap();
+    }
     let lines = content
         .lines()
         .enumerate()
-        .filter(|&(_, x)| !x.chars().any(|x| !"(){}[]?;\t ,".contains(x)))
+        .filter(|&(_, x)| IGNORABLE.is_match(&x))
         .map(|(i, _)| i + 1)
         .collect::<Vec<usize>>();
     analysis.add_to_ignore(&lines);
