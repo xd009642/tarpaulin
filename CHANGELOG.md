@@ -10,6 +10,7 @@ file.
 ### Changed
 - Examples coverage now runs the tests that would be ran with `cargo test --examples`
 - Look up previous report from correct target directory.
+- Added doc comments to ignorable lines in source analysis
 
 ### Removed
 
