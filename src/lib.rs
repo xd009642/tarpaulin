@@ -30,8 +30,7 @@ mod ptrace_control;
 
 pub fn trace(configs: &[Config]) -> Result<TraceMap, RunError> {
     let mut tracemap = TraceMap::new();
-    let mut ret = 0i32;
-    let mut failure = Ok(());
+    let mut tarpaulin_result = Ok(());
 
     for config in configs.iter() {
         if config.name == "report" {
@@ -39,31 +38,26 @@ pub fn trace(configs: &[Config]) -> Result<TraceMap, RunError> {
         }
         let tgt = config.target_dir();
         if !tgt.exists() {
-            let ret = create_dir_all(&tgt);
-            if let Err(e) = ret {
+            let create_dir_result = create_dir_all(&tgt);
+            if let Err(e) = create_dir_result {
                 warn!("Failed to create target-dir {}", e);
             }
         }
         match launch_tarpaulin(config) {
             Ok((t, r)) => {
+                if r != 0 {
+                    warn!("Test exit code: {}", r);
+                }
                 tracemap.merge(&t);
-                ret |= r;
             }
             Err(e) => {
                 error!("{}", e);
-                ret |= 1;
-                if failure.is_ok() {
-                    failure = Err(e);
-                }
+                tarpaulin_result = tarpaulin_result.and_then(|_| Err(e));
             }
         }
     }
     tracemap.dedup();
-    if ret == 0 {
-        Ok(tracemap)
-    } else {
-        Err(RunError::TestFailed)
-    }
+    tarpaulin_result.map(|_| tracemap)
 }
 
 pub fn run(configs: &[Config]) -> Result<(), RunError> {
