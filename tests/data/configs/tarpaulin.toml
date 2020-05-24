@@ -1,5 +1,5 @@
 [coverage]
-features = ["feature1"]
+features = "feature1"
 
 [coverage_2]
-features = ["feature2"]
+features = "feature2"

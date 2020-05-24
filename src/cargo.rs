@@ -177,10 +177,9 @@ fn init_args(test_cmd: &mut Command, config: &Config) {
     if config.frozen {
         test_cmd.arg("--frozen");
     }
-    if !config.features.is_empty() {
-        let mut args = vec!["--features".to_string()];
-        args.extend_from_slice(&config.features);
-        test_cmd.args(args);
+    if let Some(features) = config.features.as_ref() {
+        test_cmd.arg("--features");
+        test_cmd.arg(features);
     }
     if config.all_features {
         test_cmd.arg("--all-features");
@@ -194,6 +193,10 @@ fn init_args(test_cmd: &mut Command, config: &Config) {
     if config.release {
         test_cmd.arg("--release");
     }
+    config.packages.iter().for_each(|package| {
+        test_cmd.arg("--package");
+        test_cmd.arg(package);
+    });
     if let Some(target) = config.target.as_ref() {
         test_cmd.args(&["--target", target]);
     }

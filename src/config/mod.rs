@@ -118,8 +118,8 @@ pub struct Config {
     /// Varargs to be forwarded to the test executables.
     #[serde(rename = "args")]
     pub varargs: Vec<String>,
-    /// Features to include in the target project build
-    pub features: Vec<String>,
+    /// Features to include in the target project build, e.g. "feature1 feature2"
+    pub features: Option<String>,
     /// Unstable cargo features to use
     #[serde(rename = "Z")]
     pub unstable_features: Vec<String>,
@@ -154,7 +154,7 @@ impl Default for Config {
             report_uri: None,
             forward_signals: false,
             no_default_features: false,
-            features: vec![],
+            features: None,
             unstable_features: vec![],
             all: false,
             packages: vec![],
@@ -207,7 +207,7 @@ impl<'a> From<&'a ArgMatches<'a>> for ConfigWrapper {
             forward_signals: args.is_present("forward"),
             all_features: args.is_present("all-features"),
             no_default_features: args.is_present("no-default-features"),
-            features: get_list(args, "features"),
+            features: get_string(args, "features"),
             unstable_features: get_list(args, "Z"),
             all: args.is_present("all") | args.is_present("workspace"),
             packages: get_list(args, "packages"),
@@ -391,6 +391,15 @@ impl Config {
         self.target_dir = Config::pick_optional_config(&self.target_dir, &other.target_dir);
         self.output_directory =
             Config::pick_optional_config(&self.output_directory, &other.output_directory);
+        self.all |= other.all;
+
+        let additional_packages = other
+            .packages
+            .iter()
+            .filter(|package| !self.packages.contains(package))
+            .cloned()
+            .collect::<Vec<String>>();
+        self.packages.extend(additional_packages);
 
         if !other.excluded_files_raw.is_empty() {
             self.excluded_files_raw
@@ -653,6 +662,42 @@ mod tests {
     }
 
     #[test]
+    fn workspace_merge() {
+        let toml_a = r#"workspace = false"#;
+        let toml_b = r#"workspace = true"#;
+
+        let mut a: Config = toml::from_slice(toml_a.as_bytes()).unwrap();
+        let b: Config = toml::from_slice(toml_b.as_bytes()).unwrap();
+
+        assert_eq!(a.all, false);
+        assert_eq!(b.all, true);
+
+        a.merge(&b);
+        assert_eq!(a.all, true);
+    }
+
+    #[test]
+    fn packages_merge() {
+        let toml_a = r#"packages = []"#;
+        let toml_b = r#"packages = ["a"]"#;
+        let toml_c = r#"packages = ["b", "a"]"#;
+
+        let mut a: Config = toml::from_slice(toml_a.as_bytes()).unwrap();
+        let mut b: Config = toml::from_slice(toml_b.as_bytes()).unwrap();
+        let c: Config = toml::from_slice(toml_c.as_bytes()).unwrap();
+
+        assert_eq!(a.packages, Vec::<String>::new());
+        assert_eq!(b.packages, vec![String::from("a")]);
+        assert_eq!(c.packages, vec![String::from("b"), String::from("a")]);
+
+        a.merge(&c);
+        assert_eq!(a.packages, vec![String::from("b"), String::from("a")]);
+
+        b.merge(&c);
+        assert_eq!(b.packages, vec![String::from("a"), String::from("b")]);
+    }
+
+    #[test]
     fn coveralls_merge() {
         let toml = r#"[a]
         coveralls = "abcd"
@@ -734,7 +779,7 @@ mod tests {
         coveralls = "hello"
         report-uri = "http://hello.com"
         no-default-features = true
-        features = ["a"]
+        features = "a b"
         all-features = true
         workspace = true
         packages = ["pack_1"]
@@ -784,8 +829,7 @@ mod tests {
         assert_eq!(config.unstable_features[0], "something-nightly");
         assert_eq!(config.varargs.len(), 1);
         assert_eq!(config.varargs[0], "--nocapture");
-        assert_eq!(config.features.len(), 1);
-        assert_eq!(config.features[0], "a");
+        assert_eq!(config.features, Some(String::from("a b")));
         assert_eq!(config.excluded_files_raw.len(), 1);
         assert_eq!(config.excluded_files_raw[0], "fuzz/*");
         assert_eq!(config.packages.len(), 1);

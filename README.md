@@ -391,10 +391,10 @@ the projects manifest or in the root directory that will be used unless
 
 ```toml
 [feature_a_coverage]
-features = ["feature_a"]
+features = "feature_a"
 
-[feature_b_coverage]
-features = ["feature_b"]
+[feature_a_and_b_coverage]
+features = "feature_a feature_b"
 release = true
 
 [report]
@@ -404,10 +404,10 @@ out = ["Html", "Xml"]
 
 Here we'd create three configurations, one would run your tests with
 `feature_a` enabled, and the other with the tests built in release and
-`feature_b` enabled. The last configuration uses a reserved configuration name
-`report` and this doesn't result in a coverage run but affects the report
-output. This is a reserved feature name and any non-reporting based options
-chosen will have no effect on the output of tarpaulin.
+both `feature_a` and `feature_b` enabled. The last configuration uses a reserved
+configuration name `report` and this doesn't result in a coverage run but
+affects the report output. This is a reserved feature name and any non-reporting
+based options chosen will have no effect on the output of tarpaulin.
 
 For reference on available keys and their types refer to the CLI help text
 at the start of the readme or `src/config/mod.rs` for the concrete types
