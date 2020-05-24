@@ -11,6 +11,8 @@ file.
 - Examples coverage now runs the tests that would be ran with `cargo test --examples`
 - Look up previous report from correct target directory.
 - Added doc comments to ignorable lines in source analysis
+- Feature configurations in `tarpaulin.toml` are now run in order of declaration.
+- Compilation failure results in `cargo tarpaulin` execution failure.
 
 ### Removed
 
