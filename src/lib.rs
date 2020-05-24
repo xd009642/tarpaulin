@@ -7,7 +7,7 @@ use crate::source_analysis::LineAnalysis;
 use crate::statemachine::*;
 use crate::test_loader::*;
 use crate::traces::*;
-use log::{info, trace, warn};
+use log::{error, info, trace, warn};
 use nix::unistd::*;
 use std::collections::HashMap;
 use std::env;
@@ -30,8 +30,8 @@ mod ptrace_control;
 
 pub fn trace(configs: &[Config]) -> Result<TraceMap, RunError> {
     let mut tracemap = TraceMap::new();
+    let mut tarpaulin_result = Ok(());
     let mut ret = 0i32;
-    let mut failure = Ok(());
 
     for config in configs.iter() {
         if config.name == "report" {
@@ -39,27 +39,26 @@ pub fn trace(configs: &[Config]) -> Result<TraceMap, RunError> {
         }
         let tgt = config.target_dir();
         if !tgt.exists() {
-            let ret = create_dir_all(&tgt);
-            if let Err(e) = ret {
+            let create_dir_result = create_dir_all(&tgt);
+            if let Err(e) = create_dir_result {
                 warn!("Failed to create target-dir {}", e);
             }
         }
         match launch_tarpaulin(config) {
             Ok((t, r)) => {
-                tracemap.merge(&t);
                 ret |= r;
+                tracemap.merge(&t);
             }
             Err(e) => {
-                info!("Failure {}", e);
-                if failure.is_ok() {
-                    failure = Err(e);
-                }
+                error!("{}", e);
+                tarpaulin_result = tarpaulin_result.and_then(|_| Err(e));
             }
         }
     }
     tracemap.dedup();
+
     if ret == 0 {
-        Ok(tracemap)
+        tarpaulin_result.map(|_| tracemap)
     } else {
         Err(RunError::TestFailed)
     }

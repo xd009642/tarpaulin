@@ -5,11 +5,11 @@ use cargo_metadata::{Metadata, MetadataCommand, Package};
 use clap::ArgMatches;
 use coveralls_api::CiService;
 use humantime_serde::deserialize as humantime_serde;
+use indexmap::IndexMap;
 use log::{error, info, warn};
 use regex::Regex;
 use serde::{Deserialize, Serialize};
 use std::cell::{Ref, RefCell};
-use std::collections::HashMap;
 use std::env;
 use std::fs::File;
 use std::io::{Error, ErrorKind, Read};
@@ -356,7 +356,7 @@ impl Config {
     }
 
     pub fn parse_config_toml(buffer: &[u8]) -> std::io::Result<Vec<Self>> {
-        let mut map: HashMap<String, Self> = toml::from_slice(&buffer).map_err(|e| {
+        let mut map: IndexMap<String, Self> = toml::from_slice(&buffer).map_err(|e| {
             error!("Invalid config file {}", e);
             Error::new(ErrorKind::InvalidData, format!("{}", e))
         })?;
