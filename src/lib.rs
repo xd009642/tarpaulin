@@ -7,7 +7,7 @@ use crate::source_analysis::LineAnalysis;
 use crate::statemachine::*;
 use crate::test_loader::*;
 use crate::traces::*;
-use log::{info, trace, warn};
+use log::{error, info, trace, warn};
 use nix::unistd::*;
 use std::collections::HashMap;
 use std::env;
@@ -50,7 +50,8 @@ pub fn trace(configs: &[Config]) -> Result<TraceMap, RunError> {
                 ret |= r;
             }
             Err(e) => {
-                info!("Failure {}", e);
+                error!("{}", e);
+                ret |= 1;
                 if failure.is_ok() {
                     failure = Err(e);
                 }
