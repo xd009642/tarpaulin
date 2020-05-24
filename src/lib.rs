@@ -31,6 +31,7 @@ mod ptrace_control;
 pub fn trace(configs: &[Config]) -> Result<TraceMap, RunError> {
     let mut tracemap = TraceMap::new();
     let mut tarpaulin_result = Ok(());
+    let mut ret = 0i32;
 
     for config in configs.iter() {
         if config.name == "report" {
@@ -45,9 +46,7 @@ pub fn trace(configs: &[Config]) -> Result<TraceMap, RunError> {
         }
         match launch_tarpaulin(config) {
             Ok((t, r)) => {
-                if r != 0 {
-                    warn!("Test exit code: {}", r);
-                }
+                ret |= r;
                 tracemap.merge(&t);
             }
             Err(e) => {
@@ -57,7 +56,12 @@ pub fn trace(configs: &[Config]) -> Result<TraceMap, RunError> {
         }
     }
     tracemap.dedup();
-    tarpaulin_result.map(|_| tracemap)
+
+    if ret == 0 {
+        tarpaulin_result.map(|_| tracemap)
+    } else {
+        Err(RunError::TestFailed)
+    }
 }
 
 pub fn run(configs: &[Config]) -> Result<(), RunError> {
