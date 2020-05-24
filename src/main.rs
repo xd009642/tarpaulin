@@ -40,7 +40,7 @@ fn set_up_logging(debug: bool, verbose: bool) {
         .init();
 }
 
-const CI_SERVER_HELP: &'static str = "Name of service, supported services are:
+const CI_SERVER_HELP: &str = "Name of service, supported services are:
 travis-ci, travis-pro, circle-ci, semaphore, jenkins and codeship.
 If you are interfacing with coveralls.io or another site you can \
 also specify a name that they will recognise. Refer to their documentation for this.";
@@ -70,7 +70,7 @@ fn main() -> Result<(), String> {
                  --coveralls [KEY]  'Coveralls key, either the repo token, or if you're using travis use $TRAVIS_JOB_ID and specify travis-{ci|pro} in --ciserver'
                  --report-uri [URI] 'URI to send report to, only used if the option --coveralls is used'
                  --no-default-features 'Do not include default features'
-                 --features [FEATURE]... 'Features to be included in the target project'
+                 --features \"f1 f2\" 'Features to be included in the target project'
                  --all-features 'Build all available features'
                  --all        'Alias for --workspace (deprecated)'
                  --workspace 'Test all packages in the workspace'
@@ -82,6 +82,7 @@ fn main() -> Result<(), String> {
                  --no-run 'Compile tests but don't run coverage'
                  --locked 'Do not update Cargo.lock'
                  --frozen 'Do not update Cargo.lock or any caches'
+                 --target [TRIPLE] 'Compilation target triple'
                  --target-dir [DIR] 'Directory for all generated artifacts'
                  --offline 'Run without accessing the network'
                  -Z [FEATURES]...   'List of unstable nightly only flags'")

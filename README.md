@@ -26,7 +26,7 @@ Below is the help-text for a thorough explanation of the flags and features
 available:
 
 ```bash
-cargo-tarpaulin version: 0.12.4
+cargo-tarpaulin version: 0.13.0
 Tool to analyse test coverage of cargo projects
 
 USAGE:
@@ -38,6 +38,7 @@ FLAGS:
     -b, --branch                 Branch coverage: NOT IMPLEMENTED
         --count                  Counts the number of hits during coverage
         --debug                  Show debug output - this is used for diagnosing issues with tarpaulin
+        --features               Features to be included in the target project
         --force-clean            Adds a clean stage to work around cargo bugs that may affect coverage results
     -f, --forward                Forwards unexpected signals to test. Tarpaulin will still take signals it is expecting.
         --frozen                 Do not update Cargo.lock or any caches
@@ -69,7 +70,6 @@ OPTIONS:
     -e, --exclude <PACKAGE>...       Package id specifications to exclude from coverage. See cargo help pkgid for more
                                      info
         --exclude-files <FILE>...    Exclude given files from coverage results has * wildcard
-        --features <FEATURE>...      Features to be included in the target project
         --manifest-path <PATH>       Path to Cargo.toml
     -o, --out <FMT>...               Output format of coverage report [possible values: Json, Toml, Stdout, Xml, Html,
                                      Lcov]
@@ -80,6 +80,7 @@ OPTIONS:
     -r, --root <DIR>                 Calculates relative paths to root directory. If --manifest-path isn't specified it
                                      will look for a Cargo.toml in root
         --run-types <TYPE>...        Type of the coverage run [possible values: Tests, Doctests, Benchmarks, Examples]
+        --target <TRIPLE>            Compilation target triple
         --target-dir <DIR>           Directory for all generated artifacts
     -t, --timeout <SECONDS>          Integer for the maximum time in seconds without response from test before timeout
                                      (default is 1 minute).
@@ -125,6 +126,9 @@ cargo install cargo-tarpaulin
 Tarpaulin used to rely on Cargo as a dependency and then require an ssl install
 as well as other libraries but now it uses your system cargo simplifying the
 installation and massively reducing the install time on CI.
+
+When using the [Nix](https://nixos.org/nix) package manager, the `nixpkgs.cargo-tarpaulin` package can be used.
+This ensures that tarpaulin will be built with the same rust version as the rest of your packages.
 
 ### Command line
 
@@ -244,7 +248,6 @@ the settings of your codecov project.
 
 ```yml
 language: rust
-sudo: required # required for some configurations
 # tarpaulin has only been tested on bionic and trusty other distros may have issues
 dist: bionic
 addons:
@@ -388,10 +391,10 @@ the projects manifest or in the root directory that will be used unless
 
 ```toml
 [feature_a_coverage]
-features = ["feature_a"]
+features = "feature_a"
 
-[feature_b_coverage]
-features = ["feature_b"]
+[feature_a_and_b_coverage]
+features = "feature_a feature_b"
 release = true
 
 [report]
@@ -401,10 +404,10 @@ out = ["Html", "Xml"]
 
 Here we'd create three configurations, one would run your tests with
 `feature_a` enabled, and the other with the tests built in release and
-`feature_b` enabled. The last configuration uses a reserved configuration name
-`report` and this doesn't result in a coverage run but affects the report
-output. This is a reserved feature name and any non-reporting based options
-chosen will have no effect on the output of tarpaulin.
+both `feature_a` and `feature_b` enabled. The last configuration uses a reserved
+configuration name `report` and this doesn't result in a coverage run but
+affects the report output. This is a reserved feature name and any non-reporting
+based options chosen will have no effect on the output of tarpaulin.
 
 For reference on available keys and their types refer to the CLI help text
 at the start of the readme or `src/config/mod.rs` for the concrete types

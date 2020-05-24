@@ -56,19 +56,17 @@ fn generate_requested_reports(config: &Config, result: &TraceMap) -> Result<(), 
         info!("Coverage data sent");
     }
 
-    if !config.is_default_output_dir() {
-        if create_dir_all(&config.output_dir()).is_err() {
-            return Err(RunError::OutFormat(format!(
-                "Failed to create or locate custom output directory: {:?}",
-                config.output_directory,
-            )));
-        }
+    if !config.is_default_output_dir() && create_dir_all(&config.output_dir()).is_err() {
+        return Err(RunError::OutFormat(format!(
+            "Failed to create or locate custom output directory: {:?}",
+            config.output_directory,
+        )));
     }
 
     for g in &config.generate {
         match *g {
             OutputFile::Xml => {
-                cobertura::report(result, config).map_err(|e| RunError::XML(e))?;
+                cobertura::report(result, config).map_err(RunError::XML)?;
             }
             OutputFile::Html => {
                 html::export(result, config)?;
@@ -115,22 +113,18 @@ fn print_missing_lines(config: &Config, result: &TraceMap) {
 
 fn get_previous_result(config: &Config) -> Option<TraceMap> {
     // Check for previous report
-    if let Some(project_dir) = config.manifest.parent() {
-        let mut report_dir = project_dir.join("target");
-        report_dir.push("tarpaulin");
-        if report_dir.exists() {
-            // is report there?
-            report_dir.push("coverage.json");
-            let file = File::open(&report_dir).ok()?;
-            let reader = BufReader::new(file);
-            serde_json::from_reader(reader).ok()
-        } else {
-            // make directory
-            create_dir_all(&report_dir)
-                .unwrap_or_else(|e| error!("Failed to create report directory: {}", e));
-            None
-        }
+    let mut report_dir = config.target_dir();
+    report_dir.push("tarpaulin");
+    if report_dir.exists() {
+        // is report there?
+        report_dir.push("coverage.json");
+        let file = File::open(&report_dir).ok()?;
+        let reader = BufReader::new(file);
+        serde_json::from_reader(reader).ok()
     } else {
+        // make directory
+        create_dir_all(&report_dir)
+            .unwrap_or_else(|e| error!("Failed to create report directory: {}", e));
         None
     }
 }

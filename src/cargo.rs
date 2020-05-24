@@ -1,8 +1,6 @@
 use crate::config::*;
 use crate::errors::RunError;
-use cargo_metadata::{
-    diagnostic::DiagnosticLevel, parse_messages, CargoOpt, Message, MetadataCommand,
-};
+use cargo_metadata::{diagnostic::DiagnosticLevel, CargoOpt, Message, MetadataCommand};
 use log::{error, trace};
 use std::env;
 use std::path::{Path, PathBuf};
@@ -81,7 +79,8 @@ pub fn get_tests(config: &Config) -> Result<Vec<TestBinary>, RunError> {
 
         if ty != &RunType::Doctests {
             let mut package_ids = vec![];
-            for msg in parse_messages(child.stdout.take().unwrap()) {
+            let reader = std::io::BufReader::new(child.stdout.take().unwrap());
+            for msg in Message::parse_stream(reader) {
                 match msg {
                     Ok(Message::CompilerArtifact(art)) => {
                         if let Some(path) = art.executable {
@@ -154,11 +153,7 @@ fn create_command(manifest_path: &str, config: &Config, ty: &RunType) -> Command
         if let Ok(toolchain) = env::var("RUSTUP_TOOLCHAIN") {
             test_cmd.arg(format!("+{}", toolchain));
         }
-        if *ty != RunType::Examples {
-            test_cmd.args(&["test", "--no-run"]);
-        } else {
-            test_cmd.arg("build");
-        }
+        test_cmd.args(&["test", "--no-run"]);
     }
     test_cmd.args(&["--message-format", "json", "--manifest-path", manifest_path]);
     match ty {
@@ -182,10 +177,9 @@ fn init_args(test_cmd: &mut Command, config: &Config) {
     if config.frozen {
         test_cmd.arg("--frozen");
     }
-    if !config.features.is_empty() {
-        let mut args = vec!["--features".to_string()];
-        args.extend_from_slice(&config.features);
-        test_cmd.args(args);
+    if let Some(features) = config.features.as_ref() {
+        test_cmd.arg("--features");
+        test_cmd.arg(features);
     }
     if config.all_features {
         test_cmd.arg("--all-features");
@@ -198,6 +192,17 @@ fn init_args(test_cmd: &mut Command, config: &Config) {
     }
     if config.release {
         test_cmd.arg("--release");
+    }
+    config.packages.iter().for_each(|package| {
+        test_cmd.arg("--package");
+        test_cmd.arg(package);
+    });
+    config.exclude.iter().for_each(|package| {
+        test_cmd.arg("--exclude");
+        test_cmd.arg(package);
+    });
+    if let Some(target) = config.target.as_ref() {
+        test_cmd.args(&["--target", target]);
     }
     let args = vec![
         "--target-dir".to_string(),

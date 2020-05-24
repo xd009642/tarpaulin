@@ -5,11 +5,11 @@ use cargo_metadata::{Metadata, MetadataCommand, Package};
 use clap::ArgMatches;
 use coveralls_api::CiService;
 use humantime_serde::deserialize as humantime_serde;
+use indexmap::IndexMap;
 use log::{error, info, warn};
 use regex::Regex;
 use serde::{Deserialize, Serialize};
 use std::cell::{Ref, RefCell};
-use std::collections::HashMap;
 use std::env;
 use std::fs::File;
 use std::io::{Error, ErrorKind, Read};
@@ -95,6 +95,8 @@ pub struct Config {
     pub locked: bool,
     /// Don't update `Cargo.lock` or any caches.
     pub frozen: bool,
+    /// Build for the target triple.
+    pub target: Option<String>,
     /// Directory for generated artifacts
     #[serde(rename = "target-dir")]
     target_dir: Option<PathBuf>,
@@ -116,8 +118,8 @@ pub struct Config {
     /// Varargs to be forwarded to the test executables.
     #[serde(rename = "args")]
     pub varargs: Vec<String>,
-    /// Features to include in the target project build
-    pub features: Vec<String>,
+    /// Features to include in the target project build, e.g. "feature1 feature2"
+    pub features: Option<String>,
     /// Unstable cargo features to use
     #[serde(rename = "Z")]
     pub unstable_features: Vec<String>,
@@ -152,7 +154,7 @@ impl Default for Config {
             report_uri: None,
             forward_signals: false,
             no_default_features: false,
-            features: vec![],
+            features: None,
             unstable_features: vec![],
             all: false,
             packages: vec![],
@@ -166,6 +168,7 @@ impl Default for Config {
             no_run: false,
             locked: false,
             frozen: false,
+            target: None,
             target_dir: None,
             offline: false,
             metadata: RefCell::new(None),
@@ -204,19 +207,20 @@ impl<'a> From<&'a ArgMatches<'a>> for ConfigWrapper {
             forward_signals: args.is_present("forward"),
             all_features: args.is_present("all-features"),
             no_default_features: args.is_present("no-default-features"),
-            features: get_list(args, "features"),
+            features: get_string(args, "features"),
             unstable_features: get_list(args, "Z"),
             all: args.is_present("all") | args.is_present("workspace"),
             packages: get_list(args, "packages"),
             exclude: get_list(args, "exclude"),
-            excluded_files: RefCell::new(excluded_files.clone()),
-            excluded_files_raw: excluded_files_raw.clone(),
+            excluded_files: RefCell::new(excluded_files),
+            excluded_files_raw,
             varargs: get_list(args, "args"),
             test_timeout: get_timeout(args),
             release: args.is_present("release"),
             no_run: args.is_present("no-run"),
             locked: args.is_present("locked"),
             frozen: args.is_present("frozen"),
+            target: get_target(args),
             target_dir: get_target_dir(args),
             offline: args.is_present("offline"),
             metadata: RefCell::new(None),
@@ -234,13 +238,11 @@ impl<'a> From<&'a ArgMatches<'a>> for ConfigWrapper {
             }
             let confs = Config::load_config_file(&path);
             Config::get_config_vec(confs, args_config)
+        } else if let Some(cfg) = args_config.check_for_configs() {
+            let confs = Config::load_config_file(&cfg);
+            Config::get_config_vec(confs, args_config)
         } else {
-            if let Some(cfg) = args_config.check_for_configs() {
-                let confs = Config::load_config_file(&cfg);
-                Config::get_config_vec(confs, args_config)
-            } else {
-                Self(vec![args_config])
-            }
+            Self(vec![args_config])
         }
     }
 }
@@ -300,11 +302,7 @@ impl Config {
     }
 
     pub fn get_config_vec(file_configs: std::io::Result<Vec<Self>>, backup: Self) -> ConfigWrapper {
-        if file_configs.is_err() {
-            warn!("Failed to deserialize config file falling back to provided args");
-            ConfigWrapper(vec![backup])
-        } else {
-            let mut confs = file_configs.unwrap();
+        if let Ok(mut confs) = file_configs {
             for c in confs.iter_mut() {
                 c.merge(&backup);
             }
@@ -313,6 +311,9 @@ impl Config {
             } else {
                 ConfigWrapper(confs)
             }
+        } else {
+            warn!("Failed to deserialize config file falling back to provided args");
+            ConfigWrapper(vec![backup])
         }
     }
 
@@ -320,12 +321,10 @@ impl Config {
     pub fn check_for_configs(&self) -> Option<PathBuf> {
         if let Some(root) = &self.root {
             Self::check_path_for_configs(&root)
+        } else if let Some(root) = self.manifest.clone().parent() {
+            Self::check_path_for_configs(&root)
         } else {
-            if let Some(root) = self.manifest.clone().parent() {
-                Self::check_path_for_configs(&root)
-            } else {
-                None
-            }
+            None
         }
     }
 
@@ -357,7 +356,7 @@ impl Config {
     }
 
     pub fn parse_config_toml(buffer: &[u8]) -> std::io::Result<Vec<Self>> {
-        let mut map: HashMap<String, Self> = toml::from_slice(&buffer).map_err(|e| {
+        let mut map: IndexMap<String, Self> = toml::from_slice(&buffer).map_err(|e| {
             error!("Invalid config file {}", e);
             Error::new(ErrorKind::InvalidData, format!("{}", e))
         })?;
@@ -388,9 +387,19 @@ impl Config {
         self.coveralls = Config::pick_optional_config(&self.coveralls, &other.coveralls);
         self.ci_tool = Config::pick_optional_config(&self.ci_tool, &other.ci_tool);
         self.report_uri = Config::pick_optional_config(&self.report_uri, &other.report_uri);
+        self.target = Config::pick_optional_config(&self.target, &other.target);
         self.target_dir = Config::pick_optional_config(&self.target_dir, &other.target_dir);
         self.output_directory =
             Config::pick_optional_config(&self.output_directory, &other.output_directory);
+        self.all |= other.all;
+
+        let additional_packages = other
+            .packages
+            .iter()
+            .filter(|package| !self.packages.contains(package))
+            .cloned()
+            .collect::<Vec<String>>();
+        self.packages.extend(additional_packages);
 
         if !other.excluded_files_raw.is_empty() {
             self.excluded_files_raw
@@ -632,6 +641,63 @@ mod tests {
     }
 
     #[test]
+    fn target_merge() {
+        let toml_a = r#""#;
+        let toml_b = r#"target = "wasm32-unknown-unknown""#;
+        let toml_c = r#"target = "x86_64-linux-gnu""#;
+
+        let mut a: Config = toml::from_slice(toml_a.as_bytes()).unwrap();
+        let mut b: Config = toml::from_slice(toml_b.as_bytes()).unwrap();
+        let c: Config = toml::from_slice(toml_c.as_bytes()).unwrap();
+
+        assert_eq!(a.target, None);
+        assert_eq!(b.target, Some(String::from("wasm32-unknown-unknown")));
+        assert_eq!(c.target, Some(String::from("x86_64-linux-gnu")));
+
+        b.merge(&c);
+        assert_eq!(b.target, Some(String::from("x86_64-linux-gnu")));
+
+        a.merge(&b);
+        assert_eq!(a.target, Some(String::from("x86_64-linux-gnu")));
+    }
+
+    #[test]
+    fn workspace_merge() {
+        let toml_a = r#"workspace = false"#;
+        let toml_b = r#"workspace = true"#;
+
+        let mut a: Config = toml::from_slice(toml_a.as_bytes()).unwrap();
+        let b: Config = toml::from_slice(toml_b.as_bytes()).unwrap();
+
+        assert_eq!(a.all, false);
+        assert_eq!(b.all, true);
+
+        a.merge(&b);
+        assert_eq!(a.all, true);
+    }
+
+    #[test]
+    fn packages_merge() {
+        let toml_a = r#"packages = []"#;
+        let toml_b = r#"packages = ["a"]"#;
+        let toml_c = r#"packages = ["b", "a"]"#;
+
+        let mut a: Config = toml::from_slice(toml_a.as_bytes()).unwrap();
+        let mut b: Config = toml::from_slice(toml_b.as_bytes()).unwrap();
+        let c: Config = toml::from_slice(toml_c.as_bytes()).unwrap();
+
+        assert_eq!(a.packages, Vec::<String>::new());
+        assert_eq!(b.packages, vec![String::from("a")]);
+        assert_eq!(c.packages, vec![String::from("b"), String::from("a")]);
+
+        a.merge(&c);
+        assert_eq!(a.packages, vec![String::from("b"), String::from("a")]);
+
+        b.merge(&c);
+        assert_eq!(b.packages, vec![String::from("a"), String::from("b")]);
+    }
+
+    #[test]
     fn coveralls_merge() {
         let toml = r#"[a]
         coveralls = "abcd"
@@ -694,7 +760,7 @@ mod tests {
         neither_merged_dir.merge(&no_dir);
         assert_eq!(neither_merged_dir.output_dir(), env::current_dir().unwrap());
 
-        let mut both_merged_dir = has_dir.clone();
+        let mut both_merged_dir = has_dir;
         both_merged_dir.merge(&other_dir);
         assert_eq!(both_merged_dir.output_dir(), PathBuf::from("bar"));
     }
@@ -713,7 +779,7 @@ mod tests {
         coveralls = "hello"
         report-uri = "http://hello.com"
         no-default-features = true
-        features = ["a"]
+        features = "a b"
         all-features = true
         workspace = true
         packages = ["pack_1"]
@@ -724,6 +790,7 @@ mod tests {
         no-run = true
         locked = true
         frozen = true
+        target = "wasm32-unknown-unknown"
         target-dir = "/tmp"
         offline = true
         Z = ["something-nightly"]
@@ -754,14 +821,15 @@ mod tests {
         assert!(config.no_run);
         assert!(config.locked);
         assert!(config.frozen);
+        assert_eq!(Some(String::from("wasm32-unknown-unknown")), config.target);
+        assert_eq!(Some(Path::new("/tmp").to_path_buf()), config.target_dir);
         assert!(config.offline);
         assert_eq!(config.test_timeout, Duration::from_secs(5));
         assert_eq!(config.unstable_features.len(), 1);
         assert_eq!(config.unstable_features[0], "something-nightly");
         assert_eq!(config.varargs.len(), 1);
         assert_eq!(config.varargs[0], "--nocapture");
-        assert_eq!(config.features.len(), 1);
-        assert_eq!(config.features[0], "a");
+        assert_eq!(config.features, Some(String::from("a b")));
         assert_eq!(config.excluded_files_raw.len(), 1);
         assert_eq!(config.excluded_files_raw[0], "fuzz/*");
         assert_eq!(config.packages.len(), 1);

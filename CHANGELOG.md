@@ -4,9 +4,20 @@ From 2019 onwards, all notable changes to tarpaulin will be documented in this
 file.
 
 ## [Unreleased]
+
+## [0.13.0] - 2020-05-25
 ### Added
+- Compilation target is now accepted through the `--target` parameter.
 
 ### Changed
+- Examples coverage now runs the tests that would be ran with `cargo test --examples`
+- Look up previous report from correct target directory.
+- Added doc comments to ignorable lines in source analysis
+- Feature configurations in `tarpaulin.toml` are now run in order of declaration.
+- Compilation failure results in `cargo tarpaulin` execution failure.
+- `workspace` flag is correctly propagated to feature configurations.
+- `features` now takes in a string e.g. `"f1 f2"`, instead of an array of strings `["f1", "f2"]`.
+- `packages` and `exclude` in workspace configurations are now read.
 
 ### Removed
 
