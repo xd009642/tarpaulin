@@ -193,6 +193,10 @@ fn init_args(test_cmd: &mut Command, config: &Config) {
     if config.release {
         test_cmd.arg("--release");
     }
+    config.packages.iter().for_each(|package| {
+        test_cmd.arg("--package");
+        test_cmd.arg(package);
+    });
     if let Some(target) = config.target.as_ref() {
         test_cmd.args(&["--target", target]);
     }
