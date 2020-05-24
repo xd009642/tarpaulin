@@ -391,6 +391,7 @@ impl Config {
         self.target_dir = Config::pick_optional_config(&self.target_dir, &other.target_dir);
         self.output_directory =
             Config::pick_optional_config(&self.output_directory, &other.output_directory);
+        self.all |= other.all;
 
         if !other.excluded_files_raw.is_empty() {
             self.excluded_files_raw
@@ -650,6 +651,21 @@ mod tests {
 
         a.merge(&b);
         assert_eq!(a.target, Some(String::from("x86_64-linux-gnu")));
+    }
+
+    #[test]
+    fn workspace_merge() {
+        let toml_a = r#"workspace = false"#;
+        let toml_b = r#"workspace = true"#;
+
+        let mut a: Config = toml::from_slice(toml_a.as_bytes()).unwrap();
+        let b: Config = toml::from_slice(toml_b.as_bytes()).unwrap();
+
+        assert_eq!(a.all, false);
+        assert_eq!(b.all, true);
+
+        a.merge(&b);
+        assert_eq!(a.all, true);
     }
 
     #[test]
