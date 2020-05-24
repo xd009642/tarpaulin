@@ -26,7 +26,7 @@ Below is the help-text for a thorough explanation of the flags and features
 available:
 
 ```bash
-cargo-tarpaulin version: 0.12.4
+cargo-tarpaulin version: 0.13.0
 Tool to analyse test coverage of cargo projects
 
 USAGE:
@@ -38,6 +38,7 @@ FLAGS:
     -b, --branch                 Branch coverage: NOT IMPLEMENTED
         --count                  Counts the number of hits during coverage
         --debug                  Show debug output - this is used for diagnosing issues with tarpaulin
+        --features               Features to be included in the target project
         --force-clean            Adds a clean stage to work around cargo bugs that may affect coverage results
     -f, --forward                Forwards unexpected signals to test. Tarpaulin will still take signals it is expecting.
         --frozen                 Do not update Cargo.lock or any caches
@@ -69,7 +70,6 @@ OPTIONS:
     -e, --exclude <PACKAGE>...       Package id specifications to exclude from coverage. See cargo help pkgid for more
                                      info
         --exclude-files <FILE>...    Exclude given files from coverage results has * wildcard
-        --features <FEATURE>...      Features to be included in the target project
         --manifest-path <PATH>       Path to Cargo.toml
     -o, --out <FMT>...               Output format of coverage report [possible values: Json, Toml, Stdout, Xml, Html,
                                      Lcov]
@@ -80,7 +80,7 @@ OPTIONS:
     -r, --root <DIR>                 Calculates relative paths to root directory. If --manifest-path isn't specified it
                                      will look for a Cargo.toml in root
         --run-types <TYPE>...        Type of the coverage run [possible values: Tests, Doctests, Benchmarks, Examples]
-        --target [TRIPLE]            Compilation target triple
+        --target <TRIPLE>            Compilation target triple
         --target-dir <DIR>           Directory for all generated artifacts
     -t, --timeout <SECONDS>          Integer for the maximum time in seconds without response from test before timeout
                                      (default is 1 minute).

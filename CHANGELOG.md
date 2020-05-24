@@ -4,6 +4,8 @@ From 2019 onwards, all notable changes to tarpaulin will be documented in this
 file.
 
 ## [Unreleased]
+
+## [0.13.0] - 2020-05-25
 ### Added
 - Compilation target is now accepted through the `--target` parameter.
 
