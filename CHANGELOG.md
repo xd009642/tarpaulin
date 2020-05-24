@@ -13,6 +13,7 @@ file.
 - Added doc comments to ignorable lines in source analysis
 - Feature configurations in `tarpaulin.toml` are now run in order of declaration.
 - Compilation failure results in `cargo tarpaulin` execution failure.
+- `workspace` flag is correctly propagated to feature configurations.
 
 ### Removed
 
