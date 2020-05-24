@@ -393,6 +393,14 @@ impl Config {
             Config::pick_optional_config(&self.output_directory, &other.output_directory);
         self.all |= other.all;
 
+        let additional_packages = other
+            .packages
+            .iter()
+            .filter(|package| !self.packages.contains(package))
+            .cloned()
+            .collect::<Vec<String>>();
+        self.packages.extend(additional_packages);
+
         if !other.excluded_files_raw.is_empty() {
             self.excluded_files_raw
                 .extend_from_slice(&other.excluded_files_raw);
@@ -666,6 +674,27 @@ mod tests {
 
         a.merge(&b);
         assert_eq!(a.all, true);
+    }
+
+    #[test]
+    fn packages_merge() {
+        let toml_a = r#"packages = []"#;
+        let toml_b = r#"packages = ["a"]"#;
+        let toml_c = r#"packages = ["b", "a"]"#;
+
+        let mut a: Config = toml::from_slice(toml_a.as_bytes()).unwrap();
+        let mut b: Config = toml::from_slice(toml_b.as_bytes()).unwrap();
+        let c: Config = toml::from_slice(toml_c.as_bytes()).unwrap();
+
+        assert_eq!(a.packages, Vec::<String>::new());
+        assert_eq!(b.packages, vec![String::from("a")]);
+        assert_eq!(c.packages, vec![String::from("b"), String::from("a")]);
+
+        a.merge(&c);
+        assert_eq!(a.packages, vec![String::from("b"), String::from("a")]);
+
+        b.merge(&c);
+        assert_eq!(b.packages, vec![String::from("a"), String::from("b")]);
     }
 
     #[test]
