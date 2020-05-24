@@ -197,6 +197,10 @@ fn init_args(test_cmd: &mut Command, config: &Config) {
         test_cmd.arg("--package");
         test_cmd.arg(package);
     });
+    config.exclude.iter().for_each(|package| {
+        test_cmd.arg("--exclude");
+        test_cmd.arg(package);
+    });
     if let Some(target) = config.target.as_ref() {
         test_cmd.args(&["--target", target]);
     }

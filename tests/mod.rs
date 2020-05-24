@@ -6,11 +6,12 @@ use clap::App;
 use std::env;
 use std::time::Duration;
 
-mod compile_fail;
 mod doc_coverage;
+mod failures;
 mod line_coverage;
 mod test_types;
 mod utils;
+mod workspaces;
 
 pub fn check_percentage_with_cli_args(minimum_coverage: f64, has_lines: bool, args: &[String]) {
     let restore_dir = env::current_dir().unwrap();
