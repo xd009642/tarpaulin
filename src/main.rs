@@ -70,7 +70,7 @@ fn main() -> Result<(), String> {
                  --coveralls [KEY]  'Coveralls key, either the repo token, or if you're using travis use $TRAVIS_JOB_ID and specify travis-{ci|pro} in --ciserver'
                  --report-uri [URI] 'URI to send report to, only used if the option --coveralls is used'
                  --no-default-features 'Do not include default features'
-                 --features <FEATURES>... 'Features to be included in the target project'
+                 --features [FEATURES]... 'Features to be included in the target project'
                  --all-features 'Build all available features'
                  --all        'Alias for --workspace (deprecated)'
                  --workspace 'Test all packages in the workspace'

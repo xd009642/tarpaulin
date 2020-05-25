@@ -10,6 +10,14 @@ file.
 
 ### Removed
 
+## [0.13.2] - 2020-05-25
+### Added
+
+### Changed
+- Make features argument optional again
+
+### Removed
+
 ## [0.13.1] - 2020-05-25
 ### Added
 

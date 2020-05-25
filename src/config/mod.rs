@@ -555,7 +555,7 @@ mod tests {
     fn features_args() {
         let matches = App::new("tarpaulin")
             .args_from_usage(
-                "--features <FEATURES>... 'Features to be included in the target project'
+                "--features [FEATURES]... 'Features to be included in the target project'
                              --ignore-config 'Ignore any project config files'",
             )
             .get_matches_from_safe(vec![
@@ -573,7 +573,7 @@ mod tests {
 
         let matches = App::new("tarpaulin")
             .args_from_usage(
-                "--features <FEATURES>... 'Features to be included in the target project'
+                "--features [FEATURES]... 'Features to be included in the target project'
                              --ignore-config 'Ignore any project config files'",
             )
             .get_matches_from_safe(vec!["tarpaulin", "--ignore-config", "--features", "a b"])
