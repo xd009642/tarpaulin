@@ -270,6 +270,12 @@ impl Config {
         }
     }
 
+    pub fn doctest_dir(&self) -> PathBuf {
+        let mut result = self.target_dir();
+        result.push("doctests");
+        result
+    }
+
     fn get_metadata(&self) -> Ref<Option<Metadata>> {
         if self.metadata.borrow().is_none() {
             match MetadataCommand::new().manifest_path(&self.manifest).exec() {

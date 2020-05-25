@@ -7,8 +7,6 @@ use std::path::{Path, PathBuf};
 use std::process::{Command, Stdio};
 use walkdir::WalkDir;
 
-static DOCTEST_FOLDER: &str = "target/doctests";
-
 #[derive(Clone, PartialEq, Eq, PartialOrd, Ord, Hash)]
 pub struct TestBinary {
     path: PathBuf,
@@ -17,6 +15,7 @@ pub struct TestBinary {
     pkg_name: Option<String>,
     pkg_version: Option<String>,
     pkg_authors: Option<Vec<String>>,
+    should_panic: bool,
 }
 
 impl TestBinary {
@@ -28,6 +27,7 @@ impl TestBinary {
             pkg_version: None,
             pkg_authors: None,
             cargo_dir: None,
+            should_panic: false,
         }
     }
 
@@ -53,6 +53,12 @@ impl TestBinary {
 
     pub fn pkg_authors(&self) -> &Option<Vec<String>> {
         &self.pkg_authors
+    }
+
+    /// Should be `false` for normal tests and for doctests either `true` or
+    /// `false` depending on the test attribute
+    pub fn should_panic(&self) -> bool {
+        self.should_panic
     }
 }
 
@@ -111,29 +117,22 @@ pub fn get_tests(config: &Config) -> Result<Vec<TestBinary>, RunError> {
                 res.pkg_version = Some(package.version.to_string());
                 res.pkg_authors = Some(package.authors.clone());
             }
+            child.wait().map_err(|e| RunError::Cargo(e.to_string()))?;
         } else {
-            // Need to get the packages...
-            let package_roots = config
-                .get_packages()
-                .iter()
-                .filter_map(|x| x.manifest_path.parent())
-                .map(|x| x.join(DOCTEST_FOLDER))
-                .collect::<Vec<PathBuf>>();
-
-            for dir in &package_roots {
-                let walker = WalkDir::new(dir).into_iter();
-                for dt in walker
-                    .filter_map(|e| e.ok())
-                    .filter(|e| match e.metadata() {
-                        Ok(ref m) if m.is_file() && m.len() != 0 => true,
-                        _ => false,
-                    })
-                {
-                    result.push(TestBinary::new(dt.path().to_path_buf(), *ty));
-                }
+            // need to wait for compiling to finish before getting doctests
+            child.wait().map_err(|e| RunError::Cargo(e.to_string()))?;
+            let walker = WalkDir::new(&config.doctest_dir()).into_iter();
+            for dt in walker
+                .filter_map(|e| e.ok())
+                .filter(|e| match e.metadata() {
+                    Ok(ref m) if m.is_file() && m.len() != 0 => true,
+                    _ => false,
+                })
+            {
+                trace!("Found doctest binary {}", dt.path().display());
+                result.push(TestBinary::new(dt.path().to_path_buf(), *ty));
             }
         }
-        child.wait().map_err(|e| RunError::Cargo(e.to_string()))?;
     }
     Ok(result)
 }
@@ -238,12 +237,14 @@ fn setup_environment(cmd: &mut Command, config: &Config) {
     let rustdoc = "RUSTDOCFLAGS";
     let mut value = format!(
         "{} --persist-doctests {} -Z unstable-options ",
-        common_opts, DOCTEST_FOLDER
+        common_opts,
+        config.doctest_dir().display()
     );
     if let Ok(vtemp) = env::var(rustdoc) {
         if !vtemp.contains("--persist-doctests") {
             value.push_str(vtemp.as_ref());
         }
     }
+    trace!("Setting RUSTDOCFLAGS='{}'", value);
     cmd.env(rustdoc, value);
 }
