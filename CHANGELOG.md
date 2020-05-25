@@ -11,6 +11,7 @@ file.
 to feature configurations.
 - `exclude` argument for packages is now propagated and any features existing
 in the `package` list are removed to avoid conflicts
+- Fixed regression where features weren't propagated
 
 ### Removed
 

@@ -183,6 +183,12 @@ impl<'a> From<&'a ArgMatches<'a>> for ConfigWrapper {
         let verbose = args.is_present("verbose") || debug;
         let excluded_files = get_excluded(args);
         let excluded_files_raw = get_list(args, "exclude-files");
+        let features = get_list(args, "features");
+        let features = if features.is_empty() {
+            None
+        } else {
+            Some(features.join(" "))
+        };
 
         let args_config = Config {
             name: String::new(),
@@ -207,7 +213,7 @@ impl<'a> From<&'a ArgMatches<'a>> for ConfigWrapper {
             forward_signals: args.is_present("forward"),
             all_features: args.is_present("all-features"),
             no_default_features: args.is_present("no-default-features"),
-            features: get_string(args, "features"),
+            features,
             unstable_features: get_list(args, "Z"),
             all: args.is_present("all") | args.is_present("workspace"),
             packages: get_list(args, "packages"),
@@ -546,6 +552,38 @@ mod tests {
     use clap::App;
 
     #[test]
+    fn features_args() {
+        let matches = App::new("tarpaulin")
+            .args_from_usage(
+                "--features <FEATURES>... 'Features to be included in the target project'
+                             --ignore-config 'Ignore any project config files'",
+            )
+            .get_matches_from_safe(vec![
+                "tarpaulin",
+                "--ignore-config",
+                "--features",
+                "a",
+                "--features",
+                "b",
+            ])
+            .unwrap();
+        let conf = ConfigWrapper::from(&matches).0;
+        assert_eq!(conf.len(), 1);
+        assert_eq!(conf[0].features, Some("a b".to_string()));
+
+        let matches = App::new("tarpaulin")
+            .args_from_usage(
+                "--features <FEATURES>... 'Features to be included in the target project'
+                             --ignore-config 'Ignore any project config files'",
+            )
+            .get_matches_from_safe(vec!["tarpaulin", "--ignore-config", "--features", "a b"])
+            .unwrap();
+        let conf = ConfigWrapper::from(&matches).0;
+        assert_eq!(conf.len(), 1);
+        assert_eq!(conf[0].features, Some("a b".to_string()))
+    }
+
+    #[test]
     fn exclude_paths() {
         let matches = App::new("tarpaulin")
             .args_from_usage("--exclude-files [FILE]... 'Exclude given files from coverage results has * wildcard'")
@@ -652,8 +690,6 @@ mod tests {
         let mut configs = Config::parse_config_toml(toml.as_bytes()).unwrap();
         let mut config = configs.remove(0);
         config.merge(&configs[0]);
-        println!("{:?}", configs[0].excluded_files_raw);
-        println!("{:?}", config.excluded_files_raw);
         assert!(config.excluded_files_raw.contains(&"target/*".to_string()));
         assert!(config.excluded_files_raw.contains(&"foo.rs".to_string()));
 
