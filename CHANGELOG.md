@@ -4,6 +4,16 @@ From 2019 onwards, all notable changes to tarpaulin will be documented in this
 file.
 
 ## [Unreleased]
+### Added
+
+### Changed
+- `frozen`, `locked`, `force-clean` and `ignore-tests` flags are now propagated
+to feature configurations.
+- `exclude` argument for packages is now propagated and any features existing
+in the `package` list are removed to avoid conflicts
+- Fixed regression where features weren't propagated
+
+### Removed
 
 ## [0.13.0] - 2020-05-25
 ### Added

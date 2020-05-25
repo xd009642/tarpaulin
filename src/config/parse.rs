@@ -4,17 +4,12 @@ use coveralls_api::CiService;
 use log::error;
 use regex::Regex;
 use serde::de::{self, Deserializer};
-use std::borrow::Cow;
 use std::env;
 use std::fmt;
 use std::fs::create_dir_all;
 use std::path::PathBuf;
 use std::str::FromStr;
 use std::time::Duration;
-
-pub(super) fn get_string(args: &ArgMatches, key: &str) -> Option<String> {
-    args.value_of_lossy(key).map(Cow::into_owned).or(None)
-}
 
 pub(super) fn get_list(args: &ArgMatches, key: &str) -> Vec<String> {
     args.values_of_lossy(key).unwrap_or_else(Vec::new)

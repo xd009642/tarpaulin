@@ -26,11 +26,12 @@ Below is the help-text for a thorough explanation of the flags and features
 available:
 
 ```bash
-cargo-tarpaulin version: 0.13.0
+
+cargo-tarpaulin version: 0.13.1
 Tool to analyse test coverage of cargo projects
 
 USAGE:
-    cargo tarpaulin [FLAGS] [OPTIONS] [-- <args>...]
+    cargo tarpaulin [FLAGS] [OPTIONS] --features <FEATURES>... [-- <args>...]
 
 FLAGS:
         --all                    Alias for --workspace (deprecated)
@@ -38,7 +39,6 @@ FLAGS:
     -b, --branch                 Branch coverage: NOT IMPLEMENTED
         --count                  Counts the number of hits during coverage
         --debug                  Show debug output - this is used for diagnosing issues with tarpaulin
-        --features               Features to be included in the target project
         --force-clean            Adds a clean stage to work around cargo bugs that may affect coverage results
     -f, --forward                Forwards unexpected signals to test. Tarpaulin will still take signals it is expecting.
         --frozen                 Do not update Cargo.lock or any caches
@@ -70,6 +70,7 @@ OPTIONS:
     -e, --exclude <PACKAGE>...       Package id specifications to exclude from coverage. See cargo help pkgid for more
                                      info
         --exclude-files <FILE>...    Exclude given files from coverage results has * wildcard
+        --features <FEATURES>...     Features to be included in the target project
         --manifest-path <PATH>       Path to Cargo.toml
     -o, --out <FMT>...               Output format of coverage report [possible values: Json, Toml, Stdout, Xml, Html,
                                      Lcov]

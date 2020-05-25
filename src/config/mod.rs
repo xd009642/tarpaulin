@@ -183,6 +183,12 @@ impl<'a> From<&'a ArgMatches<'a>> for ConfigWrapper {
         let verbose = args.is_present("verbose") || debug;
         let excluded_files = get_excluded(args);
         let excluded_files_raw = get_list(args, "exclude-files");
+        let features = get_list(args, "features");
+        let features = if features.is_empty() {
+            None
+        } else {
+            Some(features.join(" "))
+        };
 
         let args_config = Config {
             name: String::new(),
@@ -207,7 +213,7 @@ impl<'a> From<&'a ArgMatches<'a>> for ConfigWrapper {
             forward_signals: args.is_present("forward"),
             all_features: args.is_present("all-features"),
             no_default_features: args.is_present("no-default-features"),
-            features: get_string(args, "features"),
+            features,
             unstable_features: get_list(args, "Z"),
             all: args.is_present("all") | args.is_present("workspace"),
             packages: get_list(args, "packages"),
@@ -392,6 +398,10 @@ impl Config {
         self.output_directory =
             Config::pick_optional_config(&self.output_directory, &other.output_directory);
         self.all |= other.all;
+        self.frozen |= other.frozen;
+        self.locked |= other.locked;
+        self.force_clean |= other.force_clean;
+        self.ignore_tests |= other.ignore_tests;
 
         let additional_packages = other
             .packages
@@ -400,6 +410,23 @@ impl Config {
             .cloned()
             .collect::<Vec<String>>();
         self.packages.extend(additional_packages);
+
+        let additional_excludes = other
+            .exclude
+            .iter()
+            .filter(|package| !self.exclude.contains(package))
+            .cloned()
+            .collect::<Vec<String>>();
+        self.exclude.extend(additional_excludes);
+
+        let exclude = &self.exclude;
+        self.packages.retain(|package| {
+            let keep = !exclude.contains(package);
+            if !keep {
+                info!("{} is in exclude list removing from packages", package);
+            }
+            keep
+        });
 
         if !other.excluded_files_raw.is_empty() {
             self.excluded_files_raw
@@ -525,6 +552,38 @@ mod tests {
     use clap::App;
 
     #[test]
+    fn features_args() {
+        let matches = App::new("tarpaulin")
+            .args_from_usage(
+                "--features <FEATURES>... 'Features to be included in the target project'
+                             --ignore-config 'Ignore any project config files'",
+            )
+            .get_matches_from_safe(vec![
+                "tarpaulin",
+                "--ignore-config",
+                "--features",
+                "a",
+                "--features",
+                "b",
+            ])
+            .unwrap();
+        let conf = ConfigWrapper::from(&matches).0;
+        assert_eq!(conf.len(), 1);
+        assert_eq!(conf[0].features, Some("a b".to_string()));
+
+        let matches = App::new("tarpaulin")
+            .args_from_usage(
+                "--features <FEATURES>... 'Features to be included in the target project'
+                             --ignore-config 'Ignore any project config files'",
+            )
+            .get_matches_from_safe(vec!["tarpaulin", "--ignore-config", "--features", "a b"])
+            .unwrap();
+        let conf = ConfigWrapper::from(&matches).0;
+        assert_eq!(conf.len(), 1);
+        assert_eq!(conf[0].features, Some("a b".to_string()))
+    }
+
+    #[test]
     fn exclude_paths() {
         let matches = App::new("tarpaulin")
             .args_from_usage("--exclude-files [FILE]... 'Exclude given files from coverage results has * wildcard'")
@@ -631,8 +690,6 @@ mod tests {
         let mut configs = Config::parse_config_toml(toml.as_bytes()).unwrap();
         let mut config = configs.remove(0);
         config.merge(&configs[0]);
-        println!("{:?}", configs[0].excluded_files_raw);
-        println!("{:?}", config.excluded_files_raw);
         assert!(config.excluded_files_raw.contains(&"target/*".to_string()));
         assert!(config.excluded_files_raw.contains(&"foo.rs".to_string()));
 
@@ -695,6 +752,32 @@ mod tests {
 
         b.merge(&c);
         assert_eq!(b.packages, vec![String::from("a"), String::from("b")]);
+    }
+
+    #[test]
+    fn exclude_packages_merge() {
+        let toml_a = r#"packages = []
+                        exclude = ["a"]"#;
+        let toml_b = r#"packages = ["a"]
+                        exclude = ["b"]"#;
+        let toml_c = r#"packages = ["b", "a"]
+                        exclude = ["c"]"#;
+
+        let mut a: Config = toml::from_slice(toml_a.as_bytes()).unwrap();
+        let mut b: Config = toml::from_slice(toml_b.as_bytes()).unwrap();
+        let c: Config = toml::from_slice(toml_c.as_bytes()).unwrap();
+
+        assert_eq!(a.exclude, vec![String::from("a")]);
+        assert_eq!(b.exclude, vec![String::from("b")]);
+        assert_eq!(c.exclude, vec![String::from("c")]);
+
+        a.merge(&c);
+        assert_eq!(a.packages, vec![String::from("b")]);
+        assert_eq!(a.exclude, vec![String::from("a"), String::from("c")]);
+
+        b.merge(&c);
+        assert_eq!(b.packages, vec![String::from("a")]);
+        assert_eq!(b.exclude, vec![String::from("b"), String::from("c")]);
     }
 
     #[test]
