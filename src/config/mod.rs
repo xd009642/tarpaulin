@@ -392,6 +392,10 @@ impl Config {
         self.output_directory =
             Config::pick_optional_config(&self.output_directory, &other.output_directory);
         self.all |= other.all;
+        self.frozen |= other.frozen;
+        self.locked |= other.locked;
+        self.force_clean |= other.force_clean;
+        self.ignore_tests |= other.ignore_tests;
 
         let additional_packages = other
             .packages
@@ -400,6 +404,23 @@ impl Config {
             .cloned()
             .collect::<Vec<String>>();
         self.packages.extend(additional_packages);
+
+        let additional_excludes = other
+            .exclude
+            .iter()
+            .filter(|package| !self.exclude.contains(package))
+            .cloned()
+            .collect::<Vec<String>>();
+        self.exclude.extend(additional_excludes);
+
+        let exclude = &self.exclude;
+        self.packages.retain(|package| {
+            let keep = !exclude.contains(package);
+            if !keep {
+                info!("{} is in exclude list removing from packages", package);
+            }
+            keep
+        });
 
         if !other.excluded_files_raw.is_empty() {
             self.excluded_files_raw
@@ -695,6 +716,32 @@ mod tests {
 
         b.merge(&c);
         assert_eq!(b.packages, vec![String::from("a"), String::from("b")]);
+    }
+
+    #[test]
+    fn exclude_packages_merge() {
+        let toml_a = r#"packages = []
+                        exclude = ["a"]"#;
+        let toml_b = r#"packages = ["a"]
+                        exclude = ["b"]"#;
+        let toml_c = r#"packages = ["b", "a"]
+                        exclude = ["c"]"#;
+
+        let mut a: Config = toml::from_slice(toml_a.as_bytes()).unwrap();
+        let mut b: Config = toml::from_slice(toml_b.as_bytes()).unwrap();
+        let c: Config = toml::from_slice(toml_c.as_bytes()).unwrap();
+
+        assert_eq!(a.exclude, vec![String::from("a")]);
+        assert_eq!(b.exclude, vec![String::from("b")]);
+        assert_eq!(c.exclude, vec![String::from("c")]);
+
+        a.merge(&c);
+        assert_eq!(a.packages, vec![String::from("b")]);
+        assert_eq!(a.exclude, vec![String::from("a"), String::from("c")]);
+
+        b.merge(&c);
+        assert_eq!(b.packages, vec![String::from("a")]);
+        assert_eq!(b.exclude, vec![String::from("b"), String::from("c")]);
     }
 
     #[test]
