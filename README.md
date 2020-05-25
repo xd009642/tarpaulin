@@ -27,7 +27,7 @@ available:
 
 ```bash
 
-cargo-tarpaulin version: 0.13.1
+cargo-tarpaulin version: 0.13.2
 Tool to analyse test coverage of cargo projects
 
 USAGE:
@@ -75,7 +75,7 @@ OPTIONS:
     -o, --out <FMT>...               Output format of coverage report [possible values: Json, Toml, Stdout, Xml, Html,
                                      Lcov]
         --output-dir <PATH>          Specify a custom directory to write report files
-    -p, --packages <PACKAGE>...      Package id specifications for which package should be build. See cargo help pkgid
+    -p, --packages [PACKAGE]...      Package id specifications for which package should be build. See cargo help pkgid
                                      for more info
         --report-uri <URI>           URI to send report to, only used if the option --coveralls is used
     -r, --root <DIR>                 Calculates relative paths to root directory. If --manifest-path isn't specified it
