@@ -76,7 +76,11 @@ pub fn get_tests(config: &Config) -> Result<Vec<TestBinary>, RunError> {
 
     for ty in &config.run_types {
         let mut cmd = create_command(manifest, config, ty);
-        cmd.stdout(Stdio::piped());
+        if ty != &RunType::Doctests {
+            cmd.stdout(Stdio::piped());
+        } else {
+            cmd.stdout(Stdio::null());
+        }
         if !config.verbose {
             cmd.stderr(Stdio::null());
         }
