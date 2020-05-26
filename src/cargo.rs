@@ -120,7 +120,13 @@ pub fn get_tests(config: &Config) -> Result<Vec<TestBinary>, RunError> {
             child.wait().map_err(|e| RunError::Cargo(e.to_string()))?;
         } else {
             // need to wait for compiling to finish before getting doctests
-            child.wait().map_err(|e| RunError::Cargo(e.to_string()))?;
+            // also need to wait with output to ensure the stdout buffer doesn't fill up
+            let out = child
+                .wait_with_output()
+                .map_err(|e| RunError::Cargo(e.to_string()))?;
+            if !out.status.success() {
+                error!("Building doctests failed");
+            }
             let walker = WalkDir::new(&config.doctest_dir()).into_iter();
             for dt in walker
                 .filter_map(|e| e.ok())
