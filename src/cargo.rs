@@ -1,11 +1,12 @@
 use crate::config::*;
 use crate::errors::RunError;
 use cargo_metadata::{diagnostic::DiagnosticLevel, CargoOpt, Message, MetadataCommand};
-use log::{error, trace};
+use log::{error, trace, warn};
+use std::collections::HashMap;
 use std::env;
 use std::path::{Path, PathBuf};
 use std::process::{Command, Stdio};
-use walkdir::WalkDir;
+use walkdir::{DirEntry, WalkDir};
 
 #[derive(Clone, PartialEq, Eq, PartialOrd, Ord, Hash)]
 pub struct TestBinary {
@@ -132,19 +133,67 @@ pub fn get_tests(config: &Config) -> Result<Vec<TestBinary>, RunError> {
                 error!("Building doctests failed");
             }
             let walker = WalkDir::new(&config.doctest_dir()).into_iter();
-            for dt in walker
+            let dir_entries = walker
                 .filter_map(|e| e.ok())
                 .filter(|e| match e.metadata() {
                     Ok(ref m) if m.is_file() && m.len() != 0 => true,
                     _ => false,
                 })
-            {
+                .collect::<Vec<_>>();
+
+            let should_panics = get_panic_candidates(&dir_entries, &config.root());
+            for dt in &dir_entries {
                 trace!("Found doctest binary {}", dt.path().display());
                 result.push(TestBinary::new(dt.path().to_path_buf(), *ty));
             }
         }
     }
     Ok(result)
+}
+
+fn convert_to_prefix(p: &Path) -> Option<String> {
+    p.to_str()
+        .map(|s| s.replace(std::path::MAIN_SEPARATOR, "_").replace(".", "_"))
+}
+
+fn is_prefix_match(prefix: &str, entry: &DirEntry) -> bool {
+    convert_to_prefix(entry.path())
+        .map(|s| prefix.starts_with(&s))
+        .unwrap_or(false)
+}
+
+/// This returns a map of the string prefixes for the file in the doc test and a list of lines
+/// which contain the string `should_panic` it makes no guarantees that all these lines are a
+/// doctest attribute showing panic behaviour (but some of them will be)
+///
+/// Currently all doctest files take the pattern of `{name}_{line}_{number}` where name is the
+/// path to the file with directory separators and dots replaced with underscores. Therefore
+/// each name could potentially map to many files as `src_some_folder_foo_rs_0_1` could go to
+/// `src/some/folder_foo.rs` or `src/some/folder/foo.rs` here we're going to work on a heuristic
+/// that any matching file is good because we can't do any better
+fn get_panic_candidates(tests: &[DirEntry], root: &Path) -> HashMap<String, Vec<usize>> {
+    let mut result = HashMap::new();
+
+    for test in tests {
+        if let Some(s) = test.path().to_str() {
+            let walker = WalkDir::new(root).into_iter();
+            for file in walker
+                .filter_entry(|e| is_prefix_match(s, e))
+                .filter_map(|e| e.ok())
+            {
+                trace!(
+                    "Assessing {} for `should_panic` doctests",
+                    file.path().display()
+                );
+            }
+        } else {
+            warn!(
+                "Invalid characters in name of doctest {}",
+                test.path().display()
+            );
+        }
+    }
+    result
 }
 
 fn create_command(manifest_path: &str, config: &Config, ty: &RunType) -> Command {
