@@ -1,10 +1,10 @@
 use crate::config::*;
 use crate::errors::RunError;
 use cargo_metadata::{diagnostic::DiagnosticLevel, CargoOpt, Message, MetadataCommand};
-use log::{error, trace, warn};
+use log::{error, info, trace, warn};
 use std::collections::HashMap;
 use std::env;
-use std::path::{Path, PathBuf};
+use std::path::{Component, Path, PathBuf};
 use std::process::{Command, Stdio};
 use walkdir::{DirEntry, WalkDir};
 
@@ -141,7 +141,7 @@ pub fn get_tests(config: &Config) -> Result<Vec<TestBinary>, RunError> {
                 })
                 .collect::<Vec<_>>();
 
-            let should_panics = get_panic_candidates(&dir_entries, &config.root());
+            let should_panics = get_panic_candidates(&dir_entries, config);
             for dt in &dir_entries {
                 trace!("Found doctest binary {}", dt.path().display());
                 result.push(TestBinary::new(dt.path().to_path_buf(), *ty));
@@ -156,8 +156,8 @@ fn convert_to_prefix(p: &Path) -> Option<String> {
         .map(|s| s.replace(std::path::MAIN_SEPARATOR, "_").replace(".", "_"))
 }
 
-fn is_prefix_match(prefix: &str, entry: &DirEntry) -> bool {
-    convert_to_prefix(entry.path())
+fn is_prefix_match(prefix: &str, entry: &Path) -> bool {
+    convert_to_prefix(entry)
         .map(|s| prefix.starts_with(&s))
         .unwrap_or(false)
 }
@@ -171,20 +171,38 @@ fn is_prefix_match(prefix: &str, entry: &DirEntry) -> bool {
 /// each name could potentially map to many files as `src_some_folder_foo_rs_0_1` could go to
 /// `src/some/folder_foo.rs` or `src/some/folder/foo.rs` here we're going to work on a heuristic
 /// that any matching file is good because we can't do any better
-fn get_panic_candidates(tests: &[DirEntry], root: &Path) -> HashMap<String, Vec<usize>> {
+fn get_panic_candidates(tests: &[DirEntry], config: &Config) -> HashMap<String, Vec<usize>> {
     let mut result = HashMap::new();
-
+    let root = config.root();
+    let target = config.target_dir();
     for test in tests {
-        if let Some(s) = test.path().to_str() {
-            let walker = WalkDir::new(root).into_iter();
-            for file in walker
-                .filter_entry(|e| is_prefix_match(s, e))
+        let test_name = test.path().components().nth_back(1);
+        if let Some(Component::Normal(s)) = test_name {
+            let s = s.to_string_lossy();
+            let end = match s.rfind("rs") {
+                Some(i) => i + 2,
+                None => continue,
+            };
+            let walker = WalkDir::new(&root).into_iter();
+            // TODO some walkdir stuff is being reused here and in source_analysis (and source
+            // analysis does it a bit wrong) Fix before merging
+            for dir_entry in walker
+                .filter_entry(|e| {
+                    !(e.path().starts_with(&target)
+                        || e.path()
+                            .iter()
+                            .any(|x| x.to_string_lossy().starts_with(".")))
+                })
                 .filter_map(|e| e.ok())
             {
-                trace!(
-                    "Assessing {} for `should_panic` doctests",
-                    file.path().display()
-                );
+                let path = dir_entry.path();
+                if path.is_file() {
+                    if let Some(p) = path_relative_from(path, &root) {
+                        if is_prefix_match(&s[..end], &p) {
+                            trace!("Assessing {} for `should_panic` doctests", path.display());
+                        }
+                    }
+                }
             }
         } else {
             warn!(
