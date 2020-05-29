@@ -4,6 +4,9 @@ use cargo_metadata::{diagnostic::DiagnosticLevel, CargoOpt, Message, MetadataCom
 use log::{error, info, trace, warn};
 use std::collections::HashMap;
 use std::env;
+use std::fs::File;
+use std::io;
+use std::io::{BufRead, BufReader};
 use std::path::{Component, Path, PathBuf};
 use std::process::{Command, Stdio};
 use walkdir::{DirEntry, WalkDir};
@@ -199,7 +202,13 @@ fn get_panic_candidates(tests: &[DirEntry], config: &Config) -> HashMap<String, 
                 if path.is_file() {
                     if let Some(p) = path_relative_from(path, &root) {
                         if is_prefix_match(&s[..end], &p) {
-                            trace!("Assessing {} for `should_panic` doctests", path.display());
+                            let prefix = convert_to_prefix(&p).unwrap_or_default();
+                            if !result.contains_key(&prefix) {
+                                trace!("Assessing {} for `should_panic` doctests", path.display());
+                                let lines = find_panics_in_file(path).unwrap_or_default();
+                                result.insert(prefix, lines);
+                            }
+                            break;
                         }
                     }
                 }
@@ -212,6 +221,22 @@ fn get_panic_candidates(tests: &[DirEntry], config: &Config) -> HashMap<String, 
         }
     }
     result
+}
+
+fn find_panics_in_file(file: &Path) -> io::Result<Vec<usize>> {
+    let f = File::open(file)?;
+    let reader = BufReader::new(f);
+    let lines = reader
+        .lines()
+        .enumerate()
+        .filter(|(_, l)| {
+            l.as_ref()
+                .map(|x| x.contains("should_panic"))
+                .unwrap_or(false)
+        })
+        .map(|(i, _)| i)
+        .collect();
+    Ok(lines)
 }
 
 fn create_command(manifest_path: &str, config: &Config, ty: &RunType) -> Command {
