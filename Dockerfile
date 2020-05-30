@@ -6,6 +6,7 @@ RUN env USER=root cargo init .
 
 COPY Cargo.toml .
 COPY Cargo.lock .
+COPY build.rs .
 
 RUN mkdir .cargo
 RUN cargo vendor > .cargo/config
