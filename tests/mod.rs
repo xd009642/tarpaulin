@@ -6,7 +6,7 @@ use clap::App;
 use std::env;
 use std::time::Duration;
 
-#[cfg(feature = "nightly")]
+#[cfg(nightly)]
 mod doc_coverage;
 mod failures;
 mod line_coverage;
