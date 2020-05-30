@@ -22,6 +22,12 @@ pub struct TestBinary {
     should_panic: bool,
 }
 
+#[derive(Clone, Debug)]
+struct DocTestBinaryMeta {
+    prefix: String,
+    line: usize,
+}
+
 impl TestBinary {
     pub fn new(path: PathBuf, ty: RunType) -> Self {
         Self {
@@ -63,6 +69,27 @@ impl TestBinary {
     /// `false` depending on the test attribute
     pub fn should_panic(&self) -> bool {
         self.should_panic
+    }
+}
+
+impl DocTestBinaryMeta {
+    fn new<P: AsRef<Path>>(test: P) -> Option<Self> {
+        if let Some(Component::Normal(folder)) = test.as_ref().components().nth_back(1) {
+            let temp = folder.to_string_lossy();
+            let file_end = temp.rfind("rs").map(|i| i + 2)?;
+            let end = temp.rfind("_")?;
+            if end > file_end + 1 {
+                let line = temp[(file_end + 1)..end].parse::<usize>().ok()?;
+                Some(Self {
+                    prefix: temp[..file_end].to_string(),
+                    line,
+                })
+            } else {
+                None
+            }
+        } else {
+            None
+        }
     }
 }
 
@@ -147,7 +174,14 @@ pub fn get_tests(config: &Config) -> Result<Vec<TestBinary>, RunError> {
             let should_panics = get_panic_candidates(&dir_entries, config);
             for dt in &dir_entries {
                 trace!("Found doctest binary {}", dt.path().display());
-                result.push(TestBinary::new(dt.path().to_path_buf(), *ty));
+                let mut tb = TestBinary::new(dt.path().to_path_buf(), *ty);
+                // Now to do my magic!
+                if let Some(meta) = DocTestBinaryMeta::new(dt.path()) {
+                    if let Some(lines) = should_panics.get(&meta.prefix) {
+                        tb.should_panic |= lines.contains(&meta.line);
+                    }
+                }
+                result.push(tb);
             }
         }
     }
@@ -179,13 +213,7 @@ fn get_panic_candidates(tests: &[DirEntry], config: &Config) -> HashMap<String, 
     let root = config.root();
     let target = config.target_dir();
     for test in tests {
-        let test_name = test.path().components().nth_back(1);
-        if let Some(Component::Normal(s)) = test_name {
-            let s = s.to_string_lossy();
-            let end = match s.rfind("rs") {
-                Some(i) => i + 2,
-                None => continue,
-            };
+        if let Some(test_binary) = DocTestBinaryMeta::new(test.path()) {
             let walker = WalkDir::new(&root).into_iter();
             // TODO some walkdir stuff is being reused here and in source_analysis (and source
             // analysis does it a bit wrong) Fix before merging
@@ -201,7 +229,7 @@ fn get_panic_candidates(tests: &[DirEntry], config: &Config) -> HashMap<String, 
                 let path = dir_entry.path();
                 if path.is_file() {
                     if let Some(p) = path_relative_from(path, &root) {
-                        if is_prefix_match(&s[..end], &p) {
+                        if is_prefix_match(&test_binary.prefix, &p) {
                             let prefix = convert_to_prefix(&p).unwrap_or_default();
                             if !result.contains_key(&prefix) {
                                 trace!("Assessing {} for `should_panic` doctests", path.display());
@@ -234,7 +262,7 @@ fn find_panics_in_file(file: &Path) -> io::Result<Vec<usize>> {
                 .map(|x| x.contains("should_panic"))
                 .unwrap_or(false)
         })
-        .map(|(i, _)| i)
+        .map(|(i, _)| i + 1) // move from line index to line number
         .collect();
     Ok(lines)
 }
