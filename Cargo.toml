@@ -18,6 +18,10 @@ name = "cargo-tarpaulin"
 name = "integration"
 path = "tests/mod.rs"
 
+[features]
+# Used for tests relying on nightly features
+nightly = []
+
 [dependencies]
 cargo_metadata = "0.10"
 chrono = "0.4"
@@ -45,3 +49,6 @@ serde_json = "1.0"
 syn = { version = "1.0", features = ["full"]}
 toml = "0.5"
 walkdir = "2.3.1"
+
+[build-dependencies]
+rustc_version = "0.2"

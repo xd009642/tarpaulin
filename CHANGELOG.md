@@ -7,6 +7,9 @@ file.
 ### Added
 
 ### Changed
+- Fix issue where doc tests could hang if stdout buffer filled (#402)
+- No longer report test failure if a `should_panic` doc test is ran
+- Clean pre-existing doc tests from target/doctests directory
 
 ### Removed
 
@@ -15,9 +18,6 @@ file.
 
 ### Changed
 - Make features argument optional again
-- Fix issue where doc tests could hang if stdout buffer filled (#402)
-- No longer report test failure if a `should_panic` doc test is ran
-- Clean pre-existing doc tests from target/doctests directory
 
 ### Removed
 

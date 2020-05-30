@@ -84,7 +84,7 @@ fn only_bench_coverage() {
 }
 
 #[test]
-#[ignore]
+#[cfg(feature = "nightly")]
 fn only_doctest_coverage() {
     let mut config = Config::default();
     config.verbose = true;
