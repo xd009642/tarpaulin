@@ -98,10 +98,17 @@ pub fn launch_tarpaulin(config: &Config) -> Result<(TraceMap, i32), RunError> {
     let executables = cargo::get_tests(config)?;
     let project_analysis = source_analysis::get_line_analysis(config);
     for exe in &executables {
+        if exe.should_panic() {
+            info!("Running a test executable that is expected to panic");
+        }
         let coverage = get_test_coverage(&exe, &project_analysis, config, false)?;
         if let Some(res) = coverage {
             result.merge(&res.0);
-            return_code |= res.1;
+            return_code |= if exe.should_panic() {
+                (res.1 == 0) as i32
+            } else {
+                res.1
+            };
         }
         if config.run_ignored && exe.run_type() == RunType::Tests {
             let coverage = get_test_coverage(&exe, &project_analysis, config, true)?;

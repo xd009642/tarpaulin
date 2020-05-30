@@ -1,10 +1,10 @@
 use crate::config::*;
 use crate::errors::RunError;
 use cargo_metadata::{diagnostic::DiagnosticLevel, CargoOpt, Message, MetadataCommand};
-use log::{error, info, trace, warn};
+use log::{error, trace, warn};
 use std::collections::HashMap;
 use std::env;
-use std::fs::File;
+use std::fs::{read_dir, remove_dir_all, File};
 use std::io;
 use std::io::{BufRead, BufReader};
 use std::path::{Component, Path, PathBuf};
@@ -110,6 +110,7 @@ pub fn get_tests(config: &Config) -> Result<Vec<TestBinary>, RunError> {
         if ty != &RunType::Doctests {
             cmd.stdout(Stdio::piped());
         } else {
+            clean_doctest_folder(&config.doctest_dir());
             cmd.stdout(Stdio::null());
         }
         if !config.verbose {
@@ -348,6 +349,26 @@ fn init_args(test_cmd: &mut Command, config: &Config) {
         let mut args = vec!["--".to_string()];
         args.extend_from_slice(&config.varargs);
         test_cmd.args(args);
+    }
+}
+
+/// Old doc tests that no longer exist or where the line have changed can persist so delete them to
+/// avoid confusing the results
+fn clean_doctest_folder<P: AsRef<Path>>(doctest_dir: P) {
+    if let Ok(rd) = read_dir(doctest_dir.as_ref()) {
+        rd.flat_map(|e| e.ok())
+            .filter(|e| {
+                e.path()
+                    .components()
+                    .next_back()
+                    .map(|e| e.as_os_str().to_string_lossy().contains("rs"))
+                    .unwrap_or(false)
+            })
+            .for_each(|e| {
+                if let Err(err) = remove_dir_all(e.path()) {
+                    warn!("Failed to delete {}: {}", e.path().display(), err);
+                }
+            });
     }
 }
 
