@@ -392,14 +392,14 @@ the projects manifest or in the root directory that will be used unless
 
 ```toml
 [feature_a_coverage]
-features = "feature_a"
+features = ["feature_a"]
 
 [feature_a_and_b_coverage]
-features = "feature_a feature_b"
+features = ["feature_a feature_b"]
 release = true
 
 [report]
-coveralls = "coveralls_key"
+coveralls = ["coveralls_key"]
 out = ["Html", "Xml"]
 ```
 
