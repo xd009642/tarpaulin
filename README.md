@@ -26,12 +26,11 @@ Below is the help-text for a thorough explanation of the flags and features
 available:
 
 ```bash
-
-cargo-tarpaulin version: 0.13.2
+cargo-tarpaulin version: 0.13.3
 Tool to analyse test coverage of cargo projects
 
 USAGE:
-    cargo tarpaulin [FLAGS] [OPTIONS] --features <FEATURES>... [-- <args>...]
+    cargo tarpaulin [FLAGS] [OPTIONS] [-- <args>...]
 
 FLAGS:
         --all                    Alias for --workspace (deprecated)
@@ -75,7 +74,7 @@ OPTIONS:
     -o, --out <FMT>...               Output format of coverage report [possible values: Json, Toml, Stdout, Xml, Html,
                                      Lcov]
         --output-dir <PATH>          Specify a custom directory to write report files
-    -p, --packages [PACKAGE]...      Package id specifications for which package should be build. See cargo help pkgid
+    -p, --packages <PACKAGE>...      Package id specifications for which package should be build. See cargo help pkgid
                                      for more info
         --report-uri <URI>           URI to send report to, only used if the option --coveralls is used
     -r, --root <DIR>                 Calculates relative paths to root directory. If --manifest-path isn't specified it

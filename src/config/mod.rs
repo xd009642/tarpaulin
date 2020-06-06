@@ -270,6 +270,12 @@ impl Config {
         }
     }
 
+    pub fn doctest_dir(&self) -> PathBuf {
+        let mut result = self.target_dir();
+        result.push("doctests");
+        result
+    }
+
     fn get_metadata(&self) -> Ref<Option<Metadata>> {
         if self.metadata.borrow().is_none() {
             match MetadataCommand::new().manifest_path(&self.manifest).exec() {
@@ -505,7 +511,7 @@ impl Config {
 /// Credit to brson from this commit from 2015
 /// https://github.com/rust-lang/rust/pull/23283/files
 ///
-fn path_relative_from(path: &Path, base: &Path) -> Option<PathBuf> {
+pub fn path_relative_from(path: &Path, base: &Path) -> Option<PathBuf> {
     use std::path::Component;
 
     if path.is_absolute() != base.is_absolute() {

@@ -1,13 +1,15 @@
 use crate::config::*;
 use crate::errors::RunError;
 use cargo_metadata::{diagnostic::DiagnosticLevel, CargoOpt, Message, MetadataCommand};
-use log::{error, trace};
+use log::{error, trace, warn};
+use std::collections::HashMap;
 use std::env;
-use std::path::{Path, PathBuf};
+use std::fs::{read_dir, remove_dir_all, File};
+use std::io;
+use std::io::{BufRead, BufReader};
+use std::path::{Component, Path, PathBuf};
 use std::process::{Command, Stdio};
-use walkdir::WalkDir;
-
-static DOCTEST_FOLDER: &str = "target/doctests";
+use walkdir::{DirEntry, WalkDir};
 
 #[derive(Clone, PartialEq, Eq, PartialOrd, Ord, Hash)]
 pub struct TestBinary {
@@ -17,6 +19,13 @@ pub struct TestBinary {
     pkg_name: Option<String>,
     pkg_version: Option<String>,
     pkg_authors: Option<Vec<String>>,
+    should_panic: bool,
+}
+
+#[derive(Clone, Debug)]
+struct DocTestBinaryMeta {
+    prefix: String,
+    line: usize,
 }
 
 impl TestBinary {
@@ -28,6 +37,7 @@ impl TestBinary {
             pkg_version: None,
             pkg_authors: None,
             cargo_dir: None,
+            should_panic: false,
         }
     }
 
@@ -54,6 +64,33 @@ impl TestBinary {
     pub fn pkg_authors(&self) -> &Option<Vec<String>> {
         &self.pkg_authors
     }
+
+    /// Should be `false` for normal tests and for doctests either `true` or
+    /// `false` depending on the test attribute
+    pub fn should_panic(&self) -> bool {
+        self.should_panic
+    }
+}
+
+impl DocTestBinaryMeta {
+    fn new<P: AsRef<Path>>(test: P) -> Option<Self> {
+        if let Some(Component::Normal(folder)) = test.as_ref().components().nth_back(1) {
+            let temp = folder.to_string_lossy();
+            let file_end = temp.rfind("rs").map(|i| i + 2)?;
+            let end = temp.rfind("_")?;
+            if end > file_end + 1 {
+                let line = temp[(file_end + 1)..end].parse::<usize>().ok()?;
+                Some(Self {
+                    prefix: temp[..file_end].to_string(),
+                    line,
+                })
+            } else {
+                None
+            }
+        } else {
+            None
+        }
+    }
 }
 
 pub fn get_tests(config: &Config) -> Result<Vec<TestBinary>, RunError> {
@@ -70,9 +107,11 @@ pub fn get_tests(config: &Config) -> Result<Vec<TestBinary>, RunError> {
 
     for ty in &config.run_types {
         let mut cmd = create_command(manifest, config, ty);
-        cmd.stdout(Stdio::piped());
-        if !config.verbose {
-            cmd.stderr(Stdio::null());
+        if ty != &RunType::Doctests {
+            cmd.stdout(Stdio::piped());
+        } else {
+            clean_doctest_folder(&config.doctest_dir());
+            cmd.stdout(Stdio::null());
         }
         trace!("Running command {:?}", cmd);
         let mut child = cmd.spawn().map_err(|e| RunError::Cargo(e.to_string()))?;
@@ -111,31 +150,119 @@ pub fn get_tests(config: &Config) -> Result<Vec<TestBinary>, RunError> {
                 res.pkg_version = Some(package.version.to_string());
                 res.pkg_authors = Some(package.authors.clone());
             }
+            child.wait().map_err(|e| RunError::Cargo(e.to_string()))?;
         } else {
-            // Need to get the packages...
-            let package_roots = config
-                .get_packages()
-                .iter()
-                .filter_map(|x| x.manifest_path.parent())
-                .map(|x| x.join(DOCTEST_FOLDER))
-                .collect::<Vec<PathBuf>>();
+            // need to wait for compiling to finish before getting doctests
+            // also need to wait with output to ensure the stdout buffer doesn't fill up
+            let out = child
+                .wait_with_output()
+                .map_err(|e| RunError::Cargo(e.to_string()))?;
+            if !out.status.success() {
+                error!("Building doctests failed");
+            }
+            let walker = WalkDir::new(&config.doctest_dir()).into_iter();
+            let dir_entries = walker
+                .filter_map(|e| e.ok())
+                .filter(|e| match e.metadata() {
+                    Ok(ref m) if m.is_file() && m.len() != 0 => true,
+                    _ => false,
+                })
+                .collect::<Vec<_>>();
 
-            for dir in &package_roots {
-                let walker = WalkDir::new(dir).into_iter();
-                for dt in walker
-                    .filter_map(|e| e.ok())
-                    .filter(|e| match e.metadata() {
-                        Ok(ref m) if m.is_file() && m.len() != 0 => true,
-                        _ => false,
-                    })
-                {
-                    result.push(TestBinary::new(dt.path().to_path_buf(), *ty));
+            let should_panics = get_panic_candidates(&dir_entries, config);
+            for dt in &dir_entries {
+                trace!("Found doctest binary {}", dt.path().display());
+                let mut tb = TestBinary::new(dt.path().to_path_buf(), *ty);
+                // Now to do my magic!
+                if let Some(meta) = DocTestBinaryMeta::new(dt.path()) {
+                    if let Some(lines) = should_panics.get(&meta.prefix) {
+                        tb.should_panic |= lines.contains(&meta.line);
+                    }
                 }
+                result.push(tb);
             }
         }
-        child.wait().map_err(|e| RunError::Cargo(e.to_string()))?;
     }
     Ok(result)
+}
+
+fn convert_to_prefix(p: &Path) -> Option<String> {
+    p.to_str()
+        .map(|s| s.replace(std::path::MAIN_SEPARATOR, "_").replace(".", "_"))
+}
+
+fn is_prefix_match(prefix: &str, entry: &Path) -> bool {
+    convert_to_prefix(entry)
+        .map(|s| prefix.starts_with(&s))
+        .unwrap_or(false)
+}
+
+/// This returns a map of the string prefixes for the file in the doc test and a list of lines
+/// which contain the string `should_panic` it makes no guarantees that all these lines are a
+/// doctest attribute showing panic behaviour (but some of them will be)
+///
+/// Currently all doctest files take the pattern of `{name}_{line}_{number}` where name is the
+/// path to the file with directory separators and dots replaced with underscores. Therefore
+/// each name could potentially map to many files as `src_some_folder_foo_rs_0_1` could go to
+/// `src/some/folder_foo.rs` or `src/some/folder/foo.rs` here we're going to work on a heuristic
+/// that any matching file is good because we can't do any better
+fn get_panic_candidates(tests: &[DirEntry], config: &Config) -> HashMap<String, Vec<usize>> {
+    let mut result = HashMap::new();
+    let root = config.root();
+    let target = config.target_dir();
+    for test in tests {
+        if let Some(test_binary) = DocTestBinaryMeta::new(test.path()) {
+            let walker = WalkDir::new(&root).into_iter();
+            // TODO some walkdir stuff is being reused here and in source_analysis (and source
+            // analysis does it a bit wrong) Fix before merging
+            for dir_entry in walker
+                .filter_entry(|e| {
+                    !(e.path().starts_with(&target)
+                        || e.path()
+                            .iter()
+                            .any(|x| x.to_string_lossy().starts_with(".")))
+                })
+                .filter_map(|e| e.ok())
+            {
+                let path = dir_entry.path();
+                if path.is_file() {
+                    if let Some(p) = path_relative_from(path, &root) {
+                        if is_prefix_match(&test_binary.prefix, &p) {
+                            let prefix = convert_to_prefix(&p).unwrap_or_default();
+                            if !result.contains_key(&prefix) {
+                                trace!("Assessing {} for `should_panic` doctests", path.display());
+                                let lines = find_panics_in_file(path).unwrap_or_default();
+                                result.insert(prefix, lines);
+                            }
+                            break;
+                        }
+                    }
+                }
+            }
+        } else {
+            warn!(
+                "Invalid characters in name of doctest {}",
+                test.path().display()
+            );
+        }
+    }
+    result
+}
+
+fn find_panics_in_file(file: &Path) -> io::Result<Vec<usize>> {
+    let f = File::open(file)?;
+    let reader = BufReader::new(f);
+    let lines = reader
+        .lines()
+        .enumerate()
+        .filter(|(_, l)| {
+            l.as_ref()
+                .map(|x| x.contains("should_panic"))
+                .unwrap_or(false)
+        })
+        .map(|(i, _)| i + 1) // move from line index to line number
+        .collect();
+    Ok(lines)
 }
 
 fn create_command(manifest_path: &str, config: &Config, ty: &RunType) -> Command {
@@ -222,6 +349,26 @@ fn init_args(test_cmd: &mut Command, config: &Config) {
     }
 }
 
+/// Old doc tests that no longer exist or where the line have changed can persist so delete them to
+/// avoid confusing the results
+fn clean_doctest_folder<P: AsRef<Path>>(doctest_dir: P) {
+    if let Ok(rd) = read_dir(doctest_dir.as_ref()) {
+        rd.flat_map(|e| e.ok())
+            .filter(|e| {
+                e.path()
+                    .components()
+                    .next_back()
+                    .map(|e| e.as_os_str().to_string_lossy().contains("rs"))
+                    .unwrap_or(false)
+            })
+            .for_each(|e| {
+                if let Err(err) = remove_dir_all(e.path()) {
+                    warn!("Failed to delete {}: {}", e.path().display(), err);
+                }
+            });
+    }
+}
+
 fn setup_environment(cmd: &mut Command, config: &Config) {
     cmd.env("TARPAULIN", "1");
     let rustflags = "RUSTFLAGS";
@@ -238,12 +385,14 @@ fn setup_environment(cmd: &mut Command, config: &Config) {
     let rustdoc = "RUSTDOCFLAGS";
     let mut value = format!(
         "{} --persist-doctests {} -Z unstable-options ",
-        common_opts, DOCTEST_FOLDER
+        common_opts,
+        config.doctest_dir().display()
     );
     if let Ok(vtemp) = env::var(rustdoc) {
         if !vtemp.contains("--persist-doctests") {
             value.push_str(vtemp.as_ref());
         }
     }
+    trace!("Setting RUSTDOCFLAGS='{}'", value);
     cmd.env(rustdoc, value);
 }
