@@ -113,9 +113,6 @@ pub fn get_tests(config: &Config) -> Result<Vec<TestBinary>, RunError> {
             clean_doctest_folder(&config.doctest_dir());
             cmd.stdout(Stdio::null());
         }
-        if !config.verbose {
-            cmd.stderr(Stdio::null());
-        }
         trace!("Running command {:?}", cmd);
         let mut child = cmd.spawn().map_err(|e| RunError::Cargo(e.to_string()))?;
 
