@@ -196,3 +196,11 @@ fn examples_coverage() {
     config.run_types = vec![RunType::Examples];
     check_percentage_with_config(test, 1.0f64, true, config);
 }
+
+#[test]
+fn access_env_var() {
+    // This test is mainly to check that expected environment variables are present
+    // using `CARGO_BIN_EXE_<name>` to test
+    let test = "env_var";
+    check_percentage(test, 1.0f64, true);
+}
