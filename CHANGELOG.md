@@ -7,6 +7,7 @@ file.
 ### Added
 
 ### Changed
+- Don't run executables when `--no-run` provided
 
 ### Removed 
 
