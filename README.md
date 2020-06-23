@@ -26,7 +26,7 @@ Below is the help-text for a thorough explanation of the flags and features
 available:
 
 ```bash
-cargo-tarpaulin version: 0.13.3
+cargo-tarpaulin version: 0.13.4
 Tool to analyse test coverage of cargo projects
 
 USAGE:
@@ -212,6 +212,32 @@ Below is an example of ignoring the main function in a project:
 #[cfg_attr(tarpaulin, skip)]
 fn main() {
     println!("I won't be included in results");
+}
+```
+
+However, the skip attribute only allows you to exclude code from coverage
+it doesn't change the code present in the binaries or what tests are ran.
+Because of this, `--cfg=tarpaulin` is used when building your project for
+Tarpaulin allowing you to also conditionally include/exclude code from
+compilation entirely. For example to have a test that isn't included in
+the test binaries when built with tarpaulin and cannot be ran just do:
+
+```Rust
+#[test]
+#[cfg(not(tarpaulin))]
+fn big_test_not_for_tarpaulin() {
+    // Something that would be very slow in tarpaulin or not work
+}
+```
+
+If you still want the test included in the binary just ignored by default
+you can use:
+
+```Rust
+#[test]
+#[cfg_attr(tarpaulin, ignore)]
+fn ignored_by_tarpaulin() {
+
 }
 ```
 

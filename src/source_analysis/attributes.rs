@@ -12,17 +12,20 @@ pub(crate) fn check_attr_list(
         if let Ok(x) = attr.parse_meta() {
             if check_cfg_attr(&x) {
                 check_cover = false;
-            } else if ctx.config.ignore_tests && x.path().is_ident("cfg") {
-                if let Meta::List(ref ml) = x {
-                    let mut skip = false;
-                    for c in &ml.nested {
-                        if let NestedMeta::Meta(Meta::Path(ref i)) = c {
-                            skip |= i.is_ident("test");
+            } else if x.path().is_ident("cfg") {
+                match x {
+                    Meta::List(ref ml) => {
+                        let mut skip = false;
+                        for c in &ml.nested {
+                            if let NestedMeta::Meta(Meta::Path(ref i)) = c {
+                                skip |= i.is_ident("test") && ctx.config.ignore_tests;
+                            }
+                        }
+                        if skip {
+                            check_cover = false;
                         }
                     }
-                    if skip {
-                        check_cover = false;
-                    }
+                    _ => {}
                 }
             }
         }
@@ -39,11 +42,16 @@ pub(crate) fn check_cfg_attr(attr: &Meta) -> bool {
     if id.is_ident("cfg_attr") {
         if let Meta::List(ml) = attr {
             let mut skip_match = false;
-            let list = vec!["tarpaulin", "skip"];
-            for (p, x) in ml.nested.iter().zip(list.iter()) {
+            let mut found_tarpaulin = false;
+            for p in ml.nested.iter() {
                 match p {
                     NestedMeta::Meta(Meta::Path(ref i)) => {
-                        skip_match = i.is_ident(x);
+                        if !found_tarpaulin {
+                            skip_match = i.is_ident("tarpaulin");
+                            found_tarpaulin |= skip_match;
+                        } else {
+                            skip_match = i.is_ident("skip");
+                        }
                     }
                     _ => skip_match = false,
                 }
@@ -52,6 +60,23 @@ pub(crate) fn check_cfg_attr(attr: &Meta) -> bool {
                 }
             }
             ignore_span = skip_match;
+        }
+    } else if id.is_ident("cfg") {
+        if let Meta::List(ml) = attr {
+            'outer: for p in ml.nested.iter() {
+                if let NestedMeta::Meta(Meta::List(ref i)) = p {
+                    if i.path.is_ident("not") {
+                        for n in i.nested.iter() {
+                            if let NestedMeta::Meta(Meta::Path(ref pth)) = n {
+                                if pth.is_ident("tarpaulin") {
+                                    ignore_span = true;
+                                    break 'outer;
+                                }
+                            }
+                        }
+                    }
+                }
+            }
         }
     }
     ignore_span

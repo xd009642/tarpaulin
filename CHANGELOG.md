@@ -8,6 +8,17 @@ file.
 
 ### Changed
 
+### Removed
+
+# [0.13.4] - 2020-06-23
+### Added
+- Add `--cfg=tarpaulin` to `RUSTFLAGS` this allows users to use
+`#[cfg(tarpaulin)]` and `#[cfg(not(tarpaulin))]`
+
+### Changed
+- Don't run executables when `--no-run` provided
+- `#[cfg(not(tarpaulin))]` blocks are ignored in source analysis
+
 ### Removed 
 
 ## [0.13.3] - 2020-06-06

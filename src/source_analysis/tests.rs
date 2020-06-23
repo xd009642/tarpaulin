@@ -729,6 +729,11 @@ fn tarpaulin_skip_attr() {
         fn covered() {
             println!(\"hell world\");
         }
+
+        #[cfg(not(tarpaulin))]
+        fn uncovered() {
+            println!(\"goodbye world\");
+        }
         ",
         file: Path::new(""),
         ignore_mods: RefCell::new(HashSet::new()),
@@ -739,6 +744,8 @@ fn tarpaulin_skip_attr() {
     assert!(lines.ignore.contains(&Lines::Line(3)));
     assert!(!lines.ignore.contains(&Lines::Line(7)));
     assert!(!lines.ignore.contains(&Lines::Line(8)));
+    assert!(lines.ignore.contains(&Lines::Line(12)));
+    assert!(lines.ignore.contains(&Lines::Line(13)));
 
     let mut lines = LineAnalysis::new();
     let ctx = Context {

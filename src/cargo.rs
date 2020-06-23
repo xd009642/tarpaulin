@@ -372,7 +372,8 @@ fn clean_doctest_folder<P: AsRef<Path>>(doctest_dir: P) {
 fn setup_environment(cmd: &mut Command, config: &Config) {
     cmd.env("TARPAULIN", "1");
     let rustflags = "RUSTFLAGS";
-    let common_opts = " -C relocation-model=dynamic-no-pic -C link-dead-code -C debuginfo=2 ";
+    let common_opts =
+        " -C relocation-model=dynamic-no-pic -C link-dead-code -C debuginfo=2 --cfg=tarpaulin ";
     let mut value = common_opts.to_string();
     if config.release {
         value = format!("{}-C debug-assertions=off ", value);
