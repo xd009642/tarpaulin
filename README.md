@@ -26,7 +26,7 @@ Below is the help-text for a thorough explanation of the flags and features
 available:
 
 ```bash
-cargo-tarpaulin version: 0.13.3
+cargo-tarpaulin version: 0.13.4
 Tool to analyse test coverage of cargo projects
 
 USAGE:
