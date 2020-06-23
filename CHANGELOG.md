@@ -5,6 +5,8 @@ file.
 
 ## [Unreleased]
 ### Added
+- Add `--cfg=tarpaulin` to `RUSTFLAGS` this allows users to use
+`#[cfg(tarpaulin)]` and `#[cfg(not(tarpaulin))]`
 
 ### Changed
 - Don't run executables when `--no-run` provided

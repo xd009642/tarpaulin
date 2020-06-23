@@ -215,6 +215,21 @@ fn main() {
 }
 ```
 
+However, the skip attribute only allows you to exclude code from coverage
+it doesn't change the code present in the binaries or what tests are ran.
+Because of this, `--cfg=tarpaulin` is used when building your project for
+Tarpaulin allowing you to also conditionally include/exclude code from
+compilation entirely. For example to have a test that isn't included in
+the test binaries when built with tarpaulin and cannot be ran just do:
+
+```Rust
+#[test]
+#[cfg(not(tarpaulin))]
+fn big_test_not_for_tarpaulin() {
+    // Something that would be very slow in tarpaulin or not work
+}
+```
+
 ### Continuous Integration Services
 
 Tarpaulin aims to be easy to add to your CI workflow. With well tested support
