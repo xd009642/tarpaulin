@@ -193,7 +193,5 @@ fn method_call_with_collect_try() -> Result<(), Box<dyn std::error::Error>> {
         .into_iter()
         .map(|s| s.parse::<i32>())
         .collect::<Result<Vec<_>, _>>()?;
-
-    #[cfg_attr(tarpaulin, skip)]
     Ok(())
 }
