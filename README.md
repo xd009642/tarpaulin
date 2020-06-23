@@ -230,6 +230,17 @@ fn big_test_not_for_tarpaulin() {
 }
 ```
 
+If you still want the test included in the binary just ignored by default
+you can use:
+
+```Rust
+#[test]
+#[cfg_attr(tarpaulin, ignore)]
+fn ignored_by_tarpaulin() {
+
+}
+```
+
 ### Continuous Integration Services
 
 Tarpaulin aims to be easy to add to your CI workflow. With well tested support

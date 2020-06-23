@@ -7,7 +7,6 @@ pub(crate) fn check_attr_list(
     analysis: &mut LineAnalysis,
 ) -> bool {
     let mut check_cover = true;
-    println!("Checking attr list");
     for attr in attrs {
         analysis.ignore_tokens(attr);
         if let Ok(x) = attr.parse_meta() {
@@ -51,7 +50,7 @@ pub(crate) fn check_cfg_attr(attr: &Meta) -> bool {
                             skip_match = i.is_ident("tarpaulin");
                             found_tarpaulin |= skip_match;
                         } else {
-                            skip_match = i.is_ident("skip") || i.is_ident("ignore");
+                            skip_match = i.is_ident("skip");
                         }
                     }
                     _ => skip_match = false,

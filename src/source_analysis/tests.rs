@@ -730,11 +730,6 @@ fn tarpaulin_skip_attr() {
             println!(\"hell world\");
         }
 
-        #[cfg_attr(tarpaulin, ignore)]
-        fn uncovered_2() {
-            println!(\"good world\");
-        }
-
         #[cfg(not(tarpaulin))]
         fn uncovered() {
             println!(\"goodbye world\");
@@ -751,8 +746,6 @@ fn tarpaulin_skip_attr() {
     assert!(!lines.ignore.contains(&Lines::Line(8)));
     assert!(lines.ignore.contains(&Lines::Line(12)));
     assert!(lines.ignore.contains(&Lines::Line(13)));
-    assert!(lines.ignore.contains(&Lines::Line(17)));
-    assert!(lines.ignore.contains(&Lines::Line(18)));
 
     let mut lines = LineAnalysis::new();
     let ctx = Context {

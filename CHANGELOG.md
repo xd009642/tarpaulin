@@ -10,8 +10,7 @@ file.
 
 ### Changed
 - Don't run executables when `--no-run` provided
-- `#[cfg_attr(tarpaulin, ignore)]` and `#[cfg(not(tarpaulin))]` blocks are
-ignored in source analysis
+- `#[cfg(not(tarpaulin))]` blocks are ignored in source analysis
 
 ### Removed 
 
