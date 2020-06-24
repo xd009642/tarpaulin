@@ -7,6 +7,7 @@ file.
 ### Added
 
 ### Changed
+- Add `tarpaulin_skip` cfg to tarpaulin
 
 ### Removed
 

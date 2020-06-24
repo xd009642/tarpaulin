@@ -204,3 +204,8 @@ fn access_env_var() {
     let test = "env_var";
     check_percentage(test, 1.0f64, true);
 }
+
+#[test]
+fn tarpaulin_attrs() {
+    check_percentage("tarpaulin_attrs", 0.0f64, true);
+}
