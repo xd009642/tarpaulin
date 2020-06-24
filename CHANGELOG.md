@@ -5,7 +5,7 @@ file.
 
 ## [Unreleased]
 ### Added
-- `tarpaulin_skip` cfg to tarpaulin
+- Filtering for `cfg(not(tarpaulin_include))`
 - Support for tool attribute `#[tarpaulin::skip]`
 
 ### Changed
