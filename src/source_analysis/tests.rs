@@ -720,7 +720,7 @@ fn tarpaulin_skip_attr() {
     let mut lines = LineAnalysis::new();
     let ctx = Context {
         config: &config,
-        file_contents: "#[cfg_attr(tarpaulin_skip, )]
+        file_contents: "#[cfg(not(tarpaulin_include))]
             fn skipped() {
                 println!(\"Hello world\");
             }
@@ -757,7 +757,7 @@ fn tarpaulin_skip_attr() {
     let mut lines = LineAnalysis::new();
     let ctx = Context {
         config: &config,
-        file_contents: "#[cfg(tarpaulin_skip)]
+        file_contents: "#[cfg(not(tarpaulin_include))]
         mod ignore_all {
             fn skipped() {
                 println!(\"Hello world\");

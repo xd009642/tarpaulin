@@ -14,7 +14,7 @@ fn it_works2() {
 }
 
 #[test]
-#[cfg_attr(tarpaulin_skip, )]
+#[cfg(not(tarpaulin_include))]
 fn it_works2() {
     assert_eq!(2 + 2, 4);
 }
