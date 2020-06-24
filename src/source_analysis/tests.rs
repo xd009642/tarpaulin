@@ -786,7 +786,7 @@ fn tarpaulin_skip_trait_attrs() {
     let mut lines = LineAnalysis::new();
     let ctx = Context {
         config: &config,
-        file_contents: "#[cfg_attr(tarpaulin, skip)]
+        file_contents: "#[cfg(not(tarpaulin_include))]
             trait Foo {
                 fn bar() {
                     println!(\"Hello world\");
@@ -816,7 +816,7 @@ fn tarpaulin_skip_trait_attrs() {
                     println!(\"Hello world\");
                 }
 
-                #[cfg_attr(tarpaulin, skip)]
+                #[tarpaulin::skip]
                 fn not_covered() {
                     println!(\"hell world\");
                 }
@@ -840,7 +840,7 @@ fn tarpaulin_skip_impl_attrs() {
     let ctx = Context {
         config: &config,
         file_contents: "struct Foo;
-            #[cfg_attr(tarpaulin, skip)]
+            #[tarpaulin::skip]
             impl Foo {
                 fn bar() {
                     println!(\"Hello world\");
@@ -872,7 +872,7 @@ fn tarpaulin_skip_impl_attrs() {
                 }
 
 
-                #[cfg_attr(tarpaulin, skip)]
+                #[cfg(not(tarpaulin_include))]
                 fn not_covered() {
                     println!(\"hell world\");
                 }
