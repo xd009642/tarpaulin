@@ -47,7 +47,9 @@ pub(crate) fn check_cfg_attr(attr: &Meta) -> bool {
                         if i.path.is_ident("not") {
                             for n in i.nested.iter() {
                                 if let NestedMeta::Meta(Meta::Path(ref pth)) = n {
-                                    if pth.is_ident("tarpaulin_include") || pth.is_ident("tarpaulin") {
+                                    if pth.is_ident("tarpaulin_include")
+                                        || pth.is_ident("tarpaulin")
+                                    {
                                         ignore_span = true;
                                         break 'outer;
                                     }
