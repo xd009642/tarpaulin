@@ -14,7 +14,7 @@ fn it_works2() {
 }
 
 #[test]
-#[cfg(tarpaulin_skip)]
+#[cfg_attr(tarpaulin_skip, )]
 fn it_works2() {
     assert_eq!(2 + 2, 4);
 }

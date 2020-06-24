@@ -46,6 +46,10 @@ pub(crate) fn check_cfg_attr(attr: &Meta) -> bool {
             for p in ml.nested.iter() {
                 match p {
                     NestedMeta::Meta(Meta::Path(ref i)) => {
+                        if i.is_ident("tarpaulin_skip") {
+                            skip_match = true;
+                            break;
+                        }
                         if !found_tarpaulin {
                             skip_match = i.is_ident("tarpaulin");
                             found_tarpaulin |= skip_match;
