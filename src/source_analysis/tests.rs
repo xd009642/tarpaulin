@@ -720,7 +720,7 @@ fn tarpaulin_skip_attr() {
     let mut lines = LineAnalysis::new();
     let ctx = Context {
         config: &config,
-        file_contents: "#[cfg_attr(tarpaulin, skip)]
+        file_contents: "#[cfg(not(tarpaulin_include))]
             fn skipped() {
                 println!(\"Hello world\");
             }
@@ -734,6 +734,11 @@ fn tarpaulin_skip_attr() {
         fn uncovered() {
             println!(\"goodbye world\");
         }
+
+        #[tarpaulin::skip]
+        fn uncovered2() {
+            println!(\"oof\");
+        }
         ",
         file: Path::new(""),
         ignore_mods: RefCell::new(HashSet::new()),
@@ -746,11 +751,13 @@ fn tarpaulin_skip_attr() {
     assert!(!lines.ignore.contains(&Lines::Line(8)));
     assert!(lines.ignore.contains(&Lines::Line(12)));
     assert!(lines.ignore.contains(&Lines::Line(13)));
+    assert!(lines.ignore.contains(&Lines::Line(17)));
+    assert!(lines.ignore.contains(&Lines::Line(18)));
 
     let mut lines = LineAnalysis::new();
     let ctx = Context {
         config: &config,
-        file_contents: "#[cfg_attr(tarpaulin, skip)]
+        file_contents: "#[cfg(not(tarpaulin_include))]
         mod ignore_all {
             fn skipped() {
                 println!(\"Hello world\");
@@ -779,7 +786,7 @@ fn tarpaulin_skip_trait_attrs() {
     let mut lines = LineAnalysis::new();
     let ctx = Context {
         config: &config,
-        file_contents: "#[cfg_attr(tarpaulin, skip)]
+        file_contents: "#[cfg(not(tarpaulin_include))]
             trait Foo {
                 fn bar() {
                     println!(\"Hello world\");
@@ -809,7 +816,7 @@ fn tarpaulin_skip_trait_attrs() {
                     println!(\"Hello world\");
                 }
 
-                #[cfg_attr(tarpaulin, skip)]
+                #[tarpaulin::skip]
                 fn not_covered() {
                     println!(\"hell world\");
                 }
@@ -833,7 +840,7 @@ fn tarpaulin_skip_impl_attrs() {
     let ctx = Context {
         config: &config,
         file_contents: "struct Foo;
-            #[cfg_attr(tarpaulin, skip)]
+            #[tarpaulin::skip]
             impl Foo {
                 fn bar() {
                     println!(\"Hello world\");
@@ -865,7 +872,7 @@ fn tarpaulin_skip_impl_attrs() {
                 }
 
 
-                #[cfg_attr(tarpaulin, skip)]
+                #[cfg(not(tarpaulin_include))]
                 fn not_covered() {
                     println!(\"hell world\");
                 }

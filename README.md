@@ -205,11 +205,15 @@ my crate [keygraph-rs](https://github.com/xd009642/keygraph-rs).
 
 ### Ignoring code in files
 
-Tarpaulin now allows you to ignore modules or functions using config attributes.
+Before tarpaulin 0.13.4 you could ignore code in blocks with
+`#[cfg_attr(tarpaulin, skip)]` this has changed with 0.13.4 and onwards
+and the new instructions are described below.
+
+Tarpaulin allows you to ignore modules or functions using attributes.
 Below is an example of ignoring the main function in a project:
 
 ```Rust
-#[cfg_attr(tarpaulin, skip)]
+#[cfg(not(tarpaulin_include))]
 fn main() {
     println!("I won't be included in results");
 }
@@ -238,6 +242,19 @@ you can use:
 #[cfg_attr(tarpaulin, ignore)]
 fn ignored_by_tarpaulin() {
 
+}
+```
+
+There is also nightly support for using tool attributes with tarpaulin for
+skip. For example:
+
+```Rust 
+#![feature(register_tool)]
+#![register_tool(tarpaulin)]
+
+#[tarpaulin::skip]
+fn main() {
+    println!("I won't be in coverage stats");
 }
 ```
 

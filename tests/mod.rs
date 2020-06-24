@@ -60,14 +60,16 @@ pub fn check_percentage_with_config(
     let (res, _) = launch_tarpaulin(&config).unwrap();
 
     env::set_current_dir(restore_dir).unwrap();
-    assert!(
-        res.coverage_percentage() >= minimum_coverage,
-        "Assertion failed {} >= {}",
-        res.coverage_percentage(),
-        minimum_coverage
-    );
     if has_lines {
         assert!(res.total_coverable() > 0);
+        assert!(
+            res.coverage_percentage() >= minimum_coverage,
+            "Assertion failed {} >= {}",
+            res.coverage_percentage(),
+            minimum_coverage
+        );
+    } else {
+        assert_eq!(res.total_coverable(), 0);
     }
 }
 
@@ -203,4 +205,15 @@ fn access_env_var() {
     // using `CARGO_BIN_EXE_<name>` to test
     let test = "env_var";
     check_percentage(test, 1.0f64, true);
+}
+
+#[test]
+fn tarpaulin_attrs() {
+    check_percentage("tarpaulin_attrs", 0.0f64, true);
+}
+
+#[test]
+#[cfg(nightly)]
+fn tarpaulin_tool_attr() {
+    check_percentage("tool_attr", 0.0f64, false);
 }
