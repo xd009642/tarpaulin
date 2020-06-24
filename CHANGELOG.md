@@ -10,7 +10,7 @@ file.
 
 ### Removed
 
-# [0.13.4] - 2020-06-23
+# [0.13.4] - 2020-06-23 [YANKED]
 ### Added
 - Add `--cfg=tarpaulin` to `RUSTFLAGS` this allows users to use
 `#[cfg(tarpaulin)]` and `#[cfg(not(tarpaulin))]`
