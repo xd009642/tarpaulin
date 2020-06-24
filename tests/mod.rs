@@ -217,4 +217,3 @@ fn tarpaulin_attrs() {
 fn tarpaulin_tool_attr() {
     check_percentage("tool_attr", 0.0f64, false);
 }
-
