@@ -5,9 +5,10 @@ file.
 
 ## [Unreleased]
 ### Added
+- `tarpaulin_skip` cfg to tarpaulin
+- Support for tool attribute `#[tarpaulin::skip]`
 
 ### Changed
-- Add `tarpaulin_skip` cfg to tarpaulin
 
 ### Removed
 
