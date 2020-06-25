@@ -3,14 +3,16 @@
 From 2019 onwards, all notable changes to tarpaulin will be documented in this
 file.
 
-## [Unreleased]
+## [0.14.0] - 2020-06-25
 ### Added
+- Filtering for `cfg(not(tarpaulin_include))` also adding `--cfg=tarpaulin` to default config
+- Support for tool attribute `#[tarpaulin::skip]`
 
 ### Changed
 
 ### Removed
 
-# [0.13.4] - 2020-06-23
+# [0.13.4] - 2020-06-23 [YANKED]
 ### Added
 - Add `--cfg=tarpaulin` to `RUSTFLAGS` this allows users to use
 `#[cfg(tarpaulin)]` and `#[cfg(not(tarpaulin))]`
