@@ -9,6 +9,7 @@ file.
 - `--tests` `--lib`, `--examples, `--bins`, `--doc`, `--benches`, 
 `--all-targets` flags matching `cargo test`
 - Add named test running and flags `--test`, `--example`, `--bin`, `--bench`
+- Equivalent options for `--no-fail-fast` and `--profile`
 
 ### Changed
 - Now merge run-types in configs

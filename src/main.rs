@@ -68,6 +68,8 @@ fn main() -> Result<(), String> {
                  --benches 'Test all benches'
                  --doc 'Test only this library's documentation'
                  --all-targets 'Test all targets'
+                 --no-fail-fast 'Run all tests regardless of failure'
+                 --profile [NAME] 'Build artefacts with the specified profile'
                  --debug 'Show debug output - this is used for diagnosing issues with tarpaulin'
                  --verbose -v 'Show extra output'
                  --ignore-tests 'Ignore lines of test functions when collecting coverage'

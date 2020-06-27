@@ -348,6 +348,13 @@ fn init_args(test_cmd: &mut Command, config: &Config) {
     if config.frozen {
         test_cmd.arg("--frozen");
     }
+    if config.no_fail_fast {
+        test_cmd.arg("--no-fail-fast");
+    }
+    if let Some(profile) = config.profile.as_ref() {
+        test_cmd.arg("--profile");
+        test_cmd.arg(profile);
+    }
     if let Some(features) = config.features.as_ref() {
         test_cmd.arg("--features");
         test_cmd.arg(features);

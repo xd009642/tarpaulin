@@ -139,6 +139,11 @@ pub struct Config {
     /// Names of benches to run corresponding to `cargo --bench <NAME>...`
     #[serde(rename = "bench")]
     pub bench_names: HashSet<String>,
+    /// Whether to carry on or stop when a test failure occurs
+    #[serde(rename = "no-fail-fast")]
+    pub no_fail_fast: bool,
+    /// Run with the given profile
+    pub profile: Option<String>,
     /// Result of cargo_metadata ran on the crate
     #[serde(skip_deserializing, skip_serializing)]
     pub metadata: RefCell<Option<Metadata>>,
@@ -189,6 +194,8 @@ impl Default for Config {
             example_names: HashSet::new(),
             bin_names: HashSet::new(),
             bench_names: HashSet::new(),
+            no_fail_fast: false,
+            profile: None,
             metadata: RefCell::new(None),
         }
     }
@@ -218,6 +225,7 @@ impl<'a> From<&'a ArgMatches<'a>> for ConfigWrapper {
             ignore_tests: args.is_present("ignore-tests"),
             ignore_panics: args.is_present("ignore-panics"),
             force_clean: args.is_present("force-clean"),
+            no_fail_fast: args.is_present("no-fail-fast"),
             verbose,
             debug,
             count: args.is_present("count"),
@@ -251,6 +259,7 @@ impl<'a> From<&'a ArgMatches<'a>> for ConfigWrapper {
             bin_names: get_list(args, "bin").iter().cloned().collect(),
             bench_names: get_list(args, "bench").iter().cloned().collect(),
             example_names: get_list(args, "example").iter().cloned().collect(),
+            profile: get_profile(args),
             metadata: RefCell::new(None),
         };
         if args.is_present("ignore-config") {
@@ -430,6 +439,11 @@ impl Config {
         self.locked |= other.locked;
         self.force_clean |= other.force_clean;
         self.ignore_tests |= other.ignore_tests;
+        self.no_fail_fast |= other.no_fail_fast;
+
+        if self.profile.is_none() && other.profile.is_some() {
+            self.profile = other.profile.clone();
+        }
 
         let additional_packages = other
             .packages
@@ -940,6 +954,8 @@ mod tests {
         bin = ["bin"]
         example = ["example"]
         bench = ["bench"]
+        no-fail-fast = true
+        profile = "Release"
         "#;
         let mut configs = Config::parse_config_toml(toml.as_bytes()).unwrap();
         assert_eq!(configs.len(), 1);
@@ -983,6 +999,8 @@ mod tests {
         assert_eq!(config.ci_tool, Some(CiService::Travis));
         assert_eq!(config.root, Some("/home/rust".to_string()));
         assert_eq!(config.manifest, PathBuf::from("/home/rust/foo/Cargo.toml"));
+        assert_eq!(config.profile, Some("Release".to_string()));
+        assert!(config.no_fail_fast);
         assert!(config.test_names.contains("test1"));
         assert!(config.test_names.contains("test2"));
         assert!(config.bin_names.contains("bin"));

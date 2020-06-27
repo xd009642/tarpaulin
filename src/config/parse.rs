@@ -102,6 +102,10 @@ pub(super) fn get_report_uri(args: &ArgMatches) -> Option<String> {
     args.value_of("report-uri").map(ToString::to_string)
 }
 
+pub(super) fn get_profile(args: &ArgMatches) -> Option<String> {
+    args.value_of("profile").map(ToString::to_string)
+}
+
 pub(super) fn get_outputs(args: &ArgMatches) -> Vec<OutputFile> {
     values_t!(args.values_of("out"), OutputFile).unwrap_or_else(|_| vec![])
 }
