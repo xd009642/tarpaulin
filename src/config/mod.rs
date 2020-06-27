@@ -10,6 +10,7 @@ use log::{error, info, warn};
 use regex::Regex;
 use serde::{Deserialize, Serialize};
 use std::cell::{Ref, RefCell};
+use std::collections::HashSet;
 use std::env;
 use std::fs::File;
 use std::io::{Error, ErrorKind, Read};
@@ -126,6 +127,19 @@ pub struct Config {
     /// Output files to generate
     #[serde(rename = "out")]
     pub generate: Vec<OutputFile>,
+    /// Names of tests to run corresponding to `cargo --test <NAME>...`
+    #[serde(rename = "test")]
+    pub test_names: HashSet<String>,
+    /// Names of binaries to run corresponding to `cargo --bin <NAME>...`
+    #[serde(rename = "bin")]
+    pub bin_names: HashSet<String>,
+    /// Names of examples to run corresponding to `cargo --example <NAME>...`
+    #[serde(rename = "example")]
+    pub example_names: HashSet<String>,
+    /// Names of benches to run corresponding to `cargo --bench <NAME>...`
+    #[serde(rename = "bench")]
+    pub bench_names: HashSet<String>,
+    /// Result of cargo_metadata ran on the crate
     #[serde(skip_deserializing, skip_serializing)]
     pub metadata: RefCell<Option<Metadata>>,
 }
@@ -171,6 +185,10 @@ impl Default for Config {
             target: None,
             target_dir: None,
             offline: false,
+            test_names: HashSet::new(),
+            example_names: HashSet::new(),
+            bin_names: HashSet::new(),
+            bench_names: HashSet::new(),
             metadata: RefCell::new(None),
         }
     }
@@ -229,6 +247,10 @@ impl<'a> From<&'a ArgMatches<'a>> for ConfigWrapper {
             target: get_target(args),
             target_dir: get_target_dir(args),
             offline: args.is_present("offline"),
+            test_names: get_list(args, "test").iter().cloned().collect(),
+            bin_names: get_list(args, "bin").iter().cloned().collect(),
+            bench_names: get_list(args, "bench").iter().cloned().collect(),
+            example_names: get_list(args, "example").iter().cloned().collect(),
             metadata: RefCell::new(None),
         };
         if args.is_present("ignore-config") {
@@ -434,6 +456,24 @@ impl Config {
             keep
         });
 
+        for test in &other.test_names {
+            self.test_names.insert(test.clone());
+        }
+        for test in &other.bin_names {
+            self.bin_names.insert(test.clone());
+        }
+        for test in &other.example_names {
+            self.example_names.insert(test.clone());
+        }
+        for test in &other.bench_names {
+            self.bench_names.insert(test.clone());
+        }
+        for ty in &other.run_types {
+            if !self.run_types.contains(ty) {
+                self.run_types.push(*ty);
+            }
+        }
+
         if !other.excluded_files_raw.is_empty() {
             self.excluded_files_raw
                 .extend_from_slice(&other.excluded_files_raw);
@@ -453,6 +493,13 @@ impl Config {
         } else {
             base_config.clone()
         }
+    }
+
+    pub fn has_named_tests(&self) -> bool {
+        !(self.test_names.is_empty()
+            && self.bin_names.is_empty()
+            && self.example_names.is_empty()
+            && self.bench_names.is_empty())
     }
 
     #[inline]

@@ -130,7 +130,7 @@ pub(super) fn get_run_types(args: &ArgMatches) -> Vec<RunType> {
     if args.is_present("doc") && !res.contains(&RunType::Doctests) {
         res.push(RunType::Doctests);
     }
-    if res.is_empty() || (args.is_present("tests") && !res.contains(&RunType::Tests)) {
+    if args.is_present("tests") && !res.contains(&RunType::Tests) {
         res.push(RunType::Tests);
     }
     res
