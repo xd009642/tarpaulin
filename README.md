@@ -460,6 +460,9 @@ follow `--` in tarpaulin use `args` in the toml file.
 Setting the field `config` will have no effect on the run as it won't be parsed
 for additional configuration.
 
+For the flags `--lib`, `--examples`, `--benches, `--tests`, `--all-targets`,
+`--doc`, `--bins` use the `run-types` entry in the config file.
+
 ## Extending Tarpaulin
 
 There are some tools available which can extend tarpaulin functionality for

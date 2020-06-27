@@ -936,6 +936,10 @@ mod tests {
         manifest-path = "/home/rust/foo/Cargo.toml"
         ciserver = "travis-ci"
         args = ["--nocapture"]
+        test = ["test1", "test2"]
+        bin = ["bin"]
+        example = ["example"]
+        bench = ["bench"]
         "#;
         let mut configs = Config::parse_config_toml(toml.as_bytes()).unwrap();
         assert_eq!(configs.len(), 1);
@@ -979,5 +983,10 @@ mod tests {
         assert_eq!(config.ci_tool, Some(CiService::Travis));
         assert_eq!(config.root, Some("/home/rust".to_string()));
         assert_eq!(config.manifest, PathBuf::from("/home/rust/foo/Cargo.toml"));
+        assert!(config.test_names.contains("test1"));
+        assert!(config.test_names.contains("test2"));
+        assert!(config.bin_names.contains("bin"));
+        assert!(config.example_names.contains("example"));
+        assert!(config.bench_names.contains("bench"));
     }
 }
