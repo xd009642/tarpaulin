@@ -288,6 +288,9 @@ fn create_command(manifest_path: &str, config: &Config, ty: &RunType) -> Command
         RunType::Doctests => test_cmd.arg("--doc"),
         RunType::Benchmarks => test_cmd.arg("--benches"),
         RunType::Examples => test_cmd.arg("--examples"),
+        RunType::AllTargets => test_cmd.arg("--all-targets"),
+        RunType::Lib => test_cmd.arg("--lib"),
+        RunType::Bins => test_cmd.arg("--bins"),
     };
     init_args(&mut test_cmd, config);
     setup_environment(&mut test_cmd, config);

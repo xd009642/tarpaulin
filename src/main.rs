@@ -57,6 +57,17 @@ fn main() -> Result<(), String> {
             .args_from_usage(
                  "--config [FILE] 'Path to a toml file specifying a list of options this will override any other options set'
                  --ignore-config 'Ignore any project config files'
+                 --lib 'Test only this package's library unit tests'
+                 --bin [NAME]... 'Test only the specified binary`
+                 --bins 'Test all binaries'
+                 --example [NAME]... 'Test only the specified example'
+                 --examples 'Test all examples'
+                 --test [NAME]... 'Test only the specified test target'
+                 --tests 'Test all tests'
+                 --bench [NAME]... 'Test only the specified bench target'
+                 --benches 'Test all benches'
+                 --doc 'Test only this library's documentation'
+                 --all-targets 'Test all targets'
                  --debug 'Show debug output - this is used for diagnosing issues with tarpaulin'
                  --verbose -v 'Show extra output'
                  --ignore-tests 'Ignore lines of test functions when collecting coverage'
