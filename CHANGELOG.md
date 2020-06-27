@@ -3,6 +3,18 @@
 From 2019 onwards, all notable changes to tarpaulin will be documented in this
 file.
 
+## [Unreleased]
+### Added
+- run-types for lib, bins and all-targets
+- `--tests` `--lib`, `--examples, `--bins`, `--doc`, `--benches`, 
+`--all-targets` flags matching `cargo test`
+- Add named test running and flags `--test`, `--example`, `--bin`, `--bench`
+
+### Changed
+- Now merge run-types in configs
+
+### Removed
+
 ## [0.14.0] - 2020-06-25
 ### Added
 - Filtering for `cfg(not(tarpaulin_include))` also adding `--cfg=tarpaulin` to default config

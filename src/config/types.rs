@@ -10,6 +10,9 @@ arg_enum! {
         Doctests,
         Benchmarks,
         Examples,
+        Lib,
+        Bins,
+        AllTargets,
     }
 }
 

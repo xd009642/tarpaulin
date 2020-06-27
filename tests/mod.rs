@@ -196,6 +196,10 @@ fn examples_coverage() {
 
     let mut config = Config::default();
     config.run_types = vec![RunType::Examples];
+    check_percentage_with_config(test, 1.0f64, true, config.clone());
+
+    config.run_types.clear();
+    config.example_names.insert("say_hello".to_string());
     check_percentage_with_config(test, 1.0f64, true, config);
 }
 

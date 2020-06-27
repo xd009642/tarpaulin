@@ -111,7 +111,7 @@ pub fn launch_tarpaulin(config: &Config) -> Result<(TraceMap, i32), RunError> {
                     res.1
                 };
             }
-            if config.run_ignored && exe.run_type() == RunType::Tests {
+            if config.run_ignored {
                 let coverage = get_test_coverage(&exe, &project_analysis, config, true)?;
                 if let Some(res) = coverage {
                     result.merge(&res.0);
