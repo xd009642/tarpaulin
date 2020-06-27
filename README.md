@@ -120,6 +120,7 @@ your setup and an example project and I'll attempt to fix it (please link us to
 a repo and the commit containing your project and paste the verbose output).
 
 * Line coverage
+* Full compatibility with cargo test CLI arguments
 * Uploading coverage to <https://coveralls.io> or <https://codecov.io>
 * HTML report generation and other coverage report types
 * Coverage of tests, doctests, benchmarks and examples possible
