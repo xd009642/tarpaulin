@@ -1,43 +1,145 @@
+use crate::cargo::TestBinary;
+use crate::ptrace_control::*;
+use crate::statemachine::{ProcessInfo, TracerAction};
+use nix::libc::*;
+use nix::sys::{signal::Signal, wait::WaitStatus};
 use serde::{Deserialize, Serialize};
-use std::path::PathBuf;
-use libc::pid_t;
+use std::cell::RefCell;
 
 #[derive(Clone, Eq, PartialEq, PartialOrd, Ord, Hash, Serialize, Deserialize)]
-pub struct Event {
-    pid: pid_t,
+pub enum Event {
+    ConfigLaunch(String),
+    BinaryLaunch(TestBinary),
+    Trace(TraceEvent),
+}
+
+#[derive(Clone, Default, Eq, PartialEq, PartialOrd, Ord, Hash, Serialize, Deserialize)]
+pub struct TraceEvent {
+    pid: Option<pid_t>,
     child: Option<pid_t>,
-    addr: i64,
+    signal: Option<String>,
+    addr: Option<u64>,
+    return_val: Option<i64>,
     description: String,
 }
 
-#[derive(Clone, Eq, PartialEq, PartialOrd, Ord, Hash, Serialize, Deserialize)]
-pub struct EventStream {
-    binary: PathBuf,
-    trace_events: Vec<Event>,
+impl TraceEvent {
+    pub(crate) fn new_from_action(action: &TracerAction<ProcessInfo>) -> Self {
+        match *action {
+            TracerAction::TryContinue(t) => TraceEvent {
+                pid: Some(t.pid.as_raw()),
+                signal: t.signal.map(|x| x.to_string()),
+                description: "Trying to continuing child".to_string(),
+                ..Default::default()
+            },
+            TracerAction::Continue(t) => TraceEvent {
+                pid: Some(t.pid.as_raw()),
+                signal: t.signal.map(|x| x.to_string()),
+                description: "Continuing child".to_string(),
+                ..Default::default()
+            },
+            TracerAction::Step(t) => TraceEvent {
+                pid: Some(t.pid.as_raw()),
+                description: "Stepping child".to_string(),
+                ..Default::default()
+            },
+            TracerAction::Detach(t) => TraceEvent {
+                pid: Some(t.pid.as_raw()),
+                description: "Detaching child".to_string(),
+                ..Default::default()
+            },
+            _ => TraceEvent {
+                description: "Unexpected action".to_string(),
+                ..Default::default()
+            },
+        }
+    }
+
+    pub(crate) fn new_from_wait(wait: &WaitStatus) -> Self {
+        let pid = wait.pid().map(|p| p.as_raw());
+        let mut event = TraceEvent {
+            pid,
+            ..Default::default()
+        };
+        match wait {
+            WaitStatus::Exited(_, i) => {
+                event.description = "Exited".to_string();
+                event.return_val = Some(*i as _);
+            }
+            WaitStatus::Signaled(_, sig, _) => {
+                event.signal = Some(sig.to_string());
+                event.description = "Signaled".to_string();
+            }
+            WaitStatus::Stopped(c, sig) => {
+                event.signal = Some(sig.to_string());
+                if *sig == Signal::SIGTRAP {
+                    event.description = "Stopped".to_string();
+                    event.addr = current_instruction_pointer(*c).ok().map(|x| (x - 1) as u64);
+                } else {
+                    event.description = "Non-trace stop".to_string();
+                }
+            }
+            WaitStatus::PtraceEvent(pid, sig, val) => {
+                event.signal = Some(sig.to_string());
+                match *val {
+                    PTRACE_EVENT_CLONE => {
+                        event.description = "Ptrace Clone".to_string();
+                        if *sig == Signal::SIGTRAP {
+                            event.child = get_event_data(*pid).ok().map(|x| x as pid_t);
+                        }
+                    }
+                    PTRACE_EVENT_FORK => {
+                        event.description = "Ptrace fork".to_string();
+                    }
+                    PTRACE_EVENT_VFORK => {
+                        event.description = "Ptrace vfork".to_string();
+                    }
+                    PTRACE_EVENT_EXEC => {
+                        event.description = "Ptrace exec".to_string();
+                    }
+                    PTRACE_EVENT_EXIT => {
+                        event.description = "Ptrace exit".to_string();
+                    }
+                    _ => {
+                        event.description = "Ptrace unknown event".to_string();
+                    }
+                }
+            }
+            WaitStatus::Continued(_) => {
+                event.description = "Continued".to_string();
+            }
+            WaitStatus::StillAlive => {
+                event.description = "StillAlive".to_string();
+            }
+            WaitStatus::PtraceSyscall(_) => {
+                event.description = "PtraceSyscall".to_string();
+            }
+        }
+        event
+    }
 }
 
-#[derive(Clone, Eq, PartialEq, PartialOrd, Ord, Hash, Serialize, Deserialize)]
+#[derive(Clone, Eq, PartialEq, PartialOrd, Ord, Serialize, Deserialize)]
 pub struct EventLog {
-    streams: Vec<EventStream>,    
+    events: RefCell<Vec<Event>>,
 }
 
 impl EventLog {
-    pub fn push_binary(&mut self, binary: PathBuf) {
-        let new_event = EventStream {
-            binary,
-            trace_events: vec![],
-        };
-        self.streams.push(new_event);
+    pub fn new() -> Self {
+        Self {
+            events: RefCell::new(vec![]),
+        }
     }
 
-    pub fn push_event(&mut self, event: Event) {
-        if let Some(current) = self.streams.last_mut() {
-            current.trace_events.push(event);
-        } else {
-            self.streams.push(EventStream {
-                binary: PathBuf::new(),
-                trace_events: vec![event],
-            });
-        }
+    pub fn push_binary(&self, binary: TestBinary) {
+        self.events.borrow_mut().push(Event::BinaryLaunch(binary));
+    }
+
+    pub fn push_trace(&self, event: TraceEvent) {
+        self.events.borrow_mut().push(Event::Trace(event));
+    }
+
+    pub fn push_config(&self, name: String) {
+        self.events.borrow_mut().push(Event::ConfigLaunch(name));
     }
 }
