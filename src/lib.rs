@@ -19,6 +19,7 @@ pub mod breakpoint;
 mod cargo;
 pub mod config;
 pub mod errors;
+mod path_utils;
 mod process_handling;
 pub mod report;
 mod source_analysis;
