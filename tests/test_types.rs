@@ -16,7 +16,7 @@ fn only_test_coverage() {
     config.manifest = test_dir;
     config.manifest.push("Cargo.toml");
 
-    let (res, ret) = launch_tarpaulin(&config).unwrap();
+    let (res, ret) = launch_tarpaulin(&config, &None).unwrap();
     assert_eq!(ret, 0);
     env::set_current_dir(restore_dir).unwrap();
 
@@ -42,7 +42,7 @@ fn only_example_coverage() {
     config.manifest = test_dir;
     config.manifest.push("Cargo.toml");
 
-    let (res, ret) = launch_tarpaulin(&config).unwrap();
+    let (res, ret) = launch_tarpaulin(&config, &None).unwrap();
     assert_eq!(ret, 0);
     env::set_current_dir(restore_dir).unwrap();
 
@@ -69,7 +69,7 @@ fn only_bench_coverage() {
     config.manifest = test_dir;
     config.manifest.push("Cargo.toml");
 
-    let (res, ret) = launch_tarpaulin(&config).unwrap();
+    let (res, ret) = launch_tarpaulin(&config, &None).unwrap();
     assert_eq!(ret, 0);
     env::set_current_dir(restore_dir).unwrap();
 
@@ -96,7 +96,7 @@ fn only_doctest_coverage() {
     config.manifest = test_dir;
     config.manifest.push("Cargo.toml");
 
-    let (res, ret) = launch_tarpaulin(&config).unwrap();
+    let (res, ret) = launch_tarpaulin(&config, &None).unwrap();
     assert_eq!(ret, 0);
     env::set_current_dir(restore_dir).unwrap();
 

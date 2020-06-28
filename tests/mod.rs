@@ -30,7 +30,7 @@ pub fn check_percentage_with_cli_args(minimum_coverage: f64, has_lines: bool, ar
     let configs = ConfigWrapper::from(&matches).0;
     let mut res = TraceMap::new();
     for config in &configs {
-        let (t, _) = launch_tarpaulin(&config).unwrap();
+        let (t, _) = launch_tarpaulin(&config, &None).unwrap();
         res.merge(&t);
     }
     res.dedup();
@@ -59,7 +59,7 @@ pub fn check_percentage_with_config(
     config.manifest = test_dir;
     config.manifest.push("Cargo.toml");
 
-    let (res, _) = launch_tarpaulin(&config).unwrap();
+    let (res, _) = launch_tarpaulin(&config, &None).unwrap();
 
     env::set_current_dir(restore_dir).unwrap();
     if has_lines {
@@ -84,7 +84,7 @@ pub fn check_percentage(project_name: &str, minimum_coverage: f64, has_lines: bo
 fn incorrect_manifest_path() {
     let mut config = Config::default();
     config.manifest.push("__invalid_dir__");
-    let launch = launch_tarpaulin(&config);
+    let launch = launch_tarpaulin(&config, &None);
     assert!(launch.is_err());
 }
 
@@ -94,7 +94,7 @@ fn proc_macro_link() {
     config.test_timeout = Duration::from_secs(60);
     let test_dir = get_test_path("proc_macro");
     config.manifest = test_dir.join("Cargo.toml");
-    assert!(launch_tarpaulin(&config).is_ok());
+    assert!(launch_tarpaulin(&config, &None).is_ok());
 }
 
 #[test]
@@ -239,7 +239,7 @@ fn cargo_home_filtering() {
     config.manifest.push("Cargo.toml");
 
     env::set_var("CARGO_HOME", new_home.display().to_string());
-    let run = launch_tarpaulin(&config);
+    let run = launch_tarpaulin(&config, &None);
     match previous {
         Ok(s) => env::set_var("CARGO_HOME", s),
         Err(_) => {
