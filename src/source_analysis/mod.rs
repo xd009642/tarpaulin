@@ -1,4 +1,5 @@
 use crate::config::{Config, RunType};
+use crate::path_utils::{get_source_walker, is_source_file};
 use items::process_items;
 use lazy_static::lazy_static;
 use log::trace;
@@ -7,12 +8,11 @@ use quote::ToTokens;
 use regex::Regex;
 use std::cell::RefCell;
 use std::collections::{HashMap, HashSet};
-use std::ffi::OsStr;
 use std::fs::File;
 use std::io::{BufRead, BufReader, Read};
 use std::path::{Path, PathBuf};
 use syn::*;
-use walkdir::{DirEntry, WalkDir};
+use walkdir::WalkDir;
 
 mod attributes;
 mod expressions;
@@ -194,25 +194,6 @@ impl LineAnalysis {
     }
 }
 
-/// Returns true if the file is a rust source file
-fn is_source_file(entry: &DirEntry) -> bool {
-    let p = entry.path();
-    p.extension() == Some(OsStr::new("rs"))
-}
-
-/// Returns true if the folder is a target folder
-fn is_target_folder(entry: &DirEntry, root: &Path) -> bool {
-    let target = root.join("target");
-    entry.path().starts_with(&target)
-}
-
-fn is_hidden(entry: &DirEntry) -> bool {
-    entry
-        .path()
-        .iter()
-        .any(|x| x.to_string_lossy().starts_with('.'))
-}
-
 /// Returns a list of files and line numbers to ignore (not indexes!)
 pub fn get_line_analysis(config: &Config) -> HashMap<PathBuf, LineAnalysis> {
     let mut result: HashMap<PathBuf, LineAnalysis> = HashMap::new();
@@ -220,12 +201,7 @@ pub fn get_line_analysis(config: &Config) -> HashMap<PathBuf, LineAnalysis> {
     let mut ignored_files: HashSet<PathBuf> = HashSet::new();
     let root = config.root();
 
-    let walker = WalkDir::new(&root).into_iter();
-    for e in walker
-        .filter_entry(|e| !(is_target_folder(e, &root) || is_hidden(e)))
-        .filter_map(|e| e.ok())
-        .filter(|e| is_source_file(e))
-    {
+    for e in get_source_walker(config) {
         if !ignored_files.contains(e.path()) {
             analyse_package(e.path(), &root, &config, &mut result, &mut ignored_files);
         } else {

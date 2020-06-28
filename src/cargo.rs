@@ -1,5 +1,6 @@
 use crate::config::*;
 use crate::errors::RunError;
+use crate::path_utils::get_source_walker;
 use cargo_metadata::{diagnostic::DiagnosticLevel, CargoOpt, Message, Metadata, MetadataCommand};
 use log::{error, trace, warn};
 use std::collections::HashMap;
@@ -231,21 +232,9 @@ fn is_prefix_match(prefix: &str, entry: &Path) -> bool {
 fn get_panic_candidates(tests: &[DirEntry], config: &Config) -> HashMap<String, Vec<usize>> {
     let mut result = HashMap::new();
     let root = config.root();
-    let target = config.target_dir();
     for test in tests {
         if let Some(test_binary) = DocTestBinaryMeta::new(test.path()) {
-            let walker = WalkDir::new(&root).into_iter();
-            // TODO some walkdir stuff is being reused here and in source_analysis (and source
-            // analysis does it a bit wrong) Fix before merging
-            for dir_entry in walker
-                .filter_entry(|e| {
-                    !(e.path().starts_with(&target)
-                        || e.path()
-                            .iter()
-                            .any(|x| x.to_string_lossy().starts_with(".")))
-                })
-                .filter_map(|e| e.ok())
-            {
+            for dir_entry in get_source_walker(config) {
                 let path = dir_entry.path();
                 if path.is_file() {
                     if let Some(p) = path_relative_from(path, &root) {
