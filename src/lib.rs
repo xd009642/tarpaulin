@@ -21,7 +21,7 @@ pub mod breakpoint;
 mod cargo;
 pub mod config;
 pub mod errors;
-mod event_log;
+pub mod event_log;
 mod path_utils;
 mod process_handling;
 pub mod report;
