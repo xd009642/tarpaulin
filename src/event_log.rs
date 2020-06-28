@@ -29,23 +29,23 @@ impl TraceEvent {
             TracerAction::TryContinue(t) => TraceEvent {
                 pid: Some(t.pid.as_raw()),
                 signal: t.signal.map(|x| x.to_string()),
-                description: "Trying to continuing child".to_string(),
+                description: "Try continue child".to_string(),
                 ..Default::default()
             },
             TracerAction::Continue(t) => TraceEvent {
                 pid: Some(t.pid.as_raw()),
                 signal: t.signal.map(|x| x.to_string()),
-                description: "Continuing child".to_string(),
+                description: "Continue child".to_string(),
                 ..Default::default()
             },
             TracerAction::Step(t) => TraceEvent {
                 pid: Some(t.pid.as_raw()),
-                description: "Stepping child".to_string(),
+                description: "Step child".to_string(),
                 ..Default::default()
             },
             TracerAction::Detach(t) => TraceEvent {
                 pid: Some(t.pid.as_raw()),
-                description: "Detaching child".to_string(),
+                description: "Detach child".to_string(),
                 ..Default::default()
             },
             _ => TraceEvent {
