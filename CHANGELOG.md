@@ -11,7 +11,8 @@ file.
 - Add named test running and flags `--test`, `--example`, `--bin`, `--bench`
 - Equivalent options for `--no-fail-fast` and `--profile`
 - Filtering of `CARGO_HOME` contents when it exists in project directory
-- `--debug` now outputs a json log format that can be used to plot tarpaulin execution
+- `--debug` or `--dump-traces` now outputs a json log format that can be used 
+to plot tarpaulin execution
 
 ### Changed
 - Now merge run-types in configs
