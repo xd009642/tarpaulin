@@ -50,6 +50,9 @@ pub struct Config {
     pub verbose: bool,
     /// Debug flag for printing internal debugging information to the user
     pub debug: bool,
+    /// Enable the event logger
+    #[serde(rename = "dump-traces")]
+    pub dump_traces: bool,
     /// Flag to count hits in coverage
     pub count: bool,
     /// Flag specifying to run line coverage (default)
@@ -163,6 +166,7 @@ impl Default for Config {
             force_clean: false,
             verbose: false,
             debug: false,
+            dump_traces: false,
             count: false,
             line_coverage: true,
             branch_coverage: false,
@@ -205,6 +209,7 @@ impl<'a> From<&'a ArgMatches<'a>> for ConfigWrapper {
     fn from(args: &'a ArgMatches<'a>) -> Self {
         info!("Creating config");
         let debug = args.is_present("debug");
+        let dump_traces = debug || args.is_present("dump-traces");
         let verbose = args.is_present("verbose") || debug;
         let excluded_files = get_excluded(args);
         let excluded_files_raw = get_list(args, "exclude-files");
@@ -228,6 +233,7 @@ impl<'a> From<&'a ArgMatches<'a>> for ConfigWrapper {
             no_fail_fast: args.is_present("no-fail-fast"),
             verbose,
             debug,
+            dump_traces,
             count: args.is_present("count"),
             line_coverage: get_line_cov(args),
             branch_coverage: get_branch_cov(args),
@@ -425,6 +431,7 @@ impl Config {
         } else if other.verbose {
             self.verbose = other.verbose;
         }
+        self.dump_traces |= other.dump_traces;
         self.manifest = other.manifest.clone();
         self.root = Config::pick_optional_config(&self.root, &other.root);
         self.coveralls = Config::pick_optional_config(&self.coveralls, &other.coveralls);
@@ -956,12 +963,14 @@ mod tests {
         bench = ["bench"]
         no-fail-fast = true
         profile = "Release"
+        dump-traces = true
         "#;
         let mut configs = Config::parse_config_toml(toml.as_bytes()).unwrap();
         assert_eq!(configs.len(), 1);
         let config = configs.remove(0);
         assert!(config.debug);
         assert!(config.verbose);
+        assert!(config.dump_traces);
         assert!(config.ignore_panics);
         assert!(config.count);
         assert!(config.run_ignored);

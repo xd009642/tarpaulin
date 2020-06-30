@@ -1,10 +1,14 @@
 use crate::cargo::TestBinary;
 use crate::ptrace_control::*;
 use crate::statemachine::{ProcessInfo, TracerAction};
+use chrono::offset::Local;
+use log::{info, warn};
 use nix::libc::*;
 use nix::sys::{signal::Signal, wait::WaitStatus};
 use serde::{Deserialize, Serialize};
 use std::cell::RefCell;
+use std::fs::File;
+use std::path::Path;
 
 #[derive(Clone, Eq, PartialEq, PartialOrd, Ord, Hash, Serialize, Deserialize)]
 pub enum Event {
@@ -141,5 +145,20 @@ impl EventLog {
 
     pub fn push_config(&self, name: String) {
         self.events.borrow_mut().push(Event::ConfigLaunch(name));
+    }
+}
+
+impl Drop for EventLog {
+    fn drop(&mut self) {
+        let fname = format!("tarpaulin-run-{}.json", Local::now().to_rfc3339());
+        let path = Path::new(&fname);
+        info!("Serializing tarpaulin debug log to {}", path.display());
+        if let Ok(output) = File::create(path) {
+            if let Err(e) = serde_json::to_writer(output, self) {
+                warn!("Failed to serialise or write result: {}", e);
+            }
+        } else {
+            warn!("Failed to create log file");
+        }
     }
 }

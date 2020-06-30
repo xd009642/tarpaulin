@@ -42,6 +42,7 @@ FLAGS:
         --count                  Counts the number of hits during coverage
         --debug                  Show debug output - this is used for diagnosing issues with tarpaulin
         --doc                    Test only this library's documentation
+        --dump-traces            Log tracing events and save to a json file. Also, enabled when --debug is used
         --examples               Test all examples
         --force-clean            Adds a clean stage to work around cargo bugs that may affect coverage results
     -f, --forward                Forwards unexpected signals to test. Tarpaulin will still take signals it is expecting.

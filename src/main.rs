@@ -71,6 +71,7 @@ fn main() -> Result<(), String> {
                  --no-fail-fast 'Run all tests regardless of failure'
                  --profile [NAME] 'Build artefacts with the specified profile'
                  --debug 'Show debug output - this is used for diagnosing issues with tarpaulin'
+                 --dump-traces 'Log tracing events and save to a json file. Also, enabled when --debug is used'
                  --verbose -v 'Show extra output'
                  --ignore-tests 'Ignore lines of test functions when collecting coverage'
                  --ignore-panics 'Ignore panic macros in tests'

@@ -8,13 +8,12 @@ use crate::source_analysis::LineAnalysis;
 use crate::statemachine::*;
 use crate::test_loader::*;
 use crate::traces::*;
-use chrono::offset::Local;
 use log::{error, info, trace, warn};
 use nix::unistd::*;
 use std::collections::HashMap;
 use std::env;
 use std::ffi::CString;
-use std::fs::{create_dir_all, File};
+use std::fs::create_dir_all;
 use std::path::{Path, PathBuf};
 
 pub mod breakpoint;
@@ -36,7 +35,7 @@ pub fn trace(configs: &[Config]) -> Result<TraceMap, RunError> {
     let mut tracemap = TraceMap::new();
     let mut tarpaulin_result = Ok(());
     let mut ret = 0i32;
-    let logger = if configs.iter().any(|c| c.debug) {
+    let logger = if configs.iter().any(|c| c.dump_traces) {
         Some(EventLog::new())
     } else {
         None
@@ -73,18 +72,6 @@ pub fn trace(configs: &[Config]) -> Result<TraceMap, RunError> {
         }
     }
     tracemap.dedup();
-    if let Some(log) = logger.as_ref() {
-        let fname = format!("tarpaulin-run-{}.json", Local::now().to_rfc3339());
-        let path = Path::new(&fname);
-        info!("Serializing tarpaulin debug log to {}", path.display());
-        if let Ok(output) = File::create(path) {
-            if let Err(e) = serde_json::to_writer(output, log) {
-                warn!("Failed to serialise or write result: {}", e);
-            }
-        } else {
-            warn!("Failed to create log file");
-        }
-    }
 
     if ret == 0 {
         tarpaulin_result.map(|_| tracemap)
