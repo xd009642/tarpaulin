@@ -12,7 +12,7 @@ fn package_exclude() {
     config.manifest.push("Cargo.toml");
 
     config.all = true;
-    let result = launch_tarpaulin(&config);
+    let result = launch_tarpaulin(&config, &None);
     let result = result.expect("Test failed").0;
     let files = result.files();
     files.iter().for_each(|f| {
@@ -22,14 +22,14 @@ fn package_exclude() {
     assert!(files.iter().any(|f| f.ends_with("bar/src/lib.rs")));
 
     config.exclude = vec!["foo".to_string()];
-    let result = launch_tarpaulin(&config);
+    let result = launch_tarpaulin(&config, &None);
     let result = result.expect("Test failed").0;
     let files = result.files();
     assert!(!files.iter().any(|f| f.ends_with("foo/src/lib.rs")));
     assert!(files.iter().any(|f| f.ends_with("bar/src/lib.rs")));
 
     config.exclude = vec!["bar".to_string()];
-    let result = launch_tarpaulin(&config);
+    let result = launch_tarpaulin(&config, &None);
     let result = result.expect("Test failed").0;
     let files = result.files();
     assert!(files.iter().any(|f| f.ends_with("foo/src/lib.rs")));
@@ -44,21 +44,21 @@ fn specify_package() {
     config.manifest = test_dir;
     config.manifest.push("Cargo.toml");
     config.packages = vec!["foo".to_string()];
-    let result = launch_tarpaulin(&config);
+    let result = launch_tarpaulin(&config, &None);
     let result = result.expect("Test failed").0;
     let files = result.files();
     assert!(files.iter().any(|f| f.ends_with("foo/src/lib.rs")));
     assert!(!files.iter().any(|f| f.ends_with("bar/src/lib.rs")));
 
     config.packages = vec!["bar".to_string()];
-    let result = launch_tarpaulin(&config);
+    let result = launch_tarpaulin(&config, &None);
     let result = result.expect("Test failed").0;
     let files = result.files();
     assert!(!files.iter().any(|f| f.ends_with("foo/src/lib.rs")));
     assert!(files.iter().any(|f| f.ends_with("bar/src/lib.rs")));
 
     config.packages = vec!["bar".to_string(), "foo".to_string()];
-    let result = launch_tarpaulin(&config);
+    let result = launch_tarpaulin(&config, &None);
     let result = result.expect("Test failed").0;
     let files = result.files();
     assert!(files.iter().any(|f| f.ends_with("foo/src/lib.rs")));

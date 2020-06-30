@@ -3,6 +3,7 @@ use crate::errors::RunError;
 use crate::path_utils::get_source_walker;
 use cargo_metadata::{diagnostic::DiagnosticLevel, CargoOpt, Message, Metadata, MetadataCommand};
 use log::{error, trace, warn};
+use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
 use std::env;
 use std::fs::{read_dir, remove_dir_all, File};
@@ -12,7 +13,7 @@ use std::path::{Component, Path, PathBuf};
 use std::process::{Command, Stdio};
 use walkdir::{DirEntry, WalkDir};
 
-#[derive(Clone, PartialEq, Eq, PartialOrd, Ord, Hash)]
+#[derive(Clone, PartialEq, Eq, PartialOrd, Ord, Hash, Deserialize, Serialize)]
 pub struct TestBinary {
     path: PathBuf,
     ty: Option<RunType>,

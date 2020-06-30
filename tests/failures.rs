@@ -11,7 +11,7 @@ fn error_if_compilation_fails() {
     config.manifest = test_dir;
     config.manifest.push("Cargo.toml");
 
-    let result = launch_tarpaulin(&config);
+    let result = launch_tarpaulin(&config, &None);
 
     assert!(result.is_err());
 
