@@ -26,7 +26,7 @@ Below is the help-text for a thorough explanation of the flags and features
 available:
 
 ```bash
-cargo-tarpaulin version: 0.14.0
+cargo-tarpaulin version: 0.14.1
 Tool to analyse test coverage of cargo projects
 
 USAGE:
@@ -35,9 +35,15 @@ USAGE:
 FLAGS:
         --all                    Alias for --workspace (deprecated)
         --all-features           Build all available features
+        --all-targets            Test all targets
+        --benches                Test all benches
+        --bins                   Test all binaries
     -b, --branch                 Branch coverage: NOT IMPLEMENTED
         --count                  Counts the number of hits during coverage
         --debug                  Show debug output - this is used for diagnosing issues with tarpaulin
+        --doc                    Test only this library's documentation
+        --dump-traces            Log tracing events and save to a json file. Also, enabled when --debug is used
+        --examples               Test all examples
         --force-clean            Adds a clean stage to work around cargo bugs that may affect coverage results
     -f, --forward                Forwards unexpected signals to test. Tarpaulin will still take signals it is expecting.
         --frozen                 Do not update Cargo.lock or any caches
@@ -46,18 +52,23 @@ FLAGS:
         --ignore-panics          Ignore panic macros in tests
         --ignore-tests           Ignore lines of test functions when collecting coverage
     -i, --ignored                Run ignored tests as well
+        --lib                    Test only this package's library unit tests
     -l, --line                   Line coverage
         --locked                 Do not update Cargo.lock
         --no-default-features    Do not include default features
+        --no-fail-fast           Run all tests regardless of failure
         --no-run                 Compile tests but don't run coverage
         --offline                Run without accessing the network
         --release                Build in release mode.
+        --tests                  Test all tests
     -V, --version                Prints version information
     -v, --verbose                Show extra output
         --workspace              Test all packages in the workspace
 
 OPTIONS:
     -Z <FEATURES>...                 List of unstable nightly only flags
+        --bench <NAME>...            Test only the specified bench target
+        --bin <NAME>...              Test only the specified binary
         --ciserver <SERVICE>         Name of service, supported services are:
                                      travis-ci, travis-pro, circle-ci, semaphore, jenkins and codeship.
                                      If you are interfacing with coveralls.io or another site you can also specify a
@@ -66,6 +77,7 @@ OPTIONS:
                                      options set
         --coveralls <KEY>            Coveralls key, either the repo token, or if you're using travis use $TRAVIS_JOB_ID
                                      and specify travis-{ci|pro} in --ciserver
+        --example <NAME>...          Test only the specified example
     -e, --exclude <PACKAGE>...       Package id specifications to exclude from coverage. See cargo help pkgid for more
                                      info
         --exclude-files <FILE>...    Exclude given files from coverage results has * wildcard
@@ -76,12 +88,15 @@ OPTIONS:
         --output-dir <PATH>          Specify a custom directory to write report files
     -p, --packages <PACKAGE>...      Package id specifications for which package should be build. See cargo help pkgid
                                      for more info
+        --profile <NAME>             Build artefacts with the specified profile
         --report-uri <URI>           URI to send report to, only used if the option --coveralls is used
     -r, --root <DIR>                 Calculates relative paths to root directory. If --manifest-path isn't specified it
                                      will look for a Cargo.toml in root
-        --run-types <TYPE>...        Type of the coverage run [possible values: Tests, Doctests, Benchmarks, Examples]
+        --run-types <TYPE>...        Type of the coverage run [possible values: Tests, Doctests, Benchmarks, Examples,
+                                     Lib, Bins, AllTargets]
         --target <TRIPLE>            Compilation target triple
         --target-dir <DIR>           Directory for all generated artifacts
+        --test <NAME>...             Test only the specified test target
     -t, --timeout <SECONDS>          Integer for the maximum time in seconds without response from test before timeout
                                      (default is 1 minute).
 
@@ -106,6 +121,7 @@ your setup and an example project and I'll attempt to fix it (please link us to
 a repo and the commit containing your project and paste the verbose output).
 
 * Line coverage
+* Full compatibility with cargo test CLI arguments
 * Uploading coverage to <https://coveralls.io> or <https://codecov.io>
 * HTML report generation and other coverage report types
 * Coverage of tests, doctests, benchmarks and examples possible
@@ -459,6 +475,9 @@ follow `--` in tarpaulin use `args` in the toml file.
 
 Setting the field `config` will have no effect on the run as it won't be parsed
 for additional configuration.
+
+For the flags `--lib`, `--examples`, `--benches, `--tests`, `--all-targets`,
+`--doc`, `--bins` use the `run-types` entry in the config file.
 
 ## Extending Tarpaulin
 

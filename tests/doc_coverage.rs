@@ -16,7 +16,7 @@ fn doc_test_coverage() {
 
     config.run_types = vec![RunType::Doctests];
 
-    let (res, ret) = launch_tarpaulin(&config).unwrap();
+    let (res, ret) = launch_tarpaulin(&config, &None).unwrap();
 
     assert_eq!(ret, 0);
     assert!(res.total_covered() > 0);
@@ -24,7 +24,7 @@ fn doc_test_coverage() {
 
     config.run_types = vec![RunType::Tests];
 
-    let (res, ret) = launch_tarpaulin(&config).unwrap();
+    let (res, ret) = launch_tarpaulin(&config, &None).unwrap();
 
     assert_eq!(ret, 0);
     assert_eq!(res.total_covered(), 0);
@@ -42,7 +42,7 @@ fn doc_test_panics() {
 
     config.run_types = vec![RunType::Doctests];
 
-    let (res, ret) = launch_tarpaulin(&config).unwrap();
+    let (res, ret) = launch_tarpaulin(&config, &None).unwrap();
 
     assert_eq!(ret, 0);
     assert!(res.total_covered() > 0);
@@ -50,7 +50,7 @@ fn doc_test_panics() {
 
     config.run_types = vec![RunType::Tests];
 
-    let (res, ret) = launch_tarpaulin(&config).unwrap();
+    let (res, ret) = launch_tarpaulin(&config, &None).unwrap();
 
     assert_eq!(ret, 0);
     assert_eq!(res.total_covered(), 0);

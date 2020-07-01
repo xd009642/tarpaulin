@@ -10,6 +10,7 @@ use log::{error, info, warn};
 use regex::Regex;
 use serde::{Deserialize, Serialize};
 use std::cell::{Ref, RefCell};
+use std::collections::HashSet;
 use std::env;
 use std::fs::File;
 use std::io::{Error, ErrorKind, Read};
@@ -49,6 +50,9 @@ pub struct Config {
     pub verbose: bool,
     /// Debug flag for printing internal debugging information to the user
     pub debug: bool,
+    /// Enable the event logger
+    #[serde(rename = "dump-traces")]
+    pub dump_traces: bool,
     /// Flag to count hits in coverage
     pub count: bool,
     /// Flag specifying to run line coverage (default)
@@ -126,6 +130,24 @@ pub struct Config {
     /// Output files to generate
     #[serde(rename = "out")]
     pub generate: Vec<OutputFile>,
+    /// Names of tests to run corresponding to `cargo --test <NAME>...`
+    #[serde(rename = "test")]
+    pub test_names: HashSet<String>,
+    /// Names of binaries to run corresponding to `cargo --bin <NAME>...`
+    #[serde(rename = "bin")]
+    pub bin_names: HashSet<String>,
+    /// Names of examples to run corresponding to `cargo --example <NAME>...`
+    #[serde(rename = "example")]
+    pub example_names: HashSet<String>,
+    /// Names of benches to run corresponding to `cargo --bench <NAME>...`
+    #[serde(rename = "bench")]
+    pub bench_names: HashSet<String>,
+    /// Whether to carry on or stop when a test failure occurs
+    #[serde(rename = "no-fail-fast")]
+    pub no_fail_fast: bool,
+    /// Run with the given profile
+    pub profile: Option<String>,
+    /// Result of cargo_metadata ran on the crate
     #[serde(skip_deserializing, skip_serializing)]
     pub metadata: RefCell<Option<Metadata>>,
 }
@@ -144,6 +166,7 @@ impl Default for Config {
             force_clean: false,
             verbose: false,
             debug: false,
+            dump_traces: false,
             count: false,
             line_coverage: true,
             branch_coverage: false,
@@ -171,6 +194,12 @@ impl Default for Config {
             target: None,
             target_dir: None,
             offline: false,
+            test_names: HashSet::new(),
+            example_names: HashSet::new(),
+            bin_names: HashSet::new(),
+            bench_names: HashSet::new(),
+            no_fail_fast: false,
+            profile: None,
             metadata: RefCell::new(None),
         }
     }
@@ -180,6 +209,7 @@ impl<'a> From<&'a ArgMatches<'a>> for ConfigWrapper {
     fn from(args: &'a ArgMatches<'a>) -> Self {
         info!("Creating config");
         let debug = args.is_present("debug");
+        let dump_traces = debug || args.is_present("dump-traces");
         let verbose = args.is_present("verbose") || debug;
         let excluded_files = get_excluded(args);
         let excluded_files_raw = get_list(args, "exclude-files");
@@ -200,8 +230,10 @@ impl<'a> From<&'a ArgMatches<'a>> for ConfigWrapper {
             ignore_tests: args.is_present("ignore-tests"),
             ignore_panics: args.is_present("ignore-panics"),
             force_clean: args.is_present("force-clean"),
+            no_fail_fast: args.is_present("no-fail-fast"),
             verbose,
             debug,
+            dump_traces,
             count: args.is_present("count"),
             line_coverage: get_line_cov(args),
             branch_coverage: get_branch_cov(args),
@@ -229,6 +261,11 @@ impl<'a> From<&'a ArgMatches<'a>> for ConfigWrapper {
             target: get_target(args),
             target_dir: get_target_dir(args),
             offline: args.is_present("offline"),
+            test_names: get_list(args, "test").iter().cloned().collect(),
+            bin_names: get_list(args, "bin").iter().cloned().collect(),
+            bench_names: get_list(args, "bench").iter().cloned().collect(),
+            example_names: get_list(args, "example").iter().cloned().collect(),
+            profile: get_profile(args),
             metadata: RefCell::new(None),
         };
         if args.is_present("ignore-config") {
@@ -394,6 +431,7 @@ impl Config {
         } else if other.verbose {
             self.verbose = other.verbose;
         }
+        self.dump_traces |= other.dump_traces;
         self.manifest = other.manifest.clone();
         self.root = Config::pick_optional_config(&self.root, &other.root);
         self.coveralls = Config::pick_optional_config(&self.coveralls, &other.coveralls);
@@ -408,6 +446,11 @@ impl Config {
         self.locked |= other.locked;
         self.force_clean |= other.force_clean;
         self.ignore_tests |= other.ignore_tests;
+        self.no_fail_fast |= other.no_fail_fast;
+
+        if self.profile.is_none() && other.profile.is_some() {
+            self.profile = other.profile.clone();
+        }
 
         let additional_packages = other
             .packages
@@ -434,6 +477,24 @@ impl Config {
             keep
         });
 
+        for test in &other.test_names {
+            self.test_names.insert(test.clone());
+        }
+        for test in &other.bin_names {
+            self.bin_names.insert(test.clone());
+        }
+        for test in &other.example_names {
+            self.example_names.insert(test.clone());
+        }
+        for test in &other.bench_names {
+            self.bench_names.insert(test.clone());
+        }
+        for ty in &other.run_types {
+            if !self.run_types.contains(ty) {
+                self.run_types.push(*ty);
+            }
+        }
+
         if !other.excluded_files_raw.is_empty() {
             self.excluded_files_raw
                 .extend_from_slice(&other.excluded_files_raw);
@@ -453,6 +514,13 @@ impl Config {
         } else {
             base_config.clone()
         }
+    }
+
+    pub fn has_named_tests(&self) -> bool {
+        !(self.test_names.is_empty()
+            && self.bin_names.is_empty()
+            && self.example_names.is_empty()
+            && self.bench_names.is_empty())
     }
 
     #[inline]
@@ -889,12 +957,20 @@ mod tests {
         manifest-path = "/home/rust/foo/Cargo.toml"
         ciserver = "travis-ci"
         args = ["--nocapture"]
+        test = ["test1", "test2"]
+        bin = ["bin"]
+        example = ["example"]
+        bench = ["bench"]
+        no-fail-fast = true
+        profile = "Release"
+        dump-traces = true
         "#;
         let mut configs = Config::parse_config_toml(toml.as_bytes()).unwrap();
         assert_eq!(configs.len(), 1);
         let config = configs.remove(0);
         assert!(config.debug);
         assert!(config.verbose);
+        assert!(config.dump_traces);
         assert!(config.ignore_panics);
         assert!(config.count);
         assert!(config.run_ignored);
@@ -932,5 +1008,12 @@ mod tests {
         assert_eq!(config.ci_tool, Some(CiService::Travis));
         assert_eq!(config.root, Some("/home/rust".to_string()));
         assert_eq!(config.manifest, PathBuf::from("/home/rust/foo/Cargo.toml"));
+        assert_eq!(config.profile, Some("Release".to_string()));
+        assert!(config.no_fail_fast);
+        assert!(config.test_names.contains("test1"));
+        assert!(config.test_names.contains("test2"));
+        assert!(config.bin_names.contains("bin"));
+        assert!(config.example_names.contains("example"));
+        assert!(config.bench_names.contains("bench"));
     }
 }

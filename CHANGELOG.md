@@ -3,6 +3,29 @@
 From 2019 onwards, all notable changes to tarpaulin will be documented in this
 file.
 
+## [Unreleased]
+### Added
+
+### Changed
+
+### Removed
+
+## [0.14.1] - 2020-07-01
+### Added
+- run-types for lib, bins and all-targets
+- `--tests` `--lib`, `--examples, `--bins`, `--doc`, `--benches`, 
+`--all-targets` flags matching `cargo test`
+- Add named test running and flags `--test`, `--example`, `--bin`, `--bench`
+- Equivalent options for `--no-fail-fast` and `--profile`
+- Filtering of `CARGO_HOME` contents when it exists in project directory
+- `--debug` or `--dump-traces` now outputs a json log format that can be used 
+to plot tarpaulin execution
+
+### Changed
+- Now merge run-types in configs
+
+### Removed
+
 ## [0.14.0] - 2020-06-25
 ### Added
 - Filtering for `cfg(not(tarpaulin_include))` also adding `--cfg=tarpaulin` to default config

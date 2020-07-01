@@ -1,6 +1,7 @@
 use crate::cargo::TestBinary;
 use crate::config::*;
 use crate::errors::*;
+use crate::event_log::*;
 use crate::process_handling::*;
 use crate::report::report_coverage;
 use crate::source_analysis::LineAnalysis;
@@ -19,6 +20,8 @@ pub mod breakpoint;
 mod cargo;
 pub mod config;
 pub mod errors;
+pub mod event_log;
+mod path_utils;
 mod process_handling;
 pub mod report;
 mod source_analysis;
@@ -32,10 +35,23 @@ pub fn trace(configs: &[Config]) -> Result<TraceMap, RunError> {
     let mut tracemap = TraceMap::new();
     let mut tarpaulin_result = Ok(());
     let mut ret = 0i32;
+    let logger = if configs.iter().any(|c| c.dump_traces) {
+        Some(EventLog::new())
+    } else {
+        None
+    };
 
     for config in configs.iter() {
         if config.name == "report" {
             continue;
+        }
+        if let Some(log) = logger.as_ref() {
+            let name = if config.name.is_empty() {
+                "<anonymous>".to_string()
+            } else {
+                config.name.clone()
+            };
+            log.push_config(name);
         }
         let tgt = config.target_dir();
         if !tgt.exists() {
@@ -44,7 +60,7 @@ pub fn trace(configs: &[Config]) -> Result<TraceMap, RunError> {
                 warn!("Failed to create target-dir {}", e);
             }
         }
-        match launch_tarpaulin(config) {
+        match launch_tarpaulin(config, &logger) {
             Ok((t, r)) => {
                 ret |= r;
                 tracemap.merge(&t);
@@ -85,7 +101,10 @@ pub fn run(configs: &[Config]) -> Result<(), RunError> {
 }
 
 /// Launches tarpaulin with the given configuration.
-pub fn launch_tarpaulin(config: &Config) -> Result<(TraceMap, i32), RunError> {
+pub fn launch_tarpaulin(
+    config: &Config,
+    logger: &Option<EventLog>,
+) -> Result<(TraceMap, i32), RunError> {
     if !config.name.is_empty() {
         info!("Running config {}", config.name);
     }
@@ -102,7 +121,7 @@ pub fn launch_tarpaulin(config: &Config) -> Result<(TraceMap, i32), RunError> {
             if exe.should_panic() {
                 info!("Running a test executable that is expected to panic");
             }
-            let coverage = get_test_coverage(&exe, &project_analysis, config, false)?;
+            let coverage = get_test_coverage(&exe, &project_analysis, config, false, logger)?;
             if let Some(res) = coverage {
                 result.merge(&res.0);
                 return_code |= if exe.should_panic() {
@@ -111,8 +130,8 @@ pub fn launch_tarpaulin(config: &Config) -> Result<(TraceMap, i32), RunError> {
                     res.1
                 };
             }
-            if config.run_ignored && exe.run_type() == RunType::Tests {
-                let coverage = get_test_coverage(&exe, &project_analysis, config, true)?;
+            if config.run_ignored {
+                let coverage = get_test_coverage(&exe, &project_analysis, config, true, logger)?;
                 if let Some(res) = coverage {
                     result.merge(&res.0);
                     return_code |= res.1;
@@ -130,6 +149,7 @@ pub fn get_test_coverage(
     analysis: &HashMap<PathBuf, LineAnalysis>,
     config: &Config,
     ignored: bool,
+    logger: &Option<EventLog>,
 ) -> Result<Option<(TraceMap, i32)>, RunError> {
     if !test.path().exists() {
         return Ok(None);
@@ -137,9 +157,12 @@ pub fn get_test_coverage(
     if let Err(e) = limit_affinity() {
         warn!("Failed to set processor affinity {}", e);
     }
+    if let Some(log) = logger.as_ref() {
+        log.push_binary(test.clone());
+    }
     match fork() {
         Ok(ForkResult::Parent { child }) => {
-            match collect_coverage(test.path(), child, analysis, config) {
+            match collect_coverage(test.path(), child, analysis, config, logger) {
                 Ok(t) => Ok(Some(t)),
                 Err(e) => Err(RunError::TestCoverage(e.to_string())),
             }
@@ -163,12 +186,13 @@ fn collect_coverage(
     test: Pid,
     analysis: &HashMap<PathBuf, LineAnalysis>,
     config: &Config,
+    logger: &Option<EventLog>,
 ) -> Result<(TraceMap, i32), RunError> {
     let mut ret_code = 0;
     let mut traces = generate_tracemap(test_path, analysis, config)?;
     {
         trace!("Test PID is {}", test);
-        let (mut state, mut data) = create_state_machine(test, &mut traces, config);
+        let (mut state, mut data) = create_state_machine(test, &mut traces, config, logger);
         loop {
             state = state.step(&mut data, config)?;
             if state.is_finished() {

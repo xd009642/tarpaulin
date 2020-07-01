@@ -1,5 +1,6 @@
 use crate::config::Config;
 use crate::errors::RunError;
+use crate::event_log::*;
 use crate::statemachine::*;
 use log::{debug, trace};
 use nix::errno::Errno;
@@ -13,8 +14,9 @@ pub fn create_state_machine<'a>(
     test: Pid,
     traces: &'a mut TraceMap,
     config: &'a Config,
+    event_log: &'a Option<EventLog>,
 ) -> (TestState, LinuxData<'a>) {
-    let mut data = LinuxData::new(traces, config);
+    let mut data = LinuxData::new(traces, config, event_log);
     data.parent = test;
     (TestState::start_state(), data)
 }
@@ -23,8 +25,8 @@ pub type UpdateContext = (TestState, TracerAction<ProcessInfo>);
 
 #[derive(Debug, Copy, Clone, Eq, PartialEq)]
 pub struct ProcessInfo {
-    pid: Pid,
-    signal: Option<Signal>,
+    pub(crate) pid: Pid,
+    pub(crate) signal: Option<Signal>,
 }
 
 impl ProcessInfo {
@@ -61,6 +63,8 @@ pub struct LinuxData<'a> {
     config: &'a Config,
     /// Thread count. Hopefully getting rid of in future
     thread_count: isize,
+    /// Optional event log to update as the test progresses
+    event_log: &'a Option<EventLog>,
 }
 
 impl<'a> StateData for LinuxData<'a> {
@@ -171,6 +175,10 @@ impl<'a> StateData for LinuxData<'a> {
         let pending = self.wait_queue.clone();
         self.wait_queue.clear();
         for status in &pending {
+            if let Some(log) = self.event_log.as_ref() {
+                let event = TraceEvent::new_from_wait(&status);
+                log.push_trace(event);
+            }
             let state = match status {
                 WaitStatus::PtraceEvent(c, s, e) => match self.handle_ptrace_event(*c, *s, *e) {
                     Ok(s) => Ok(s),
@@ -254,6 +262,10 @@ impl<'a> StateData for LinuxData<'a> {
         }
         let mut continued = false;
         for a in &actions {
+            if let Some(log) = self.event_log.as_ref() {
+                let event = TraceEvent::new_from_action(&a);
+                log.push_trace(event);
+            }
             match a {
                 TracerAction::TryContinue(t) => {
                     continued = true;
@@ -283,7 +295,11 @@ impl<'a> StateData for LinuxData<'a> {
 }
 
 impl<'a> LinuxData<'a> {
-    pub fn new(traces: &'a mut TraceMap, config: &'a Config) -> LinuxData<'a> {
+    pub fn new(
+        traces: &'a mut TraceMap,
+        config: &'a Config,
+        event_log: &'a Option<EventLog>,
+    ) -> LinuxData<'a> {
         LinuxData {
             wait_queue: Vec::new(),
             current: Pid::from_raw(0),
@@ -291,6 +307,7 @@ impl<'a> LinuxData<'a> {
             breakpoints: HashMap::new(),
             traces,
             config,
+            event_log,
             thread_count: 0,
         }
     }

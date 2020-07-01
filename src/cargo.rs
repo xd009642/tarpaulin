@@ -1,7 +1,9 @@
 use crate::config::*;
 use crate::errors::RunError;
-use cargo_metadata::{diagnostic::DiagnosticLevel, CargoOpt, Message, MetadataCommand};
+use crate::path_utils::get_source_walker;
+use cargo_metadata::{diagnostic::DiagnosticLevel, CargoOpt, Message, Metadata, MetadataCommand};
 use log::{error, trace, warn};
+use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
 use std::env;
 use std::fs::{read_dir, remove_dir_all, File};
@@ -11,10 +13,10 @@ use std::path::{Component, Path, PathBuf};
 use std::process::{Command, Stdio};
 use walkdir::{DirEntry, WalkDir};
 
-#[derive(Clone, PartialEq, Eq, PartialOrd, Ord, Hash)]
+#[derive(Clone, PartialEq, Eq, PartialOrd, Ord, Hash, Deserialize, Serialize)]
 pub struct TestBinary {
     path: PathBuf,
-    ty: RunType,
+    ty: Option<RunType>,
     cargo_dir: Option<PathBuf>,
     pkg_name: Option<String>,
     pkg_version: Option<String>,
@@ -29,7 +31,7 @@ struct DocTestBinaryMeta {
 }
 
 impl TestBinary {
-    pub fn new(path: PathBuf, ty: RunType) -> Self {
+    pub fn new(path: PathBuf, ty: Option<RunType>) -> Self {
         Self {
             path,
             ty,
@@ -45,7 +47,7 @@ impl TestBinary {
         &self.path
     }
 
-    pub fn run_type(&self) -> RunType {
+    pub fn run_type(&self) -> Option<RunType> {
         self.ty
     }
 
@@ -106,84 +108,106 @@ pub fn get_tests(config: &Config) -> Result<Vec<TestBinary>, RunError> {
         .map_err(|e| RunError::Cargo(e.to_string()))?;
 
     for ty in &config.run_types {
-        let mut cmd = create_command(manifest, config, ty);
-        if ty != &RunType::Doctests {
-            cmd.stdout(Stdio::piped());
-        } else {
-            clean_doctest_folder(&config.doctest_dir());
-            cmd.stdout(Stdio::null());
-        }
-        trace!("Running command {:?}", cmd);
-        let mut child = cmd.spawn().map_err(|e| RunError::Cargo(e.to_string()))?;
-
-        if ty != &RunType::Doctests {
-            let mut package_ids = vec![];
-            let reader = std::io::BufReader::new(child.stdout.take().unwrap());
-            for msg in Message::parse_stream(reader) {
-                match msg {
-                    Ok(Message::CompilerArtifact(art)) => {
-                        if let Some(path) = art.executable {
-                            if !art.profile.test && ty == &RunType::Tests {
-                                continue;
-                            }
-                            result.push(TestBinary::new(path, *ty));
-                            package_ids.push(art.package_id.clone());
-                        }
-                    }
-                    Ok(Message::CompilerMessage(m)) => match m.message.level {
-                        DiagnosticLevel::Error | DiagnosticLevel::Ice => {
-                            let _ = child.wait();
-                            return Err(RunError::TestCompile(m.message.message));
-                        }
-                        _ => {}
-                    },
-                    Err(e) => {
-                        error!("Error parsing cargo messages {}", e);
-                    }
-                    _ => {}
-                }
-            }
-            for (res, package) in result.iter_mut().zip(package_ids.iter()) {
-                let package = &metadata[package];
-                res.cargo_dir = package.manifest_path.parent().map(|x| x.to_path_buf());
-                res.pkg_name = Some(package.name.clone());
-                res.pkg_version = Some(package.version.to_string());
-                res.pkg_authors = Some(package.authors.clone());
-            }
-            child.wait().map_err(|e| RunError::Cargo(e.to_string()))?;
-        } else {
-            // need to wait for compiling to finish before getting doctests
-            // also need to wait with output to ensure the stdout buffer doesn't fill up
-            let out = child
-                .wait_with_output()
-                .map_err(|e| RunError::Cargo(e.to_string()))?;
-            if !out.status.success() {
-                error!("Building doctests failed");
-            }
-            let walker = WalkDir::new(&config.doctest_dir()).into_iter();
-            let dir_entries = walker
-                .filter_map(|e| e.ok())
-                .filter(|e| match e.metadata() {
-                    Ok(ref m) if m.is_file() && m.len() != 0 => true,
-                    _ => false,
-                })
-                .collect::<Vec<_>>();
-
-            let should_panics = get_panic_candidates(&dir_entries, config);
-            for dt in &dir_entries {
-                trace!("Found doctest binary {}", dt.path().display());
-                let mut tb = TestBinary::new(dt.path().to_path_buf(), *ty);
-                // Now to do my magic!
-                if let Some(meta) = DocTestBinaryMeta::new(dt.path()) {
-                    if let Some(lines) = should_panics.get(&meta.prefix) {
-                        tb.should_panic |= lines.contains(&meta.line);
-                    }
-                }
-                result.push(tb);
-            }
-        }
+        run_cargo(&metadata, manifest, config, Some(*ty), &mut result)?;
+    }
+    if config.has_named_tests() {
+        run_cargo(&metadata, manifest, config, None, &mut result)?
+    } else if config.run_types.is_empty() {
+        run_cargo(
+            &metadata,
+            manifest,
+            config,
+            Some(RunType::Tests),
+            &mut result,
+        )?;
     }
     Ok(result)
+}
+
+fn run_cargo(
+    metadata: &Metadata,
+    manifest: &str,
+    config: &Config,
+    ty: Option<RunType>,
+    result: &mut Vec<TestBinary>,
+) -> Result<(), RunError> {
+    let mut cmd = create_command(manifest, config, ty);
+    if ty != Some(RunType::Doctests) {
+        cmd.stdout(Stdio::piped());
+    } else {
+        clean_doctest_folder(&config.doctest_dir());
+        cmd.stdout(Stdio::null());
+    }
+    trace!("Running command {:?}", cmd);
+    let mut child = cmd.spawn().map_err(|e| RunError::Cargo(e.to_string()))?;
+
+    if ty != Some(RunType::Doctests) {
+        let mut package_ids = vec![];
+        let reader = std::io::BufReader::new(child.stdout.take().unwrap());
+        for msg in Message::parse_stream(reader) {
+            match msg {
+                Ok(Message::CompilerArtifact(art)) => {
+                    if let Some(path) = art.executable {
+                        if !art.profile.test && ty == Some(RunType::Tests) {
+                            continue;
+                        }
+                        result.push(TestBinary::new(path, ty));
+                        package_ids.push(art.package_id.clone());
+                    }
+                }
+                Ok(Message::CompilerMessage(m)) => match m.message.level {
+                    DiagnosticLevel::Error | DiagnosticLevel::Ice => {
+                        let _ = child.wait();
+                        return Err(RunError::TestCompile(m.message.message));
+                    }
+                    _ => {}
+                },
+                Err(e) => {
+                    error!("Error parsing cargo messages {}", e);
+                }
+                _ => {}
+            }
+        }
+        for (res, package) in result.iter_mut().zip(package_ids.iter()) {
+            let package = &metadata[package];
+            res.cargo_dir = package.manifest_path.parent().map(|x| x.to_path_buf());
+            res.pkg_name = Some(package.name.clone());
+            res.pkg_version = Some(package.version.to_string());
+            res.pkg_authors = Some(package.authors.clone());
+        }
+        child.wait().map_err(|e| RunError::Cargo(e.to_string()))?;
+    } else {
+        // need to wait for compiling to finish before getting doctests
+        // also need to wait with output to ensure the stdout buffer doesn't fill up
+        let out = child
+            .wait_with_output()
+            .map_err(|e| RunError::Cargo(e.to_string()))?;
+        if !out.status.success() {
+            error!("Building doctests failed");
+        }
+        let walker = WalkDir::new(&config.doctest_dir()).into_iter();
+        let dir_entries = walker
+            .filter_map(|e| e.ok())
+            .filter(|e| match e.metadata() {
+                Ok(ref m) if m.is_file() && m.len() != 0 => true,
+                _ => false,
+            })
+            .collect::<Vec<_>>();
+
+        let should_panics = get_panic_candidates(&dir_entries, config);
+        for dt in &dir_entries {
+            trace!("Found doctest binary {}", dt.path().display());
+            let mut tb = TestBinary::new(dt.path().to_path_buf(), ty);
+            // Now to do my magic!
+            if let Some(meta) = DocTestBinaryMeta::new(dt.path()) {
+                if let Some(lines) = should_panics.get(&meta.prefix) {
+                    tb.should_panic |= lines.contains(&meta.line);
+                }
+            }
+            result.push(tb);
+        }
+    }
+    Ok(())
 }
 
 fn convert_to_prefix(p: &Path) -> Option<String> {
@@ -209,21 +233,9 @@ fn is_prefix_match(prefix: &str, entry: &Path) -> bool {
 fn get_panic_candidates(tests: &[DirEntry], config: &Config) -> HashMap<String, Vec<usize>> {
     let mut result = HashMap::new();
     let root = config.root();
-    let target = config.target_dir();
     for test in tests {
         if let Some(test_binary) = DocTestBinaryMeta::new(test.path()) {
-            let walker = WalkDir::new(&root).into_iter();
-            // TODO some walkdir stuff is being reused here and in source_analysis (and source
-            // analysis does it a bit wrong) Fix before merging
-            for dir_entry in walker
-                .filter_entry(|e| {
-                    !(e.path().starts_with(&target)
-                        || e.path()
-                            .iter()
-                            .any(|x| x.to_string_lossy().starts_with(".")))
-                })
-                .filter_map(|e| e.ok())
-            {
+            for dir_entry in get_source_walker(config) {
                 let path = dir_entry.path();
                 if path.is_file() {
                     if let Some(p) = path_relative_from(path, &root) {
@@ -265,9 +277,9 @@ fn find_panics_in_file(file: &Path) -> io::Result<Vec<usize>> {
     Ok(lines)
 }
 
-fn create_command(manifest_path: &str, config: &Config, ty: &RunType) -> Command {
+fn create_command(manifest_path: &str, config: &Config, ty: Option<RunType>) -> Command {
     let mut test_cmd = Command::new("cargo");
-    if *ty == RunType::Doctests {
+    if ty == Some(RunType::Doctests) {
         if let Some(toolchain) = env::var("RUSTUP_TOOLCHAIN")
             .ok()
             .filter(|t| t.starts_with("nightly"))
@@ -283,12 +295,34 @@ fn create_command(manifest_path: &str, config: &Config, ty: &RunType) -> Command
         test_cmd.args(&["test", "--no-run"]);
     }
     test_cmd.args(&["--message-format", "json", "--manifest-path", manifest_path]);
-    match ty {
-        RunType::Tests => test_cmd.arg("--tests"),
-        RunType::Doctests => test_cmd.arg("--doc"),
-        RunType::Benchmarks => test_cmd.arg("--benches"),
-        RunType::Examples => test_cmd.arg("--examples"),
-    };
+    if let Some(ty) = ty {
+        match ty {
+            RunType::Tests => test_cmd.arg("--tests"),
+            RunType::Doctests => test_cmd.arg("--doc"),
+            RunType::Benchmarks => test_cmd.arg("--benches"),
+            RunType::Examples => test_cmd.arg("--examples"),
+            RunType::AllTargets => test_cmd.arg("--all-targets"),
+            RunType::Lib => test_cmd.arg("--lib"),
+            RunType::Bins => test_cmd.arg("--bins"),
+        };
+    } else {
+        for test in &config.test_names {
+            test_cmd.arg("--test");
+            test_cmd.arg(test);
+        }
+        for test in &config.bin_names {
+            test_cmd.arg("--bin");
+            test_cmd.arg(test);
+        }
+        for test in &config.example_names {
+            test_cmd.arg("--example");
+            test_cmd.arg(test);
+        }
+        for test in &config.bench_names {
+            test_cmd.arg("--bench");
+            test_cmd.arg(test);
+        }
+    }
     init_args(&mut test_cmd, config);
     setup_environment(&mut test_cmd, config);
     test_cmd
@@ -303,6 +337,13 @@ fn init_args(test_cmd: &mut Command, config: &Config) {
     }
     if config.frozen {
         test_cmd.arg("--frozen");
+    }
+    if config.no_fail_fast {
+        test_cmd.arg("--no-fail-fast");
+    }
+    if let Some(profile) = config.profile.as_ref() {
+        test_cmd.arg("--profile");
+        test_cmd.arg(profile);
     }
     if let Some(features) = config.features.as_ref() {
         test_cmd.arg("--features");

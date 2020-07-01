@@ -1,0 +1,11 @@
+[package]
+name = "httptest"
+version = "0.1.0"
+authors = ["Thomas Sioutas <thomas.sioutas@prodrive-technologies.com>"]
+edition = "2018"
+
+# See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
+
+[dependencies]
+reqwest = { version = "0.10", features = ["blocking", "json"] }
+httptest = "0.13"
