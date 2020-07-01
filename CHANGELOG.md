@@ -5,6 +5,13 @@ file.
 
 ## [Unreleased]
 ### Added
+
+### Changed
+
+### Removed
+
+## [0.14.1] - 2020-07-01
+### Added
 - run-types for lib, bins and all-targets
 - `--tests` `--lib`, `--examples, `--bins`, `--doc`, `--benches`, 
 `--all-targets` flags matching `cargo test`
