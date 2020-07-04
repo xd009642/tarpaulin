@@ -17,7 +17,7 @@ arg_enum! {
 }
 
 arg_enum! {
-    #[derive(Debug, Clone, Eq, PartialEq, Ord, PartialOrd, Hash, Deserialize, Serialize)]
+    #[derive(Debug, Copy, Clone, Eq, PartialEq, Ord, PartialOrd, Hash, Deserialize, Serialize)]
     pub enum OutputFile {
         Json,
         Toml,

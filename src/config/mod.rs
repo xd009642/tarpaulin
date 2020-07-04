@@ -46,6 +46,8 @@ pub struct Config {
     /// Flag to add a clean step when preparing the target project
     #[serde(rename = "force-clean")]
     pub force_clean: bool,
+    #[serde(rename = "all-targets")]
+    pub all_targets: bool,
     /// Verbose flag for printing information to the user
     pub verbose: bool,
     /// Debug flag for printing internal debugging information to the user
@@ -152,6 +154,10 @@ pub struct Config {
     pub metadata: RefCell<Option<Metadata>>,
 }
 
+fn default_test_timeout() -> Duration {
+    Duration::from_secs(60)
+}
+
 impl Default for Config {
     fn default() -> Config {
         Config {
@@ -161,6 +167,7 @@ impl Default for Config {
             config: None,
             root: Default::default(),
             run_ignored: false,
+            all_targets: false,
             ignore_tests: false,
             ignore_panics: false,
             force_clean: false,
@@ -185,7 +192,7 @@ impl Default for Config {
             excluded_files: RefCell::new(vec![]),
             excluded_files_raw: vec![],
             varargs: vec![],
-            test_timeout: Duration::from_secs(60),
+            test_timeout: default_test_timeout(),
             release: false,
             all_features: false,
             no_run: false,
@@ -231,6 +238,7 @@ impl<'a> From<&'a ArgMatches<'a>> for ConfigWrapper {
             ignore_panics: args.is_present("ignore-panics"),
             force_clean: args.is_present("force-clean"),
             no_fail_fast: args.is_present("no-fail-fast"),
+            all_targets: args.is_present("all-targets"),
             verbose,
             debug,
             dump_traces,
@@ -431,7 +439,19 @@ impl Config {
         } else if other.verbose {
             self.verbose = other.verbose;
         }
+        self.no_run |= other.no_run;
+        self.no_default_features |= other.no_default_features;
+        self.ignore_panics |= other.ignore_panics;
+        self.forward_signals |= other.forward_signals;
+        self.run_ignored |= other.run_ignored;
+        self.release |= other.release;
+        self.count |= other.count;
+        self.all_features |= other.all_features;
+        self.all_targets |= other.all_targets;
+        self.line_coverage |= other.line_coverage;
+        self.branch_coverage |= other.branch_coverage;
         self.dump_traces |= other.dump_traces;
+        self.offline |= other.offline;
         self.manifest = other.manifest.clone();
         self.root = Config::pick_optional_config(&self.root, &other.root);
         self.coveralls = Config::pick_optional_config(&self.coveralls, &other.coveralls);
@@ -448,8 +468,20 @@ impl Config {
         self.ignore_tests |= other.ignore_tests;
         self.no_fail_fast |= other.no_fail_fast;
 
+        if other.test_timeout != default_test_timeout() {
+            self.test_timeout = other.test_timeout.clone();
+        }
+
         if self.profile.is_none() && other.profile.is_some() {
             self.profile = other.profile.clone();
+        }
+        if other.features.is_some() {
+            if self.features.is_none() {
+                self.features = other.features.clone();
+            } else if let Some(features) = self.features.as_mut() {
+                features.push(' ');
+                features.push_str(other.features.as_ref().unwrap());
+            }
         }
 
         let additional_packages = other
@@ -460,6 +492,14 @@ impl Config {
             .collect::<Vec<String>>();
         self.packages.extend(additional_packages);
 
+        let additional_outs = other
+            .generate
+            .iter()
+            .filter(|out| !self.generate.contains(out))
+            .copied()
+            .collect::<Vec<_>>();
+        self.generate.extend(additional_outs);
+
         let additional_excludes = other
             .exclude
             .iter()
@@ -467,6 +507,14 @@ impl Config {
             .cloned()
             .collect::<Vec<String>>();
         self.exclude.extend(additional_excludes);
+
+        let additional_varargs = other
+            .varargs
+            .iter()
+            .filter(|package| !self.varargs.contains(package))
+            .cloned()
+            .collect::<Vec<String>>();
+        self.varargs.extend(additional_varargs);
 
         let exclude = &self.exclude;
         self.packages.retain(|package| {
@@ -964,6 +1012,7 @@ mod tests {
         no-fail-fast = true
         profile = "Release"
         dump-traces = true
+        all-targets = true
         "#;
         let mut configs = Config::parse_config_toml(toml.as_bytes()).unwrap();
         assert_eq!(configs.len(), 1);
@@ -971,6 +1020,7 @@ mod tests {
         assert!(config.debug);
         assert!(config.verbose);
         assert!(config.dump_traces);
+        assert!(config.all_targets);
         assert!(config.ignore_panics);
         assert!(config.count);
         assert!(config.run_ignored);
