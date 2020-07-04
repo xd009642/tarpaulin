@@ -25,7 +25,7 @@ want to run it locally, e.g. during development. See below for how to do that.
 Below is the help-text for a thorough explanation of the flags and features
 available:
 
-```bash
+```
 cargo-tarpaulin version: 0.14.1
 Tool to analyse test coverage of cargo projects
 
