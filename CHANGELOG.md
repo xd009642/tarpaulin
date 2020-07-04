@@ -12,7 +12,7 @@ file.
 - Merge more CLI options with active config (no-run, no-default-features, 
 ignore-panics, forward-signals, run-ignored, release, count, all-features, 
 all-targets, line-coverage, branch-coverage, offline, timeout, features, 
-out, arguments passed to test executable)
+out, arguments passed to test executable, -Z)
 
 ### Removed
 

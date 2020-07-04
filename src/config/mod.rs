@@ -516,6 +516,14 @@ impl Config {
             .collect::<Vec<String>>();
         self.varargs.extend(additional_varargs);
 
+        let additional_z_opts = other
+            .unstable_features
+            .iter()
+            .filter(|package| !self.unstable_features.contains(package))
+            .cloned()
+            .collect::<Vec<String>>();
+        self.unstable_features.extend(additional_z_opts);
+
         let exclude = &self.exclude;
         self.packages.retain(|package| {
             let keep = !exclude.contains(package);
