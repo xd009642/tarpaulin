@@ -394,12 +394,7 @@ impl<'a> LinuxData<'a> {
                     }
                 };
                 if updated.0 {
-                    if let Some(ref mut t) = self.traces.get_trace_mut(rip) {
-                        if let CoverageStat::Line(ref mut x) = t.stats {
-                            trace!("Incrementing hit count for trace");
-                            *x += 1;
-                        }
-                    }
+                    self.traces.increment_hit(rip);
                 }
                 action = Some(updated.1);
             }

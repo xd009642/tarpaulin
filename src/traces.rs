@@ -1,3 +1,4 @@
+use log::trace;
 use serde::{Deserialize, Serialize};
 use std::cmp::{Ord, Ordering};
 use std::collections::btree_map::Iter;
@@ -72,6 +73,28 @@ pub struct Trace {
     pub stats: CoverageStat,
     /// Function name
     pub fn_name: Option<String>,
+}
+
+impl Trace {
+    pub fn new(line: u64, address: HashSet<u64>, length: usize, fn_name: Option<String>) -> Self {
+        Self {
+            line,
+            address,
+            length,
+            stats: CoverageStat::Line(0),
+            fn_name,
+        }
+    }
+
+    pub fn new_stub(line: u64) -> Self {
+        Self {
+            line,
+            address: HashSet::new(),
+            length: 0,
+            stats: CoverageStat::Line(0),
+            fn_name: None,
+        }
+    }
 }
 
 impl PartialOrd for Trace {
@@ -249,6 +272,19 @@ impl TraceMap {
             .iter()
             .find(|x| x.address.contains(&address))
             .copied()
+    }
+
+    pub fn increment_hit(&mut self, address: u64) {
+        for trace in self
+            .all_traces_mut()
+            .iter_mut()
+            .filter(|x| x.address.contains(&address))
+        {
+            if let CoverageStat::Line(ref mut x) = trace.stats {
+                trace!("Incrementing hit count for trace");
+                *x += 1;
+            }
+        }
     }
 
     /// Gets a mutable reference to a trace at a given address

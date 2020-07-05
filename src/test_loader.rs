@@ -317,16 +317,7 @@ fn get_line_addresses(
                             k.line
                         );
                     }
-                    tracemap.add_trace(
-                        &k.path,
-                        Trace {
-                            line: k.line,
-                            address,
-                            length: 1,
-                            stats: CoverageStat::Line(0),
-                            fn_name,
-                        },
-                    );
+                    tracemap.add_trace(&k.path, Trace::new(k.line, address, 1, fn_name));
                 }
                 result.merge(&tracemap);
             }
@@ -347,16 +338,7 @@ fn get_line_addresses(
                     rpath.display(),
                     line
                 );
-                result.add_trace(
-                    file,
-                    Trace {
-                        line,
-                        address: HashSet::new(),
-                        length: 0,
-                        stats: CoverageStat::Line(0),
-                        fn_name: None,
-                    },
-                );
+                result.add_trace(file, Trace::new_stub(line));
             }
         }
     }
