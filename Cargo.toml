@@ -26,7 +26,7 @@ clap = "2.33.1"
 coveralls-api = "0.5.0"
 env_logger = "0.7"
 fallible-iterator = "0.2.0"
-gimli = "0.21.0"
+gimli = "0.22.0"
 git2 = "0.13"
 humantime-serde = "1"
 indexmap = { version = "1.4.0", features = ["serde-1"] }
