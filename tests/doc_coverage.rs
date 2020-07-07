@@ -81,3 +81,18 @@ fn doc_test_panics_workspace() {
     assert_eq!(ret, 0);
     assert_eq!(res.total_covered(), 0);
 }
+
+#[test]
+fn doc_test_compile_fail() {
+    let mut config = Config::default();
+    config.verbose = true;
+    config.test_timeout = Duration::from_secs(60);
+    let test_dir = get_test_path("doctest_compile_fail_fail");
+    env::set_current_dir(&test_dir).unwrap();
+    config.manifest = test_dir;
+    config.manifest.push("Cargo.toml");
+
+    config.run_types = vec![RunType::Doctests];
+
+    assert!(launch_tarpaulin(&config, &None).is_err());
+}

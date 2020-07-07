@@ -184,6 +184,7 @@ fn run_cargo(
             .map_err(|e| RunError::Cargo(e.to_string()))?;
         if !out.status.success() {
             error!("Building doctests failed");
+            return Err(RunError::Cargo("Building doctest failed".to_string()));
         }
         let walker = WalkDir::new(&config.doctest_dir()).into_iter();
         let dir_entries = walker
