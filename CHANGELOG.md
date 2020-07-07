@@ -13,6 +13,7 @@ file.
 ignore-panics, forward-signals, run-ignored, release, count, all-features, 
 all-targets, line-coverage, branch-coverage, offline, timeout, features, 
 out, arguments passed to test executable, -Z)
+- Update stats for all traces when they match a single address
 
 ### Removed
 
