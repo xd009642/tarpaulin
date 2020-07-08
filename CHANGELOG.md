@@ -14,6 +14,9 @@ ignore-panics, forward-signals, run-ignored, release, count, all-features,
 all-targets, line-coverage, branch-coverage, offline, timeout, features, 
 out, arguments passed to test executable, -Z)
 - Update stats for all traces when they match a single address
+- Correct handling of doc tests in workspaces as doctest name is relative to 
+package root not workspace root
+- Return an error if a doctest fails to compile
 
 ### Removed
 
