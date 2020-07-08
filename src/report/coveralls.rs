@@ -98,8 +98,10 @@ pub fn export(coverage_data: &TraceMap, config: &Config) -> Result<(), RunError>
                     }
                 }
             }
-            if let Ok(source) = Source::new(&rel_path, file, &lines, &None, false) {
-                report.add_source(source);
+            if !lines.is_empty() {
+                if let Ok(source) = Source::new(&rel_path, file, &lines, &None, false) {
+                    report.add_source(source);
+                }
             }
         }
 

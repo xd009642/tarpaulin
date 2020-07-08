@@ -265,6 +265,12 @@ impl TraceMap {
         }
     }
 
+    pub fn add_file(&mut self, file: &Path) {
+        if !self.traces.contains_key(file) {
+            self.traces.insert(file.to_path_buf(), vec![]);
+        }
+    }
+
     /// Gets an immutable reference to a trace from an address. Returns None if
     /// there is no trace at that address
     pub fn get_trace(&self, address: u64) -> Option<&Trace> {

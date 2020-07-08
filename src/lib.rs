@@ -2,6 +2,7 @@ use crate::cargo::TestBinary;
 use crate::config::*;
 use crate::errors::*;
 use crate::event_log::*;
+use crate::path_utils::*;
 use crate::process_handling::*;
 use crate::report::report_coverage;
 use crate::source_analysis::LineAnalysis;
@@ -81,7 +82,13 @@ pub fn trace(configs: &[Config]) -> Result<TraceMap, RunError> {
 }
 
 pub fn run(configs: &[Config]) -> Result<(), RunError> {
-    let tracemap = trace(configs)?;
+    let mut tracemap = trace(configs)?;
+    if !configs.is_empty() {
+        // Assumption: all configs are for the same project
+        for dir in get_source_walker(&configs[0]) {
+            tracemap.add_file(dir.path());
+        }
+    }
     if configs.len() == 1 {
         report_coverage(&configs[0], &tracemap)?;
     } else if !configs.is_empty() {

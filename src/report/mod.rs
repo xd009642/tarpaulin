@@ -136,8 +136,11 @@ fn print_summary(config: &Config, result: &TraceMap) {
     };
     println!("|| Tested/Total Lines:");
     for file in result.files() {
+        if result.coverable_in_path(&file) == 0 {
+            continue;
+        }
         let path = config.strip_base_dir(file);
-        if last.contains_file(file) {
+        if last.contains_file(file) && last.coverable_in_path(&file) > 0 {
             let last_percent = coverage_percentage(&last.get_child_traces(file));
             let current_percent = coverage_percentage(&result.get_child_traces(file));
             let delta = 100.0f64 * (current_percent - last_percent);

@@ -17,6 +17,7 @@ out, arguments passed to test executable, -Z)
 - Correct handling of doc tests in workspaces as doctest name is relative to 
 package root not workspace root
 - Return an error if a doctest fails to compile
+- Include files with no coverable lines in Html report
 
 ### Removed
 
