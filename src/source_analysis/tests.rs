@@ -938,6 +938,8 @@ fn optional_panic_ignore() {
     let ctx = Context {
         config: &config,
         file_contents: "fn unreachable_match(x: u32) -> u32 {
+            assert_eq!(x, 0);
+            debug_assert!(x != 3419);
             match x {
                 1 => 5,
                 2 => 7,
@@ -949,7 +951,9 @@ fn optional_panic_ignore() {
     };
     let parser = parse_file(ctx.file_contents).unwrap();
     process_items(&parser.items, &ctx, &mut lines);
-    assert!(!lines.ignore.contains(&Lines::Line(5)));
+    assert!(!lines.ignore.contains(&Lines::Line(2)));
+    assert!(!lines.ignore.contains(&Lines::Line(3)));
+    assert!(!lines.ignore.contains(&Lines::Line(7)));
 
     let mut config = Config::default();
     config.ignore_panics = true;
@@ -957,6 +961,8 @@ fn optional_panic_ignore() {
     let ctx = Context {
         config: &config,
         file_contents: "fn unreachable_match(x: u32) -> u32 {
+            assert_eq!(x, 0);
+            debug_assert!(x != 3419);
             match x {
                 1 => 5,
                 2 => 7,
@@ -969,7 +975,9 @@ fn optional_panic_ignore() {
 
     let parser = parse_file(ctx.file_contents).unwrap();
     process_items(&parser.items, &ctx, &mut lines);
-    assert!(lines.ignore.contains(&Lines::Line(5)));
+    assert!(lines.ignore.contains(&Lines::Line(2)));
+    assert!(lines.ignore.contains(&Lines::Line(3)));
+    assert!(lines.ignore.contains(&Lines::Line(7)));
 }
 
 #[test]

@@ -18,6 +18,7 @@ out, arguments passed to test executable, -Z)
 package root not workspace root
 - Return an error if a doctest fails to compile
 - Include files with no coverable lines in Html report
+- `--ignore-panics` now ignores `assert_*` and `debug_assert*` macros
 
 ### Removed
 
