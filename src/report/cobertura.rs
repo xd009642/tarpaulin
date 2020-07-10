@@ -338,7 +338,7 @@ fn render_classes(config: &Config, traces: &TraceMap, pkg: &Path) -> Vec<Class> 
         .files()
         .iter()
         .filter(|x| x.parent() == Some(pkg))
-        .map(|x| render_class(config, traces, x))
+        .filter_map(|x| render_class(config, traces, x))
         .collect()
 }
 
@@ -350,7 +350,7 @@ fn render_classes(config: &Config, traces: &TraceMap, pkg: &Path) -> Vec<Class> 
 // Until this is fixed, the render_method function will panic if called, as it
 // cannot be properly implemented.
 //
-fn render_class(config: &Config, traces: &TraceMap, file: &Path) -> Class {
+fn render_class(config: &Config, traces: &TraceMap, file: &Path) -> Option<Class> {
     let name = file
         .file_stem()
         .map(|x| x.to_str().unwrap())
@@ -358,23 +358,27 @@ fn render_class(config: &Config, traces: &TraceMap, file: &Path) -> Class {
         .to_string();
 
     let file_name = config.strip_base_dir(file).to_str().unwrap().to_string();
+    let coverable = traces.coverable_in_path(file);
+    if coverable == 0 {
+        None
+    } else {
+        let covered = traces.covered_in_path(file) as f64;
+        let line_rate = covered / coverable as f64;
+        let lines = traces
+            .get_child_traces(file)
+            .iter()
+            .map(|x| render_line(x))
+            .collect();
 
-    let covered = traces.covered_in_path(file) as f64;
-    let line_rate = covered / traces.coverable_in_path(file) as f64;
-    let lines = traces
-        .get_child_traces(file)
-        .iter()
-        .map(|x| render_line(x))
-        .collect();
-
-    Class {
-        name,
-        file_name,
-        line_rate,
-        branch_rate: 0.0,
-        complexity: 0.0,
-        lines,
-        methods: vec![],
+        Some(Class {
+            name,
+            file_name,
+            line_rate,
+            branch_rate: 0.0,
+            complexity: 0.0,
+            lines,
+            methods: vec![],
+        })
     }
 }
 

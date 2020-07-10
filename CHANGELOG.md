@@ -10,6 +10,25 @@ file.
 
 ### Removed
 
+## [0.14.2]
+### Added
+- Added `--all-targets` to config file
+
+### Changed
+- Actually pass `--all-targets` to cargo
+- Merge more CLI options with active config (no-run, no-default-features, 
+ignore-panics, forward-signals, run-ignored, release, count, all-features, 
+all-targets, line-coverage, branch-coverage, offline, timeout, features, 
+out, arguments passed to test executable, -Z)
+- Update stats for all traces when they match a single address
+- Correct handling of doc tests in workspaces as doctest name is relative to 
+package root not workspace root
+- Return an error if a doctest fails to compile
+- Include files with no coverable lines in Html report
+- `--ignore-panics` now ignores `assert_*` and `debug_assert*` macros
+
+### Removed
+
 ## [0.14.1] - 2020-07-01
 ### Added
 - run-types for lib, bins and all-targets

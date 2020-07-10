@@ -4,7 +4,7 @@ use crate::path_utils::get_source_walker;
 use cargo_metadata::{diagnostic::DiagnosticLevel, CargoOpt, Message, Metadata, MetadataCommand};
 use log::{error, trace, warn};
 use serde::{Deserialize, Serialize};
-use std::collections::HashMap;
+use std::collections::{HashMap, HashSet};
 use std::env;
 use std::fs::{read_dir, remove_dir_all, File};
 use std::io;
@@ -184,6 +184,7 @@ fn run_cargo(
             .map_err(|e| RunError::Cargo(e.to_string()))?;
         if !out.status.success() {
             error!("Building doctests failed");
+            return Err(RunError::Cargo("Building doctest failed".to_string()));
         }
         let walker = WalkDir::new(&config.doctest_dir()).into_iter();
         let dir_entries = walker
@@ -217,7 +218,7 @@ fn convert_to_prefix(p: &Path) -> Option<String> {
 
 fn is_prefix_match(prefix: &str, entry: &Path) -> bool {
     convert_to_prefix(entry)
-        .map(|s| prefix.starts_with(&s))
+        .map(|s| s.ends_with(prefix))
         .unwrap_or(false)
 }
 
@@ -232,6 +233,7 @@ fn is_prefix_match(prefix: &str, entry: &Path) -> bool {
 /// that any matching file is good because we can't do any better
 fn get_panic_candidates(tests: &[DirEntry], config: &Config) -> HashMap<String, Vec<usize>> {
     let mut result = HashMap::new();
+    let mut checked_files = HashSet::new();
     let root = config.root();
     for test in tests {
         if let Some(test_binary) = DocTestBinaryMeta::new(test.path()) {
@@ -240,13 +242,18 @@ fn get_panic_candidates(tests: &[DirEntry], config: &Config) -> HashMap<String, 
                 if path.is_file() {
                     if let Some(p) = path_relative_from(path, &root) {
                         if is_prefix_match(&test_binary.prefix, &p) {
-                            let prefix = convert_to_prefix(&p).unwrap_or_default();
-                            if !result.contains_key(&prefix) {
+                            if !checked_files.contains(path) {
+                                checked_files.insert(path.to_path_buf());
                                 trace!("Assessing {} for `should_panic` doctests", path.display());
                                 let lines = find_panics_in_file(path).unwrap_or_default();
-                                result.insert(prefix, lines);
+                                if !result.contains_key(&test_binary.prefix) {
+                                    result.insert(test_binary.prefix.clone(), lines);
+                                } else if let Some(current_lines) =
+                                    result.get_mut(&test_binary.prefix)
+                                {
+                                    current_lines.extend_from_slice(&lines);
+                                }
                             }
-                            break;
                         }
                     }
                 }
@@ -348,6 +355,9 @@ fn init_args(test_cmd: &mut Command, config: &Config) {
     if let Some(features) = config.features.as_ref() {
         test_cmd.arg("--features");
         test_cmd.arg(features);
+    }
+    if config.all_targets {
+        test_cmd.arg("--all-targets");
     }
     if config.all_features {
         test_cmd.arg("--all-features");

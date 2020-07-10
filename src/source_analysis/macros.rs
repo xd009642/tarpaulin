@@ -41,10 +41,14 @@ pub(crate) fn visit_macro_call(
         arguments: _,
     }) = mac.path.segments.last()
     {
+        let ident_s = ident.to_string();
         let unreachable = ident == "unreachable";
         let standard_ignores =
             ident == "unimplemented" || ident == "include" || ident == "cfg" || ident == "todo";
-        let ignore_panic = ctx.config.ignore_panics && ident == "panic";
+        let ignore_panic = ctx.config.ignore_panics
+            && (ident == "panic"
+                || ident_s.starts_with("assert")
+                || ident_s.starts_with("debug_assert"));
         if standard_ignores || ignore_panic || unreachable {
             analysis.ignore_tokens(mac);
             skip = true;

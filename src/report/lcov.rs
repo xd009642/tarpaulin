@@ -17,6 +17,9 @@ pub fn export(coverage_data: &TraceMap, config: &Config) -> Result<(), RunError>
     };
 
     for (path, traces) in coverage_data.iter() {
+        if traces.is_empty() {
+            continue;
+        }
         writeln!(file, "TN:")?;
         writeln!(file, "SF:{}", path.to_str().unwrap())?;
 
