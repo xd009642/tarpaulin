@@ -5,6 +5,13 @@ file.
 
 ## [Unreleased]
 ### Added
+
+### Changed
+
+### Removed
+
+## [0.14.2]
+### Added
 - Added `--all-targets` to config file
 
 ### Changed
