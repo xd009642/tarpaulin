@@ -90,16 +90,18 @@ pub fn run(configs: &[Config]) -> Result<(), RunError> {
         }
     }
     if configs.len() == 1 {
-        report_coverage(&configs[0], &tracemap)?;
+        if !configs[0].no_run {
+            report_coverage(&configs[0], &tracemap)?;
+        }
     } else if !configs.is_empty() {
         let mut reported = false;
         for c in configs.iter() {
-            if c.name == "report" {
+            if !c.no_run && c.name == "report" {
                 reported = true;
                 report_coverage(c, &tracemap)?;
             }
         }
-        if !reported {
+        if configs[0].no_run && !reported {
             report_coverage(&configs[0], &tracemap)?;
         }
     }
