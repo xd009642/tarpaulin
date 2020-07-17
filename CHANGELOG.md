@@ -7,6 +7,7 @@ file.
 ### Added
 
 ### Changed
+- Don't report coverage when not running tests
 
 ### Removed
 
