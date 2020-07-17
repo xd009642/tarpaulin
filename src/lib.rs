@@ -101,7 +101,7 @@ pub fn run(configs: &[Config]) -> Result<(), RunError> {
                 report_coverage(c, &tracemap)?;
             }
         }
-        if configs[0].no_run && !reported {
+        if !configs[0].no_run && !reported {
             report_coverage(&configs[0], &tracemap)?;
         }
     }
