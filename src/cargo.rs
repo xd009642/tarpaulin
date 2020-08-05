@@ -238,14 +238,14 @@ fn get_panic_candidates(tests: &[DirEntry], config: &Config) -> HashMap<String, 
                 let path = dir_entry.path();
                 if path.is_file() {
                     if let Some(p) = path_relative_from(path, &root) {
-                        if is_prefix_match(&test_binary.prefix, &p) && !checked_files.contains(path) {
+                        if is_prefix_match(&test_binary.prefix, &p) && !checked_files.contains(path)
+                        {
                             checked_files.insert(path.to_path_buf());
                             trace!("Assessing {} for `should_panic` doctests", path.display());
                             let lines = find_panics_in_file(path).unwrap_or_default();
                             if !result.contains_key(&test_binary.prefix) {
                                 result.insert(test_binary.prefix.clone(), lines);
-                            } else if let Some(current_lines) =
-                                result.get_mut(&test_binary.prefix)
+                            } else if let Some(current_lines) = result.get_mut(&test_binary.prefix)
                             {
                                 current_lines.extend_from_slice(&lines);
                             }

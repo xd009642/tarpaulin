@@ -43,7 +43,9 @@ pub fn export(coverage_data: &TraceMap, config: &Config) -> Result<(), RunError>
                 fnda.push(format!("FNDA:{},{}", fn_hits, fn_name));
             }
 
-            if let CoverageStat::Line(hits) = trace.stats { da.push((trace.line, hits)) }
+            if let CoverageStat::Line(hits) = trace.stats {
+                da.push((trace.line, hits))
+            }
         }
 
         for fn_line in fns.iter() {
