@@ -79,7 +79,7 @@ impl DocTestBinaryMeta {
         if let Some(Component::Normal(folder)) = test.as_ref().components().nth_back(1) {
             let temp = folder.to_string_lossy();
             let file_end = temp.rfind("rs").map(|i| i + 2)?;
-            let end = temp.rfind("_")?;
+            let end = temp.rfind('_')?;
             if end > file_end + 1 {
                 let line = temp[(file_end + 1)..end].parse::<usize>().ok()?;
                 Some(Self {
