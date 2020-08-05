@@ -189,10 +189,7 @@ fn run_cargo(
         let walker = WalkDir::new(&config.doctest_dir()).into_iter();
         let dir_entries = walker
             .filter_map(|e| e.ok())
-            .filter(|e| match e.metadata() {
-                Ok(ref m) if m.is_file() && m.len() != 0 => true,
-                _ => false,
-            })
+            .filter(|e| matches!(e.metadata(), Ok(ref m) if m.is_file() && m.len() != 0))
             .collect::<Vec<_>>();
 
         let should_panics = get_panic_candidates(&dir_entries, config);

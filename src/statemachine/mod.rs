@@ -42,27 +42,15 @@ pub enum TracerAction<T> {
 
 impl<T> TracerAction<T> {
     pub fn is_detach(&self) -> bool {
-        if let TracerAction::Detach(_) = self {
-            true
-        } else {
-            false
-        }
+        matches!(self, TracerAction::Detach(_))
     }
 
     pub fn is_continue(&self) -> bool {
-        if let TracerAction::Continue(_) = self {
-            true
-        } else {
-            false
-        }
+        matches!(self, TracerAction::Continue(_))
     }
 
     pub fn is_step(&self) -> bool {
-        if let TracerAction::Step(_) = self {
-            true
-        } else {
-            false
-        }
+        matches!(self, TracerAction::Step(_))
     }
 
     pub fn get_data(&self) -> Option<&T> {
@@ -97,10 +85,7 @@ pub trait StateData {
 impl TestState {
     /// Convenience function used to check if the test has finished or errored
     pub fn is_finished(self) -> bool {
-        match self {
-            TestState::End(_) => true,
-            _ => false,
-        }
+        matches!(self, TestState::End(_))
     }
 
     /// Convenience function for creating start states
