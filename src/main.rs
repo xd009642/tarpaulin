@@ -1,4 +1,4 @@
-use cargo_tarpaulin::config::*;
+use cargo_tarpaulin::config::{ConfigWrapper, OutputFile, RunType};
 use cargo_tarpaulin::run;
 use clap::{crate_version, App, Arg, ArgSettings, SubCommand};
 use env_logger::Builder;

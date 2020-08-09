@@ -480,7 +480,7 @@ impl Config {
         }
 
         if other.test_timeout != default_test_timeout() {
-            self.test_timeout = other.test_timeout.clone();
+            self.test_timeout = other.test_timeout;
         }
 
         if self.profile.is_none() && other.profile.is_some() {

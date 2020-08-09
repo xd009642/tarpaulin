@@ -79,7 +79,7 @@ impl DocTestBinaryMeta {
         if let Some(Component::Normal(folder)) = test.as_ref().components().nth_back(1) {
             let temp = folder.to_string_lossy();
             let file_end = temp.rfind("rs").map(|i| i + 2)?;
-            let end = temp.rfind("_")?;
+            let end = temp.rfind('_')?;
             if end > file_end + 1 {
                 let line = temp[(file_end + 1)..end].parse::<usize>().ok()?;
                 Some(Self {
@@ -189,10 +189,7 @@ fn run_cargo(
         let walker = WalkDir::new(&config.doctest_dir()).into_iter();
         let dir_entries = walker
             .filter_map(|e| e.ok())
-            .filter(|e| match e.metadata() {
-                Ok(ref m) if m.is_file() && m.len() != 0 => true,
-                _ => false,
-            })
+            .filter(|e| matches!(e.metadata(), Ok(ref m) if m.is_file() && m.len() != 0))
             .collect::<Vec<_>>();
 
         let should_panics = get_panic_candidates(&dir_entries, config);
@@ -241,18 +238,16 @@ fn get_panic_candidates(tests: &[DirEntry], config: &Config) -> HashMap<String, 
                 let path = dir_entry.path();
                 if path.is_file() {
                     if let Some(p) = path_relative_from(path, &root) {
-                        if is_prefix_match(&test_binary.prefix, &p) {
-                            if !checked_files.contains(path) {
-                                checked_files.insert(path.to_path_buf());
-                                trace!("Assessing {} for `should_panic` doctests", path.display());
-                                let lines = find_panics_in_file(path).unwrap_or_default();
-                                if !result.contains_key(&test_binary.prefix) {
-                                    result.insert(test_binary.prefix.clone(), lines);
-                                } else if let Some(current_lines) =
-                                    result.get_mut(&test_binary.prefix)
-                                {
-                                    current_lines.extend_from_slice(&lines);
-                                }
+                        if is_prefix_match(&test_binary.prefix, &p) && !checked_files.contains(path)
+                        {
+                            checked_files.insert(path.to_path_buf());
+                            trace!("Assessing {} for `should_panic` doctests", path.display());
+                            let lines = find_panics_in_file(path).unwrap_or_default();
+                            if !result.contains_key(&test_binary.prefix) {
+                                result.insert(test_binary.prefix.clone(), lines);
+                            } else if let Some(current_lines) = result.get_mut(&test_binary.prefix)
+                            {
+                                current_lines.extend_from_slice(&lines);
                             }
                         }
                     }
