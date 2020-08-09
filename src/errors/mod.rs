@@ -29,6 +29,8 @@ pub enum RunError {
     Lcov(String),
     Json(String),
     Internal,
+    /// Tuple of actual coverage and threshold
+    BelowThreshold(f64, f64),
 }
 
 impl Display for RunError {
@@ -54,6 +56,9 @@ impl Display for RunError {
             Self::Lcov(e) => write!(f, "Failed to generate Lcov report! Error: {}", e),
             Self::Json(e) => write!(f, "Failed to generate JSON report! Error: {}", e),
             Self::Internal => write!(f, "Tarpaulin experienced an internal error"),
+            Self::BelowThreshold(a, e) => {
+                write!(f, "Coverage is below the failure threshold {}% < {}%", a, e)
+            }
         }
     }
 }

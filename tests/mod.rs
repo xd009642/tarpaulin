@@ -10,6 +10,7 @@ use std::time::Duration;
 
 #[cfg(nightly)]
 mod doc_coverage;
+mod failure_thresholds;
 mod failures;
 mod line_coverage;
 mod test_types;

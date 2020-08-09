@@ -5,6 +5,7 @@ file.
 
 ## [Unreleased]
 ### Added
+- Added `--fail-under` flag to set minimum coverage required for a run
 
 ### Changed
 - Don't report coverage when not running tests

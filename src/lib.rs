@@ -41,7 +41,7 @@ pub fn trace(configs: &[Config]) -> Result<TraceMap, RunError> {
     } else {
         None
     };
-
+    let mut bad_threshold = None;
     for config in configs.iter() {
         if config.name == "report" {
             continue;
@@ -64,6 +64,7 @@ pub fn trace(configs: &[Config]) -> Result<TraceMap, RunError> {
         match launch_tarpaulin(config, &logger) {
             Ok((t, r)) => {
                 ret |= r;
+                bad_threshold = check_fail_threshold(&t, config);
                 tracemap.merge(&t);
             }
             Err(e) => {
@@ -73,11 +74,24 @@ pub fn trace(configs: &[Config]) -> Result<TraceMap, RunError> {
         }
     }
     tracemap.dedup();
-
-    if ret == 0 {
+    if let Some(bad_limit) = bad_threshold {
+        Err(bad_limit)
+    } else if ret == 0 {
         tarpaulin_result.map(|_| tracemap)
     } else {
         Err(RunError::TestFailed)
+    }
+}
+
+fn check_fail_threshold(traces: &TraceMap, config: &Config) -> Option<RunError> {
+    let percent = traces.coverage_percentage() * 100.0;
+    match config.fail_under.as_ref() {
+        Some(limit) if percent < *limit => {
+            let error = RunError::BelowThreshold(percent, *limit);
+            error!("{}", error);
+            Some(error)
+        }
+        _ => None,
     }
 }
 
@@ -99,6 +113,9 @@ pub fn run(configs: &[Config]) -> Result<(), RunError> {
             if !c.no_run && c.name == "report" {
                 reported = true;
                 report_coverage(c, &tracemap)?;
+                if let Some(e) = check_fail_threshold(&tracemap, c) {
+                    return Err(e);
+                }
             }
         }
         if !configs[0].no_run && !reported {

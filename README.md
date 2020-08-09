@@ -81,6 +81,8 @@ OPTIONS:
     -e, --exclude <PACKAGE>...       Package id specifications to exclude from coverage. See cargo help pkgid for more
                                      info
         --exclude-files <FILE>...    Exclude given files from coverage results has * wildcard
+        --fail-under <PERCENTAGE>    Sets a percentage threshold for failure ranging from 0-100, if coverage is below
+                                     exit with a non-zero code
         --features <FEATURES>...     Features to be included in the target project
         --manifest-path <PATH>       Path to Cargo.toml
     -o, --out <FMT>...               Output format of coverage report [possible values: Json, Toml, Stdout, Xml, Html,

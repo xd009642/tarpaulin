@@ -2,7 +2,7 @@ pub use self::types::*;
 
 use self::parse::*;
 use cargo_metadata::{Metadata, MetadataCommand, Package};
-use clap::ArgMatches;
+use clap::{value_t, ArgMatches};
 use coveralls_api::CiService;
 use humantime_serde::deserialize as humantime_serde;
 use indexmap::IndexMap;
@@ -149,6 +149,8 @@ pub struct Config {
     pub no_fail_fast: bool,
     /// Run with the given profile
     pub profile: Option<String>,
+    /// returns a non-zero code if coverage is below the threshold
+    pub fail_under: Option<f64>,
     /// Result of cargo_metadata ran on the crate
     #[serde(skip_deserializing, skip_serializing)]
     pub metadata: RefCell<Option<Metadata>>,
@@ -207,6 +209,7 @@ impl Default for Config {
             bench_names: HashSet::new(),
             no_fail_fast: false,
             profile: None,
+            fail_under: None,
             metadata: RefCell::new(None),
         }
     }
@@ -273,6 +276,7 @@ impl<'a> From<&'a ArgMatches<'a>> for ConfigWrapper {
             bin_names: get_list(args, "bin").iter().cloned().collect(),
             bench_names: get_list(args, "bench").iter().cloned().collect(),
             example_names: get_list(args, "example").iter().cloned().collect(),
+            fail_under: value_t!(args.value_of("fail-under"), f64).ok(),
             profile: get_profile(args),
             metadata: RefCell::new(None),
         };
@@ -467,6 +471,13 @@ impl Config {
         self.force_clean |= other.force_clean;
         self.ignore_tests |= other.ignore_tests;
         self.no_fail_fast |= other.no_fail_fast;
+
+        if self.fail_under.is_none() {
+            self.fail_under = other.fail_under;
+        } else if other.fail_under.is_some() && other.fail_under.unwrap() < self.fail_under.unwrap()
+        {
+            self.fail_under = other.fail_under;
+        }
 
         if other.test_timeout != default_test_timeout() {
             self.test_timeout = other.test_timeout.clone();
