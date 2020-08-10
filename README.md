@@ -59,6 +59,8 @@ FLAGS:
         --no-fail-fast           Run all tests regardless of failure
         --no-run                 Compile tests but don't run coverage
         --offline                Run without accessing the network
+        --print-rust-flags       Print the RUSTFLAGS options that tarpaulin will compile your program with and exit
+        --print-rustdoc-flags    Print the RUSTDOCFLAGS options that tarpaulin will compile any doctests with and exit
         --release                Build in release mode.
         --tests                  Test all tests
     -V, --version                Prints version information
@@ -75,7 +77,8 @@ OPTIONS:
                                      name that they will recognise. Refer to their documentation for this.
         --config <FILE>              Path to a toml file specifying a list of options this will override any other
                                      options set
-        --coveralls <KEY>            Coveralls key, either the repo token, or if you're using travis use $TRAVIS_JOB_ID
+        --coveralls <KEY>            Coveralls key, either the repo token, or if you'
+re using travis use $TRAVIS_JOB_ID
                                      and specify travis-{ci|pro} in --ciserver
         --example <NAME>...          Test only the specified example
     -e, --exclude <PACKAGE>...       Package id specifications to exclude from coverage. See cargo help pkgid for more
