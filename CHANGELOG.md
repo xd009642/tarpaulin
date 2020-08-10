@@ -6,6 +6,9 @@ file.
 ## [Unreleased]
 ### Added
 - Added `--fail-under` flag to set minimum coverage required for a run
+- Added `--print-rust-flags` and `--print-rustdoc-flags` to print the set of 
+`RUSTFLAGS` and `RUSTDOCFLAGS` that can occur across all configs to aid user 
+debugging
 
 ### Changed
 - Don't report coverage when not running tests
