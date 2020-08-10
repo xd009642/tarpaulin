@@ -34,7 +34,7 @@ lazy_static = "1.0"
 libc = "0.2.74"
 log = "0.4.11"
 memmap = "0.7.0"
-nix = "0.17.0"
+nix = "0.18.0"
 object = "0.20"
 proc-macro2 = { version = "1.0", features = ["span-locations"] }
 quick-xml = "0.18"

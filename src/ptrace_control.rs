@@ -37,7 +37,7 @@ pub fn read_address(pid: Pid, address: u64) -> Result<c_long> {
 }
 
 pub fn write_to_address(pid: Pid, address: u64, data: i64) -> Result<()> {
-    write(pid, address as AddressType, data as *mut c_void)
+    unsafe { write(pid, address as AddressType, data as *mut c_void) }
 }
 
 #[allow(deprecated)]
@@ -59,14 +59,15 @@ pub fn current_instruction_pointer(pid: Pid) -> Result<c_long> {
 
 #[allow(deprecated)]
 pub fn set_instruction_pointer(pid: Pid, pc: u64) -> Result<c_long> {
-    unsafe {
-        ptrace(
-            Request::PTRACE_POKEUSER,
-            pid,
+    let ret = unsafe {
+        libc::ptrace(
+            Request::PTRACE_POKEUSER as _,
+            libc::pid_t::from(pid),
             RIP as *mut c_void,
             pc as *mut c_void,
         )
-    }
+    };
+    Errno::result(ret).map(|_| 0)
 }
 
 pub fn request_trace() -> Result<()> {
