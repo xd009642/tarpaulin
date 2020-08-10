@@ -1,10 +1,28 @@
-use cargo_tarpaulin::config::{ConfigWrapper, OutputFile, RunType};
+use cargo_tarpaulin::config::{Config, ConfigWrapper, OutputFile, RunType};
+use cargo_tarpaulin::cargo::{rustdoc_flags, rust_flags};
 use cargo_tarpaulin::run;
 use clap::{crate_version, App, Arg, ArgSettings, SubCommand};
 use env_logger::Builder;
-use log::trace;
+use log::{info, trace};
+use std::collections::HashMap;
 use std::io::Write;
 use std::path::Path;
+
+fn print_env(seen_rustflags: HashMap<String, Vec<String>>, prefix: &str, default_val: &str) {
+    info!("Printing `{}`", prefix);
+    if seen_rustflags.is_empty() {
+        info!("No configs provided printing default RUSTFLAGS");
+        println!("{}={}", prefix, default_val);
+    } else if seen_rustflags.len() == 1 {
+        let flags = seen_rustflags.keys().next().unwrap();
+        println!(r#"{}="{}""#, prefix, flags);
+    } else {
+        for (k, v) in seen_rustflags.iter() {
+            info!("RUSTFLAGS for configs {:?}", v);
+            println!(r#"{}="{}""#, prefix, k);
+        }
+    }
+}
 
 fn is_dir(d: String) -> Result<(), String> {
     if Path::new(&d).is_dir() {
@@ -100,6 +118,8 @@ fn main() -> Result<(), String> {
                  --target [TRIPLE] 'Compilation target triple'
                  --target-dir [DIR] 'Directory for all generated artifacts'
                  --offline 'Run without accessing the network'
+                 --print-rust-flags 'Print the RUSTFLAGS options that tarpaulin will compile your program with and exit'
+                 --print-rustdoc-flags 'Print the RUSTDOCFLAGS options that tarpaulin will compile any doctests with and exit'
                  -Z [FEATURES]...   'List of unstable nightly only flags'")
             .args(&[
                 Arg::from_usage("--out -o [FMT]   'Output format of coverage report'")
@@ -122,11 +142,42 @@ fn main() -> Result<(), String> {
         .get_matches();
 
     let args = args.subcommand_matches("tarpaulin").unwrap_or(&args);
+
     set_up_logging(args.is_present("debug"), args.is_present("verbose"));
     let config = ConfigWrapper::from(args);
-
-    trace!("Debug mode activated");
-    // Since this is the last function we run and don't do any error mitigations (other than
-    // printing the error to the user it's fine to unwrap here
-    run(&config.0).map_err(|e| e.to_string())
+    let mut run_coverage = true;
+    if args.is_present("print-rust-flags") {
+        run_coverage = false;
+        let mut seen_rustflags = HashMap::new();
+        for config in &config.0 {
+            let rustflags = rust_flags(config);
+            seen_rustflags
+                .entry(rustflags)
+                .or_insert(vec![])
+                .push(config.name.clone());
+        }
+        let default = Config::default();
+        print_env(seen_rustflags, "RUSTFLAGS", &rust_flags(&default));
+    }
+    if args.is_present("print-rustdoc-flags") {
+        run_coverage = false;
+        let mut seen_rustflags = HashMap::new();
+        for config in &config.0 {
+            let rustflags = rustdoc_flags(config);
+            seen_rustflags
+                .entry(rustflags)
+                .or_insert(vec![])
+                .push(config.name.clone());
+        }
+        let default = Config::default();
+        print_env(seen_rustflags, "RUSTDOCFLAGS", &rustdoc_flags(&default));
+    }
+    if run_coverage {
+        trace!("Debug mode activated");
+        // Since this is the last function we run and don't do any error mitigations (other than
+        // printing the error to the user it's fine to unwrap here
+        run(&config.0).map_err(|e| e.to_string())
+    } else {
+        Ok(())
+    }
 }

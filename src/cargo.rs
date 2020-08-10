@@ -415,31 +415,45 @@ fn clean_doctest_folder<P: AsRef<Path>>(doctest_dir: P) {
     }
 }
 
-fn setup_environment(cmd: &mut Command, config: &Config) {
-    cmd.env("TARPAULIN", "1");
-    let rustflags = "RUSTFLAGS";
+pub fn rustdoc_flags(config: &Config) -> String {
+    const RUSTDOC: &str = "RUSTDOCFLAGS";
     let common_opts =
         " -C relocation-model=dynamic-no-pic -C link-dead-code -C debuginfo=2 --cfg=tarpaulin ";
-    let mut value = common_opts.to_string();
-    if config.release {
-        value = format!("{}-C debug-assertions=off ", value);
-    }
-    if let Ok(vtemp) = env::var(rustflags) {
-        value.push_str(vtemp.as_ref());
-    }
-    cmd.env(rustflags, value);
-    // doesn't matter if we don't use it
-    let rustdoc = "RUSTDOCFLAGS";
     let mut value = format!(
         "{} --persist-doctests {} -Z unstable-options ",
         common_opts,
         config.doctest_dir().display()
     );
-    if let Ok(vtemp) = env::var(rustdoc) {
+    if let Ok(vtemp) = env::var(RUSTDOC) {
         if !vtemp.contains("--persist-doctests") {
             value.push_str(vtemp.as_ref());
         }
     }
+    value
+}
+
+pub fn rust_flags(config: &Config) -> String {
+    const RUSTFLAGS: &str = "RUSTFLAGS";
+    let mut value =
+        " -C relocation-model=dynamic-no-pic -C link-dead-code -C debuginfo=2 --cfg=tarpaulin "
+            .to_string();
+    if config.release {
+        value = format!("{}-C debug-assertions=off ", value);
+    }
+    if let Ok(vtemp) = env::var(RUSTFLAGS) {
+        value.push_str(vtemp.as_ref());
+    }
+    value
+}
+
+fn setup_environment(cmd: &mut Command, config: &Config) {
+    cmd.env("TARPAULIN", "1");
+    let rustflags = "RUSTFLAGS";
+    let value = rust_flags(config);
+    cmd.env(rustflags, value);
+    // doesn't matter if we don't use it
+    let rustdoc = "RUSTDOCFLAGS";
+    let value = rustdoc_flags(config);
     trace!("Setting RUSTDOCFLAGS='{}'", value);
     cmd.env(rustdoc, value);
 }
