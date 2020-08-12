@@ -13,19 +13,16 @@ pub(crate) fn check_attr_list(
             if check_cfg_attr(&x) {
                 check_cover = false;
             } else if x.path().is_ident("cfg") {
-                match x {
-                    Meta::List(ref ml) => {
-                        let mut skip = false;
-                        for c in &ml.nested {
-                            if let NestedMeta::Meta(Meta::Path(ref i)) = c {
-                                skip |= i.is_ident("test") && ctx.config.ignore_tests;
-                            }
-                        }
-                        if skip {
-                            check_cover = false;
+                if let Meta::List(ref ml) = x {
+                    let mut skip = false;
+                    for c in &ml.nested {
+                        if let NestedMeta::Meta(Meta::Path(ref i)) = c {
+                            skip |= i.is_ident("test") && ctx.config.ignore_tests;
                         }
                     }
-                    _ => {}
+                    if skip {
+                        check_cover = false;
+                    }
                 }
             }
         }
@@ -42,22 +39,17 @@ pub(crate) fn check_cfg_attr(attr: &Meta) -> bool {
     if id.is_ident("cfg") {
         if let Meta::List(ml) = attr {
             'outer: for p in ml.nested.iter() {
-                match p {
-                    NestedMeta::Meta(Meta::List(ref i)) => {
-                        if i.path.is_ident("not") {
-                            for n in i.nested.iter() {
-                                if let NestedMeta::Meta(Meta::Path(ref pth)) = n {
-                                    if pth.is_ident("tarpaulin_include")
-                                        || pth.is_ident("tarpaulin")
-                                    {
-                                        ignore_span = true;
-                                        break 'outer;
-                                    }
+                if let NestedMeta::Meta(Meta::List(ref i)) = p {
+                    if i.path.is_ident("not") {
+                        for n in i.nested.iter() {
+                            if let NestedMeta::Meta(Meta::Path(ref pth)) = n {
+                                if pth.is_ident("tarpaulin_include") || pth.is_ident("tarpaulin") {
+                                    ignore_span = true;
+                                    break 'outer;
                                 }
                             }
                         }
                     }
-                    _ => {}
                 }
             }
         }
