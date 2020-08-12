@@ -1,3 +1,4 @@
+use crate::branching::BranchAnalysis;
 use crate::config::{Config, RunType};
 use crate::path_utils::{get_source_walker, is_source_file};
 use items::process_items;
@@ -194,68 +195,92 @@ impl LineAnalysis {
     }
 }
 
-/// Returns a list of files and line numbers to ignore (not indexes!)
-pub fn get_line_analysis(config: &Config) -> HashMap<PathBuf, LineAnalysis> {
-    let mut result: HashMap<PathBuf, LineAnalysis> = HashMap::new();
-
-    let mut ignored_files: HashSet<PathBuf> = HashSet::new();
-    let root = config.root();
-
-    for e in get_source_walker(config) {
-        if !ignored_files.contains(e.path()) {
-            analyse_package(e.path(), &root, &config, &mut result, &mut ignored_files);
-        } else {
-            let mut analysis = LineAnalysis::new();
-            analysis.ignore_all();
-            result.insert(e.path().to_path_buf(), analysis);
-            ignored_files.remove(e.path());
-        }
-    }
-    for e in &ignored_files {
-        let mut analysis = LineAnalysis::new();
-        analysis.ignore_all();
-        result.insert(e.to_path_buf(), analysis);
-    }
-
-    debug_printout(&result, config);
-
-    result
+pub struct SourceAnalysis {
+    pub lines: HashMap<PathBuf, LineAnalysis>,
+    pub branches: Option<BranchAnalysis>,
 }
 
-/// Printout a debug summary of the results of source analysis if debug logging
-/// is enabled
-pub fn debug_printout(result: &HashMap<PathBuf, LineAnalysis>, config: &Config) {
-    if config.debug {
-        for (ref path, ref analysis) in result {
-            trace!(
-                "Source analysis for {}",
-                config.strip_base_dir(path).display()
-            );
-            let mut lines = Vec::new();
-            for l in &analysis.ignore {
-                match l {
-                    Lines::All => {
-                        lines.clear();
-                        trace!("All lines are ignorable");
-                        break;
-                    }
-                    Lines::Line(i) => {
-                        lines.push(i);
+impl SourceAnalysis {
+    pub fn new(enable_branches: bool) -> Self {
+        let branches = if enable_branches {
+            Some(BranchAnalysis::default())
+        } else {
+            None
+        };
+        Self {
+            lines: HashMap::new(),
+            branches,
+        }
+    }
+
+    pub fn get_analysis(config: &Config) -> Self {
+        let mut result = Self::new(config.branch_coverage);
+
+        let mut ignored_files: HashSet<PathBuf> = HashSet::new();
+        let root = config.root();
+
+        for e in get_source_walker(config) {
+            if !ignored_files.contains(e.path()) {
+                analyse_package(
+                    e.path(),
+                    &root,
+                    &config,
+                    &mut result.lines,
+                    &mut ignored_files,
+                );
+            } else {
+                let mut analysis = LineAnalysis::new();
+                analysis.ignore_all();
+                result.lines.insert(e.path().to_path_buf(), analysis);
+                ignored_files.remove(e.path());
+            }
+        }
+        for e in &ignored_files {
+            let mut analysis = LineAnalysis::new();
+            analysis.ignore_all();
+            result.lines.insert(e.to_path_buf(), analysis);
+        }
+
+        result.debug_printout(config);
+
+        result
+    }
+
+    /// Printout a debug summary of the results of source analysis if debug logging
+    /// is enabled
+    pub fn debug_printout(&self, config: &Config) {
+        if config.debug {
+            for (ref path, ref analysis) in &self.lines {
+                trace!(
+                    "Source analysis for {}",
+                    config.strip_base_dir(path).display()
+                );
+                let mut lines = Vec::new();
+                for l in &analysis.ignore {
+                    match l {
+                        Lines::All => {
+                            lines.clear();
+                            trace!("All lines are ignorable");
+                            break;
+                        }
+                        Lines::Line(i) => {
+                            lines.push(i);
+                        }
                     }
                 }
-            }
-            if !lines.is_empty() {
-                lines.sort();
-                trace!("Ignorable lines: {:?}", lines);
-                lines.clear()
-            }
-            for c in &analysis.cover {
-                lines.push(c);
-            }
+                if !lines.is_empty() {
+                    lines.sort();
+                    trace!("Ignorable lines: {:?}", lines);
+                    lines.clear()
+                }
+                for c in &analysis.cover {
+                    lines.push(c);
+                }
 
-            if !lines.is_empty() {
-                lines.sort();
-                trace!("Coverable lines: {:?}", lines);
+                if !lines.is_empty() {
+                    lines.sort();
+                    trace!("Coverable lines: {:?}", lines);
+                }
             }
         }
     }

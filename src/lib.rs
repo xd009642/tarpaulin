@@ -5,7 +5,7 @@ use crate::event_log::*;
 use crate::path_utils::*;
 use crate::process_handling::*;
 use crate::report::report_coverage;
-use crate::source_analysis::LineAnalysis;
+use crate::source_analysis::{LineAnalysis, SourceAnalysis};
 use crate::statemachine::*;
 use crate::test_loader::*;
 use crate::traces::*;
@@ -143,7 +143,8 @@ pub fn launch_tarpaulin(
     info!("Building project");
     let executables = cargo::get_tests(config)?;
     if !config.no_run {
-        let project_analysis = source_analysis::get_line_analysis(config);
+        let project_analysis = SourceAnalysis::get_analysis(config);
+        let project_analysis = project_analysis.lines;
         for exe in &executables {
             if exe.should_panic() {
                 info!("Running a test executable that is expected to panic");
