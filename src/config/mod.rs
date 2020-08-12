@@ -472,9 +472,8 @@ impl Config {
         self.ignore_tests |= other.ignore_tests;
         self.no_fail_fast |= other.no_fail_fast;
 
-        if self.fail_under.is_none() {
-            self.fail_under = other.fail_under;
-        } else if other.fail_under.is_some() && other.fail_under.unwrap() < self.fail_under.unwrap()
+        if self.fail_under.is_none()
+            || other.fail_under.is_some() && other.fail_under.unwrap() < self.fail_under.unwrap()
         {
             self.fail_under = other.fail_under;
         }
