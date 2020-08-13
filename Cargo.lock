@@ -479,9 +479,9 @@ dependencies = [
 
 [[package]]
 name = "object"
-version = "0.20.0"
+version = "0.21.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "1ab52be62400ca80aa00285d25253d7f7c437b7375c4de678f5405d3afe82ca5"
+checksum = "1f6978886b25aeb1a0160743438b730b19afd789f967252f3d3b54aa208548e1"
 dependencies = [
  "flate2",
  "wasmparser",
