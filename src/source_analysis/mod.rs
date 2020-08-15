@@ -334,6 +334,10 @@ impl SourceAnalysis {
                     trace!("Coverable lines: {:?}", lines);
                 }
             }
+            if config.branch_coverage {
+                trace!("Branch analysis");
+                trace!("{:?}", self.branches);
+            }
         }
     }
 }
