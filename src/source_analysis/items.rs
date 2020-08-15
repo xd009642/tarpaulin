@@ -48,10 +48,7 @@ impl SourceAnalysis {
     }
 
     fn visit_mod(&mut self, module: &ItemMod, ctx: &Context) {
-        let analysis = self
-            .lines
-            .entry(ctx.file.to_path_buf())
-            .or_insert_with(line_analysis_missing);
+        let analysis = self.get_line_analysis(ctx.file.to_path_buf());
         analysis.ignore_tokens(module.mod_token);
         let mut check_insides = true;
         for attr in &module.attrs {

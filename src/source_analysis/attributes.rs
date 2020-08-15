@@ -3,10 +3,7 @@ use syn::*;
 
 impl SourceAnalysis {
     pub(crate) fn check_attr_list(&mut self, attrs: &[Attribute], ctx: &Context) -> bool {
-        let analysis = self
-            .lines
-            .entry(ctx.file.to_path_buf())
-            .or_insert_with(line_analysis_missing);
+        let analysis = self.get_line_analysis(ctx.file.to_path_buf());
         let mut check_cover = true;
         for attr in attrs {
             analysis.ignore_tokens(attr);

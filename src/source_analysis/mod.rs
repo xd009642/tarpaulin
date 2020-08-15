@@ -2,7 +2,7 @@ use crate::branching::BranchAnalysis;
 use crate::config::{Config, RunType};
 use crate::path_utils::{get_source_walker, is_source_file};
 use lazy_static::lazy_static;
-use log::{error, trace};
+use log::trace;
 use proc_macro2::{Span, TokenStream};
 use quote::ToTokens;
 use regex::Regex;
@@ -190,11 +190,6 @@ impl LineAnalysis {
             }
         }
     }
-}
-
-pub(crate) fn line_analysis_missing() -> LineAnalysis {
-    error!("LineAnalysis entry not found for file. Creating default");
-    LineAnalysis::new()
 }
 
 pub struct SourceAnalysis {

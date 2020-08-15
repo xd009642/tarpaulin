@@ -24,10 +24,7 @@ impl SourceAnalysis {
             _ => SubResult::Ok,
         };
         if let SubResult::Unreachable = res {
-            let analysis = self
-                .lines
-                .entry(ctx.file.to_path_buf())
-                .or_insert_with(line_analysis_missing);
+            let analysis = self.get_line_analysis(ctx.file.to_path_buf());
             analysis.ignore_tokens(expr);
         }
         res
@@ -35,10 +32,7 @@ impl SourceAnalysis {
 
     fn visit_let(&mut self, let_expr: &ExprLet, ctx: &Context) -> SubResult {
         let check_cover = self.check_attr_list(&let_expr.attrs, ctx);
-        let analysis = self
-            .lines
-            .entry(ctx.file.to_path_buf())
-            .or_insert_with(line_analysis_missing);
+        let analysis = self.get_line_analysis(ctx.file.to_path_buf());
         if check_cover {
             for a in &let_expr.attrs {
                 analysis.ignore_tokens(a);
@@ -75,10 +69,7 @@ impl SourceAnalysis {
         }) = path.path.segments.last()
         {
             if ident == "unreachable_unchecked" {
-                let analysis = self
-                    .lines
-                    .entry(ctx.file.to_path_buf())
-                    .or_insert_with(line_analysis_missing);
+                let analysis = self.get_line_analysis(ctx.file.to_path_buf());
                 analysis.ignore_tokens(path);
                 return SubResult::Unreachable;
             }
@@ -88,10 +79,7 @@ impl SourceAnalysis {
 
     fn visit_return(&mut self, ret: &ExprReturn, ctx: &Context) -> SubResult {
         let check_cover = self.check_attr_list(&ret.attrs, ctx);
-        let analysis = self
-            .lines
-            .entry(ctx.file.to_path_buf())
-            .or_insert_with(line_analysis_missing);
+        let analysis = self.get_line_analysis(ctx.file.to_path_buf());
         if check_cover {
             for a in &ret.attrs {
                 analysis.ignore_tokens(a);
@@ -106,10 +94,7 @@ impl SourceAnalysis {
         if self.check_attr_list(&block.attrs, ctx) {
             self.visit_block(&block.block, ctx)
         } else {
-            let analysis = self
-                .lines
-                .entry(ctx.file.to_path_buf())
-                .or_insert_with(line_analysis_missing);
+            let analysis = self.get_line_analysis(ctx.file.to_path_buf());
             analysis.ignore_tokens(block);
             SubResult::Ok
         }
@@ -117,10 +102,7 @@ impl SourceAnalysis {
 
     fn visit_block(&mut self, block: &Block, ctx: &Context) -> SubResult {
         if let SubResult::Unreachable = self.process_statements(&block.stmts, ctx) {
-            let analysis = self
-                .lines
-                .entry(ctx.file.to_path_buf())
-                .or_insert_with(line_analysis_missing);
+            let analysis = self.get_line_analysis(ctx.file.to_path_buf());
             analysis.ignore_tokens(block);
             SubResult::Unreachable
         } else {
@@ -144,18 +126,12 @@ impl SourceAnalysis {
                     reachable_arm = true
                 }
             } else {
-                let analysis = self
-                    .lines
-                    .entry(ctx.file.to_path_buf())
-                    .or_insert_with(line_analysis_missing);
+                let analysis = self.get_line_analysis(ctx.file.to_path_buf());
                 analysis.ignore_tokens(arm);
             }
         }
         if !reachable_arm {
-            let analysis = self
-                .lines
-                .entry(ctx.file.to_path_buf())
-                .or_insert_with(line_analysis_missing);
+            let analysis = self.get_line_analysis(ctx.file.to_path_buf());
             analysis.ignore_tokens(mat);
             SubResult::Unreachable
         } else {
@@ -181,10 +157,7 @@ impl SourceAnalysis {
             reachable_arm = true;
         }
         if !reachable_arm {
-            let analysis = self
-                .lines
-                .entry(ctx.file.to_path_buf())
-                .or_insert_with(line_analysis_missing);
+            let analysis = self.get_line_analysis(ctx.file.to_path_buf());
             analysis.ignore_tokens(if_block);
             SubResult::Unreachable
         } else {
@@ -333,10 +306,7 @@ impl SourceAnalysis {
         let x = get_line_range(structure)
             .filter(|x| !cover.contains(&x))
             .collect::<Vec<usize>>();
-        let analysis = self
-            .lines
-            .entry(ctx.file.to_path_buf())
-            .or_insert_with(line_analysis_missing);
+        let analysis = self.get_line_analysis(ctx.file.to_path_buf());
         analysis.add_to_ignore(&x);
         // struct expressions are never unreachable by themselves
         SubResult::Ok

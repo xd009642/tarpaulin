@@ -8,10 +8,7 @@ use syn::{spanned::Spanned, *};
 
 impl SourceAnalysis {
     pub(crate) fn visit_macro_call(&mut self, mac: &Macro, ctx: &Context) -> SubResult {
-        let analysis = self
-            .lines
-            .entry(ctx.file.to_path_buf())
-            .or_insert_with(line_analysis_missing);
+        let analysis = self.get_line_analysis(ctx.file.to_path_buf());
         let mut skip = false;
         if let Some(PathSegment {
             ref ident,
