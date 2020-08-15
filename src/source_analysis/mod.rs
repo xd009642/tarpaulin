@@ -194,19 +194,14 @@ impl LineAnalysis {
 
 pub struct SourceAnalysis {
     pub lines: HashMap<PathBuf, LineAnalysis>,
-    pub branches: Option<BranchAnalysis>,
+    pub branches: HashMap<PathBuf, BranchAnalysis>,
 }
 
 impl SourceAnalysis {
-    pub fn new(enable_branches: bool) -> Self {
-        let branches = if enable_branches {
-            Some(BranchAnalysis::default())
-        } else {
-            None
-        };
+    pub fn new() -> Self {
         Self {
             lines: HashMap::new(),
-            branches,
+            branches: HashMap::new(),
         }
     }
 
@@ -214,8 +209,14 @@ impl SourceAnalysis {
         self.lines.entry(path).or_insert_with(LineAnalysis::new)
     }
 
+    pub fn get_branch_analysis(&mut self, path: PathBuf) -> &mut BranchAnalysis {
+        self.branches
+            .entry(path)
+            .or_insert_with(BranchAnalysis::new)
+    }
+
     pub fn get_analysis(config: &Config) -> Self {
-        let mut result = Self::new(config.branch_coverage);
+        let mut result = Self::new();
         let mut ignored_files: HashSet<PathBuf> = HashSet::new();
         let root = config.root();
 

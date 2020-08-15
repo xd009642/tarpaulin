@@ -4,7 +4,7 @@ use syn::parse_file;
 #[test]
 fn logical_lines_let_bindings() {
     let config = Config::default();
-    let mut analysis = SourceAnalysis::new(false);
+    let mut analysis = SourceAnalysis::new();
     let ctx = Context {
         config: &config,
         file_contents: "fn foo() {
@@ -40,7 +40,7 @@ fn logical_lines_let_bindings() {
     };
 
     let parser = parse_file(ctx.file_contents).unwrap();
-    let mut analysis = SourceAnalysis::new(false);
+    let mut analysis = SourceAnalysis::new();
     analysis.process_items(&parser.items, &ctx);
     let lines = analysis.get_line_analysis(ctx.file.to_path_buf());
     assert!(!lines.logical_lines.contains_key(&4));
@@ -80,7 +80,7 @@ fn filter_str_literals() {
         ignore_mods: RefCell::new(HashSet::new()),
     };
     let parser = parse_file(ctx.file_contents).unwrap();
-    let mut analysis = SourceAnalysis::new(false);
+    let mut analysis = SourceAnalysis::new();
     analysis.process_items(&parser.items, &ctx);
     let lines = analysis.get_line_analysis(ctx.file.to_path_buf());
     assert!(lines.ignore.len() > 1);
@@ -99,7 +99,7 @@ fn filter_str_literals() {
         ignore_mods: RefCell::new(HashSet::new()),
     };
     let parser = parse_file(ctx.file_contents).unwrap();
-    let mut analysis = SourceAnalysis::new(false);
+    let mut analysis = SourceAnalysis::new();
     analysis.process_items(&parser.items, &ctx);
     let lines = analysis.get_line_analysis(ctx.file.to_path_buf());
     assert!(lines.ignore.len() > 1);
@@ -120,7 +120,7 @@ fn filter_str_literals() {
         ignore_mods: RefCell::new(HashSet::new()),
     };
     let parser = parse_file(ctx.file_contents).unwrap();
-    let mut analysis = SourceAnalysis::new(false);
+    let mut analysis = SourceAnalysis::new();
     analysis.process_items(&parser.items, &ctx);
     let lines = analysis.get_line_analysis(ctx.file.to_path_buf());
     assert!(lines.ignore.contains(&Lines::Line(5)));
@@ -136,7 +136,7 @@ fn filter_struct_members() {
         ignore_mods: RefCell::new(HashSet::new()),
     };
     let parser = parse_file(ctx.file_contents).unwrap();
-    let mut analysis = SourceAnalysis::new(false);
+    let mut analysis = SourceAnalysis::new();
     analysis.process_items(&parser.items, &ctx);
     let lines = analysis.get_line_analysis(ctx.file.to_path_buf());
 
@@ -152,7 +152,7 @@ fn filter_struct_members() {
         ignore_mods: RefCell::new(HashSet::new()),
     };
     let parser = parse_file(ctx.file_contents).unwrap();
-    let mut analysis = SourceAnalysis::new(false);
+    let mut analysis = SourceAnalysis::new();
     analysis.process_items(&parser.items, &ctx);
     let lines = analysis.get_line_analysis(ctx.file.to_path_buf());
 
@@ -170,7 +170,7 @@ fn filter_enum_members() {
         ignore_mods: RefCell::new(HashSet::new()),
     };
     let parser = parse_file(ctx.file_contents).unwrap();
-    let mut analysis = SourceAnalysis::new(false);
+    let mut analysis = SourceAnalysis::new();
     analysis.process_items(&parser.items, &ctx);
     let lines = analysis.get_line_analysis(ctx.file.to_path_buf());
 
@@ -198,7 +198,7 @@ fn filter_struct_consts() {
         ignore_mods: RefCell::new(HashSet::new()),
     };
     let parser = parse_file(ctx.file_contents).unwrap();
-    let mut analysis = SourceAnalysis::new(false);
+    let mut analysis = SourceAnalysis::new();
     analysis.process_items(&parser.items, &ctx);
     let lines = analysis.get_line_analysis(ctx.file.to_path_buf());
     assert!(!lines.ignore.contains(&Lines::Line(4)));
@@ -217,7 +217,7 @@ fn filter_unreachable_unchecked() {
         ignore_mods: RefCell::new(HashSet::new()),
     };
     let parser = parse_file(ctx.file_contents).unwrap();
-    let mut analysis = SourceAnalysis::new(false);
+    let mut analysis = SourceAnalysis::new();
     analysis.process_items(&parser.items, &ctx);
     let lines = analysis.get_line_analysis(ctx.file.to_path_buf());
     assert!(lines.ignore.contains(&Lines::Line(2)));
@@ -243,7 +243,7 @@ fn filter_loop_attr() {
         ignore_mods: RefCell::new(HashSet::new()),
     };
     let parser = parse_file(ctx.file_contents).unwrap();
-    let mut analysis = SourceAnalysis::new(false);
+    let mut analysis = SourceAnalysis::new();
     analysis.process_items(&parser.items, &ctx);
     let lines = analysis.get_line_analysis(ctx.file.to_path_buf());
     assert!(lines.ignore.contains(&Lines::Line(2)));
@@ -261,7 +261,7 @@ fn filter_mods() {
         ignore_mods: RefCell::new(HashSet::new()),
     };
     let parser = parse_file(ctx.file_contents).unwrap();
-    let mut analysis = SourceAnalysis::new(false);
+    let mut analysis = SourceAnalysis::new();
     analysis.process_items(&parser.items, &ctx);
     let lines = analysis.get_line_analysis(ctx.file.to_path_buf());
     assert!(!lines.ignore.contains(&Lines::Line(3)));
@@ -273,7 +273,7 @@ fn filter_mods() {
         ignore_mods: RefCell::new(HashSet::new()),
     };
     let parser = parse_file(ctx.file_contents).unwrap();
-    let mut analysis = SourceAnalysis::new(false);
+    let mut analysis = SourceAnalysis::new();
     analysis.process_items(&parser.items, &ctx);
     let lines = analysis.get_line_analysis(ctx.file.to_path_buf());
     assert!(lines.ignore.contains(&Lines::Line(1)));
@@ -285,7 +285,7 @@ fn filter_mods() {
         ignore_mods: RefCell::new(HashSet::new()),
     };
     let parser = parse_file(ctx.file_contents).unwrap();
-    let mut analysis = SourceAnalysis::new(false);
+    let mut analysis = SourceAnalysis::new();
     analysis.process_items(&parser.items, &ctx);
     let lines = analysis.get_line_analysis(ctx.file.to_path_buf());
     assert!(lines.ignore.contains(&Lines::Line(1)));
@@ -301,7 +301,7 @@ fn filter_macros() {
         ignore_mods: RefCell::new(HashSet::new()),
     };
     let parser = parse_file(ctx.file_contents).unwrap();
-    let mut analysis = SourceAnalysis::new(false);
+    let mut analysis = SourceAnalysis::new();
     analysis.process_items(&parser.items, &ctx);
     let lines = analysis.get_line_analysis(ctx.file.to_path_buf());
 
@@ -315,7 +315,7 @@ fn filter_macros() {
         ignore_mods: RefCell::new(HashSet::new()),
     };
     let parser = parse_file(ctx.file_contents).unwrap();
-    let mut analysis = SourceAnalysis::new(false);
+    let mut analysis = SourceAnalysis::new();
     analysis.process_items(&parser.items, &ctx);
     let lines = analysis.get_line_analysis(ctx.file.to_path_buf());
     assert!(!lines.ignore.is_empty());
@@ -334,7 +334,7 @@ fn filter_macros() {
         ignore_mods: RefCell::new(HashSet::new()),
     };
     let parser = parse_file(ctx.file_contents).unwrap();
-    let mut analysis = SourceAnalysis::new(false);
+    let mut analysis = SourceAnalysis::new();
     analysis.process_items(&parser.items, &ctx);
     let lines = analysis.get_line_analysis(ctx.file.to_path_buf());
     assert!(lines.ignore.contains(&Lines::Line(5)));
@@ -346,7 +346,7 @@ fn filter_macros() {
         ignore_mods: RefCell::new(HashSet::new()),
     };
     let parser = parse_file(ctx.file_contents).unwrap();
-    let mut analysis = SourceAnalysis::new(false);
+    let mut analysis = SourceAnalysis::new();
     analysis.process_items(&parser.items, &ctx);
     let lines = analysis.get_line_analysis(ctx.file.to_path_buf());
     assert!(!lines.ignore.contains(&Lines::Line(2)));
@@ -369,7 +369,7 @@ fn filter_tests() {
         ignore_mods: RefCell::new(HashSet::new()),
     };
     let parser = parse_file(ctx.file_contents).unwrap();
-    let mut analysis = SourceAnalysis::new(false);
+    let mut analysis = SourceAnalysis::new();
     analysis.process_items(&parser.items, &ctx);
     let lines = analysis.get_line_analysis(ctx.file.to_path_buf());
     assert!(!lines.ignore.contains(&Lines::Line(4)));
@@ -386,7 +386,7 @@ fn filter_tests() {
         ignore_mods: RefCell::new(HashSet::new()),
     };
 
-    let mut analysis = SourceAnalysis::new(false);
+    let mut analysis = SourceAnalysis::new();
     analysis.process_items(&parser.items, &ctx);
     let lines = analysis.get_line_analysis(ctx.file.to_path_buf());
     assert!(lines.ignore.contains(&Lines::Line(4)));
@@ -398,7 +398,7 @@ fn filter_tests() {
         ignore_mods: RefCell::new(HashSet::new()),
     };
     let parser = parse_file(ctx.file_contents).unwrap();
-    let mut analysis = SourceAnalysis::new(false);
+    let mut analysis = SourceAnalysis::new();
     analysis.process_items(&parser.items, &ctx);
     let lines = analysis.get_line_analysis(ctx.file.to_path_buf());
     assert!(!lines.ignore.contains(&Lines::Line(2)));
@@ -410,7 +410,7 @@ fn filter_tests() {
         file: Path::new(""),
         ignore_mods: RefCell::new(HashSet::new()),
     };
-    let mut analysis = SourceAnalysis::new(false);
+    let mut analysis = SourceAnalysis::new();
     analysis.process_items(&parser.items, &ctx);
     let lines = analysis.get_line_analysis(ctx.file.to_path_buf());
     assert!(lines.ignore.contains(&Lines::Line(2)));
@@ -434,7 +434,7 @@ fn filter_test_utilities() {
         ignore_mods: RefCell::new(HashSet::new()),
     };
     let parser = parse_file(ctx.file_contents).unwrap();
-    let mut analysis = SourceAnalysis::new(false);
+    let mut analysis = SourceAnalysis::new();
     analysis.process_items(&parser.items, &ctx);
     let lines = analysis.get_line_analysis(ctx.file.to_path_buf());
     assert!(lines.ignore.contains(&Lines::Line(2)));
@@ -455,7 +455,7 @@ fn filter_test_utilities() {
         ignore_mods: RefCell::new(HashSet::new()),
     };
     let parser = parse_file(ctx.file_contents).unwrap();
-    let mut analysis = SourceAnalysis::new(false);
+    let mut analysis = SourceAnalysis::new();
     analysis.process_items(&parser.items, &ctx);
     let lines = analysis.get_line_analysis(ctx.file.to_path_buf());
     assert!(!lines.ignore.contains(&Lines::Line(3)));
@@ -474,7 +474,7 @@ fn filter_where() {
         ignore_mods: RefCell::new(HashSet::new()),
     };
     let parser = parse_file(ctx.file_contents).unwrap();
-    let mut analysis = SourceAnalysis::new(false);
+    let mut analysis = SourceAnalysis::new();
     analysis.process_items(&parser.items, &ctx);
     let lines = analysis.get_line_analysis(ctx.file.to_path_buf());
     assert!(!lines.ignore.contains(&Lines::Line(1)));
@@ -489,7 +489,7 @@ fn filter_where() {
         ignore_mods: RefCell::new(HashSet::new()),
     };
     let parser = parse_file(ctx.file_contents).unwrap();
-    let mut analysis = SourceAnalysis::new(false);
+    let mut analysis = SourceAnalysis::new();
     analysis.process_items(&parser.items, &ctx);
     let lines = analysis.get_line_analysis(ctx.file.to_path_buf());
     assert!(lines.ignore.contains(&Lines::Line(2)));
@@ -506,7 +506,7 @@ fn filter_where() {
         ignore_mods: RefCell::new(HashSet::new()),
     };
     let parser = parse_file(ctx.file_contents).unwrap();
-    let mut analysis = SourceAnalysis::new(false);
+    let mut analysis = SourceAnalysis::new();
     analysis.process_items(&parser.items, &ctx);
     let lines = analysis.get_line_analysis(ctx.file.to_path_buf());
     assert!(lines.ignore.contains(&Lines::Line(3)));
@@ -522,7 +522,7 @@ fn filter_derives() {
         ignore_mods: RefCell::new(HashSet::new()),
     };
     let parser = parse_file(ctx.file_contents).unwrap();
-    let mut analysis = SourceAnalysis::new(false);
+    let mut analysis = SourceAnalysis::new();
     analysis.process_items(&parser.items, &ctx);
     let lines = analysis.get_line_analysis(ctx.file.to_path_buf());
     assert!(lines.ignore.contains(&Lines::Line(1)));
@@ -534,7 +534,7 @@ fn filter_derives() {
         ignore_mods: RefCell::new(HashSet::new()),
     };
     let parser = parse_file(ctx.file_contents).unwrap();
-    let mut analysis = SourceAnalysis::new(false);
+    let mut analysis = SourceAnalysis::new();
     analysis.process_items(&parser.items, &ctx);
     let lines = analysis.get_line_analysis(ctx.file.to_path_buf());
     assert!(lines.ignore.contains(&Lines::Line(2)));
@@ -550,7 +550,7 @@ fn filter_unsafe() {
         ignore_mods: RefCell::new(HashSet::new()),
     };
     let parser = parse_file(ctx.file_contents).unwrap();
-    let mut analysis = SourceAnalysis::new(false);
+    let mut analysis = SourceAnalysis::new();
     analysis.process_items(&parser.items, &ctx);
     let lines = analysis.get_line_analysis(ctx.file.to_path_buf());
     assert!(lines.ignore.contains(&Lines::Line(3)));
@@ -563,7 +563,7 @@ fn filter_unsafe() {
         ignore_mods: RefCell::new(HashSet::new()),
     };
     let parser = parse_file(ctx.file_contents).unwrap();
-    let mut analysis = SourceAnalysis::new(false);
+    let mut analysis = SourceAnalysis::new();
     analysis.process_items(&parser.items, &ctx);
     let lines = analysis.get_line_analysis(ctx.file.to_path_buf());
     assert!(!lines.ignore.contains(&Lines::Line(3)));
@@ -584,7 +584,7 @@ fn cover_generic_impl_methods() {
         ignore_mods: RefCell::new(HashSet::new()),
     };
     let parser = parse_file(ctx.file_contents).unwrap();
-    let mut analysis = SourceAnalysis::new(false);
+    let mut analysis = SourceAnalysis::new();
     analysis.process_items(&parser.items, &ctx);
     let lines = analysis.get_line_analysis(ctx.file.to_path_buf());
     assert!(lines.cover.contains(&3));
@@ -604,7 +604,7 @@ fn cover_generic_impl_methods() {
         ignore_mods: RefCell::new(HashSet::new()),
     };
     let parser = parse_file(ctx.file_contents).unwrap();
-    let mut analysis = SourceAnalysis::new(false);
+    let mut analysis = SourceAnalysis::new();
     analysis.process_items(&parser.items, &ctx);
     let lines = analysis.get_line_analysis(ctx.file.to_path_buf());
     assert!(lines.cover.contains(&5));
@@ -624,7 +624,7 @@ fn cover_default_trait_methods() {
         ignore_mods: RefCell::new(HashSet::new()),
     };
     let parser = parse_file(ctx.file_contents).unwrap();
-    let mut analysis = SourceAnalysis::new(false);
+    let mut analysis = SourceAnalysis::new();
     analysis.process_items(&parser.items, &ctx);
     let lines = analysis.get_line_analysis(ctx.file.to_path_buf());
     assert!(lines.cover.contains(&2));
@@ -661,7 +661,7 @@ fn filter_method_args() {
         ignore_mods: RefCell::new(HashSet::new()),
     };
     let parser = parse_file(ctx.file_contents).unwrap();
-    let mut analysis = SourceAnalysis::new(false);
+    let mut analysis = SourceAnalysis::new();
     analysis.process_items(&parser.items, &ctx);
     let lines = analysis.get_line_analysis(ctx.file.to_path_buf());
     assert!(lines.ignore.contains(&Lines::Line(15)));
@@ -679,7 +679,7 @@ fn filter_use_statements() {
         ignore_mods: RefCell::new(HashSet::new()),
     };
     let parser = parse_file(ctx.file_contents).unwrap();
-    let mut analysis = SourceAnalysis::new(false);
+    let mut analysis = SourceAnalysis::new();
     analysis.process_items(&parser.items, &ctx);
     let lines = analysis.get_line_analysis(ctx.file.to_path_buf());
     assert!(lines.ignore.contains(&Lines::Line(1)));
@@ -704,7 +704,7 @@ fn include_inline_fns() {
         ignore_mods: RefCell::new(HashSet::new()),
     };
     let parser = parse_file(ctx.file_contents).unwrap();
-    let mut analysis = SourceAnalysis::new(false);
+    let mut analysis = SourceAnalysis::new();
     analysis.process_items(&parser.items, &ctx);
     let lines = analysis.get_line_analysis(ctx.file.to_path_buf());
     assert!(!lines.cover.contains(&3));
@@ -727,7 +727,7 @@ fn cover_callable_noargs() {
         ignore_mods: RefCell::new(HashSet::new()),
     };
     let parser = parse_file(ctx.file_contents).unwrap();
-    let mut analysis = SourceAnalysis::new(false);
+    let mut analysis = SourceAnalysis::new();
     analysis.process_items(&parser.items, &ctx);
     let lines = analysis.get_line_analysis(ctx.file.to_path_buf());
     assert!(!lines.ignore.contains(&Lines::Line(2)));
@@ -747,7 +747,7 @@ fn filter_closure_contents() {
         ignore_mods: RefCell::new(HashSet::new()),
     };
     let parser = parse_file(ctx.file_contents).unwrap();
-    let mut analysis = SourceAnalysis::new(false);
+    let mut analysis = SourceAnalysis::new();
     analysis.process_items(&parser.items, &ctx);
     let lines = analysis.get_line_analysis(ctx.file.to_path_buf());
     assert!(!lines.ignore.contains(&Lines::Line(3)));
@@ -782,7 +782,7 @@ fn tarpaulin_skip_attr() {
         ignore_mods: RefCell::new(HashSet::new()),
     };
     let parser = parse_file(ctx.file_contents).unwrap();
-    let mut analysis = SourceAnalysis::new(false);
+    let mut analysis = SourceAnalysis::new();
     analysis.process_items(&parser.items, &ctx);
     let lines = analysis.get_line_analysis(ctx.file.to_path_buf());
     assert!(lines.ignore.contains(&Lines::Line(2)));
@@ -812,7 +812,7 @@ fn tarpaulin_skip_attr() {
         ignore_mods: RefCell::new(HashSet::new()),
     };
     let parser = parse_file(ctx.file_contents).unwrap();
-    let mut analysis = SourceAnalysis::new(false);
+    let mut analysis = SourceAnalysis::new();
     analysis.process_items(&parser.items, &ctx);
     let lines = analysis.get_line_analysis(ctx.file.to_path_buf());
     assert!(lines.ignore.contains(&Lines::Line(3)));
@@ -842,7 +842,7 @@ fn tarpaulin_skip_trait_attrs() {
         ignore_mods: RefCell::new(HashSet::new()),
     };
     let parser = parse_file(ctx.file_contents).unwrap();
-    let mut analysis = SourceAnalysis::new(false);
+    let mut analysis = SourceAnalysis::new();
     analysis.process_items(&parser.items, &ctx);
     let lines = analysis.get_line_analysis(ctx.file.to_path_buf());
     assert!(lines.ignore.contains(&Lines::Line(3)));
@@ -867,7 +867,7 @@ fn tarpaulin_skip_trait_attrs() {
         ignore_mods: RefCell::new(HashSet::new()),
     };
     let parser = parse_file(ctx.file_contents).unwrap();
-    let mut analysis = SourceAnalysis::new(false);
+    let mut analysis = SourceAnalysis::new();
     analysis.process_items(&parser.items, &ctx);
     let lines = analysis.get_line_analysis(ctx.file.to_path_buf());
     assert!(!lines.ignore.contains(&Lines::Line(2)));
@@ -898,7 +898,7 @@ fn tarpaulin_skip_impl_attrs() {
         ignore_mods: RefCell::new(HashSet::new()),
     };
     let parser = parse_file(ctx.file_contents).unwrap();
-    let mut analysis = SourceAnalysis::new(false);
+    let mut analysis = SourceAnalysis::new();
     analysis.process_items(&parser.items, &ctx);
     let lines = analysis.get_line_analysis(ctx.file.to_path_buf());
     assert!(lines.ignore.contains(&Lines::Line(4)));
@@ -925,7 +925,7 @@ fn tarpaulin_skip_impl_attrs() {
         ignore_mods: RefCell::new(HashSet::new()),
     };
     let parser = parse_file(ctx.file_contents).unwrap();
-    let mut analysis = SourceAnalysis::new(false);
+    let mut analysis = SourceAnalysis::new();
     analysis.process_items(&parser.items, &ctx);
     let lines = analysis.get_line_analysis(ctx.file.to_path_buf());
     assert!(!lines.ignore.contains(&Lines::Line(3)));
@@ -953,7 +953,7 @@ fn filter_block_contents() {
         ignore_mods: RefCell::new(HashSet::new()),
     };
     let parser = parse_file(ctx.file_contents).unwrap();
-    let mut analysis = SourceAnalysis::new(false);
+    let mut analysis = SourceAnalysis::new();
     analysis.process_items(&parser.items, &ctx);
     let lines = analysis.get_line_analysis(ctx.file.to_path_buf());
     assert!(lines.ignore.contains(&Lines::Line(5)));
@@ -972,7 +972,7 @@ fn filter_consts() {
         ignore_mods: RefCell::new(HashSet::new()),
     };
     let parser = parse_file(ctx.file_contents).unwrap();
-    let mut analysis = SourceAnalysis::new(false);
+    let mut analysis = SourceAnalysis::new();
     analysis.process_items(&parser.items, &ctx);
     let lines = analysis.get_line_analysis(ctx.file.to_path_buf());
     assert!(lines.ignore.contains(&Lines::Line(2)));
@@ -996,7 +996,7 @@ fn optional_panic_ignore() {
         ignore_mods: RefCell::new(HashSet::new()),
     };
     let parser = parse_file(ctx.file_contents).unwrap();
-    let mut analysis = SourceAnalysis::new(false);
+    let mut analysis = SourceAnalysis::new();
     analysis.process_items(&parser.items, &ctx);
     let lines = analysis.get_line_analysis(ctx.file.to_path_buf());
     assert!(!lines.ignore.contains(&Lines::Line(2)));
@@ -1021,7 +1021,7 @@ fn optional_panic_ignore() {
     };
 
     let parser = parse_file(ctx.file_contents).unwrap();
-    let mut analysis = SourceAnalysis::new(false);
+    let mut analysis = SourceAnalysis::new();
     analysis.process_items(&parser.items, &ctx);
     let lines = analysis.get_line_analysis(ctx.file.to_path_buf());
     assert!(lines.ignore.contains(&Lines::Line(2)));
@@ -1055,7 +1055,7 @@ fn filter_nested_blocks() {
         ignore_mods: RefCell::new(HashSet::new()),
     };
     let parser = parse_file(ctx.file_contents).unwrap();
-    let mut analysis = SourceAnalysis::new(false);
+    let mut analysis = SourceAnalysis::new();
     analysis.process_items(&parser.items, &ctx);
     let lines = analysis.get_line_analysis(ctx.file.to_path_buf());
     assert!(lines.ignore.contains(&Lines::Line(9)));
@@ -1075,7 +1075,7 @@ fn filter_multi_line_decls() {
         ignore_mods: RefCell::new(HashSet::new()),
     };
     let parser = parse_file(ctx.file_contents).unwrap();
-    let mut analysis = SourceAnalysis::new(false);
+    let mut analysis = SourceAnalysis::new();
     analysis.process_items(&parser.items, &ctx);
     let lines = analysis.get_line_analysis(ctx.file.to_path_buf());
     assert!(lines.ignore.contains(&Lines::Line(2)));
@@ -1095,7 +1095,7 @@ fn filter_multi_line_decls() {
         ignore_mods: RefCell::new(HashSet::new()),
     };
     let parser = parse_file(ctx.file_contents).unwrap();
-    let mut analysis = SourceAnalysis::new(false);
+    let mut analysis = SourceAnalysis::new();
     analysis.process_items(&parser.items, &ctx);
     let lines = analysis.get_line_analysis(ctx.file.to_path_buf());
     assert!(lines.ignore.contains(&Lines::Line(4)));
@@ -1114,7 +1114,7 @@ fn filter_multi_line_decls() {
         ignore_mods: RefCell::new(HashSet::new()),
     };
     let parser = parse_file(ctx.file_contents).unwrap();
-    let mut analysis = SourceAnalysis::new(false);
+    let mut analysis = SourceAnalysis::new();
     analysis.process_items(&parser.items, &ctx);
     let lines = analysis.get_line_analysis(ctx.file.to_path_buf());
     assert!(lines.ignore.contains(&Lines::Line(3)));
@@ -1135,7 +1135,7 @@ fn unreachable_propagate() {
         ignore_mods: RefCell::new(HashSet::new()),
     };
     let parser = parse_file(ctx.file_contents).unwrap();
-    let mut analysis = SourceAnalysis::new(false);
+    let mut analysis = SourceAnalysis::new();
     analysis.process_items(&parser.items, &ctx);
     let lines = analysis.get_line_analysis(ctx.file.to_path_buf());
     assert!(lines.ignore.contains(&Lines::Line(2)));
@@ -1161,7 +1161,7 @@ fn unreachable_propagate() {
         ignore_mods: RefCell::new(HashSet::new()),
     };
     let parser = parse_file(ctx.file_contents).unwrap();
-    let mut analysis = SourceAnalysis::new(false);
+    let mut analysis = SourceAnalysis::new();
     analysis.process_items(&parser.items, &ctx);
     let lines = analysis.get_line_analysis(ctx.file.to_path_buf());
     assert!(lines.ignore.contains(&Lines::Line(3)));
@@ -1184,7 +1184,7 @@ fn unreachable_propagate() {
         ignore_mods: RefCell::new(HashSet::new()),
     };
     let parser = parse_file(ctx.file_contents).unwrap();
-    let mut analysis = SourceAnalysis::new(false);
+    let mut analysis = SourceAnalysis::new();
     analysis.process_items(&parser.items, &ctx);
     let lines = analysis.get_line_analysis(ctx.file.to_path_buf());
     assert!(lines.ignore.contains(&Lines::Line(1)));

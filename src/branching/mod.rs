@@ -28,6 +28,9 @@ pub struct BranchAnalysis {
 }
 
 impl BranchAnalysis {
+    pub fn new() -> Self {
+        Self::default()
+    }
     /// Returns true if the line is part of a branch
     pub fn is_branch(&self, line: usize) -> bool {
         self.branches.iter().any(|(k, _)| k.contains(line))
