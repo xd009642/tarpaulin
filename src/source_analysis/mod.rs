@@ -1,9 +1,8 @@
 use crate::branching::BranchAnalysis;
 use crate::config::{Config, RunType};
 use crate::path_utils::{get_source_walker, is_source_file};
-use items::process_items;
 use lazy_static::lazy_static;
-use log::trace;
+use log::{error, trace};
 use proc_macro2::{Span, TokenStream};
 use quote::ToTokens;
 use regex::Regex;
@@ -26,9 +25,7 @@ mod tests;
 pub(crate) mod prelude {
     pub(crate) use super::*;
     pub(crate) use attributes::*;
-    pub(crate) use expressions::*;
     pub(crate) use macros::*;
-    pub(crate) use statements::*;
 }
 
 /// Enumeration representing which lines to ignore
@@ -195,6 +192,11 @@ impl LineAnalysis {
     }
 }
 
+pub(crate) fn line_analysis_missing() -> LineAnalysis {
+    error!("LineAnalysis entry not found for file. Creating default");
+    LineAnalysis::new()
+}
+
 pub struct SourceAnalysis {
     pub lines: HashMap<PathBuf, LineAnalysis>,
     pub branches: Option<BranchAnalysis>,
@@ -213,21 +215,18 @@ impl SourceAnalysis {
         }
     }
 
+    pub fn get_line_analysis(&mut self, path: PathBuf) -> &mut LineAnalysis {
+        self.lines.entry(path).or_insert_with(LineAnalysis::new)
+    }
+
     pub fn get_analysis(config: &Config) -> Self {
         let mut result = Self::new(config.branch_coverage);
-
         let mut ignored_files: HashSet<PathBuf> = HashSet::new();
         let root = config.root();
 
         for e in get_source_walker(config) {
             if !ignored_files.contains(e.path()) {
-                analyse_package(
-                    e.path(),
-                    &root,
-                    &config,
-                    &mut result.lines,
-                    &mut ignored_files,
-                );
+                result.analyse_package(e.path(), &root, &config, &mut ignored_files);
             } else {
                 let mut analysis = LineAnalysis::new();
                 analysis.ignore_all();
@@ -244,6 +243,63 @@ impl SourceAnalysis {
         result.debug_printout(config);
 
         result
+    }
+
+    /// Analyses a package of the target crate.
+    fn analyse_package(
+        &mut self,
+        path: &Path,
+        root: &Path,
+        config: &Config,
+        filtered_files: &mut HashSet<PathBuf>,
+    ) {
+        if let Some(file) = path.to_str() {
+            let skip_cause_test = config.ignore_tests && path.starts_with(root.join("tests"));
+            let skip_cause_example = path.starts_with(root.join("examples"))
+                && !config.run_types.contains(&RunType::Examples);
+            if !(skip_cause_test || skip_cause_example) {
+                let file = File::open(file);
+                if let Ok(mut file) = file {
+                    let mut content = String::new();
+                    let _ = file.read_to_string(&mut content);
+                    let file = parse_file(&content);
+                    if let Ok(file) = file {
+                        let mut analysis = LineAnalysis::new();
+                        let ctx = Context {
+                            config,
+                            file_contents: &content,
+                            file: path,
+                            ignore_mods: RefCell::new(HashSet::new()),
+                        };
+
+                        find_ignorable_lines(&content, &mut analysis);
+                        self.lines.insert(path.to_path_buf(), analysis);
+                        self.process_items(&file.items, &ctx);
+                        //process_items(&file.items, &ctx, &mut analysis);
+                        // Check there's no conflict!
+                        //self.lines.insert(path.to_path_buf(), analysis);
+
+                        let mut ignored_files = ctx.ignore_mods.into_inner();
+                        for f in ignored_files.drain() {
+                            if f.is_file() {
+                                filtered_files.insert(f);
+                            } else {
+                                let walker = WalkDir::new(f).into_iter();
+                                for e in walker.filter_map(|e| e.ok()).filter(|e| is_source_file(e))
+                                {
+                                    filtered_files.insert(e.path().to_path_buf());
+                                }
+                            }
+                        }
+                        // This could probably be done with the DWARF if I could find a discriminating factor
+                        // to why lib.rs:1 shows up as a real line!
+                        if path.ends_with("src/lib.rs") {
+                            analyse_lib_rs(path, &mut self.lines);
+                        }
+                    }
+                }
+            }
+        }
     }
 
     /// Printout a debug summary of the results of source analysis if debug logging
@@ -318,60 +374,6 @@ pub(crate) struct Context<'a> {
     /// Other parts of context are immutable like tarpaulin config and users
     /// source code. This is discovered during hence use of interior mutability
     ignore_mods: RefCell<HashSet<PathBuf>>,
-}
-
-/// Analyses a package of the target crate.
-fn analyse_package(
-    path: &Path,
-    root: &Path,
-    config: &Config,
-    result: &mut HashMap<PathBuf, LineAnalysis>,
-    filtered_files: &mut HashSet<PathBuf>,
-) {
-    if let Some(file) = path.to_str() {
-        let skip_cause_test = config.ignore_tests && path.starts_with(root.join("tests"));
-        let skip_cause_example = path.starts_with(root.join("examples"))
-            && !config.run_types.contains(&RunType::Examples);
-        if !(skip_cause_test || skip_cause_example) {
-            let file = File::open(file);
-            if let Ok(mut file) = file {
-                let mut content = String::new();
-                let _ = file.read_to_string(&mut content);
-                let file = parse_file(&content);
-                if let Ok(file) = file {
-                    let mut analysis = LineAnalysis::new();
-                    let ctx = Context {
-                        config,
-                        file_contents: &content,
-                        file: path,
-                        ignore_mods: RefCell::new(HashSet::new()),
-                    };
-
-                    find_ignorable_lines(&content, &mut analysis);
-                    process_items(&file.items, &ctx, &mut analysis);
-                    // Check there's no conflict!
-                    result.insert(path.to_path_buf(), analysis);
-
-                    let mut ignored_files = ctx.ignore_mods.into_inner();
-                    for f in ignored_files.drain() {
-                        if f.is_file() {
-                            filtered_files.insert(f);
-                        } else {
-                            let walker = WalkDir::new(f).into_iter();
-                            for e in walker.filter_map(|e| e.ok()).filter(|e| is_source_file(e)) {
-                                filtered_files.insert(e.path().to_path_buf());
-                            }
-                        }
-                    }
-                    // This could probably be done with the DWARF if I could find a discriminating factor
-                    // to why lib.rs:1 shows up as a real line!
-                    if path.ends_with("src/lib.rs") {
-                        analyse_lib_rs(path, result);
-                    }
-                }
-            }
-        }
-    }
 }
 
 /// Finds lines from the raw string which are ignorable.
