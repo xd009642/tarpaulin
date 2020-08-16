@@ -137,8 +137,8 @@ impl SourceAnalysis {
                 analysis.ignore_tokens(func);
                 return;
             }
+            self.visit_generics(&func.sig.generics, ctx);
             let analysis = self.get_line_analysis(ctx.file.to_path_buf());
-            visit_generics(&func.sig.generics, analysis);
             let line_number = func.sig.fn_token.span().start().line;
             analysis.ignore.remove(&Lines::Line(line_number));
             // Ignore multiple lines of fn decl
@@ -161,8 +161,8 @@ impl SourceAnalysis {
                                 item.into_token_stream(),
                                 Some(ctx.file_contents),
                             );
+                            self.visit_generics(&i.sig.generics, ctx);
                             let analysis = self.get_line_analysis(ctx.file.to_path_buf());
-                            visit_generics(&i.sig.generics, analysis);
                             analysis
                                 .ignore
                                 .remove(&Lines::Line(i.sig.span().start().line));
@@ -183,8 +183,7 @@ impl SourceAnalysis {
                     }
                 }
             }
-            let analysis = self.get_line_analysis(ctx.file.to_path_buf());
-            visit_generics(&trait_item.generics, analysis);
+            self.visit_generics(&trait_item.generics, ctx);
         } else {
             let analysis = self.get_line_analysis(ctx.file.to_path_buf());
             analysis.ignore_tokens(trait_item);
@@ -211,8 +210,8 @@ impl SourceAnalysis {
                             return;
                         }
 
+                        self.visit_generics(&i.sig.generics, ctx);
                         let analysis = self.get_line_analysis(ctx.file.to_path_buf());
-                        visit_generics(&i.sig.generics, analysis);
                         analysis.ignore.remove(&Lines::Line(i.span().start().line));
 
                         // Ignore multiple lines of fn decl
@@ -230,8 +229,7 @@ impl SourceAnalysis {
                     }
                 }
             }
-            let analysis = self.get_line_analysis(ctx.file.to_path_buf());
-            visit_generics(&impl_blk.generics, analysis);
+            self.visit_generics(&impl_blk.generics, ctx);
         } else {
             let analysis = self.get_line_analysis(ctx.file.to_path_buf());
             analysis.ignore_tokens(impl_blk);

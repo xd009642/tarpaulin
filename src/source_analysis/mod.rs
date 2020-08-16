@@ -260,7 +260,6 @@ impl SourceAnalysis {
                     let _ = file.read_to_string(&mut content);
                     let file = parse_file(&content);
                     if let Ok(file) = file {
-                        let mut analysis = LineAnalysis::new();
                         let ctx = Context {
                             config,
                             file_contents: &content,
@@ -268,12 +267,8 @@ impl SourceAnalysis {
                             ignore_mods: RefCell::new(HashSet::new()),
                         };
 
-                        find_ignorable_lines(&content, &mut analysis);
-                        self.lines.insert(path.to_path_buf(), analysis);
+                        self.find_ignorable_lines(&ctx);
                         self.process_items(&file.items, &ctx);
-                        //process_items(&file.items, &ctx, &mut analysis);
-                        // Check there's no conflict!
-                        //self.lines.insert(path.to_path_buf(), analysis);
 
                         let mut ignored_files = ctx.ignore_mods.into_inner();
                         for f in ignored_files.drain() {
@@ -295,6 +290,45 @@ impl SourceAnalysis {
                     }
                 }
             }
+        }
+    }
+
+    /// Finds lines from the raw string which are ignorable.
+    /// These are often things like close braces, semi colons that may regiser as
+    /// false positives.
+    fn find_ignorable_lines(&mut self, ctx: &Context) {
+        lazy_static! {
+            static ref IGNORABLE: Regex =
+                Regex::new(r"^((\s*///)|([\[\]\{\}\(\)\s;\?,/]*$))").unwrap();
+        }
+        let analysis = self.get_line_analysis(ctx.file.to_path_buf());
+        let lines = ctx
+            .file_contents
+            .lines()
+            .enumerate()
+            .filter(|&(_, x)| IGNORABLE.is_match(&x))
+            .map(|(i, _)| i + 1)
+            .collect::<Vec<usize>>();
+        analysis.add_to_ignore(&lines);
+
+        let lines = ctx
+            .file_contents
+            .lines()
+            .enumerate()
+            .filter(|&(_, x)| {
+                let mut x = x.to_string();
+                x.retain(|c| !c.is_whitespace());
+                x == "}else{"
+            })
+            .map(|(i, _)| i + 1)
+            .collect::<Vec<usize>>();
+        analysis.add_to_ignore(&lines);
+    }
+
+    pub(crate) fn visit_generics(&mut self, generics: &Generics, ctx: &Context) {
+        if let Some(ref wh) = generics.where_clause {
+            let analysis = self.get_line_analysis(ctx.file.to_path_buf());
+            analysis.ignore_tokens(wh);
         }
     }
 
@@ -374,38 +408,4 @@ pub(crate) struct Context<'a> {
     /// Other parts of context are immutable like tarpaulin config and users
     /// source code. This is discovered during hence use of interior mutability
     ignore_mods: RefCell<HashSet<PathBuf>>,
-}
-
-/// Finds lines from the raw string which are ignorable.
-/// These are often things like close braces, semi colons that may regiser as
-/// false positives.
-fn find_ignorable_lines(content: &str, analysis: &mut LineAnalysis) {
-    lazy_static! {
-        static ref IGNORABLE: Regex = Regex::new(r"^((\s*///)|([\[\]\{\}\(\)\s;\?,/]*$))").unwrap();
-    }
-    let lines = content
-        .lines()
-        .enumerate()
-        .filter(|&(_, x)| IGNORABLE.is_match(&x))
-        .map(|(i, _)| i + 1)
-        .collect::<Vec<usize>>();
-    analysis.add_to_ignore(&lines);
-
-    let lines = content
-        .lines()
-        .enumerate()
-        .filter(|&(_, x)| {
-            let mut x = x.to_string();
-            x.retain(|c| !c.is_whitespace());
-            x == "}else{"
-        })
-        .map(|(i, _)| i + 1)
-        .collect::<Vec<usize>>();
-    analysis.add_to_ignore(&lines);
-}
-
-pub fn visit_generics(generics: &Generics, analysis: &mut LineAnalysis) {
-    if let Some(ref wh) = generics.where_clause {
-        analysis.ignore_tokens(wh);
-    }
 }
