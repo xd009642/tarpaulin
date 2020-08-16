@@ -204,12 +204,8 @@ where
                                     length: 1,
                                     fn_name,
                                 };
-                                if result.contains_key(&loc) {
-                                    let x = result.get_mut(&loc).unwrap();
-                                    x.push(trace);
-                                } else {
-                                    result.insert(loc, vec![trace]);
-                                }
+                                let tracerdata = result.entry(loc).or_default();
+                                tracerdata.push(trace);
                             }
                         }
                     }

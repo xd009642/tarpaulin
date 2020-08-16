@@ -143,19 +143,19 @@ impl LineAnalysis {
         if let Some(ref c) = contents {
             lazy_static! {
                 static ref SINGLE_LINE: Regex = Regex::new(r"\s*//").unwrap();
-                static ref MULTI_START: Regex = Regex::new(r"/\*").unwrap();
-                static ref MULTI_END: Regex = Regex::new(r"\*/").unwrap();
             }
+            const MULTI_START: &str = "/*";
+            const MULTI_END: &str = "*/";
             let len = span.end().line - span.start().line;
             let mut is_comment = false;
             for (i, line) in c.lines().enumerate().skip(span.start().line - 1).take(len) {
-                let is_code = if MULTI_START.is_match(line) {
-                    if !MULTI_END.is_match(line) {
+                let is_code = if line.contains(MULTI_START) {
+                    if !line.contains(MULTI_END) {
                         is_comment = true;
                     }
                     false
                 } else if is_comment {
-                    if MULTI_END.is_match(line) {
+                    if line.contains(MULTI_END) {
                         is_comment = false;
                     }
                     false
@@ -383,14 +383,8 @@ fn analyse_lib_rs(file: &Path, result: &mut HashMap<PathBuf, LineAnalysis>) {
         if let Some(Ok(first)) = read_file.lines().next() {
             if !(first.starts_with("pub") || first.starts_with("fn")) {
                 let file = file.to_path_buf();
-                if result.contains_key(&file) {
-                    let l = result.get_mut(&file).unwrap();
-                    l.add_to_ignore(&[1]);
-                } else {
-                    let mut l = LineAnalysis::new();
-                    l.add_to_ignore(&[1]);
-                    result.insert(file, l);
-                }
+                let line_analysis = result.entry(file).or_default();
+                line_analysis.add_to_ignore(&[1]);
             }
         }
     }
