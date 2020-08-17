@@ -1,6 +1,11 @@
 use crate::source_analysis::prelude::*;
 use std::collections::HashSet;
-use syn::{punctuated::Pair, punctuated::Punctuated, spanned::Spanned, token::Comma, *};
+use syn::{
+    punctuated::{Pair, Punctuated},
+    spanned::Spanned,
+    token::Comma,
+    *,
+};
 
 impl SourceAnalysis {
     pub(crate) fn process_expr(&mut self, expr: &Expr, ctx: &Context) -> SubResult {
@@ -24,6 +29,11 @@ impl SourceAnalysis {
             Expr::Closure(ref c) => self.visit_closure(&c, ctx),
             Expr::Path(ref p) => self.visit_path(&p, ctx),
             Expr::Let(ref l) => self.visit_let(&l, ctx),
+            Expr::Group(ref g) => self.process_expr(&g.expr, ctx),
+            Expr::Await(ref a) => self.process_expr(&a.base, ctx),
+            Expr::Async(ref a) => self.visit_block(&a.block, ctx),
+            Expr::Try(ref t) => self.process_expr(&t.expr, ctx),
+            Expr::TryBlock(ref t) => self.visit_block(&t.block, ctx),
             // don't try to compute unreachability on other things
             _ => SubResult::Ok,
         };
@@ -43,6 +53,7 @@ impl SourceAnalysis {
             }
             let spn = let_expr.span();
             let base_line = let_expr.let_token.span().start().line;
+            analysis.cover_span(let_expr.let_token.span(), None);
             if base_line != spn.end().line {
                 // Now check the other lines
                 let lhs = let_expr.pat.span();
@@ -177,7 +188,7 @@ impl SourceAnalysis {
                 analysis.ignore_tokens(whl);
                 SubResult::Unreachable
             } else {
-                SubResult::Ok
+                self.process_expr(&whl.cond, ctx)
             }
         } else {
             let analysis = self.get_line_analysis(ctx.file.to_path_buf());
@@ -194,6 +205,9 @@ impl SourceAnalysis {
                 analysis.ignore_tokens(for_loop);
                 SubResult::Unreachable
             } else {
+                let analysis = self.get_line_analysis(ctx.file.to_path_buf());
+                analysis.cover_span(for_loop.pat.span(), None);
+                self.process_expr(&for_loop.expr, ctx);
                 SubResult::Ok
             }
         } else {
@@ -222,15 +236,8 @@ impl SourceAnalysis {
 
     fn visit_callable(&mut self, call: &ExprCall, ctx: &Context) -> SubResult {
         if self.check_attr_list(&call.attrs, ctx) {
-            if !call.args.is_empty() {
-                let lines = get_coverable_args(&call.args);
-                let lines = get_line_range(call)
-                    .filter(|x| !lines.contains(&x))
-                    .collect::<Vec<_>>();
-                let analysis = self.get_line_analysis(ctx.file.to_path_buf());
-                analysis.add_to_ignore(&lines);
-            }
             self.process_expr(&call.func, ctx);
+            self.visit_args(call.paren_token.span, &call.args, ctx);
         } else {
             let analysis = self.get_line_analysis(ctx.file.to_path_buf());
             analysis.ignore_tokens(call);
@@ -242,20 +249,53 @@ impl SourceAnalysis {
     fn visit_methodcall(&mut self, meth: &ExprMethodCall, ctx: &Context) -> SubResult {
         if self.check_attr_list(&meth.attrs, ctx) {
             self.process_expr(&meth.receiver, ctx);
-            let start = meth.receiver.span().end().line + 1;
-            let range = get_line_range(meth);
-            let lines = get_coverable_args(&meth.args);
-            let lines = (start..range.end)
-                .filter(|x| !lines.contains(&x))
-                .collect::<Vec<_>>();
-            let analysis = self.get_line_analysis(ctx.file.to_path_buf());
-            analysis.add_to_ignore(&lines);
+            if let Some(spn) = meth.method.span().join(meth.paren_token.span) {
+                self.visit_args(spn, &meth.args, ctx);
+            } else {
+                self.visit_args(meth.paren_token.span, &meth.args, ctx);
+            }
         } else {
             let analysis = self.get_line_analysis(ctx.file.to_path_buf());
             analysis.ignore_tokens(meth);
         }
         // We can't guess if a method would actually be unreachable
         SubResult::Ok
+    }
+
+    fn visit_args(&mut self, outer_span: Span, args: &Punctuated<Expr, Comma>, ctx: &Context) {
+        let base = outer_span.start().line;
+        for arg in args.iter() {
+            self.process_expr(arg, ctx);
+            if arg.span().start().line == arg.span().end().line {
+                let analysis = self.get_line_analysis(ctx.file.to_path_buf());
+                analysis.cover_logical_line_with_base(arg.span(), base);
+            } else {
+                match arg {
+                    Expr::Async(_)
+                    | Expr::Await(_)
+                    | Expr::Block(_)
+                    | Expr::Call(_)
+                    | Expr::Closure(_)
+                    | Expr::ForLoop(_)
+                    | Expr::Group(_)
+                    | Expr::If(_)
+                    | Expr::Index(_)
+                    | Expr::Loop(_)
+                    | Expr::Macro(_)
+                    | Expr::Match(_)
+                    | Expr::MethodCall(_)
+                    | Expr::Try(_)
+                    | Expr::TryBlock(_)
+                    | Expr::Unsafe(_)
+                    | Expr::While(_) => {}
+                    Expr::Tuple(t) => self.visit_args(outer_span, &t.elems, ctx),
+                    e @ _ => {
+                        let analysis = self.get_line_analysis(ctx.file.to_path_buf());
+                        analysis.cover_logical_line_with_base(e.span(), base);
+                    }
+                }
+            }
+        }
     }
 
     fn visit_unsafe_block(&mut self, unsafe_expr: &ExprUnsafe, ctx: &Context) -> SubResult {
@@ -311,22 +351,10 @@ impl SourceAnalysis {
             .filter(|x| !cover.contains(&x))
             .collect::<Vec<usize>>();
         let analysis = self.get_line_analysis(ctx.file.to_path_buf());
+        let cover_vec = cover.iter().copied().collect::<Vec<_>>();
+        analysis.add_to_cover(&cover_vec);
         analysis.add_to_ignore(&x);
         // struct expressions are never unreachable by themselves
         SubResult::Ok
     }
-}
-fn get_coverable_args(args: &Punctuated<Expr, Comma>) -> HashSet<usize> {
-    let mut lines: HashSet<usize> = HashSet::new();
-    for a in args.iter() {
-        match *a {
-            Expr::Lit(_) => {}
-            _ => {
-                for i in get_line_range(a) {
-                    lines.insert(i);
-                }
-            }
-        }
-    }
-    lines
 }

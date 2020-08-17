@@ -83,9 +83,8 @@ fn filter_str_literals() {
     let mut analysis = SourceAnalysis::new();
     analysis.process_items(&parser.items, &ctx);
     let lines = analysis.get_line_analysis(ctx.file.to_path_buf());
-    assert!(lines.ignore.len() > 1);
-    assert!(lines.ignore.contains(&Lines::Line(3)));
-    assert!(lines.ignore.contains(&Lines::Line(4)));
+    assert_eq!(lines.logical_lines.get(&3), Some(&2));
+    assert_eq!(lines.logical_lines.get(&4), Some(&2));
 
     let ctx = Context {
         config: &config,
@@ -102,9 +101,8 @@ fn filter_str_literals() {
     let mut analysis = SourceAnalysis::new();
     analysis.process_items(&parser.items, &ctx);
     let lines = analysis.get_line_analysis(ctx.file.to_path_buf());
-    assert!(lines.ignore.len() > 1);
-    assert!(lines.ignore.contains(&Lines::Line(3)));
-    assert!(lines.ignore.contains(&Lines::Line(4)));
+    assert_eq!(lines.logical_lines.get(&3), Some(&2));
+    assert_eq!(lines.logical_lines.get(&4), Some(&2));
 
     let ctx = Context {
         config: &config,
@@ -123,7 +121,7 @@ fn filter_str_literals() {
     let mut analysis = SourceAnalysis::new();
     analysis.process_items(&parser.items, &ctx);
     let lines = analysis.get_line_analysis(ctx.file.to_path_buf());
-    assert!(lines.ignore.contains(&Lines::Line(5)));
+    assert_eq!(lines.logical_lines.get(&5), Some(&4));
 }
 
 #[test]
@@ -492,7 +490,7 @@ fn filter_where() {
     let mut analysis = SourceAnalysis::new();
     analysis.process_items(&parser.items, &ctx);
     let lines = analysis.get_line_analysis(ctx.file.to_path_buf());
-    assert!(lines.ignore.contains(&Lines::Line(2)));
+    assert_eq!(lines.logical_lines.get(&2), Some(&1));
 
     let ctx = Context {
         config: &config,
@@ -509,7 +507,7 @@ fn filter_where() {
     let mut analysis = SourceAnalysis::new();
     analysis.process_items(&parser.items, &ctx);
     let lines = analysis.get_line_analysis(ctx.file.to_path_buf());
-    assert!(lines.ignore.contains(&Lines::Line(3)));
+    assert_eq!(lines.logical_lines.get(&3), Some(&2));
 }
 
 #[test]
@@ -664,8 +662,9 @@ fn filter_method_args() {
     let mut analysis = SourceAnalysis::new();
     analysis.process_items(&parser.items, &ctx);
     let lines = analysis.get_line_analysis(ctx.file.to_path_buf());
-    assert!(lines.ignore.contains(&Lines::Line(15)));
-    assert!(!lines.ignore.contains(&Lines::Line(19)));
+    assert_eq!(lines.logical_lines.get(&15), Some(&14));
+    assert!(!lines.ignore.contains(&Lines::Line(2)));
+    assert_eq!(lines.logical_lines.get(&19), Some(&18));
 }
 
 #[test]
@@ -741,6 +740,21 @@ fn filter_closure_contents() {
         file_contents: "fn inline_func() {
                 (0..0).iter().foreach(|x| {
                     unreachable!();
+                    });
+            }",
+        file: Path::new(""),
+        ignore_mods: RefCell::new(HashSet::new()),
+    };
+    let parser = parse_file(ctx.file_contents).unwrap();
+    let mut analysis = SourceAnalysis::new();
+    analysis.process_items(&parser.items, &ctx);
+    let lines = analysis.get_line_analysis(ctx.file.to_path_buf());
+    assert!(lines.ignore.contains(&Lines::Line(3)));
+    let ctx = Context {
+        config: &config,
+        file_contents: "fn inline_func() {
+                (0..0).iter().foreach(|x| {
+                    println!();
                     });
             }",
         file: Path::new(""),
@@ -1078,8 +1092,8 @@ fn filter_multi_line_decls() {
     let mut analysis = SourceAnalysis::new();
     analysis.process_items(&parser.items, &ctx);
     let lines = analysis.get_line_analysis(ctx.file.to_path_buf());
-    assert!(lines.ignore.contains(&Lines::Line(2)));
-    assert!(lines.ignore.contains(&Lines::Line(3)));
+    assert_eq!(lines.logical_lines.get(&2), Some(&1));
+    assert_eq!(lines.logical_lines.get(&3), Some(&1));
 
     let ctx = Context {
         config: &config,
@@ -1098,8 +1112,8 @@ fn filter_multi_line_decls() {
     let mut analysis = SourceAnalysis::new();
     analysis.process_items(&parser.items, &ctx);
     let lines = analysis.get_line_analysis(ctx.file.to_path_buf());
-    assert!(lines.ignore.contains(&Lines::Line(4)));
-    assert!(lines.ignore.contains(&Lines::Line(5)));
+    assert_eq!(lines.logical_lines.get(&4), Some(&3));
+    assert_eq!(lines.logical_lines.get(&5), Some(&3));
 
     let ctx = Context {
         config: &config,
@@ -1117,8 +1131,8 @@ fn filter_multi_line_decls() {
     let mut analysis = SourceAnalysis::new();
     analysis.process_items(&parser.items, &ctx);
     let lines = analysis.get_line_analysis(ctx.file.to_path_buf());
-    assert!(lines.ignore.contains(&Lines::Line(3)));
-    assert!(lines.ignore.contains(&Lines::Line(4)));
+    assert_eq!(lines.logical_lines.get(&3), Some(&2));
+    assert_eq!(lines.logical_lines.get(&4), Some(&2));
 }
 
 #[test]

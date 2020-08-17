@@ -135,6 +135,17 @@ impl LineAnalysis {
         }
     }
 
+    pub fn cover_logical_line(&mut self, span: Span) {
+        self.cover_logical_line_with_base(span, span.start().line)
+    }
+
+    pub fn cover_logical_line_with_base(&mut self, span: Span, base: usize) {
+        self.cover.insert(base);
+        for i in span.start().line..(span.end().line + 1) {
+            self.logical_lines.insert(i, base);
+        }
+    }
+
     /// Adds the lines of the provided span to the cover set
     pub fn cover_span(&mut self, span: Span, contents: Option<&str>) {
         // Not checking for Lines::All because I trust we've called cover_span
@@ -186,6 +197,16 @@ impl LineAnalysis {
                 self.ignore.insert(Lines::Line(*l));
                 if self.cover.contains(l) {
                     self.cover.remove(l);
+                }
+            }
+        }
+    }
+
+    fn add_to_cover(&mut self, lines: &[usize]) {
+        if !self.ignore.contains(&Lines::All) {
+            for l in lines {
+                if !self.ignore.contains(&Lines::Line(*l)) {
+                    self.cover.insert(*l);
                 }
             }
         }

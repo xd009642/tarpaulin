@@ -1,8 +1,6 @@
 use crate::source_analysis::prelude::*;
-use proc_macro2::{TokenStream, TokenTree};
 use quote::ToTokens;
 use std::cmp::{max, min};
-use std::collections::HashSet;
 use std::ops::Range;
 use syn::{spanned::Spanned, *};
 
@@ -32,13 +30,7 @@ impl SourceAnalysis {
             }
         }
         if !skip {
-            let start = mac.span().start().line + 1;
-            let range = get_line_range(mac);
-            let lines = process_mac_args(&mac.tokens);
-            let lines = (start..range.end)
-                .filter(|x| !lines.contains(&x))
-                .collect::<Vec<_>>();
-            analysis.add_to_ignore(&lines);
+            analysis.cover_logical_line(mac.span());
         }
         SubResult::Ok
     }
@@ -66,20 +58,4 @@ where
         (Some(s), Some(e)) => s..e,
         _ => 0..0,
     }
-}
-
-fn process_mac_args(tokens: &TokenStream) -> HashSet<usize> {
-    let mut cover: HashSet<usize> = HashSet::new();
-    // IntoIter not implemented for &TokenStream.
-    for token in tokens.clone() {
-        match token {
-            TokenTree::Literal(_) | TokenTree::Punct { .. } => {}
-            _ => {
-                for i in get_line_range(token) {
-                    cover.insert(i);
-                }
-            }
-        }
-    }
-    cover
 }
