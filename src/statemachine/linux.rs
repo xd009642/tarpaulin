@@ -97,6 +97,7 @@ impl<'a> StateData for LinuxData<'a> {
                         let _ = self.breakpoints.insert(*addr, bp);
                     }
                     Err(e) if e == NixErr::Sys(Errno::EIO) => {
+                        error!("Failed create breakpoint for addr 0x{:x}", addr);
                         return Err(RunError::TestRuntime(
                             "ERROR: Tarpaulin cannot find code addresses \
                              check that pie is disabled for your linker. \

@@ -248,6 +248,7 @@ impl SourceAnalysis {
 
     fn visit_methodcall(&mut self, meth: &ExprMethodCall, ctx: &Context) -> SubResult {
         if self.check_attr_list(&meth.attrs, ctx) {
+            self.handle_method_chains(meth, ctx);
             self.process_expr(&meth.receiver, ctx);
             if let Some(spn) = meth.method.span().join(meth.paren_token.span) {
                 self.visit_args(spn, &meth.args, ctx);
@@ -260,6 +261,22 @@ impl SourceAnalysis {
         }
         // We can't guess if a method would actually be unreachable
         SubResult::Ok
+    }
+
+    fn handle_method_chains(&mut self, meth: &ExprMethodCall, ctx: &Context) {
+        let mut spans = vec![meth.method.span()];
+        let mut above = meth.receiver.clone();
+        while let Expr::MethodCall(meth) = *above {
+            spans.push(meth.method.span());
+            above = meth.receiver.clone();
+        }
+        if let Some(base) = spans.pop() {
+            let analysis = self.get_line_analysis(ctx.file.to_path_buf());
+            let base = base.start().line;
+            for span in &spans {
+                analysis.cover_logical_line_with_base(*span, base);
+            }
+        }
     }
 
     fn visit_args(&mut self, outer_span: Span, args: &Punctuated<Expr, Comma>, ctx: &Context) {
