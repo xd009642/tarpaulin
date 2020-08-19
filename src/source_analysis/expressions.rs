@@ -15,6 +15,8 @@ impl SourceAnalysis {
         }
         let res = match *expr {
             Expr::Macro(ref m) => self.visit_macro_call(&m.mac, ctx),
+            Expr::Assign(ref a) => self.visit_assign(&a, ctx),
+            Expr::AssignOp(ref a) => self.visit_assign_op(&a, ctx),
             Expr::Struct(ref s) => self.visit_struct_expr(&s, ctx),
             Expr::Unsafe(ref u) => self.visit_unsafe_block(&u, ctx),
             Expr::Call(ref c) => self.visit_callable(&c, ctx),
@@ -42,6 +44,30 @@ impl SourceAnalysis {
             analysis.ignore_tokens(expr);
         }
         res
+    }
+
+    fn visit_assign(&mut self, assign: &ExprAssign, ctx: &Context) -> SubResult {
+        let check_cover = self.check_attr_list(&assign.attrs, ctx);
+        let analysis = self.get_line_analysis(ctx.file.to_path_buf());
+        if check_cover {
+            self.process_expr(&assign.left, ctx);
+            self.process_expr(&assign.right, ctx);
+        } else {
+            analysis.ignore_tokens(assign);
+        }
+        SubResult::Ok
+    }
+
+    fn visit_assign_op(&mut self, assign: &ExprAssignOp, ctx: &Context) -> SubResult {
+        let check_cover = self.check_attr_list(&assign.attrs, ctx);
+        let analysis = self.get_line_analysis(ctx.file.to_path_buf());
+        if check_cover {
+            self.process_expr(&assign.left, ctx);
+            self.process_expr(&assign.right, ctx);
+        } else {
+            analysis.ignore_tokens(assign);
+        }
+        SubResult::Ok
     }
 
     fn visit_let(&mut self, let_expr: &ExprLet, ctx: &Context) -> SubResult {

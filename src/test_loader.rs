@@ -237,9 +237,12 @@ fn get_line_addresses(
     let debug_line = obj.section_by_name(".debug_line").ok_or(Error::Io)?;
     let debug_line = DebugLine::new(debug_line.data().map_err(io_err)?, endian);
 
-    let text_base = obj.section_by_name(".text")
-        .ok_or(Error::Io)?;
-    trace!(".text base address 0x{:x}; len: {}", text_base.address(), text_base.size());
+    let text_base = obj.section_by_name(".text").ok_or(Error::Io)?;
+    trace!(
+        ".text base address 0x{:x}; len: {}",
+        text_base.address(),
+        text_base.size()
+    );
 
     let mut iter = debug_info.units();
     while let Ok(Some(cu)) = iter.next() {
@@ -298,7 +301,9 @@ fn get_line_addresses(
                     let mut fn_name = None;
                     for v in val.iter() {
                         if let Some(a) = v.address {
-                            if a < text_base.address() || a > (text_base.address() + text_base.size()) {
+                            if a < text_base.address()
+                                || a > (text_base.address() + text_base.size())
+                            {
                                 continue;
                             }
                             address.insert(a);
