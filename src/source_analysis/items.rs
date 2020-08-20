@@ -141,6 +141,7 @@ impl SourceAnalysis {
             let analysis = self.get_line_analysis(ctx.file.to_path_buf());
             let line_number = func.sig.fn_token.span().start().line;
             analysis.ignore.remove(&Lines::Line(line_number));
+            analysis.cover_logical_line(func.sig.span());
             // Ignore multiple lines of fn decl
             let decl_start = func.sig.fn_token.span().start().line + 1;
             let stmts_start = func.block.span().start().line;

@@ -179,7 +179,7 @@ where
                     path = p;
                 }
                 // Source is part of project so we cover it.
-                if is_coverable_file_path(&path, &project, &config.target_dir()) {
+                if is_coverable_file_path(&path, &project, &config.target_dir(), None) {
                     if let Some(file) = ln_row.file(header) {
                         let line = ln_row.line().unwrap();
                         let file = file.path_name();
