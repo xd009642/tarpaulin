@@ -137,8 +137,15 @@ impl SourceAnalysis {
                 analysis.ignore_tokens(func);
                 return;
             }
+            self.visit_generics(&func.sig.generics, ctx);
             let analysis = self.get_line_analysis(ctx.file.to_path_buf());
-            analysis.cover_logical_line(func.sig.span());
+            let line_number = func.sig.fn_token.span().start().line;
+            analysis.ignore.remove(&Lines::Line(line_number));
+            // Ignore multiple lines of fn decl
+            let decl_start = func.sig.fn_token.span().start().line + 1;
+            let stmts_start = func.block.span().start().line;
+            let lines = (decl_start..(stmts_start + 1)).collect::<Vec<_>>();
+            analysis.add_to_ignore(&lines);
         }
     }
 
@@ -154,13 +161,19 @@ impl SourceAnalysis {
                                 item.into_token_stream(),
                                 Some(ctx.file_contents),
                             );
+                            self.visit_generics(&i.sig.generics, ctx);
                             let analysis = self.get_line_analysis(ctx.file.to_path_buf());
-                            analysis.cover_logical_line(i.sig.span());
+                            analysis
+                                .ignore
+                                .remove(&Lines::Line(i.sig.span().start().line));
+
+                            // Ignore multiple lines of fn decl
+                            let decl_start = i.sig.fn_token.span().start().line + 1;
+                            let stmts_start = block.span().start().line;
+                            let lines = (decl_start..(stmts_start + 1)).collect::<Vec<_>>();
+                            analysis.add_to_ignore(&lines);
                             self.process_statements(&block.stmts, ctx);
                         }
-                    } else {
-                        let analysis = self.get_line_analysis(ctx.file.to_path_buf());
-                        analysis.ignore_tokens(i);
                     }
                     let analysis = self.get_line_analysis(ctx.file.to_path_buf());
                     for a in &i.attrs {
@@ -194,12 +207,15 @@ impl SourceAnalysis {
                             analysis.ignore_tokens(i);
                             return;
                         }
+                        self.visit_generics(&i.sig.generics, ctx);
+                        let analysis = self.get_line_analysis(ctx.file.to_path_buf());
+                        analysis.ignore.remove(&Lines::Line(i.span().start().line));
 
-                        let analysis = self.get_line_analysis(ctx.file.to_path_buf());
-                        analysis.cover_logical_line(i.sig.span());
-                    } else {
-                        let analysis = self.get_line_analysis(ctx.file.to_path_buf());
-                        analysis.ignore_tokens(item);
+                        // Ignore multiple lines of fn decl
+                        let decl_start = i.sig.fn_token.span().start().line + 1;
+                        let stmts_start = i.block.span().start().line;
+                        let lines = (decl_start..(stmts_start + 1)).collect::<Vec<_>>();
+                        analysis.add_to_ignore(&lines);
                     }
                     let analysis = self.get_line_analysis(ctx.file.to_path_buf());
                     for a in &i.attrs {

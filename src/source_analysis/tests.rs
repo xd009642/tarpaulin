@@ -623,6 +623,34 @@ fn filter_unsafe() {
 }
 
 #[test]
+fn filter_out_method_def_lines() {
+    let config = Config::default();
+    let ctx = Context {
+        config: &config,
+        file_contents: "struct MyStruct;
+        impl MyStruct {
+            fn foo<T>(x: u32,
+                y: T
+                ) where T: Debug 
+                + Clone
+            {
+                println!(\"hello world\");
+            }
+        }",
+        file: Path::new(""),
+        ignore_mods: RefCell::new(HashSet::new()),
+    };
+    let parser = parse_file(ctx.file_contents).unwrap();
+    let mut analysis = SourceAnalysis::new();
+    analysis.process_items(&parser.items, &ctx);
+    let lines = analysis.get_line_analysis(ctx.file.to_path_buf());
+    assert!(lines.cover.contains(&3));
+    assert!(lines.ignore.contains(&Lines::Line(4)));
+    assert!(lines.ignore.contains(&Lines::Line(5)));
+    assert!(lines.ignore.contains(&Lines::Line(6)));
+}
+
+#[test]
 fn cover_generic_impl_methods() {
     let config = Config::default();
     let ctx = Context {
@@ -1147,8 +1175,8 @@ fn filter_multi_line_decls() {
     let mut analysis = SourceAnalysis::new();
     analysis.process_items(&parser.items, &ctx);
     let lines = analysis.get_line_analysis(ctx.file.to_path_buf());
-    assert_eq!(lines.logical_lines.get(&2), Some(&1));
-    assert_eq!(lines.logical_lines.get(&3), Some(&1));
+    assert!(lines.ignore.contains(&Lines::Line(2)));
+    assert!(lines.ignore.contains(&Lines::Line(3)));
 
     let ctx = Context {
         config: &config,
@@ -1167,8 +1195,8 @@ fn filter_multi_line_decls() {
     let mut analysis = SourceAnalysis::new();
     analysis.process_items(&parser.items, &ctx);
     let lines = analysis.get_line_analysis(ctx.file.to_path_buf());
-    assert_eq!(lines.logical_lines.get(&4), Some(&3));
-    assert_eq!(lines.logical_lines.get(&5), Some(&3));
+    assert!(lines.ignore.contains(&Lines::Line(4)));
+    assert!(lines.ignore.contains(&Lines::Line(5)));
 
     let ctx = Context {
         config: &config,
@@ -1186,8 +1214,8 @@ fn filter_multi_line_decls() {
     let mut analysis = SourceAnalysis::new();
     analysis.process_items(&parser.items, &ctx);
     let lines = analysis.get_line_analysis(ctx.file.to_path_buf());
-    assert_eq!(lines.logical_lines.get(&3), Some(&2));
-    assert_eq!(lines.logical_lines.get(&4), Some(&2));
+    assert!(lines.ignore.contains(&Lines::Line(3)));
+    assert!(lines.ignore.contains(&Lines::Line(4)));
 }
 
 #[test]
