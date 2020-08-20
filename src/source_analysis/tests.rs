@@ -545,7 +545,7 @@ fn filter_where() {
     let mut analysis = SourceAnalysis::new();
     analysis.process_items(&parser.items, &ctx);
     let lines = analysis.get_line_analysis(ctx.file.to_path_buf());
-    assert_eq!(lines.logical_lines.get(&2), Some(&1));
+    assert!(lines.ignore.contains(&Lines::Line(2)));
 
     let ctx = Context {
         config: &config,
@@ -562,7 +562,7 @@ fn filter_where() {
     let mut analysis = SourceAnalysis::new();
     analysis.process_items(&parser.items, &ctx);
     let lines = analysis.get_line_analysis(ctx.file.to_path_buf());
-    assert_eq!(lines.logical_lines.get(&3), Some(&2));
+    assert!(lines.ignore.contains(&Lines::Line(3)));
 }
 
 #[test]

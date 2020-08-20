@@ -174,6 +174,9 @@ impl SourceAnalysis {
                             analysis.add_to_ignore(&lines);
                             self.process_statements(&block.stmts, ctx);
                         }
+                    } else {
+                        let analysis = self.get_line_analysis(ctx.file.to_path_buf());
+                        analysis.ignore_tokens(item);
                     }
                     let analysis = self.get_line_analysis(ctx.file.to_path_buf());
                     for a in &i.attrs {
@@ -216,6 +219,9 @@ impl SourceAnalysis {
                         let stmts_start = i.block.span().start().line;
                         let lines = (decl_start..(stmts_start + 1)).collect::<Vec<_>>();
                         analysis.add_to_ignore(&lines);
+                    } else {
+                        let analysis = self.get_line_analysis(ctx.file.to_path_buf());
+                        analysis.ignore_tokens(item);
                     }
                     let analysis = self.get_line_analysis(ctx.file.to_path_buf());
                     for a in &i.attrs {
