@@ -49,8 +49,63 @@ fn logical_lines_let_bindings() {
     assert!(!lines.logical_lines.contains_key(&7));
     assert!(!lines.logical_lines.contains_key(&8));
     assert!(!lines.logical_lines.contains_key(&9));
-    assert!(!lines.logical_lines.contains_key(&10));
-    assert!(!lines.logical_lines.contains_key(&11));
+
+    assert_eq!(lines.logical_lines.get(&3), Some(&2));
+    assert_eq!(lines.logical_lines.get(&10), Some(&2));
+    assert_eq!(lines.logical_lines.get(&11), Some(&2));
+}
+
+#[test]
+fn method_chain_logical_lines() {
+    let config = Config::default();
+    let ctx = Context {
+        config: &config,
+        file_contents: "fn foo() {
+        let x = (0..15)
+            .iter()
+            .filter(|x| {
+                if x % 3 == 0 {
+                    true
+                } else {
+                    false
+                }
+            })
+            .cloned()
+            .collect::<Vec<u32>>();
+        }",
+        file: Path::new(""),
+        ignore_mods: RefCell::new(HashSet::new()),
+    };
+
+    let parser = parse_file(ctx.file_contents).unwrap();
+    let mut analysis = SourceAnalysis::new();
+    analysis.process_items(&parser.items, &ctx);
+    let lines = analysis.get_line_analysis(ctx.file.to_path_buf());
+
+    assert_eq!(lines.logical_lines.get(&3), Some(&2));
+    assert_eq!(lines.logical_lines.get(&4), Some(&2));
+    assert_eq!(lines.logical_lines.get(&11), Some(&2));
+    assert_eq!(lines.logical_lines.get(&12), Some(&2));
+
+    let ctx = Context {
+        config: &config,
+        file_contents: "fn foo() {
+        let x = Foo::new()
+            .add_thing()?
+            .add_another()?
+            .build();
+        }",
+        file: Path::new(""),
+        ignore_mods: RefCell::new(HashSet::new()),
+    };
+
+    let parser = parse_file(ctx.file_contents).unwrap();
+    let mut analysis = SourceAnalysis::new();
+    analysis.process_items(&parser.items, &ctx);
+    let lines = analysis.get_line_analysis(ctx.file.to_path_buf());
+    assert_eq!(lines.logical_lines.get(&3), Some(&2));
+    assert_eq!(lines.logical_lines.get(&4), Some(&2));
+    assert_eq!(lines.logical_lines.get(&5), Some(&2));
 }
 
 #[test]

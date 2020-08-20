@@ -295,7 +295,11 @@ impl SourceAnalysis {
         while let Expr::MethodCall(meth) = *above {
             spans.push(meth.method.span());
             above = meth.receiver.clone();
+            if let Expr::Try(t) = *above {
+                above = t.expr.clone();
+            }
         }
+        spans.push(above.span());
         if let Some(base) = spans.pop() {
             let analysis = self.get_line_analysis(ctx.file.to_path_buf());
             let base = base.start().line;
