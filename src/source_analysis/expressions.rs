@@ -15,6 +15,7 @@ impl SourceAnalysis {
         }
         let res = match *expr {
             Expr::Macro(ref m) => self.visit_macro_call(&m.mac, ctx),
+            Expr::Binary(ref b) => self.visit_binary(b, ctx),
             Expr::Assign(ref a) => self.visit_assign(&a, ctx),
             Expr::AssignOp(ref a) => self.visit_assign_op(&a, ctx),
             Expr::Struct(ref s) => self.visit_struct_expr(&s, ctx),
@@ -67,6 +68,12 @@ impl SourceAnalysis {
         } else {
             analysis.ignore_tokens(assign);
         }
+        SubResult::Ok
+    }
+
+    fn visit_binary(&mut self, binary: &ExprBinary, ctx: &Context) -> SubResult {
+        let analysis = self.get_line_analysis(ctx.file.to_path_buf());
+        analysis.cover_logical_line(binary.span());
         SubResult::Ok
     }
 

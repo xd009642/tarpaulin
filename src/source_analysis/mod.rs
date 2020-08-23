@@ -80,15 +80,19 @@ impl SourceAnalysisQuery for HashMap<PathBuf, LineAnalysis> {
         }
     }
 
-    fn normalise(&self, path: &Path, l: usize) -> (PathBuf, usize) {
+    fn normalise(&self, path: &Path, mut l: usize) -> (PathBuf, usize) {
+        const DEPTH_LIMIT: usize = 10;
         let pb = path.to_path_buf();
-        match self.get(path) {
-            Some(s) => match s.logical_lines.get(&l) {
-                Some(o) => (pb, *o),
-                _ => (pb, l),
-            },
-            _ => (pb, l),
+        if let Some(s) = self.get(path) {
+            for _ in 0..DEPTH_LIMIT {
+                if let Some(o) = s.logical_lines.get(&l) {
+                    l = *o;
+                } else {
+                    break;
+                }
+            }
         }
+        (pb, l)
     }
 }
 
@@ -251,6 +255,7 @@ impl SourceAnalysis {
             if !ignored_files.contains(e.path()) {
                 result.analyse_package(e.path(), &root, &config, &mut ignored_files);
             } else {
+                trace!("Ignoring file {}", e.path().display());
                 let mut analysis = LineAnalysis::new();
                 analysis.ignore_all();
                 result.lines.insert(e.path().to_path_buf(), analysis);

@@ -51,7 +51,7 @@ pub fn is_coverable_file_path(
     } else {
         true
     };
-    valid_package && !(is_target_folder(e, &target) || is_hidden(e) || is_cargo_home(e, &root))
+    valid_package && !(is_target_folder(e, target) || is_hidden(e) || is_cargo_home(e, root))
 }
 
 pub fn get_source_walker(config: &Config) -> impl Iterator<Item = DirEntry> {

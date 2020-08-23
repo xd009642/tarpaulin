@@ -154,7 +154,12 @@ pub fn amount_covered(traces: &[&Trace]) -> usize {
 }
 
 pub fn coverage_percentage(traces: &[&Trace]) -> f64 {
-    (amount_covered(traces) as f64) / (amount_coverable(traces) as f64)
+    let coverable = amount_coverable(traces);
+    if coverable == 0 {
+        100.0 // if there's nothing to cover we've got it all...
+    } else {
+        (amount_covered(traces) as f64) / coverable as f64
+    }
 }
 
 /// Stores all the program traces mapped to files and provides an interface to
