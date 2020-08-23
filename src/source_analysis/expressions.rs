@@ -83,6 +83,7 @@ impl SourceAnalysis {
             if base_line != spn.end().line {
                 // Now check the other lines
                 let lhs = let_expr.pat.span();
+                analysis.cover.insert(base_line);
                 if lhs.start().line != base_line {
                     analysis.logical_lines.insert(lhs.start().line, base_line);
                 }
@@ -274,8 +275,8 @@ impl SourceAnalysis {
 
     fn visit_methodcall(&mut self, meth: &ExprMethodCall, ctx: &Context) -> SubResult {
         if self.check_attr_list(&meth.attrs, ctx) {
-            self.handle_method_chains(meth, ctx);
             self.process_expr(&meth.receiver, ctx);
+            self.handle_method_chains(meth, ctx);
             if let Some(spn) = meth.method.span().join(meth.paren_token.span) {
                 self.visit_args(spn, &meth.args, ctx);
             } else {
@@ -300,12 +301,15 @@ impl SourceAnalysis {
             }
         }
         spans.push(above.span());
+        println!("{:?}", spans);
         if let Some(base) = spans.pop() {
             let analysis = self.get_line_analysis(ctx.file.to_path_buf());
             let base = base.start().line;
+            println!("Base line {}", base);
             for span in &spans {
                 analysis.cover_logical_line_with_base(*span, base);
             }
+            println!("Analysis {:?}", analysis);
         }
     }
 

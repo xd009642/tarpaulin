@@ -22,11 +22,11 @@ fn simple_method_call() {
 
     let _is_4_in_list = vec![1, 2, 3, 4].contains(&4);
     let _is_4_in_list = vec![1, 2, 3, 4]
-        .contains(&4); // FIXME: This line is not covered.
+        .contains(&4); 
 
     let _is_4_in_list = Vec::new().contains(&4);
     let _is_4_in_list = Vec::new()
-        .contains(&4); // FIXME: This line is not covered.
+        .contains(&4); 
 }
 
 #[test]
@@ -44,7 +44,7 @@ fn simple_method_call_with_try() -> Result<(), Box<dyn std::error::Error>> {
     let mut test = File::open("Cargo.toml")?;
     let mut string = String::new();
     test
-        .read_to_string(&mut string)?; // FIXME: This line is not covered.
+        .read_to_string(&mut string)?; 
 
     Ok(())
 }
@@ -68,20 +68,20 @@ fn method_call_chain() {
     let _is_4_in_list = Vec::new()
         .iter()
         .collect::<Vec<_>>()
-        .contains(&&4); // FIXME: This line is not covered.
+        .contains(&&4); 
 
     let _is_4_in_list = vec![1, 2, 3, 4]
         .iter()
         .map(|&x| x)
         .collect::<Vec<_>>()
-        .contains(&&4); // FIXME: This line is not covered.
+        .contains(&&4); 
 
     let _is_4_in_list = vec![1, 2, 3, 4]
         .iter()
         .filter(|&x| x%2 != 0)
         .map(|&x| x)
         .collect::<Vec<_>>()
-        .contains(&&4); // FIXME: This line is not covered.
+        .contains(&&4); 
 
     let _is_4_in_list = vec![1, 2, 3, 4]
         .as_slice()
@@ -89,7 +89,7 @@ fn method_call_chain() {
         .filter(|&x| x%2 != 0)
         .map(|&x| x)
         .collect::<Vec<_>>()
-        .contains(&&4); // FIXME: This line is not covered.
+        .contains(&&4);
 
     let _is_4_in_list = vec![1, 2, 3, 4]
         .as_slice()
@@ -98,7 +98,7 @@ fn method_call_chain() {
         .map(|&x| x)
         .collect::<Vec<_>>()
         .contains(&&4)
-        .to_string(); // FIXME: This line is not covered.
+        .to_string(); 
 
     let _is_4_in_list = vec![1, 2, 3, 4]
         .as_slice()
@@ -119,7 +119,7 @@ fn method_call_chain() {
         .contains(&&4)
         .to_string()
         .clone()
-        .trim(); // FIXME: This line is not covered.
+        .trim(); 
 }
 
 #[test]
@@ -148,7 +148,7 @@ fn method_call_chain_with_try() -> Result<(), Box<dyn std::error::Error>> {
         .reverse_bits()
         .clone()
         .to_string()
-        .parse::<i32>()?; // FIXME: This line is not covered.
+        .parse::<i32>()?;
 
     let _num: i32 = "123"
         .clone()
@@ -159,7 +159,7 @@ fn method_call_chain_with_try() -> Result<(), Box<dyn std::error::Error>> {
         .clone()
         .to_string()
         .parse::<i32>()?
-        .clone(); // FIXME: This line is not covered.
+        .clone(); 
 
     Ok(())
 }
@@ -180,7 +180,7 @@ fn method_call_with_collect_try() -> Result<(), Box<dyn std::error::Error>> {
     let _collect_with_try = strings
         .iter()
         .map(|s| s.parse::<i32>())
-        .collect::<Result<Vec<_>, _>>()?; // FIXME: This line is not covered.
+        .collect::<Result<Vec<_>, _>>()?; 
 
     let _collect_no_try = vec!["93", "18"].into_iter().map(|s| s.parse::<i32>()).collect::<Result<Vec<_>, _>>();
     let _collect_no_try = vec!["93", "18"]

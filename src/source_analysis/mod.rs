@@ -140,9 +140,15 @@ impl LineAnalysis {
     }
 
     pub fn cover_logical_line_with_base(&mut self, span: Span, base: usize) {
-        self.cover.insert(base);
+        let mut inserted = false;
         for i in span.start().line..(span.end().line + 1) {
-            self.logical_lines.insert(i, base);
+            if !self.logical_lines.contains_key(&i) {
+                inserted = true;
+                self.logical_lines.insert(i, base);
+            }
+        }
+        if inserted {
+            self.cover.insert(base);
         }
     }
 

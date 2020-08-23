@@ -106,6 +106,29 @@ fn method_chain_logical_lines() {
     assert_eq!(lines.logical_lines.get(&3), Some(&2));
     assert_eq!(lines.logical_lines.get(&4), Some(&2));
     assert_eq!(lines.logical_lines.get(&5), Some(&2));
+
+    let ctx = Context {
+        config: &config,
+        file_contents: r#"fn foo() {
+            let _equal = "Ferrös"
+                .eq_ignore_ascii_case("FERRöS");
+            
+            let _truth = num
+                .contains("23")
+                .to_string();
+        }
+        "#,
+        file: Path::new(""),
+        ignore_mods: RefCell::new(HashSet::new()),
+    };
+
+    let parser = parse_file(ctx.file_contents).unwrap();
+    let mut analysis = SourceAnalysis::new();
+    analysis.process_items(&parser.items, &ctx);
+    let lines = analysis.get_line_analysis(ctx.file.to_path_buf());
+    assert_eq!(lines.logical_lines.get(&3), Some(&2));
+    assert_eq!(lines.logical_lines.get(&6), Some(&5));
+    assert_eq!(lines.logical_lines.get(&7), Some(&5));
 }
 
 #[test]
