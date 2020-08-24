@@ -20,6 +20,7 @@ fn logical_lines_let_bindings() {
     let lines = analysis.get_line_analysis(ctx.file.to_path_buf());
     assert_eq!(lines.logical_lines.get(&3).copied(), Some(2));
     assert_eq!(lines.logical_lines.get(&4).copied(), Some(2));
+    assert!(lines.cover.contains(&2));
 
     let ctx = Context {
         config: &config,
@@ -43,6 +44,7 @@ fn logical_lines_let_bindings() {
     let mut analysis = SourceAnalysis::new();
     analysis.process_items(&parser.items, &ctx);
     let lines = analysis.get_line_analysis(ctx.file.to_path_buf());
+    assert!(lines.cover.contains(&2));
     assert!(!lines.logical_lines.contains_key(&4));
     assert!(!lines.logical_lines.contains_key(&5));
     assert!(!lines.logical_lines.contains_key(&6));

@@ -149,12 +149,13 @@ impl SourceAnalysis {
         }
     }
 
-    fn visit_block(&mut self, block: &Block, ctx: &Context) -> SubResult {
+    pub(crate) fn visit_block(&mut self, block: &Block, ctx: &Context) -> SubResult {
         if let SubResult::Unreachable = self.process_statements(&block.stmts, ctx) {
             let analysis = self.get_line_analysis(ctx.file.to_path_buf());
             analysis.ignore_tokens(block);
             SubResult::Unreachable
         } else {
+            self.process_statements(&block.stmts, ctx);
             SubResult::Ok
         }
     }
@@ -308,15 +309,12 @@ impl SourceAnalysis {
             }
         }
         spans.push(above.span());
-        println!("{:?}", spans);
         if let Some(base) = spans.pop() {
             let analysis = self.get_line_analysis(ctx.file.to_path_buf());
             let base = base.start().line;
-            println!("Base line {}", base);
             for span in &spans {
                 analysis.cover_logical_line_with_base(*span, base);
             }
-            println!("Analysis {:?}", analysis);
         }
     }
 

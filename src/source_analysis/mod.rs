@@ -146,7 +146,7 @@ impl LineAnalysis {
     pub fn cover_logical_line_with_base(&mut self, span: Span, base: usize) {
         let mut inserted = false;
         for i in span.start().line..(span.end().line + 1) {
-            if !self.logical_lines.contains_key(&i) {
+            if !self.logical_lines.contains_key(&i) && i != base {
                 inserted = true;
                 self.logical_lines.insert(i, base);
             }
@@ -189,7 +189,9 @@ impl LineAnalysis {
             }
         }
         for i in span.start().line..(span.end().line + 1) {
-            if !self.ignore.contains(&Lines::Line(i)) && useful_lines.contains(&i) {
+            if !self.ignore.contains(&Lines::Line(i))
+                && (useful_lines.is_empty() || useful_lines.contains(&i))
+            {
                 self.cover.insert(i);
             }
         }

@@ -34,6 +34,7 @@ impl SourceAnalysis {
                 }
                 let spn = local.span();
                 let base_line = local.let_token.span().start().line;
+                analysis.cover_span(local.let_token.span(), None);
                 if base_line != spn.end().line {
                     // Now check the other lines
                     let lhs = local.pat.span();
@@ -57,7 +58,6 @@ impl SourceAnalysis {
                 analysis.ignore_tokens(local);
             }
         }
-
         SubResult::Ok
     }
 }
