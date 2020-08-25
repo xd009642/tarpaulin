@@ -93,15 +93,17 @@ pub fn export(coverage_data: &TraceMap, config: &Config) -> Result<(), RunError>
         var data = {};
         var previousData = {};
     </script>
-    <script crossorigin src="https://unpkg.com/react@16/umd/react.production.min.js"></script>
-    <script crossorigin src="https://unpkg.com/react-dom@16/umd/react-dom.production.min.js"></script>
+    <script crossorigin>{}</script>
+    <script crossorigin>{}</script>
     <script>{}</script>
 </body>
 </html>"##,
         include_str!("report_viewer.css"),
         report_json,
         previous_report_json,
-        include_str!("report_viewer.js")
+        include_str!("react.production.min.js"),
+        include_str!("react-dom.production.min.js"),
+        include_str!("report_viewer.js"),
     ) {
         Ok(_) => (),
         Err(e) => return Err(RunError::Html(e.to_string())),
