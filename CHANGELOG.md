@@ -9,11 +9,13 @@ file.
 - Added `--print-rust-flags` and `--print-rustdoc-flags` to print the set of 
 `RUSTFLAGS` and `RUSTDOCFLAGS` that can occur across all configs to aid user 
 debugging
+- Source analysis for group, await, async block, try and try block expressions
 
 ### Changed
 - Don't report coverage when not running tests
 - Inline react scripts to HTML to allow rendering on more restrictive security
 policies (issue #534)
+- Check addresses are within .text section
 
 ### Removed
 
