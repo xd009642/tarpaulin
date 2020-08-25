@@ -12,6 +12,8 @@ debugging
 
 ### Changed
 - Don't report coverage when not running tests
+- Inline react scripts to HTML to allow rendering on more restrictive security
+policies (issue #534)
 
 ### Removed
 
