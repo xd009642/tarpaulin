@@ -24,6 +24,11 @@ impl SourceAnalysis {
             Expr::Closure(ref c) => self.visit_closure(&c, ctx),
             Expr::Path(ref p) => self.visit_path(&p, ctx),
             Expr::Let(ref l) => self.visit_let(&l, ctx),
+            Expr::Group(ref g) => self.process_expr(&g.expr, ctx),
+            Expr::Await(ref a) => self.process_expr(&a.base, ctx),
+            Expr::Async(ref a) => self.visit_block(&a.block, ctx),
+            Expr::Try(ref t) => self.process_expr(&t.expr, ctx),
+            Expr::TryBlock(ref t) => self.visit_block(&t.block, ctx),
             // don't try to compute unreachability on other things
             _ => SubResult::Ok,
         };

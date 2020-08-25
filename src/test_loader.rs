@@ -237,6 +237,8 @@ fn get_line_addresses(
     let debug_line = obj.section_by_name(".debug_line").ok_or(Error::Io)?;
     let debug_line = DebugLine::new(debug_line.data().map_err(io_err)?, endian);
 
+    let base_addr = obj.section_by_name(".text").ok_or(Error::Io)?;
+
     let mut iter = debug_info.units();
     while let Ok(Some(cu)) = iter.next() {
         let addr_size = cu.address_size();
@@ -294,6 +296,11 @@ fn get_line_addresses(
                     let mut fn_name = None;
                     for v in val.iter() {
                         if let Some(a) = v.address {
+                            if a < base_addr.address()
+                                && a >= (base_addr.address() + base_addr.size())
+                            {
+                                continue;
+                            }
                             address.insert(a);
                             trace!(
                                 "Adding trace at address 0x{:x} in {}:{}",
