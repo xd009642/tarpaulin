@@ -42,16 +42,23 @@ pub fn is_coverable_file_path(
     target: &Path,
     config: Option<&Config>,
 ) -> bool {
-    let valid_package = if let Some(c) = config {
-        let check = |x| e.starts_with(root.join(x));
-        let excluded = c.exclude.iter().any(check);
-        let included = c.packages.iter().any(check);
-        // If it is explicitly included or we've passed --workspace and not --exclude
-        included || (c.all && !excluded)
+    let valid_package = if e == root {
+        true
+    } else if let Some(c) = config {
+        if !c.all {
+            true
+        } else {
+            let check = |x| e.starts_with(root.join(x));
+            let excluded = c.exclude.iter().any(check);
+            let included = c.packages.iter().any(check);
+            // If it is explicitly included or we've passed --workspace and not --exclude
+            included || (c.all && !excluded)
+        }
     } else {
         true
     };
-    valid_package && !(is_target_folder(e, target) || is_hidden(e) || is_cargo_home(e, root))
+    let project_file = !(is_target_folder(e, target) || is_hidden(e) || is_cargo_home(e, root));
+    valid_package && project_file
 }
 
 pub fn get_source_walker(config: &Config) -> impl Iterator<Item = DirEntry> {
@@ -59,7 +66,6 @@ pub fn get_source_walker(config: &Config) -> impl Iterator<Item = DirEntry> {
     let target = config.target_dir();
     // TODO this is a bit annoying...
     let config = Some(config.clone());
-
     let walker = WalkDir::new(&root).into_iter();
     walker
         .filter_entry(move |e| is_coverable_file_path(e.path(), &root, &target, config.as_ref()))

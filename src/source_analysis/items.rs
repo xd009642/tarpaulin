@@ -184,9 +184,6 @@ impl SourceAnalysis {
                     for a in &i.attrs {
                         analysis.ignore_tokens(a);
                     }
-                    if let Some(block) = i.default.as_ref() {
-                        self.visit_block(block, ctx);
-                    }
                 }
             }
             self.visit_generics(&trait_item.generics, ctx);
@@ -224,6 +221,7 @@ impl SourceAnalysis {
                         let stmts_start = i.block.span().start().line;
                         let lines = (decl_start..(stmts_start + 1)).collect::<Vec<_>>();
                         analysis.add_to_ignore(&lines);
+                        self.process_statements(&i.block.stmts, ctx);
                     } else {
                         let analysis = self.get_line_analysis(ctx.file.to_path_buf());
                         analysis.ignore_tokens(item);
@@ -232,7 +230,6 @@ impl SourceAnalysis {
                     for a in &i.attrs {
                         analysis.ignore_tokens(a);
                     }
-                    self.visit_block(&i.block, ctx);
                 }
             }
             self.visit_generics(&impl_blk.generics, ctx);

@@ -9,6 +9,7 @@ impl SourceAnalysis {
         for stmt in stmts.iter() {
             let res = match *stmt {
                 Stmt::Item(ref i) => self.process_items(&[i.clone()], ctx),
+                // I might need to change process_expr to take account on if it's a return expr
                 Stmt::Expr(ref i) | Stmt::Semi(ref i, _) => self.process_expr(&i, ctx),
                 Stmt::Local(ref i) => self.process_local(&i, ctx),
             };

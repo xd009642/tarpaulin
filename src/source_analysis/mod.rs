@@ -151,7 +151,7 @@ impl LineAnalysis {
                 self.logical_lines.insert(i, base);
             }
         }
-        if inserted {
+        if inserted || span.start().line == span.end().line {
             self.cover.insert(base);
         }
     }
@@ -255,6 +255,7 @@ impl SourceAnalysis {
 
         for e in get_source_walker(config) {
             if !ignored_files.contains(e.path()) {
+                trace!("Analysing file {}", e.path().display());
                 result.analyse_package(e.path(), &root, &config, &mut ignored_files);
             } else {
                 trace!("Ignoring file {}", e.path().display());
