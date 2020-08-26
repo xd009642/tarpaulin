@@ -279,6 +279,35 @@ fn find_panics_in_file(file: &Path) -> io::Result<Vec<usize>> {
     Ok(lines)
 }
 
+fn create_rustc_command(
+    manifest_path: &str,
+    config: &Config,
+    ty: Option<RunType>,
+) -> Option<Command> {
+    if let Some(ref metadata) = *config.get_metadata() {
+        let mut test_cmd = Command::new("cargo");
+        if ty == Some(RunType::Doctests) {
+            if let Some(toolchain) = env::var("RUSTUP_TOOLCHAIN")
+                .ok()
+                .filter(|t| t.starts_with("nightly"))
+            {
+                test_cmd.arg(format!("+{}", toolchain));
+            } else {
+                test_cmd.arg("+nightly");
+            }
+        } else {
+            if let Ok(toolchain) = env::var("RUSTUP_TOOLCHAIN") {
+                test_cmd.arg(format!("+{}", toolchain));
+            }
+        }
+        test_cmd.arg("rustc");
+
+        Some(test_cmd)
+    } else {
+        None
+    }
+}
+
 fn create_command(manifest_path: &str, config: &Config, ty: Option<RunType>) -> Command {
     let mut test_cmd = Command::new("cargo");
     if ty == Some(RunType::Doctests) {
