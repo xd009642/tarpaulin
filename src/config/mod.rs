@@ -1,7 +1,7 @@
 pub use self::types::*;
 
 use self::parse::*;
-use cargo_metadata::{Metadata, MetadataCommand, Package};
+use cargo_metadata::{CargoOpt, Metadata, MetadataCommand, Package};
 use clap::{value_t, ArgMatches};
 use coveralls_api::CiService;
 use humantime_serde::deserialize as humantime_serde;
@@ -325,9 +325,20 @@ impl Config {
         result
     }
 
-    fn get_metadata(&self) -> Ref<Option<Metadata>> {
+    pub fn get_metadata(&self) -> Ref<Option<Metadata>> {
         if self.metadata.borrow().is_none() {
-            match MetadataCommand::new().manifest_path(&self.manifest).exec() {
+            let mut command = MetadataCommand::new();
+            command.manifest_path(&self.manifest);
+            if self.no_default_features {
+                command.features(CargoOpt::NoDefaultFeatures);
+            } else if self.all_features {
+                command.features(CargoOpt::AllFeatures);
+            }
+            if let Some(f) = self.features.as_ref() {
+                let features = f.split(" ").map(|x| x.to_string()).collect();
+                command.features(CargoOpt::SomeFeatures(features));
+            }
+            match command.exec() {
                 Ok(meta) => {
                     self.metadata.replace(Some(meta));
                 }
@@ -336,6 +347,7 @@ impl Config {
         }
         self.metadata.borrow()
     }
+
     pub fn root(&self) -> PathBuf {
         match *self.get_metadata() {
             Some(ref meta) => meta.workspace_root.clone(),
