@@ -16,6 +16,7 @@ debugging
 - Inline react scripts to HTML to allow rendering on more restrictive security
 policies (issue #534)
 - Check addresses are within .text section
+- Apply line one filtering to all files not just src/main.rs
 
 ### Removed
 

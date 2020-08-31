@@ -282,11 +282,7 @@ impl SourceAnalysis {
                                 }
                             }
                         }
-                        // This could probably be done with the DWARF if I could find a discriminating factor
-                        // to why lib.rs:1 shows up as a real line!
-                        if path.ends_with("src/lib.rs") {
-                            analyse_lib_rs(path, &mut self.lines);
-                        }
+                        maybe_ignore_first_line(path, &mut self.lines);
                     }
                 }
             }
@@ -376,8 +372,10 @@ impl SourceAnalysis {
     }
 }
 
-/// Analyse the crates lib.rs for some common false positives
-fn analyse_lib_rs(file: &Path, result: &mut HashMap<PathBuf, LineAnalysis>) {
+/// lib.rs:1 can often show up as a coverable line when it's not. This ignores
+/// that line as long as it's not a real source line. This can also affect
+/// the main files for binaries in a project as well.
+fn maybe_ignore_first_line(file: &Path, result: &mut HashMap<PathBuf, LineAnalysis>) {
     if let Ok(f) = File::open(file) {
         let read_file = BufReader::new(f);
         if let Some(Ok(first)) = read_file.lines().next() {
