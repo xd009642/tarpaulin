@@ -5,7 +5,7 @@ use crate::event_log::*;
 use crate::path_utils::*;
 use crate::process_handling::*;
 use crate::report::report_coverage;
-use crate::source_analysis::LineAnalysis;
+use crate::source_analysis::{LineAnalysis, SourceAnalysis};
 use crate::statemachine::*;
 use crate::test_loader::*;
 use crate::traces::*;
@@ -17,8 +17,9 @@ use std::ffi::CString;
 use std::fs::create_dir_all;
 use std::path::{Path, PathBuf};
 
+pub mod branching;
 pub mod breakpoint;
-mod cargo;
+pub mod cargo;
 pub mod config;
 pub mod errors;
 pub mod event_log;
@@ -41,7 +42,7 @@ pub fn trace(configs: &[Config]) -> Result<TraceMap, RunError> {
     } else {
         None
     };
-
+    let mut bad_threshold = None;
     for config in configs.iter() {
         if config.name == "report" {
             continue;
@@ -64,6 +65,7 @@ pub fn trace(configs: &[Config]) -> Result<TraceMap, RunError> {
         match launch_tarpaulin(config, &logger) {
             Ok((t, r)) => {
                 ret |= r;
+                bad_threshold = check_fail_threshold(&t, config);
                 tracemap.merge(&t);
             }
             Err(e) => {
@@ -73,11 +75,24 @@ pub fn trace(configs: &[Config]) -> Result<TraceMap, RunError> {
         }
     }
     tracemap.dedup();
-
-    if ret == 0 {
+    if let Some(bad_limit) = bad_threshold {
+        Err(bad_limit)
+    } else if ret == 0 {
         tarpaulin_result.map(|_| tracemap)
     } else {
         Err(RunError::TestFailed)
+    }
+}
+
+fn check_fail_threshold(traces: &TraceMap, config: &Config) -> Option<RunError> {
+    let percent = traces.coverage_percentage() * 100.0;
+    match config.fail_under.as_ref() {
+        Some(limit) if percent < *limit => {
+            let error = RunError::BelowThreshold(percent, *limit);
+            error!("{}", error);
+            Some(error)
+        }
+        _ => None,
     }
 }
 
@@ -90,16 +105,21 @@ pub fn run(configs: &[Config]) -> Result<(), RunError> {
         }
     }
     if configs.len() == 1 {
-        report_coverage(&configs[0], &tracemap)?;
+        if !configs[0].no_run {
+            report_coverage(&configs[0], &tracemap)?;
+        }
     } else if !configs.is_empty() {
         let mut reported = false;
         for c in configs.iter() {
-            if c.name == "report" {
+            if !c.no_run && c.name == "report" {
                 reported = true;
                 report_coverage(c, &tracemap)?;
+                if let Some(e) = check_fail_threshold(&tracemap, c) {
+                    return Err(e);
+                }
             }
         }
-        if !reported {
+        if !configs[0].no_run && !reported {
             report_coverage(&configs[0], &tracemap)?;
         }
     }
@@ -123,7 +143,8 @@ pub fn launch_tarpaulin(
     info!("Building project");
     let executables = cargo::get_tests(config)?;
     if !config.no_run {
-        let project_analysis = source_analysis::get_line_analysis(config);
+        let project_analysis = SourceAnalysis::get_analysis(config);
+        let project_analysis = project_analysis.lines;
         for exe in &executables {
             if exe.should_panic() {
                 info!("Running a test executable that is expected to panic");

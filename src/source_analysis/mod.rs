@@ -1,6 +1,6 @@
+use crate::branching::BranchAnalysis;
 use crate::config::{Config, RunType};
 use crate::path_utils::{get_source_walker, is_source_file};
-use items::process_items;
 use lazy_static::lazy_static;
 use log::trace;
 use proc_macro2::{Span, TokenStream};
@@ -11,6 +11,7 @@ use std::collections::{HashMap, HashSet};
 use std::fs::File;
 use std::io::{BufRead, BufReader, Read};
 use std::path::{Path, PathBuf};
+use syn::spanned::Spanned;
 use syn::*;
 use walkdir::WalkDir;
 
@@ -25,9 +26,7 @@ mod tests;
 pub(crate) mod prelude {
     pub(crate) use super::*;
     pub(crate) use attributes::*;
-    pub(crate) use expressions::*;
     pub(crate) use macros::*;
-    pub(crate) use statements::*;
 }
 
 /// Enumeration representing which lines to ignore
@@ -145,19 +144,19 @@ impl LineAnalysis {
         if let Some(ref c) = contents {
             lazy_static! {
                 static ref SINGLE_LINE: Regex = Regex::new(r"\s*//").unwrap();
-                static ref MULTI_START: Regex = Regex::new(r"/\*").unwrap();
-                static ref MULTI_END: Regex = Regex::new(r"\*/").unwrap();
             }
+            const MULTI_START: &str = "/*";
+            const MULTI_END: &str = "*/";
             let len = span.end().line - span.start().line;
             let mut is_comment = false;
             for (i, line) in c.lines().enumerate().skip(span.start().line - 1).take(len) {
-                let is_code = if MULTI_START.is_match(line) {
-                    if !MULTI_END.is_match(line) {
+                let is_code = if line.contains(MULTI_START) {
+                    if !line.contains(MULTI_END) {
                         is_comment = true;
                     }
                     false
                 } else if is_comment {
-                    if MULTI_END.is_match(line) {
+                    if line.contains(MULTI_END) {
                         is_comment = false;
                     }
                     false
@@ -194,88 +193,202 @@ impl LineAnalysis {
     }
 }
 
-/// Returns a list of files and line numbers to ignore (not indexes!)
-pub fn get_line_analysis(config: &Config) -> HashMap<PathBuf, LineAnalysis> {
-    let mut result: HashMap<PathBuf, LineAnalysis> = HashMap::new();
-
-    let mut ignored_files: HashSet<PathBuf> = HashSet::new();
-    let root = config.root();
-
-    for e in get_source_walker(config) {
-        if !ignored_files.contains(e.path()) {
-            analyse_package(e.path(), &root, &config, &mut result, &mut ignored_files);
-        } else {
-            let mut analysis = LineAnalysis::new();
-            analysis.ignore_all();
-            result.insert(e.path().to_path_buf(), analysis);
-            ignored_files.remove(e.path());
-        }
-    }
-    for e in &ignored_files {
-        let mut analysis = LineAnalysis::new();
-        analysis.ignore_all();
-        result.insert(e.to_path_buf(), analysis);
-    }
-
-    debug_printout(&result, config);
-
-    result
+pub struct SourceAnalysis {
+    pub lines: HashMap<PathBuf, LineAnalysis>,
+    pub branches: HashMap<PathBuf, BranchAnalysis>,
 }
 
-/// Printout a debug summary of the results of source analysis if debug logging
-/// is enabled
-pub fn debug_printout(result: &HashMap<PathBuf, LineAnalysis>, config: &Config) {
-    if config.debug {
-        for (ref path, ref analysis) in result {
-            trace!(
-                "Source analysis for {}",
-                config.strip_base_dir(path).display()
-            );
-            let mut lines = Vec::new();
-            for l in &analysis.ignore {
-                match l {
-                    Lines::All => {
-                        lines.clear();
-                        trace!("All lines are ignorable");
-                        break;
-                    }
-                    Lines::Line(i) => {
-                        lines.push(i);
+impl SourceAnalysis {
+    pub fn new() -> Self {
+        Self {
+            lines: HashMap::new(),
+            branches: HashMap::new(),
+        }
+    }
+
+    pub fn get_line_analysis(&mut self, path: PathBuf) -> &mut LineAnalysis {
+        self.lines.entry(path).or_insert_with(LineAnalysis::new)
+    }
+
+    pub fn get_branch_analysis(&mut self, path: PathBuf) -> &mut BranchAnalysis {
+        self.branches
+            .entry(path)
+            .or_insert_with(BranchAnalysis::new)
+    }
+
+    pub fn get_analysis(config: &Config) -> Self {
+        let mut result = Self::new();
+        let mut ignored_files: HashSet<PathBuf> = HashSet::new();
+        let root = config.root();
+
+        for e in get_source_walker(config) {
+            if !ignored_files.contains(e.path()) {
+                result.analyse_package(e.path(), &root, &config, &mut ignored_files);
+            } else {
+                let mut analysis = LineAnalysis::new();
+                analysis.ignore_all();
+                result.lines.insert(e.path().to_path_buf(), analysis);
+                ignored_files.remove(e.path());
+            }
+        }
+        for e in &ignored_files {
+            let mut analysis = LineAnalysis::new();
+            analysis.ignore_all();
+            result.lines.insert(e.to_path_buf(), analysis);
+        }
+
+        result.debug_printout(config);
+
+        result
+    }
+
+    /// Analyses a package of the target crate.
+    fn analyse_package(
+        &mut self,
+        path: &Path,
+        root: &Path,
+        config: &Config,
+        filtered_files: &mut HashSet<PathBuf>,
+    ) {
+        if let Some(file) = path.to_str() {
+            let skip_cause_test = config.ignore_tests && path.starts_with(root.join("tests"));
+            let skip_cause_example = path.starts_with(root.join("examples"))
+                && !config.run_types.contains(&RunType::Examples);
+            if !(skip_cause_test || skip_cause_example) {
+                let file = File::open(file);
+                if let Ok(mut file) = file {
+                    let mut content = String::new();
+                    let _ = file.read_to_string(&mut content);
+                    let file = parse_file(&content);
+                    if let Ok(file) = file {
+                        let ctx = Context {
+                            config,
+                            file_contents: &content,
+                            file: path,
+                            ignore_mods: RefCell::new(HashSet::new()),
+                        };
+                        if self.check_attr_list(&file.attrs, &ctx) {
+                            self.find_ignorable_lines(&ctx);
+                            self.process_items(&file.items, &ctx);
+
+                            let mut ignored_files = ctx.ignore_mods.into_inner();
+                            for f in ignored_files.drain() {
+                                if f.is_file() {
+                                    filtered_files.insert(f);
+                                } else {
+                                    let walker = WalkDir::new(f).into_iter();
+                                    for e in
+                                        walker.filter_map(|e| e.ok()).filter(|e| is_source_file(e))
+                                    {
+                                        filtered_files.insert(e.path().to_path_buf());
+                                    }
+                                }
+                            }
+                            maybe_ignore_first_line(path, &mut self.lines);
+                        } else {
+                            let analysis = self.get_line_analysis(path.to_path_buf());
+                            analysis.ignore_span(file.span());
+                        }
                     }
                 }
             }
-            if !lines.is_empty() {
-                lines.sort();
-                trace!("Ignorable lines: {:?}", lines);
-                lines.clear()
-            }
-            for c in &analysis.cover {
-                lines.push(c);
-            }
+        }
+    }
 
-            if !lines.is_empty() {
-                lines.sort();
-                trace!("Coverable lines: {:?}", lines);
+    /// Finds lines from the raw string which are ignorable.
+    /// These are often things like close braces, semi colons that may regiser as
+    /// false positives.
+    fn find_ignorable_lines(&mut self, ctx: &Context) {
+        lazy_static! {
+            static ref IGNORABLE: Regex =
+                Regex::new(r"^((\s*///)|([\[\]\{\}\(\)\s;\?,/]*$))").unwrap();
+        }
+        let analysis = self.get_line_analysis(ctx.file.to_path_buf());
+        let lines = ctx
+            .file_contents
+            .lines()
+            .enumerate()
+            .filter(|&(_, x)| IGNORABLE.is_match(&x))
+            .map(|(i, _)| i + 1)
+            .collect::<Vec<usize>>();
+        analysis.add_to_ignore(&lines);
+
+        let lines = ctx
+            .file_contents
+            .lines()
+            .enumerate()
+            .filter(|&(_, x)| {
+                let mut x = x.to_string();
+                x.retain(|c| !c.is_whitespace());
+                x == "}else{"
+            })
+            .map(|(i, _)| i + 1)
+            .collect::<Vec<usize>>();
+        analysis.add_to_ignore(&lines);
+    }
+
+    pub(crate) fn visit_generics(&mut self, generics: &Generics, ctx: &Context) {
+        if let Some(ref wh) = generics.where_clause {
+            let analysis = self.get_line_analysis(ctx.file.to_path_buf());
+            analysis.ignore_tokens(wh);
+        }
+    }
+
+    /// Printout a debug summary of the results of source analysis if debug logging
+    /// is enabled
+    pub fn debug_printout(&self, config: &Config) {
+        if config.debug {
+            for (ref path, ref analysis) in &self.lines {
+                trace!(
+                    "Source analysis for {}",
+                    config.strip_base_dir(path).display()
+                );
+                let mut lines = Vec::new();
+                for l in &analysis.ignore {
+                    match l {
+                        Lines::All => {
+                            lines.clear();
+                            trace!("All lines are ignorable");
+                            break;
+                        }
+                        Lines::Line(i) => {
+                            lines.push(i);
+                        }
+                    }
+                }
+                if !lines.is_empty() {
+                    lines.sort();
+                    trace!("Ignorable lines: {:?}", lines);
+                    lines.clear()
+                }
+                for c in &analysis.cover {
+                    lines.push(c);
+                }
+
+                if !lines.is_empty() {
+                    lines.sort();
+                    trace!("Coverable lines: {:?}", lines);
+                }
+            }
+            if config.branch_coverage {
+                trace!("Branch analysis");
+                trace!("{:?}", self.branches);
             }
         }
     }
 }
 
-/// Analyse the crates lib.rs for some common false positives
-fn analyse_lib_rs(file: &Path, result: &mut HashMap<PathBuf, LineAnalysis>) {
+/// lib.rs:1 can often show up as a coverable line when it's not. This ignores
+/// that line as long as it's not a real source line. This can also affect
+/// the main files for binaries in a project as well.
+fn maybe_ignore_first_line(file: &Path, result: &mut HashMap<PathBuf, LineAnalysis>) {
     if let Ok(f) = File::open(file) {
         let read_file = BufReader::new(f);
         if let Some(Ok(first)) = read_file.lines().next() {
             if !(first.starts_with("pub") || first.starts_with("fn")) {
                 let file = file.to_path_buf();
-                if result.contains_key(&file) {
-                    let l = result.get_mut(&file).unwrap();
-                    l.add_to_ignore(&[1]);
-                } else {
-                    let mut l = LineAnalysis::new();
-                    l.add_to_ignore(&[1]);
-                    result.insert(file, l);
-                }
+                let line_analysis = result.entry(file).or_default();
+                line_analysis.add_to_ignore(&[1]);
             }
         }
     }
@@ -293,92 +406,4 @@ pub(crate) struct Context<'a> {
     /// Other parts of context are immutable like tarpaulin config and users
     /// source code. This is discovered during hence use of interior mutability
     ignore_mods: RefCell<HashSet<PathBuf>>,
-}
-
-/// Analyses a package of the target crate.
-fn analyse_package(
-    path: &Path,
-    root: &Path,
-    config: &Config,
-    result: &mut HashMap<PathBuf, LineAnalysis>,
-    filtered_files: &mut HashSet<PathBuf>,
-) {
-    if let Some(file) = path.to_str() {
-        let skip_cause_test = config.ignore_tests && path.starts_with(root.join("tests"));
-        let skip_cause_example = path.starts_with(root.join("examples"))
-            && !config.run_types.contains(&RunType::Examples);
-        if !(skip_cause_test || skip_cause_example) {
-            let file = File::open(file);
-            if let Ok(mut file) = file {
-                let mut content = String::new();
-                let _ = file.read_to_string(&mut content);
-                let file = parse_file(&content);
-                if let Ok(file) = file {
-                    let mut analysis = LineAnalysis::new();
-                    let ctx = Context {
-                        config,
-                        file_contents: &content,
-                        file: path,
-                        ignore_mods: RefCell::new(HashSet::new()),
-                    };
-
-                    find_ignorable_lines(&content, &mut analysis);
-                    process_items(&file.items, &ctx, &mut analysis);
-                    // Check there's no conflict!
-                    result.insert(path.to_path_buf(), analysis);
-
-                    let mut ignored_files = ctx.ignore_mods.into_inner();
-                    for f in ignored_files.drain() {
-                        if f.is_file() {
-                            filtered_files.insert(f);
-                        } else {
-                            let walker = WalkDir::new(f).into_iter();
-                            for e in walker.filter_map(|e| e.ok()).filter(|e| is_source_file(e)) {
-                                filtered_files.insert(e.path().to_path_buf());
-                            }
-                        }
-                    }
-                    // This could probably be done with the DWARF if I could find a discriminating factor
-                    // to why lib.rs:1 shows up as a real line!
-                    if path.ends_with("src/lib.rs") {
-                        analyse_lib_rs(path, result);
-                    }
-                }
-            }
-        }
-    }
-}
-
-/// Finds lines from the raw string which are ignorable.
-/// These are often things like close braces, semi colons that may regiser as
-/// false positives.
-fn find_ignorable_lines(content: &str, analysis: &mut LineAnalysis) {
-    lazy_static! {
-        static ref IGNORABLE: Regex = Regex::new(r"^((\s*///)|([\[\]\{\}\(\)\s;\?,/]*$))").unwrap();
-    }
-    let lines = content
-        .lines()
-        .enumerate()
-        .filter(|&(_, x)| IGNORABLE.is_match(&x))
-        .map(|(i, _)| i + 1)
-        .collect::<Vec<usize>>();
-    analysis.add_to_ignore(&lines);
-
-    let lines = content
-        .lines()
-        .enumerate()
-        .filter(|&(_, x)| {
-            let mut x = x.to_string();
-            x.retain(|c| !c.is_whitespace());
-            x == "}else{"
-        })
-        .map(|(i, _)| i + 1)
-        .collect::<Vec<usize>>();
-    analysis.add_to_ignore(&lines);
-}
-
-pub fn visit_generics(generics: &Generics, analysis: &mut LineAnalysis) {
-    if let Some(ref wh) = generics.where_clause {
-        analysis.ignore_tokens(wh);
-    }
 }

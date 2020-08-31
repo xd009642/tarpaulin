@@ -10,7 +10,26 @@ file.
 
 ### Removed
 
-## [0.14.2]
+## [0.14.3] - 2020-08-31
+### Added
+- Added `--fail-under` flag to set minimum coverage required for a run
+- Added `--print-rust-flags` and `--print-rustdoc-flags` to print the set of 
+`RUSTFLAGS` and `RUSTDOCFLAGS` that can occur across all configs to aid user 
+debugging
+- Source analysis for group, await, async block, try and try block expressions
+- `#[tarpaulin::skip]` and `#[cfg(not(tarpaulin_include))]` can now work in
+file inner attributes.
+
+### Changed
+- Don't report coverage when not running tests
+- Inline react scripts to HTML to allow rendering on more restrictive security
+policies (issue #534)
+- Check addresses are within .text section
+- Apply line one filtering to all files not just src/main.rs
+
+### Removed
+
+## [0.14.2] - 2020-07-10
 ### Added
 - Added `--all-targets` to config file
 

@@ -1,7 +1,7 @@
 use crate::utils::get_test_path;
 use cargo_tarpaulin::config::{Config, ConfigWrapper, RunType};
 use cargo_tarpaulin::launch_tarpaulin;
-use cargo_tarpaulin::traces::*;
+use cargo_tarpaulin::traces::TraceMap;
 use clap::App;
 use std::env;
 use std::path::Path;
@@ -10,6 +10,7 @@ use std::time::Duration;
 
 #[cfg(nightly)]
 mod doc_coverage;
+mod failure_thresholds;
 mod failures;
 mod line_coverage;
 mod test_types;
@@ -222,6 +223,12 @@ fn tarpaulin_attrs() {
 #[cfg(nightly)]
 fn tarpaulin_tool_attr() {
     check_percentage("tool_attr", 0.0f64, false);
+}
+
+#[test]
+#[cfg(nightly)]
+fn filter_with_inner_attributes() {
+    check_percentage("filter_inner_modules", 0.0f64, false);
 }
 
 #[test]

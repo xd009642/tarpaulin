@@ -79,7 +79,7 @@ impl DocTestBinaryMeta {
         if let Some(Component::Normal(folder)) = test.as_ref().components().nth_back(1) {
             let temp = folder.to_string_lossy();
             let file_end = temp.rfind("rs").map(|i| i + 2)?;
-            let end = temp.rfind("_")?;
+            let end = temp.rfind('_')?;
             if end > file_end + 1 {
                 let line = temp[(file_end + 1)..end].parse::<usize>().ok()?;
                 Some(Self {
@@ -189,10 +189,7 @@ fn run_cargo(
         let walker = WalkDir::new(&config.doctest_dir()).into_iter();
         let dir_entries = walker
             .filter_map(|e| e.ok())
-            .filter(|e| match e.metadata() {
-                Ok(ref m) if m.is_file() && m.len() != 0 => true,
-                _ => false,
-            })
+            .filter(|e| matches!(e.metadata(), Ok(ref m) if m.is_file() && m.len() != 0))
             .collect::<Vec<_>>();
 
         let should_panics = get_panic_candidates(&dir_entries, config);
@@ -241,18 +238,16 @@ fn get_panic_candidates(tests: &[DirEntry], config: &Config) -> HashMap<String, 
                 let path = dir_entry.path();
                 if path.is_file() {
                     if let Some(p) = path_relative_from(path, &root) {
-                        if is_prefix_match(&test_binary.prefix, &p) {
-                            if !checked_files.contains(path) {
-                                checked_files.insert(path.to_path_buf());
-                                trace!("Assessing {} for `should_panic` doctests", path.display());
-                                let lines = find_panics_in_file(path).unwrap_or_default();
-                                if !result.contains_key(&test_binary.prefix) {
-                                    result.insert(test_binary.prefix.clone(), lines);
-                                } else if let Some(current_lines) =
-                                    result.get_mut(&test_binary.prefix)
-                                {
-                                    current_lines.extend_from_slice(&lines);
-                                }
+                        if is_prefix_match(&test_binary.prefix, &p) && !checked_files.contains(path)
+                        {
+                            checked_files.insert(path.to_path_buf());
+                            trace!("Assessing {} for `should_panic` doctests", path.display());
+                            let lines = find_panics_in_file(path).unwrap_or_default();
+                            if !result.contains_key(&test_binary.prefix) {
+                                result.insert(test_binary.prefix.clone(), lines);
+                            } else if let Some(current_lines) = result.get_mut(&test_binary.prefix)
+                            {
+                                current_lines.extend_from_slice(&lines);
                             }
                         }
                     }
@@ -420,31 +415,45 @@ fn clean_doctest_folder<P: AsRef<Path>>(doctest_dir: P) {
     }
 }
 
-fn setup_environment(cmd: &mut Command, config: &Config) {
-    cmd.env("TARPAULIN", "1");
-    let rustflags = "RUSTFLAGS";
+pub fn rustdoc_flags(config: &Config) -> String {
+    const RUSTDOC: &str = "RUSTDOCFLAGS";
     let common_opts =
         " -C relocation-model=dynamic-no-pic -C link-dead-code -C debuginfo=2 --cfg=tarpaulin ";
-    let mut value = common_opts.to_string();
-    if config.release {
-        value = format!("{}-C debug-assertions=off ", value);
-    }
-    if let Ok(vtemp) = env::var(rustflags) {
-        value.push_str(vtemp.as_ref());
-    }
-    cmd.env(rustflags, value);
-    // doesn't matter if we don't use it
-    let rustdoc = "RUSTDOCFLAGS";
     let mut value = format!(
         "{} --persist-doctests {} -Z unstable-options ",
         common_opts,
         config.doctest_dir().display()
     );
-    if let Ok(vtemp) = env::var(rustdoc) {
+    if let Ok(vtemp) = env::var(RUSTDOC) {
         if !vtemp.contains("--persist-doctests") {
             value.push_str(vtemp.as_ref());
         }
     }
+    value
+}
+
+pub fn rust_flags(config: &Config) -> String {
+    const RUSTFLAGS: &str = "RUSTFLAGS";
+    let mut value =
+        " -C relocation-model=dynamic-no-pic -C link-dead-code -C debuginfo=2 --cfg=tarpaulin "
+            .to_string();
+    if config.release {
+        value = format!("{}-C debug-assertions=off ", value);
+    }
+    if let Ok(vtemp) = env::var(RUSTFLAGS) {
+        value.push_str(vtemp.as_ref());
+    }
+    value
+}
+
+fn setup_environment(cmd: &mut Command, config: &Config) {
+    cmd.env("TARPAULIN", "1");
+    let rustflags = "RUSTFLAGS";
+    let value = rust_flags(config);
+    cmd.env(rustflags, value);
+    // doesn't matter if we don't use it
+    let rustdoc = "RUSTDOCFLAGS";
+    let value = rustdoc_flags(config);
     trace!("Setting RUSTDOCFLAGS='{}'", value);
     cmd.env(rustdoc, value);
 }

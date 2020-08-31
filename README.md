@@ -26,7 +26,7 @@ Below is the help-text for a thorough explanation of the flags and features
 available:
 
 ```
-cargo-tarpaulin version: 0.14.2
+cargo-tarpaulin version: 0.14.3
 Tool to analyse test coverage of cargo projects
 
 USAGE:
@@ -59,6 +59,8 @@ FLAGS:
         --no-fail-fast           Run all tests regardless of failure
         --no-run                 Compile tests but don't run coverage
         --offline                Run without accessing the network
+        --print-rust-flags       Print the RUSTFLAGS options that tarpaulin will compile your program with and exit
+        --print-rustdoc-flags    Print the RUSTDOCFLAGS options that tarpaulin will compile any doctests with and exit
         --release                Build in release mode.
         --tests                  Test all tests
     -V, --version                Prints version information
@@ -81,6 +83,8 @@ OPTIONS:
     -e, --exclude <PACKAGE>...       Package id specifications to exclude from coverage. See cargo help pkgid for more
                                      info
         --exclude-files <FILE>...    Exclude given files from coverage results has * wildcard
+        --fail-under <PERCENTAGE>    Sets a percentage threshold for failure ranging from 0-100, if coverage is below
+                                     exit with a non-zero code
         --features <FEATURES>...     Features to be included in the target project
         --manifest-path <PATH>       Path to Cargo.toml
     -o, --out <FMT>...               Output format of coverage report [possible values: Json, Toml, Stdout, Xml, Html,
