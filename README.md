@@ -26,7 +26,7 @@ Below is the help-text for a thorough explanation of the flags and features
 available:
 
 ```
-cargo-tarpaulin version: 0.14.2
+cargo-tarpaulin version: 0.14.3
 Tool to analyse test coverage of cargo projects
 
 USAGE:
@@ -77,8 +77,7 @@ OPTIONS:
                                      name that they will recognise. Refer to their documentation for this.
         --config <FILE>              Path to a toml file specifying a list of options this will override any other
                                      options set
-        --coveralls <KEY>            Coveralls key, either the repo token, or if you'
-re using travis use $TRAVIS_JOB_ID
+        --coveralls <KEY>            Coveralls key, either the repo token, or if you're using travis use $TRAVIS_JOB_ID
                                      and specify travis-{ci|pro} in --ciserver
         --example <NAME>...          Test only the specified example
     -e, --exclude <PACKAGE>...       Package id specifications to exclude from coverage. See cargo help pkgid for more

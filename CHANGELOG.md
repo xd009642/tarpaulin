@@ -5,6 +5,13 @@ file.
 
 ## [Unreleased]
 ### Added
+
+### Changed
+
+### Removed
+
+## [0.14.3] - 2020-08-31
+### Added
 - Added `--fail-under` flag to set minimum coverage required for a run
 - Added `--print-rust-flags` and `--print-rustdoc-flags` to print the set of 
 `RUSTFLAGS` and `RUSTDOCFLAGS` that can occur across all configs to aid user 
@@ -22,7 +29,7 @@ policies (issue #534)
 
 ### Removed
 
-## [0.14.2]
+## [0.14.2] - 2020-07-10
 ### Added
 - Added `--all-targets` to config file
 
