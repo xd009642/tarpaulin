@@ -375,7 +375,7 @@ jobs:
     name:                       coverage
     runs-on:                    ubuntu-latest
     container:
-      image:                    <your [CI] docker image with installed taurpalin>
+      image:                    <your [CI] docker image with installed tarpaulin>
       options:                  --security-opt seccomp=unconfined
     steps:
       - name:                   Checkout repository
