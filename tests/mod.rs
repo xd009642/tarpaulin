@@ -226,6 +226,7 @@ fn tarpaulin_tool_attr() {
 }
 
 #[test]
+#[cfg(nightly)]
 fn filter_with_inner_attributes() {
     check_percentage("filter_inner_modules", 0.0f64, false);
 }
