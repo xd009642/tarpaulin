@@ -11,6 +11,7 @@ use std::collections::{HashMap, HashSet};
 use std::fs::File;
 use std::io::{BufRead, BufReader, Read};
 use std::path::{Path, PathBuf};
+use syn::spanned::Spanned;
 use syn::*;
 use walkdir::WalkDir;
 
@@ -266,23 +267,28 @@ impl SourceAnalysis {
                             file: path,
                             ignore_mods: RefCell::new(HashSet::new()),
                         };
+                        if self.check_attr_list(&file.attrs, &ctx) {
+                            self.find_ignorable_lines(&ctx);
+                            self.process_items(&file.items, &ctx);
 
-                        self.find_ignorable_lines(&ctx);
-                        self.process_items(&file.items, &ctx);
-
-                        let mut ignored_files = ctx.ignore_mods.into_inner();
-                        for f in ignored_files.drain() {
-                            if f.is_file() {
-                                filtered_files.insert(f);
-                            } else {
-                                let walker = WalkDir::new(f).into_iter();
-                                for e in walker.filter_map(|e| e.ok()).filter(|e| is_source_file(e))
-                                {
-                                    filtered_files.insert(e.path().to_path_buf());
+                            let mut ignored_files = ctx.ignore_mods.into_inner();
+                            for f in ignored_files.drain() {
+                                if f.is_file() {
+                                    filtered_files.insert(f);
+                                } else {
+                                    let walker = WalkDir::new(f).into_iter();
+                                    for e in
+                                        walker.filter_map(|e| e.ok()).filter(|e| is_source_file(e))
+                                    {
+                                        filtered_files.insert(e.path().to_path_buf());
+                                    }
                                 }
                             }
+                            maybe_ignore_first_line(path, &mut self.lines);
+                        } else {
+                            let analysis = self.get_line_analysis(path.to_path_buf());
+                            analysis.ignore_span(file.span());
                         }
-                        maybe_ignore_first_line(path, &mut self.lines);
                     }
                 }
             }

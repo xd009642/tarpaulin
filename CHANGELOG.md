@@ -10,6 +10,8 @@ file.
 `RUSTFLAGS` and `RUSTDOCFLAGS` that can occur across all configs to aid user 
 debugging
 - Source analysis for group, await, async block, try and try block expressions
+- `#[tarpaulin::skip]` and `#[cfg(not(tarpaulin_include))]` can now work in
+file inner attributes.
 
 ### Changed
 - Don't report coverage when not running tests

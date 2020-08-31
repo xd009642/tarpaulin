@@ -226,6 +226,11 @@ fn tarpaulin_tool_attr() {
 }
 
 #[test]
+fn filter_with_inner_attributes() {
+    check_percentage("filter_inner_modules", 0.0f64, false);
+}
+
+#[test]
 fn cargo_home_filtering() {
     let new_home =
         Path::new(env!("CARGO_MANIFEST_DIR")).join("tests/data/HttptestAndReqwest/new_home");
