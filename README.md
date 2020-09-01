@@ -447,7 +447,7 @@ docker run --security-opt seccomp=unconfined -v "${PWD}:/volume" xd009642/tarpau
 ### Config file
 
 Tarpaulin has a config file setting where multiple coverage setups can be
-encoded in a toml file. This can be provided by an argumnet or if a
+encoded in a toml file. This can be provided by an argument or if a
 `.tarpaulin.toml` or `tarpaulin.toml` is present in the same directory as
 the projects manifest or in the root directory that will be used unless
 `--ignore-config` is passed. Below is an example file:
