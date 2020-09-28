@@ -6,11 +6,12 @@ use log::{error, trace, warn};
 use serde::{Deserialize, Serialize};
 use std::collections::{HashMap, HashSet};
 use std::env;
-use std::fs::{read_dir, remove_dir_all, File};
+use std::fs::{read_dir, read_to_string, remove_dir_all, File};
 use std::io;
 use std::io::{BufRead, BufReader};
 use std::path::{Component, Path, PathBuf};
 use std::process::{Command, Stdio};
+use toml::Value;
 use walkdir::{DirEntry, WalkDir};
 
 #[derive(Clone, PartialEq, Eq, PartialOrd, Ord, Hash, Deserialize, Serialize)]
@@ -432,6 +433,57 @@ pub fn rustdoc_flags(config: &Config) -> String {
     value
 }
 
+fn look_for_rustflags_in(path : &Path) -> Option<String> {
+
+    if let Ok(contents) = read_to_string(path) {
+
+        let value = contents.parse::<Value>().unwrap(); 
+
+        if let Some(build_value) = value.get("build") {
+
+            let build_table = build_value.as_table().unwrap();
+
+            if let Some(rustflags) = build_table.get("rustflags") {
+
+                let vec_of_flags : Vec<String> = rustflags.as_array().unwrap().into_iter().map(|x| String::from(x.as_str().unwrap())).collect();
+
+                return Some(vec_of_flags.join(" "))
+                
+            }
+        }
+    }
+    
+    None
+    
+    // TODO handle [target.thumbv7em-none-eabihf] triplet flags etc.
+}
+
+fn build_config_path(base : &Path) -> PathBuf {
+
+    let mut config_path = PathBuf::new();
+    config_path.push(base);
+    config_path.push(".cargo");
+    config_path.push("config.toml");
+
+    config_path
+}
+
+fn gather_config_rust_flags(config: &Config) -> String {
+
+    if let Some(rustflags) = look_for_rustflags_in(&build_config_path(&config.root())) {
+        return rustflags;
+    }
+    
+    if let Ok(cargo_home_config) = env::var("CARGO_HOME") {
+
+        if let Some(rustflags) = look_for_rustflags_in(&build_config_path(&PathBuf::from(cargo_home_config))) {
+            return rustflags;
+        }
+    } 
+
+    return "".to_string();
+}
+
 pub fn rust_flags(config: &Config) -> String {
     const RUSTFLAGS: &str = "RUSTFLAGS";
     let mut value =
@@ -442,6 +494,8 @@ pub fn rust_flags(config: &Config) -> String {
     }
     if let Ok(vtemp) = env::var(RUSTFLAGS) {
         value.push_str(vtemp.as_ref());
+    } else {
+        value.push_str(gather_config_rust_flags(config).as_ref());
     }
     value
 }
