@@ -1,4 +1,3 @@
-use log::trace;
 use serde::{Deserialize, Serialize};
 use std::cmp::{Ord, Ordering};
 use std::collections::btree_map::Iter;
@@ -6,6 +5,7 @@ use std::collections::{BTreeMap, HashMap, HashSet};
 use std::fmt::{Display, Formatter, Result};
 use std::ops::Add;
 use std::path::{Path, PathBuf};
+use tracing::trace;
 
 /// Used to track the state of logical conditions
 #[derive(Debug, Clone, Copy, Default, Hash, PartialEq, Eq, PartialOrd, Deserialize, Serialize)]

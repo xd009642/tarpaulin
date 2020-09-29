@@ -2,7 +2,6 @@ use crate::config::*;
 use crate::errors::RunError;
 use crate::path_utils::get_source_walker;
 use cargo_metadata::{diagnostic::DiagnosticLevel, CargoOpt, Message, Metadata, MetadataCommand};
-use log::{error, trace, warn};
 use serde::{Deserialize, Serialize};
 use std::collections::{HashMap, HashSet};
 use std::env;
@@ -11,6 +10,7 @@ use std::io;
 use std::io::{BufRead, BufReader};
 use std::path::{Component, Path, PathBuf};
 use std::process::{Command, Stdio};
+use tracing::{error, trace, warn};
 use walkdir::{DirEntry, WalkDir};
 
 #[derive(Clone, PartialEq, Eq, PartialOrd, Ord, Hash, Deserialize, Serialize)]

@@ -2,13 +2,13 @@ use crate::config::Config;
 use crate::errors::RunError;
 use crate::event_log::*;
 use crate::statemachine::*;
-use log::{debug, trace};
 use nix::errno::Errno;
 use nix::sys::signal::Signal;
 use nix::sys::wait::*;
 use nix::unistd::Pid;
 use nix::Error as NixErr;
 use std::collections::{HashMap, HashSet};
+use tracing::{debug, trace};
 
 pub fn create_state_machine<'a>(
     test: Pid,
