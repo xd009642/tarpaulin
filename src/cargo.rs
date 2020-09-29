@@ -10,7 +10,7 @@ use std::io;
 use std::io::{BufRead, BufReader};
 use std::path::{Component, Path, PathBuf};
 use std::process::{Command, Stdio};
-use tracing::{error, trace, warn};
+use tracing::{debug, error, trace, warn};
 use walkdir::{DirEntry, WalkDir};
 
 #[derive(Clone, PartialEq, Eq, PartialOrd, Ord, Hash, Deserialize, Serialize)]
@@ -157,6 +157,8 @@ fn run_cargo(
                 }
                 Ok(Message::CompilerMessage(m)) => match m.message.level {
                     DiagnosticLevel::Error | DiagnosticLevel::Ice => {
+                        debug!(?cmd, "compilation failed, waiting for process to exit");
+                        trace!(?m, "detailed error message");
                         let _ = child.wait();
                         return Err(RunError::TestCompile(m.message.message));
                     }
