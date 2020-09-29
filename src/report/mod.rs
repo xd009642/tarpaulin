@@ -2,10 +2,10 @@ use crate::config::*;
 use crate::errors::*;
 use crate::test_loader::TracerData;
 use crate::traces::*;
-use log::{error, info};
 use serde::Serialize;
 use std::fs::{create_dir_all, File};
 use std::io::BufReader;
+use tracing::{error, info};
 
 pub mod cobertura;
 pub mod coveralls;

@@ -9,13 +9,13 @@ use crate::source_analysis::{LineAnalysis, SourceAnalysis};
 use crate::statemachine::*;
 use crate::test_loader::*;
 use crate::traces::*;
-use log::{error, info, trace, warn};
 use nix::unistd::*;
 use std::collections::HashMap;
 use std::env;
 use std::ffi::CString;
 use std::fs::create_dir_all;
 use std::path::{Path, PathBuf};
+use tracing::{error, info, trace, warn};
 
 pub mod branching;
 pub mod breakpoint;

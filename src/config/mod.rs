@@ -6,7 +6,6 @@ use clap::{value_t, ArgMatches};
 use coveralls_api::CiService;
 use humantime_serde::deserialize as humantime_serde;
 use indexmap::IndexMap;
-use log::{error, info, warn};
 use regex::Regex;
 use serde::{Deserialize, Serialize};
 use std::cell::{Ref, RefCell};
@@ -16,6 +15,7 @@ use std::fs::File;
 use std::io::{Error, ErrorKind, Read};
 use std::path::{Path, PathBuf};
 use std::time::Duration;
+use tracing::{error, info, warn};
 
 mod parse;
 pub mod types;

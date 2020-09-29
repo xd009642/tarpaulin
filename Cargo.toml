@@ -24,7 +24,6 @@ cargo_metadata = "0.11"
 chrono = "0.4"
 clap = "2.33.3"
 coveralls-api = "0.5.0"
-env_logger = "0.7"
 fallible-iterator = "0.2.0"
 gimli = "0.22.0"
 git2 = "0.13"
@@ -32,7 +31,8 @@ humantime-serde = "1"
 indexmap = { version = "1.6.0", features = ["serde-1"] }
 lazy_static = "1.0"
 libc = "0.2.77"
-log = "0.4.11"
+tracing = { version = "0.1", default-features = false }
+tracing-subscriber = {version = "0.2.3", default-features = false, features = ["env-filter", "fmt", "chrono", "ansi", "smallvec", "tracing-log"]}
 memmap = "0.7.0"
 nix = "0.18.0"
 object = "0.21"
