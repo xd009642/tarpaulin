@@ -2,7 +2,6 @@ use crate::branching::BranchAnalysis;
 use crate::config::{Config, RunType};
 use crate::path_utils::{get_source_walker, is_source_file};
 use lazy_static::lazy_static;
-use log::trace;
 use proc_macro2::{Span, TokenStream};
 use quote::ToTokens;
 use regex::Regex;
@@ -13,6 +12,7 @@ use std::io::{BufRead, BufReader, Read};
 use std::path::{Path, PathBuf};
 use syn::spanned::Spanned;
 use syn::*;
+use tracing::trace;
 use walkdir::WalkDir;
 
 mod attributes;

@@ -7,6 +7,7 @@ file.
 ### Added
 
 ### Changed
+- Moved from `log` and `env_logger` to `tracing`
 
 ### Removed
 

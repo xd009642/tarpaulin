@@ -2,13 +2,13 @@ use crate::cargo::TestBinary;
 use crate::ptrace_control::*;
 use crate::statemachine::{ProcessInfo, TracerAction};
 use chrono::offset::Local;
-use log::{info, warn};
 use nix::libc::*;
 use nix::sys::{signal::Signal, wait::WaitStatus};
 use serde::{Deserialize, Serialize};
 use std::cell::RefCell;
 use std::fs::File;
 use std::path::Path;
+use tracing::{info, warn};
 
 #[derive(Clone, Eq, PartialEq, PartialOrd, Ord, Hash, Serialize, Deserialize)]
 pub enum Event {

@@ -4,7 +4,6 @@ use crate::source_analysis::*;
 use crate::traces::*;
 use gimli::read::Error;
 use gimli::*;
-use log::{debug, error, trace};
 use memmap::MmapOptions;
 use object::{read::ObjectSection, File as OFile, Object};
 use rustc_demangle::demangle;
@@ -12,6 +11,7 @@ use std::collections::{HashMap, HashSet};
 use std::fs::File;
 use std::io;
 use std::path::{Path, PathBuf};
+use tracing::{debug, error, trace};
 
 /// Describes a function as `low_pc`, `high_pc` and bool representing `is_test`.
 type FuncDesc = (u64, u64, FunctionType, Option<String>);

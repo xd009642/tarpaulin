@@ -2,10 +2,10 @@ use crate::config::Config;
 use crate::errors::RunError;
 use crate::traces::{CoverageStat, TraceMap};
 use coveralls_api::*;
-use log::{info, trace, warn};
 use std::collections::HashMap;
 use std::fs;
 use std::path::Path;
+use tracing::{info, trace, warn};
 
 fn get_git_info(manifest_path: &Path) -> Result<GitInfo, String> {
     let dir_path = manifest_path

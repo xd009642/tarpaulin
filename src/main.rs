@@ -2,11 +2,12 @@ use cargo_tarpaulin::cargo::{rust_flags, rustdoc_flags};
 use cargo_tarpaulin::config::{Config, ConfigWrapper, OutputFile, RunType};
 use cargo_tarpaulin::run;
 use clap::{crate_version, App, Arg, ArgSettings, SubCommand};
-use env_logger::Builder;
-use log::{info, trace};
 use std::collections::HashMap;
-use std::io::Write;
 use std::path::Path;
+use tracing::{debug, info, trace};
+use tracing_subscriber::{filter::LevelFilter, EnvFilter};
+
+const RUST_LOG_ENV: &str = "RUST_LOG";
 
 fn print_env(seen_rustflags: HashMap<String, Vec<String>>, prefix: &str, default_val: &str) {
     info!("Printing `{}`", prefix);
@@ -33,29 +34,43 @@ fn is_dir(d: String) -> Result<(), String> {
 }
 
 fn set_up_logging(debug: bool, verbose: bool) {
-    let mut builder = Builder::new();
+    //By default, we set tarpaulin to info,debug,trace while all dependencies stay at INFO
+    let base_exceptions = |env: EnvFilter| {
+        if debug {
+            env.add_directive("cargo_tarpaulin=trace".parse().unwrap())
+        } else if verbose {
+            env.add_directive("cargo_tarpaulin=debug".parse().unwrap())
+        } else {
+            env.add_directive("cargo_tarpaulin=info".parse().unwrap())
+        }
+        .add_directive(LevelFilter::INFO.into())
+    };
 
-    // NOTE: This overwrites RUST_LOG
-    if debug {
-        builder.filter_module("cargo_tarpaulin", log::LevelFilter::Trace);
-    } else if verbose {
-        builder.filter_module("cargo_tarpaulin", log::LevelFilter::Debug);
-    } else {
-        builder.filter_module("cargo_tarpaulin", log::LevelFilter::Info);
-    }
+    //If RUST_LOG is set, then first apply our default directives (which are controlled by debug an verbose).
+    // Then RUST_LOG will overwrite those default directives.
+    // e.g. `RUST_LOG="trace" cargo-tarpaulin` will end up printing TRACE for everything
+    // `cargo-tarpaulin -v` will print DEBUG for tarpaulin and INFO for everything else.
+    // `RUST_LOG="error" cargo-tarpaulin -v` will print ERROR for everything.
+    let filter = match std::env::var_os(RUST_LOG_ENV).map(|s| s.into_string()) {
+        Some(Ok(env)) => {
+            let mut filter = base_exceptions(EnvFilter::new(""));
+            for s in env.split(',').into_iter() {
+                match s.parse() {
+                    Ok(d) => filter = filter.add_directive(d),
+                    Err(err) => println!("WARN ignoring log directive: `{}`: {}", s, err),
+                };
+            }
+            filter
+        }
+        _ => base_exceptions(EnvFilter::from_env(RUST_LOG_ENV)),
+    };
 
-    builder
-        .format_timestamp(None)
-        .format(|buf, record| {
-            let level_style = buf.default_level_style(record.level());
-            writeln!(
-                buf,
-                "[{} tarpaulin] {}",
-                level_style.value(record.level()),
-                record.args()
-            )
-        })
+    tracing_subscriber::FmtSubscriber::builder()
+        .with_max_level(tracing::Level::ERROR)
+        .with_env_filter(filter)
         .init();
+
+    debug!("set up logging");
 }
 
 const CI_SERVER_HELP: &str = "Name of service, supported services are:
