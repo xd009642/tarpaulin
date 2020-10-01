@@ -30,7 +30,7 @@ git2 = "0.13"
 humantime-serde = "1"
 indexmap = { version = "1.6.0", features = ["serde-1"] }
 lazy_static = "1.0"
-libc = "0.2.77"
+libc = "0.2.78"
 tracing = { version = "0.1", default-features = false }
 tracing-subscriber = {version = "0.2.3", default-features = false, features = ["env-filter", "fmt", "chrono", "ansi", "smallvec", "tracing-log"]}
 memmap = "0.7.0"
