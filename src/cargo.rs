@@ -144,6 +144,7 @@ fn run_cargo(
     if ty != Some(RunType::Doctests) {
         let mut package_ids = vec![];
         let reader = std::io::BufReader::new(child.stdout.take().unwrap());
+        let mut error = None;
         for msg in Message::parse_stream(reader) {
             match msg {
                 Ok(Message::CompilerArtifact(art)) => {
@@ -157,8 +158,8 @@ fn run_cargo(
                 }
                 Ok(Message::CompilerMessage(m)) => match m.message.level {
                     DiagnosticLevel::Error | DiagnosticLevel::Ice => {
-                        let _ = child.wait();
-                        return Err(RunError::TestCompile(m.message.message));
+                        error = Some(RunError::TestCompile(m.message.message));
+                        break;
                     }
                     _ => {}
                 },
@@ -167,6 +168,10 @@ fn run_cargo(
                 }
                 _ => {}
             }
+        }
+        if let Some(error) = error {
+            let _ = child.wait();
+            return Err(error);
         }
         for (res, package) in result.iter_mut().zip(package_ids.iter()) {
             let package = &metadata[package];
