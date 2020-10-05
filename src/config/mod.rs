@@ -150,6 +150,7 @@ pub struct Config {
     /// Run with the given profile
     pub profile: Option<String>,
     /// returns a non-zero code if coverage is below the threshold
+    #[serde(rename = "fail-under")]
     pub fail_under: Option<f64>,
     /// Result of cargo_metadata ran on the crate
     #[serde(skip_deserializing, skip_serializing)]
