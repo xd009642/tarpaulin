@@ -469,15 +469,12 @@ fn build_config_path(base: impl AsRef<Path>) -> PathBuf {
 }
 
 fn gather_config_rust_flags(config: &Config) -> String {
-
     if let Some(rustflags) = look_for_rustflags_in(&build_config_path(&config.root())) {
         return rustflags;
     }
 
     if let Ok(cargo_home_config) = env::var("CARGO_HOME") {
-        if let Some(rustflags) =
-            look_for_rustflags_in(&build_config_path(cargo_home_config))
-        {
+        if let Some(rustflags) = look_for_rustflags_in(&build_config_path(cargo_home_config)) {
             return rustflags;
         }
     }
