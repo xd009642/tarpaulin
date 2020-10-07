@@ -459,29 +459,30 @@ fn look_for_rustflags_in(path: &Path) -> Option<String> {
     // TODO handle [target.thumbv7em-none-eabihf] triplet flags etc.
 }
 
-fn build_config_path(base: &Path) -> PathBuf {
-    let mut config_path = PathBuf::new();
+fn build_config_path(base: impl AsRef<Path>) -> PathBuf {
+    let mut config_path = PathBuf::from(base.as_ref());
     config_path.push(base);
     config_path.push(".cargo");
-    config_path.push("config.toml");
+    config_path.push("config");
 
     config_path
 }
 
 fn gather_config_rust_flags(config: &Config) -> String {
+
     if let Some(rustflags) = look_for_rustflags_in(&build_config_path(&config.root())) {
         return rustflags;
     }
 
     if let Ok(cargo_home_config) = env::var("CARGO_HOME") {
         if let Some(rustflags) =
-            look_for_rustflags_in(&build_config_path(&PathBuf::from(cargo_home_config)))
+            look_for_rustflags_in(&build_config_path(cargo_home_config))
         {
             return rustflags;
         }
     }
 
-    return "".to_string();
+    String::new()
 }
 
 pub fn rust_flags(config: &Config) -> String {
