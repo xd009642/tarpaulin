@@ -436,10 +436,10 @@ pub fn rustdoc_flags(config: &Config) -> String {
 
 fn look_for_rustflags_in(path: &Path) -> Option<String> {
     if let Ok(contents) = read_to_string(path) {
-        let value = contents.parse::<Value>().unwrap();
+        let value = contents.parse::<Value>().ok()?;
 
         if let Some(build_value) = value.get("build") {
-            let build_table = build_value.as_table().unwrap();
+            let build_table = build_value.as_table()?;
 
             if let Some(rustflags) = build_table.get("rustflags") {
                 let vec_of_flags: Vec<String> = rustflags
