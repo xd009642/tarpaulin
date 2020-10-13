@@ -97,9 +97,9 @@ dependencies = [
 
 [[package]]
 name = "cargo_metadata"
-version = "0.11.3"
+version = "0.11.4"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "e708746e51dfaeff27c6c3979a4005a7faddabe40144204a0b1ce5ad34a1d0a5"
+checksum = "a3a567c24b86754d629addc2db89e340ac9398d07b5875efcff837e3878e17ec"
 dependencies = [
  "semver 0.10.0",
  "serde",
