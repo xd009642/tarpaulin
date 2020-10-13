@@ -188,23 +188,25 @@ pub fn get_test_coverage(
     if let Some(log) = logger.as_ref() {
         log.push_binary(test.clone());
     }
-    match fork() {
-        Ok(ForkResult::Parent { child }) => {
-            match collect_coverage(test.path(), child, analysis, config, logger) {
-                Ok(t) => Ok(Some(t)),
-                Err(e) => Err(RunError::TestCoverage(e.to_string())),
+    unsafe {
+        match fork() {
+            Ok(ForkResult::Parent { child }) => {
+                match collect_coverage(test.path(), child, analysis, config, logger) {
+                    Ok(t) => Ok(Some(t)),
+                    Err(e) => Err(RunError::TestCoverage(e.to_string())),
+                }
             }
+            Ok(ForkResult::Child) => {
+                info!("Launching test");
+                execute_test(test, ignored, config)?;
+                Ok(None)
+            }
+            Err(err) => Err(RunError::TestCoverage(format!(
+                "Failed to run test {}, Error: {}",
+                test.path().display(),
+                err.to_string()
+            ))),
         }
-        Ok(ForkResult::Child) => {
-            info!("Launching test");
-            execute_test(test, ignored, config)?;
-            Ok(None)
-        }
-        Err(err) => Err(RunError::TestCoverage(format!(
-            "Failed to run test {}, Error: {}",
-            test.path().display(),
-            err.to_string()
-        ))),
     }
 }
 
