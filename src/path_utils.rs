@@ -36,8 +36,27 @@ fn is_cargo_home(entry: &Path, root: &Path) -> bool {
     }
 }
 
-pub fn is_coverable_file_path(e: &Path, root: &Path, target: &Path) -> bool {
-    !(is_target_folder(e, &target) || is_hidden(e) || is_cargo_home(e, &root))
+fn is_part_of_project(e: &Path, root: &Path) -> bool {
+    if e.is_absolute() && root.is_absolute() {
+        e.starts_with(root)
+    } else if root.is_absolute() {
+        root.join(e).is_file()
+    } else {
+        // they're both relative and this isn't hit a lot - only really with FFI code
+        true
+    }
+}
+
+pub fn is_coverable_file_path(
+    path: impl AsRef<Path>,
+    root: impl AsRef<Path>,
+    target: impl AsRef<Path>,
+) -> bool {
+    let e = path.as_ref();
+    let ignorable_paths =
+        !(is_target_folder(e, target.as_ref()) || is_hidden(e) || is_cargo_home(e, root.as_ref()));
+
+    ignorable_paths && is_part_of_project(e, root.as_ref())
 }
 
 pub fn get_source_walker(config: &Config) -> impl Iterator<Item = DirEntry> {
@@ -49,4 +68,32 @@ pub fn get_source_walker(config: &Config) -> impl Iterator<Item = DirEntry> {
         .filter_entry(move |e| is_coverable_file_path(e.path(), &root, &target))
         .filter_map(|e| e.ok())
         .filter(|e| is_source_file(e))
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn system_headers_not_coverable() {
+        assert!(!is_coverable_file_path(
+            "/usr/include/c++/9/iostream",
+            "/home/ferris/rust/project",
+            "/home/ferris/rust/project/target"
+        ));
+    }
+
+    #[test]
+    fn basic_coverable_checks() {
+        assert!(is_coverable_file_path(
+            "/foo/src/lib.rs",
+            "/foo",
+            "/foo/target"
+        ));
+        assert!(!is_coverable_file_path(
+            "/foo/target/lib.rs",
+            "/foo",
+            "/foo/target"
+        ));
+    }
 }

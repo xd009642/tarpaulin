@@ -11,6 +11,7 @@ file.
 - Correct field name for `--fail-under` in config file from `fail_under` to 
 `fail-under`
 - Fix process deadlock when compiler diagnostic error or ICE occur
+- Ignore non-project files when checking source locations in DWARF (issue #566)
 
 ### Removed
 
