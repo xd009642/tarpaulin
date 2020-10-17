@@ -6,7 +6,6 @@ use clap::{value_t, ArgMatches};
 use coveralls_api::CiService;
 use humantime_serde::deserialize as humantime_serde;
 use indexmap::IndexMap;
-use log::{error, info, warn};
 use regex::Regex;
 use serde::{Deserialize, Serialize};
 use std::cell::{Ref, RefCell};
@@ -16,6 +15,7 @@ use std::fs::File;
 use std::io::{Error, ErrorKind, Read};
 use std::path::{Path, PathBuf};
 use std::time::Duration;
+use tracing::{error, info, warn};
 
 mod parse;
 pub mod types;
@@ -150,6 +150,7 @@ pub struct Config {
     /// Run with the given profile
     pub profile: Option<String>,
     /// returns a non-zero code if coverage is below the threshold
+    #[serde(rename = "fail-under")]
     pub fail_under: Option<f64>,
     /// Result of cargo_metadata ran on the crate
     #[serde(skip_deserializing, skip_serializing)]

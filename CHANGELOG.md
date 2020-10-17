@@ -10,6 +10,18 @@ file.
 
 ### Removed
 
+## [0.15.0] - 2020-10-17
+### Added
+
+### Changed
+- Moved from `log` and `env_logger` to `tracing`
+- Correct field name for `--fail-under` in config file from `fail_under` to 
+`fail-under`
+- Fix process deadlock when compiler diagnostic error or ICE occur
+- Ignore non-project files when checking source locations in DWARF (issue #566)
+
+### Removed
+
 ## [0.14.3] - 2020-08-31
 ### Added
 - Added `--fail-under` flag to set minimum coverage required for a run

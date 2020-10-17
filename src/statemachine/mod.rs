@@ -3,8 +3,8 @@ use crate::config::Config;
 use crate::errors::RunError;
 use crate::ptrace_control::*;
 use crate::traces::*;
-use log::error;
 use std::time::Instant;
+use tracing::error;
 
 #[cfg(target_os = "linux")]
 pub mod linux;

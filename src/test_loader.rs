@@ -4,7 +4,6 @@ use crate::source_analysis::*;
 use crate::traces::*;
 use gimli::read::Error;
 use gimli::*;
-use log::{debug, error, trace};
 use memmap::MmapOptions;
 use object::{read::ObjectSection, File as OFile, Object};
 use rustc_demangle::demangle;
@@ -12,6 +11,7 @@ use std::collections::{HashMap, HashSet};
 use std::fs::File;
 use std::io;
 use std::path::{Path, PathBuf};
+use tracing::{debug, error, trace};
 
 /// Describes a function as `low_pc`, `high_pc` and bool representing `is_test`.
 type FuncDesc = (u64, u64, FunctionType, Option<String>);
@@ -179,16 +179,16 @@ where
                     path = p;
                 }
                 // Source is part of project so we cover it.
-                if is_coverable_file_path(&path, &project, &config.target_dir()) {
-                    if let Some(file) = ln_row.file(header) {
-                        let line = ln_row.line().unwrap();
-                        let file = file.path_name();
-                        if let Some(file) = file.string_value(debug_strs).and_then(get_string) {
-                            path.push(file);
-                            if !path.is_file() {
-                                // Not really a source file!
-                                continue;
-                            }
+                if let Some(file) = ln_row.file(header) {
+                    let file = file.path_name();
+                    let line = ln_row.line().unwrap();
+                    if let Some(file) = file.string_value(debug_strs).and_then(get_string) {
+                        path.push(file);
+                        if !path.is_file() {
+                            // Not really a source file!
+                            continue;
+                        }
+                        if is_coverable_file_path(&path, &project, &config.target_dir()) {
                             let address = ln_row.address();
                             let (desc, fn_name) = entries
                                 .iter()

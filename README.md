@@ -26,7 +26,7 @@ Below is the help-text for a thorough explanation of the flags and features
 available:
 
 ```
-cargo-tarpaulin version: 0.14.3
+cargo-tarpaulin version: 0.15.0
 Tool to analyse test coverage of cargo projects
 
 USAGE:
@@ -375,7 +375,7 @@ jobs:
     name:                       coverage
     runs-on:                    ubuntu-latest
     container:
-      image:                    <your [CI] docker image with installed taurpalin>
+      image:                    <your [CI] docker image with installed tarpaulin>
       options:                  --security-opt seccomp=unconfined
     steps:
       - name:                   Checkout repository
@@ -447,7 +447,7 @@ docker run --security-opt seccomp=unconfined -v "${PWD}:/volume" xd009642/tarpau
 ### Config file
 
 Tarpaulin has a config file setting where multiple coverage setups can be
-encoded in a toml file. This can be provided by an argumnet or if a
+encoded in a toml file. This can be provided by an argument or if a
 `.tarpaulin.toml` or `tarpaulin.toml` is present in the same directory as
 the projects manifest or in the root directory that will be used unless
 `--ignore-config` is passed. Below is an example file:
@@ -480,7 +480,7 @@ follow `--` in tarpaulin use `args` in the toml file.
 Setting the field `config` will have no effect on the run as it won't be parsed
 for additional configuration.
 
-For the flags `--lib`, `--examples`, `--benches, `--tests`, `--all-targets`,
+For the flags `--lib`, `--examples`, `--benches`, `--tests`, `--all-targets`,
 `--doc`, `--bins` use the `run-types` entry in the config file.
 
 ## Extending Tarpaulin
