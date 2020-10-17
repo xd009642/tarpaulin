@@ -7,6 +7,13 @@ file.
 ### Added
 
 ### Changed
+
+### Removed
+
+## [0.15.0] - 2020-10-17
+### Added
+
+### Changed
 - Moved from `log` and `env_logger` to `tracing`
 - Correct field name for `--fail-under` in config file from `fail_under` to 
 `fail-under`
