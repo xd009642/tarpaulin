@@ -434,7 +434,7 @@ pub fn rustdoc_flags(config: &Config) -> String {
     value
 }
 
-fn look_for_rustflags_in(path: &Path) -> Option<String> {
+fn look_for_rustflags_in_file(path: &Path) -> Option<String> {
     if let Ok(contents) = read_to_string(path) {
         let value = contents.parse::<Value>().ok()?;
 
@@ -443,10 +443,10 @@ fn look_for_rustflags_in(path: &Path) -> Option<String> {
 
             if let Some(rustflags) = build_table.get("rustflags") {
                 let vec_of_flags: Vec<String> = rustflags
-                    .as_array()
-                    .unwrap()
+                    .as_array()?
                     .into_iter()
-                    .map(|x| String::from(x.as_str().unwrap()))
+                    .filter_map(|x| x.as_str())
+                    .map(|x| x.to_string())
                     .collect();
 
                 return Some(vec_of_flags.join(" "));
@@ -459,11 +459,30 @@ fn look_for_rustflags_in(path: &Path) -> Option<String> {
     // TODO handle [target.thumbv7em-none-eabihf] triplet flags etc.
 }
 
+fn look_for_rustflags_in(path: &Path) -> Option<String> {
+    let mut config_path = PathBuf::from(&path);
+    config_path.push("config");
+
+    let rustflags = look_for_rustflags_in_file(&config_path);
+    if rustflags.is_some() {
+        return rustflags;
+    }
+
+    config_path.pop();
+    config_path.push("config.toml");
+
+    let rustflags = look_for_rustflags_in_file(&config_path);
+    if rustflags.is_some() {
+        return rustflags;
+    }
+
+    None
+}
+
 fn build_config_path(base: impl AsRef<Path>) -> PathBuf {
     let mut config_path = PathBuf::from(base.as_ref());
     config_path.push(base);
     config_path.push(".cargo");
-    config_path.push("config");
 
     config_path
 }
