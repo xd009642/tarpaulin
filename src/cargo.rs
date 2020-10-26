@@ -10,7 +10,7 @@ use std::io;
 use std::io::{BufRead, BufReader};
 use std::path::{Component, Path, PathBuf};
 use std::process::{Command, Stdio};
-use tracing::{error, trace, warn};
+use tracing::{error, info, trace, warn};
 use walkdir::{DirEntry, WalkDir};
 
 #[derive(Clone, PartialEq, Eq, PartialOrd, Ord, Hash, Deserialize, Serialize)]
@@ -299,7 +299,11 @@ fn create_command(manifest_path: &str, config: &Config, ty: Option<RunType>) -> 
         if let Ok(toolchain) = env::var("RUSTUP_TOOLCHAIN") {
             test_cmd.arg(format!("+{}", toolchain));
         }
-        test_cmd.args(&["test", "--no-run"]);
+        if config.command == Mode::Test {
+            test_cmd.args(&["test", "--no-run"]);
+        } else {
+            test_cmd.arg("build");
+        }
     }
     test_cmd.args(&["--message-format", "json", "--manifest-path", manifest_path]);
     if let Some(ty) = ty {

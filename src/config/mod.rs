@@ -108,6 +108,8 @@ pub struct Config {
     target_dir: Option<PathBuf>,
     /// Run tarpaulin on project without accessing the network
     pub offline: bool,
+    /// Cargo subcommand to run. So far only test and build are supported
+    pub command: Mode,
     /// Types of tests for tarpaulin to collect coverage on
     #[serde(rename = "run-types")]
     pub run_types: Vec<RunType>,
@@ -165,6 +167,7 @@ impl Default for Config {
     fn default() -> Config {
         Config {
             name: String::new(),
+            command: Mode::Test,
             run_types: vec![RunType::Tests],
             manifest: default_manifest(),
             config: None,
@@ -236,6 +239,7 @@ impl<'a> From<&'a ArgMatches<'a>> for ConfigWrapper {
             manifest: get_manifest(args),
             config: None,
             root: get_root(args),
+            command: value_t!(args.value_of("command"), Mode).unwrap_or(Mode::Test),
             run_types: get_run_types(args),
             run_ignored: args.is_present("ignored"),
             ignore_tests: args.is_present("ignore-tests"),

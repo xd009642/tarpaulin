@@ -1,5 +1,5 @@
 use cargo_tarpaulin::cargo::{rust_flags, rustdoc_flags};
-use cargo_tarpaulin::config::{Config, ConfigWrapper, OutputFile, RunType};
+use cargo_tarpaulin::config::{Config, ConfigWrapper, OutputFile, RunType, Mode};
 use cargo_tarpaulin::run;
 use clap::{crate_version, App, Arg, ArgSettings, SubCommand};
 use std::collections::HashMap;
@@ -144,6 +144,8 @@ fn main() -> Result<(), String> {
                 Arg::from_usage("--run-types [TYPE]... 'Type of the coverage run'")
                     .possible_values(&RunType::variants())
                     .multiple(true),
+                Arg::from_usage("--command [CMD] 'cargo subcommand to run. So far only test and build are supported'")
+                    .possible_values(&Mode::variants()),
                 Arg::from_usage("--root -r [DIR]  'Calculates relative paths to root directory. If --manifest-path isn't specified it will look for a Cargo.toml in root'")
                     .validator(is_dir),
                 Arg::from_usage("--manifest-path [PATH] 'Path to Cargo.toml'"),
