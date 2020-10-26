@@ -139,12 +139,15 @@ fn main() -> Result<(), String> {
             .args(&[
                 Arg::from_usage("--out -o [FMT]   'Output format of coverage report'")
                     .possible_values(&OutputFile::variants())
+                    .case_insensitive(true)
                     .multiple(true),
                 Arg::from_usage("--output-dir [PATH] 'Specify a custom directory to write report files'"),
                 Arg::from_usage("--run-types [TYPE]... 'Type of the coverage run'")
                     .possible_values(&RunType::variants())
+                    .case_insensitive(true)
                     .multiple(true),
                 Arg::from_usage("--command [CMD] 'cargo subcommand to run. So far only test and build are supported'")
+                    .case_insensitive(true)
                     .possible_values(&Mode::variants()),
                 Arg::from_usage("--root -r [DIR]  'Calculates relative paths to root directory. If --manifest-path isn't specified it will look for a Cargo.toml in root'")
                     .validator(is_dir),

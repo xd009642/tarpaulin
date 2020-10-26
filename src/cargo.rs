@@ -10,7 +10,7 @@ use std::io;
 use std::io::{BufRead, BufReader};
 use std::path::{Component, Path, PathBuf};
 use std::process::{Command, Stdio};
-use tracing::{error, info, trace, warn};
+use tracing::{error, trace, warn};
 use walkdir::{DirEntry, WalkDir};
 
 #[derive(Clone, PartialEq, Eq, PartialOrd, Ord, Hash, Deserialize, Serialize)]
@@ -113,13 +113,12 @@ pub fn get_tests(config: &Config) -> Result<Vec<TestBinary>, RunError> {
     if config.has_named_tests() {
         run_cargo(&metadata, manifest, config, None, &mut result)?
     } else if config.run_types.is_empty() {
-        run_cargo(
-            &metadata,
-            manifest,
-            config,
-            Some(RunType::Tests),
-            &mut result,
-        )?;
+        let ty = if config.command == Mode::Test {
+            Some(RunType::Tests)
+        } else {
+            None
+        };
+        run_cargo(&metadata, manifest, config, ty, &mut result)?;
     }
     Ok(result)
 }
@@ -279,7 +278,7 @@ fn find_panics_in_file(file: &Path) -> io::Result<Vec<usize>> {
                 .map(|x| x.contains("should_panic"))
                 .unwrap_or(false)
         })
-        .map(|(i, _)| i + 1) // move from line index to line number
+        .map(|(i, _)| i + 1) // MOVE FRom line index to line number
         .collect();
     Ok(lines)
 }
@@ -397,7 +396,7 @@ fn init_args(test_cmd: &mut Command, config: &Config) {
     for feat in &config.unstable_features {
         test_cmd.arg(format!("-Z{}", feat));
     }
-    if !config.varargs.is_empty() {
+    if config.command == Mode::Test && !config.varargs.is_empty() {
         let mut args = vec!["--".to_string()];
         args.extend_from_slice(&config.varargs);
         test_cmd.args(args);
