@@ -1,5 +1,5 @@
 use cargo_tarpaulin::cargo::{rust_flags, rustdoc_flags};
-use cargo_tarpaulin::config::{Config, ConfigWrapper, OutputFile, RunType, Mode};
+use cargo_tarpaulin::config::{Config, ConfigWrapper, Mode, OutputFile, RunType};
 use cargo_tarpaulin::run;
 use clap::{crate_version, App, Arg, ArgSettings, SubCommand};
 use std::collections::HashMap;
