@@ -35,7 +35,7 @@ tracing = { version = "0.1", default-features = false }
 tracing-subscriber = {version = "0.2.14", default-features = false, features = ["env-filter", "fmt", "chrono", "ansi", "smallvec", "tracing-log"]}
 memmap = "0.7.0"
 nix = "0.19.0"
-object = "0.21"
+object = "0.22"
 proc-macro2 = { version = "1.0", features = ["span-locations"] }
 quick-xml = "0.20"
 quote = "1.0"
