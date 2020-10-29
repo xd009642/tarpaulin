@@ -1,5 +1,5 @@
 use crate::utils::get_test_path;
-use cargo_tarpaulin::config::{Config, ConfigWrapper, RunType};
+use cargo_tarpaulin::config::{Config, ConfigWrapper, Mode, RunType};
 use cargo_tarpaulin::launch_tarpaulin;
 use cargo_tarpaulin::traces::TraceMap;
 use clap::App;
@@ -190,6 +190,13 @@ fn benchmark_coverage() {
     let mut config = Config::default();
     config.run_types = vec![RunType::Benchmarks];
     check_percentage_with_config(test, 1.0f64, true, config);
+}
+
+#[test]
+fn cargo_run_coverage() {
+    let mut config = Config::default();
+    config.command = Mode::Build;
+    check_percentage_with_config("run_coverage", 1.0f64, true, config);
 }
 
 #[test]
