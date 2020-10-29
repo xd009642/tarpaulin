@@ -168,7 +168,7 @@ impl Default for Config {
         Config {
             name: String::new(),
             command: Mode::Test,
-            run_types: vec![RunType::Tests],
+            run_types: vec![],
             manifest: default_manifest(),
             config: None,
             root: Default::default(),
