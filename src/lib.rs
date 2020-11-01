@@ -15,7 +15,7 @@ use std::env;
 use std::ffi::CString;
 use std::fs::create_dir_all;
 use std::path::{Path, PathBuf};
-use tracing::{debug, error, info, trace, warn};
+use tracing::{debug, error, info, trace_span, warn};
 use tracing_subscriber::{filter::LevelFilter, EnvFilter};
 
 pub mod branching;
@@ -264,7 +264,8 @@ fn collect_coverage(
     let mut ret_code = 0;
     let mut traces = generate_tracemap(test_path, analysis, config)?;
     {
-        trace!("Test PID is {}", test);
+        let span = trace_span!("Collect coverage", pid=%test);
+        let _enter = span.enter();
         let (mut state, mut data) = create_state_machine(test, &mut traces, config, logger);
         loop {
             state = state.step(&mut data, config)?;
