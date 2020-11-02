@@ -9,6 +9,7 @@ file.
 
 ### Changed
 - Make `--run-types` and `--out` case insensitive
+- Filter executables on command not run type to fix #610
 
 ### Removed
 
