@@ -148,7 +148,7 @@ fn run_cargo(
             match msg {
                 Ok(Message::CompilerArtifact(art)) => {
                     if let Some(path) = art.executable {
-                        if !art.profile.test && ty == Some(RunType::Tests) {
+                        if !art.profile.test && config.command == Mode::Test {
                             continue;
                         }
                         result.push(TestBinary::new(path, ty));
