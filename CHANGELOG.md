@@ -3,7 +3,7 @@
 From 2019 onwards, all notable changes to tarpaulin will be documented in this
 file.
 
-## [Unreleased]
+## [0.16.0] - 2020-11-02
 ### Added
 - `--command` option to build and run a binary for testing CLI apps
 
