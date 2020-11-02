@@ -1,5 +1,5 @@
 use crate::utils::get_test_path;
-use cargo_tarpaulin::config::{Config, ConfigWrapper, RunType};
+use cargo_tarpaulin::config::{Config, ConfigWrapper, Mode, RunType};
 use cargo_tarpaulin::launch_tarpaulin;
 use cargo_tarpaulin::traces::TraceMap;
 use clap::App;
@@ -59,6 +59,10 @@ pub fn check_percentage_with_config(
     env::set_current_dir(&test_dir).unwrap();
     config.manifest = test_dir;
     config.manifest.push("Cargo.toml");
+
+    // Note to contributors. If an integration test fails, uncomment this to be able to see the
+    // tarpaulin logs
+    //cargo_tarpaulin::setup_logging(true, true);
 
     let (res, _) = launch_tarpaulin(&config, &None).unwrap();
 
@@ -190,6 +194,13 @@ fn benchmark_coverage() {
     let mut config = Config::default();
     config.run_types = vec![RunType::Benchmarks];
     check_percentage_with_config(test, 1.0f64, true, config);
+}
+
+#[test]
+fn cargo_run_coverage() {
+    let mut config = Config::default();
+    config.command = Mode::Build;
+    check_percentage_with_config("run_coverage", 1.0f64, true, config);
 }
 
 #[test]

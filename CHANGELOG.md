@@ -5,8 +5,10 @@ file.
 
 ## [Unreleased]
 ### Added
+- `--command` option to build and run a binary for testing CLI apps
 
 ### Changed
+- Make `--run-types` and `--out` case insensitive
 
 ### Removed
 
