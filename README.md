@@ -26,7 +26,7 @@ Below is the help-text for a thorough explanation of the flags and features
 available:
 
 ```
-cargo-tarpaulin version: 0.15.0
+cargo-tarpaulin version: 0.16.0
 Tool to analyse test coverage of cargo projects
 
 USAGE:
@@ -75,9 +75,12 @@ OPTIONS:
                                      travis-ci, travis-pro, circle-ci, semaphore, jenkins and codeship.
                                      If you are interfacing with coveralls.io or another site you can also specify a
                                      name that they will recognise. Refer to their documentation for this.
+        --command <CMD>              cargo subcommand to run. So far only test and build are supported [possible values:
+                                     Test, Build]
         --config <FILE>              Path to a toml file specifying a list of options this will override any other
                                      options set
-        --coveralls <KEY>            Coveralls key, either the repo token, or if you're using travis use $TRAVIS_JOB_ID
+        --coveralls <KEY>            Coveralls key, either the repo token, or if you'
+re using travis use $TRAVIS_JOB_ID
                                      and specify travis-{ci|pro} in --ciserver
         --example <NAME>...          Test only the specified example
     -e, --exclude <PACKAGE>...       Package id specifications to exclude from coverage. See cargo help pkgid for more

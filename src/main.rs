@@ -1,13 +1,18 @@
 use cargo_tarpaulin::cargo::{rust_flags, rustdoc_flags};
-use cargo_tarpaulin::config::{Config, ConfigWrapper, OutputFile, RunType};
-use cargo_tarpaulin::run;
+use cargo_tarpaulin::config::{Config, ConfigWrapper, Mode, OutputFile, RunType};
+use cargo_tarpaulin::{run, setup_logging};
 use clap::{crate_version, App, Arg, ArgSettings, SubCommand};
 use std::collections::HashMap;
 use std::path::Path;
-use tracing::{debug, info, trace};
-use tracing_subscriber::{filter::LevelFilter, EnvFilter};
+use tracing::{info, trace};
 
-const RUST_LOG_ENV: &str = "RUST_LOG";
+fn is_dir(d: String) -> Result<(), String> {
+    if Path::new(&d).is_dir() {
+        Ok(())
+    } else {
+        Err(String::from("root must be a directory"))
+    }
+}
 
 fn print_env(seen_rustflags: HashMap<String, Vec<String>>, prefix: &str, default_val: &str) {
     info!("Printing `{}`", prefix);
@@ -23,54 +28,6 @@ fn print_env(seen_rustflags: HashMap<String, Vec<String>>, prefix: &str, default
             println!(r#"{}="{}""#, prefix, k);
         }
     }
-}
-
-fn is_dir(d: String) -> Result<(), String> {
-    if Path::new(&d).is_dir() {
-        Ok(())
-    } else {
-        Err(String::from("root must be a directory"))
-    }
-}
-
-fn set_up_logging(debug: bool, verbose: bool) {
-    //By default, we set tarpaulin to info,debug,trace while all dependencies stay at INFO
-    let base_exceptions = |env: EnvFilter| {
-        if debug {
-            env.add_directive("cargo_tarpaulin=trace".parse().unwrap())
-        } else if verbose {
-            env.add_directive("cargo_tarpaulin=debug".parse().unwrap())
-        } else {
-            env.add_directive("cargo_tarpaulin=info".parse().unwrap())
-        }
-        .add_directive(LevelFilter::INFO.into())
-    };
-
-    //If RUST_LOG is set, then first apply our default directives (which are controlled by debug an verbose).
-    // Then RUST_LOG will overwrite those default directives.
-    // e.g. `RUST_LOG="trace" cargo-tarpaulin` will end up printing TRACE for everything
-    // `cargo-tarpaulin -v` will print DEBUG for tarpaulin and INFO for everything else.
-    // `RUST_LOG="error" cargo-tarpaulin -v` will print ERROR for everything.
-    let filter = match std::env::var_os(RUST_LOG_ENV).map(|s| s.into_string()) {
-        Some(Ok(env)) => {
-            let mut filter = base_exceptions(EnvFilter::new(""));
-            for s in env.split(',').into_iter() {
-                match s.parse() {
-                    Ok(d) => filter = filter.add_directive(d),
-                    Err(err) => println!("WARN ignoring log directive: `{}`: {}", s, err),
-                };
-            }
-            filter
-        }
-        _ => base_exceptions(EnvFilter::from_env(RUST_LOG_ENV)),
-    };
-
-    tracing_subscriber::FmtSubscriber::builder()
-        .with_max_level(tracing::Level::ERROR)
-        .with_env_filter(filter)
-        .init();
-
-    debug!("set up logging");
 }
 
 const CI_SERVER_HELP: &str = "Name of service, supported services are:
@@ -139,11 +96,16 @@ fn main() -> Result<(), String> {
             .args(&[
                 Arg::from_usage("--out -o [FMT]   'Output format of coverage report'")
                     .possible_values(&OutputFile::variants())
+                    .case_insensitive(true)
                     .multiple(true),
                 Arg::from_usage("--output-dir [PATH] 'Specify a custom directory to write report files'"),
                 Arg::from_usage("--run-types [TYPE]... 'Type of the coverage run'")
                     .possible_values(&RunType::variants())
+                    .case_insensitive(true)
                     .multiple(true),
+                Arg::from_usage("--command [CMD] 'cargo subcommand to run. So far only test and build are supported'")
+                    .case_insensitive(true)
+                    .possible_values(&Mode::variants()),
                 Arg::from_usage("--root -r [DIR]  'Calculates relative paths to root directory. If --manifest-path isn't specified it will look for a Cargo.toml in root'")
                     .validator(is_dir),
                 Arg::from_usage("--manifest-path [PATH] 'Path to Cargo.toml'"),
@@ -158,7 +120,7 @@ fn main() -> Result<(), String> {
 
     let args = args.subcommand_matches("tarpaulin").unwrap_or(&args);
 
-    set_up_logging(args.is_present("debug"), args.is_present("verbose"));
+    setup_logging(args.is_present("debug"), args.is_present("verbose"));
     let config = ConfigWrapper::from(args);
     let mut run_coverage = true;
     if args.is_present("print-rust-flags") {

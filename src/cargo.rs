@@ -113,13 +113,12 @@ pub fn get_tests(config: &Config) -> Result<Vec<TestBinary>, RunError> {
     if config.has_named_tests() {
         run_cargo(&metadata, manifest, config, None, &mut result)?
     } else if config.run_types.is_empty() {
-        run_cargo(
-            &metadata,
-            manifest,
-            config,
-            Some(RunType::Tests),
-            &mut result,
-        )?;
+        let ty = if config.command == Mode::Test {
+            Some(RunType::Tests)
+        } else {
+            None
+        };
+        run_cargo(&metadata, manifest, config, ty, &mut result)?;
     }
     Ok(result)
 }
@@ -149,7 +148,7 @@ fn run_cargo(
             match msg {
                 Ok(Message::CompilerArtifact(art)) => {
                     if let Some(path) = art.executable {
-                        if !art.profile.test && ty == Some(RunType::Tests) {
+                        if !art.profile.test && config.command == Mode::Test {
                             continue;
                         }
                         result.push(TestBinary::new(path, ty));
@@ -279,7 +278,7 @@ fn find_panics_in_file(file: &Path) -> io::Result<Vec<usize>> {
                 .map(|x| x.contains("should_panic"))
                 .unwrap_or(false)
         })
-        .map(|(i, _)| i + 1) // move from line index to line number
+        .map(|(i, _)| i + 1) // Move from line index to line number
         .collect();
     Ok(lines)
 }
@@ -299,7 +298,11 @@ fn create_command(manifest_path: &str, config: &Config, ty: Option<RunType>) -> 
         if let Ok(toolchain) = env::var("RUSTUP_TOOLCHAIN") {
             test_cmd.arg(format!("+{}", toolchain));
         }
-        test_cmd.args(&["test", "--no-run"]);
+        if config.command == Mode::Test {
+            test_cmd.args(&["test", "--no-run"]);
+        } else {
+            test_cmd.arg("build");
+        }
     }
     test_cmd.args(&["--message-format", "json", "--manifest-path", manifest_path]);
     if let Some(ty) = ty {
@@ -393,7 +396,7 @@ fn init_args(test_cmd: &mut Command, config: &Config) {
     for feat in &config.unstable_features {
         test_cmd.arg(format!("-Z{}", feat));
     }
-    if !config.varargs.is_empty() {
+    if config.command == Mode::Test && !config.varargs.is_empty() {
         let mut args = vec!["--".to_string()];
         args.extend_from_slice(&config.varargs);
         test_cmd.args(args);

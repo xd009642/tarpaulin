@@ -15,7 +15,8 @@ use std::env;
 use std::ffi::CString;
 use std::fs::create_dir_all;
 use std::path::{Path, PathBuf};
-use tracing::{error, info, trace, warn};
+use tracing::{debug, error, info, trace_span, warn};
+use tracing_subscriber::{filter::LevelFilter, EnvFilter};
 
 pub mod branching;
 pub mod breakpoint;
@@ -32,6 +33,48 @@ pub mod test_loader;
 pub mod traces;
 
 mod ptrace_control;
+
+const RUST_LOG_ENV: &str = "RUST_LOG";
+
+pub fn setup_logging(debug: bool, verbose: bool) {
+    //By default, we set tarpaulin to info,debug,trace while all dependencies stay at INFO
+    let base_exceptions = |env: EnvFilter| {
+        if debug {
+            env.add_directive("cargo_tarpaulin=trace".parse().unwrap())
+        } else if verbose {
+            env.add_directive("cargo_tarpaulin=debug".parse().unwrap())
+        } else {
+            env.add_directive("cargo_tarpaulin=info".parse().unwrap())
+        }
+        .add_directive(LevelFilter::INFO.into())
+    };
+
+    //If RUST_LOG is set, then first apply our default directives (which are controlled by debug an verbose).
+    // Then RUST_LOG will overwrite those default directives.
+    // e.g. `RUST_LOG="trace" cargo-tarpaulin` will end up printing TRACE for everything
+    // `cargo-tarpaulin -v` will print DEBUG for tarpaulin and INFO for everything else.
+    // `RUST_LOG="error" cargo-tarpaulin -v` will print ERROR for everything.
+    let filter = match std::env::var_os(RUST_LOG_ENV).map(|s| s.into_string()) {
+        Some(Ok(env)) => {
+            let mut filter = base_exceptions(EnvFilter::new(""));
+            for s in env.split(',').into_iter() {
+                match s.parse() {
+                    Ok(d) => filter = filter.add_directive(d),
+                    Err(err) => println!("WARN ignoring log directive: `{}`: {}", s, err),
+                };
+            }
+            filter
+        }
+        _ => base_exceptions(EnvFilter::from_env(RUST_LOG_ENV)),
+    };
+
+    tracing_subscriber::FmtSubscriber::builder()
+        .with_max_level(tracing::Level::ERROR)
+        .with_env_filter(filter)
+        .init();
+
+    debug!("set up logging");
+}
 
 pub fn trace(configs: &[Config]) -> Result<TraceMap, RunError> {
     let mut tracemap = TraceMap::new();
@@ -221,7 +264,8 @@ fn collect_coverage(
     let mut ret_code = 0;
     let mut traces = generate_tracemap(test_path, analysis, config)?;
     {
-        trace!("Test PID is {}", test);
+        let span = trace_span!("Collect coverage", pid=%test);
+        let _enter = span.enter();
         let (mut state, mut data) = create_state_machine(test, &mut traces, config, logger);
         loop {
             state = state.step(&mut data, config)?;

@@ -1,6 +1,6 @@
 [package]
 name = "cargo-tarpaulin"
-version = "0.15.0"
+version = "0.16.0"
 authors = ["Daniel McKenna <danielmckenna93@gmail.com>"]
 description = "Cargo-Tarpaulin is a tool to determine code coverage achieved via tests"
 repository = "https://github.com/xd009642/tarpaulin"
@@ -20,7 +20,7 @@ name = "integration"
 path = "tests/mod.rs"
 
 [dependencies]
-cargo_metadata = "0.11"
+cargo_metadata = "0.12"
 chrono = "0.4"
 clap = "2.33.3"
 coveralls-api = "0.5.0"
@@ -30,17 +30,17 @@ git2 = "0.13"
 humantime-serde = "1"
 indexmap = { version = "1.6.0", features = ["serde-1"] }
 lazy_static = "1.0"
-libc = "0.2.79"
+libc = "0.2.80"
 tracing = { version = "0.1", default-features = false }
-tracing-subscriber = {version = "0.2.13", default-features = false, features = ["env-filter", "fmt", "chrono", "ansi", "smallvec", "tracing-log"]}
+tracing-subscriber = {version = "0.2.14", default-features = false, features = ["env-filter", "fmt", "chrono", "ansi", "smallvec", "tracing-log"]}
 memmap = "0.7.0"
 nix = "0.19.0"
-object = "0.21"
+object = "0.22"
 proc-macro2 = { version = "1.0", features = ["span-locations"] }
-quick-xml = "0.19"
+quick-xml = "0.20"
 quote = "1.0"
 regex = "1.4"
-rustc-demangle = "0.1.17"
+rustc-demangle = "0.1.18"
 serde = { version = "1.0", features = ["derive"] }
 serde_json = "1.0"
 syn = { version = "1.0", features = ["full"]}
@@ -52,4 +52,4 @@ default = []
 vendored-openssl = ["git2/vendored-openssl"]
 
 [build-dependencies]
-rustc_version = "0.2"
+rustc_version = "0.3"
