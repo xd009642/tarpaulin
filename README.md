@@ -541,10 +541,6 @@ accuracy. If you see missing lines or files, check your compiler version.
 ## License
 
 Tarpaulin is currently licensed under the terms of both the MIT license and the
-Apache License (Version 2.0). See LICENSE-MIT and LICENSE-APACHE for more details.
+Apache License (Version 2.0). See LICENSE-MIT and LICENSE-APACHE for more 
+details.
 
-## Thanks
-
-I wouldn't have been able to make progress as quickly in this project without
-Joseph Kain's blog on writing a debugger in Rust and C. It's a great read, so I
-recommend you check it out [here](http://system.joekain.com/debugger/).

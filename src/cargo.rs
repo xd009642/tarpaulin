@@ -425,8 +425,7 @@ fn clean_doctest_folder<P: AsRef<Path>>(doctest_dir: P) {
 
 pub fn rustdoc_flags(config: &Config) -> String {
     const RUSTDOC: &str = "RUSTDOCFLAGS";
-    let common_opts =
-        " -C relocation-model=dynamic-no-pic -C link-dead-code -C debuginfo=2 --cfg=tarpaulin ";
+    let common_opts = " -C link-dead-code -C debuginfo=2 --cfg=tarpaulin ";
     let mut value = format!(
         "{} --persist-doctests {} -Z unstable-options ",
         common_opts,
@@ -442,9 +441,7 @@ pub fn rustdoc_flags(config: &Config) -> String {
 
 pub fn rust_flags(config: &Config) -> String {
     const RUSTFLAGS: &str = "RUSTFLAGS";
-    let mut value =
-        " -C relocation-model=dynamic-no-pic -C link-dead-code -C debuginfo=2 --cfg=tarpaulin "
-            .to_string();
+    let mut value = " -C link-dead-code -C debuginfo=2 --cfg=tarpaulin ".to_string();
     if config.release {
         value = format!("{}-C debug-assertions=off ", value);
     }

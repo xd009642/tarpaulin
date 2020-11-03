@@ -1,3 +1,4 @@
+use crate::cargo::rust_flags;
 use crate::config::Config;
 use crate::errors::RunError;
 use crate::event_log::*;
@@ -7,8 +8,9 @@ use nix::sys::signal::Signal;
 use nix::sys::wait::*;
 use nix::unistd::Pid;
 use nix::Error as NixErr;
+use procfs::process::Process;
 use std::collections::{HashMap, HashSet};
-use tracing::{debug, trace};
+use tracing::{debug, info, trace};
 
 pub fn create_state_machine<'a>(
     test: Pid,
@@ -65,6 +67,27 @@ pub struct LinuxData<'a> {
     thread_count: isize,
     /// Optional event log to update as the test progresses
     event_log: &'a Option<EventLog>,
+    /// Breakpoint offset
+    offset: u64,
+}
+
+fn get_offset(pid: Pid, config: &Config) -> u64 {
+    if rust_flags(config).contains("dynamic-no-pic") {
+        0
+    } else if let Ok(proc) = Process::new(pid.as_raw()) {
+        if let Ok(maps) = proc.maps() {
+            if let Some(first) = maps.first() {
+                info!("map: {:?}", first);
+                first.address.0
+            } else {
+                0
+            }
+        } else {
+            0
+        }
+    } else {
+        0
+    }
 }
 
 impl<'a> StateData for LinuxData<'a> {
@@ -90,11 +113,14 @@ impl<'a> StateData for LinuxData<'a> {
 
     fn init(&mut self) -> Result<TestState, RunError> {
         trace_children(self.current)?;
+        let offset = get_offset(self.current, self.config);
+        self.offset = offset;
+        trace!("Address offset: 0x{:x}", offset);
         for trace in self.traces.all_traces() {
             for addr in &trace.address {
-                match Breakpoint::new(self.current, *addr) {
+                match Breakpoint::new(self.current, *addr + offset) {
                     Ok(bp) => {
-                        let _ = self.breakpoints.insert(*addr, bp);
+                        let _ = self.breakpoints.insert(*addr + offset, bp);
                     }
                     Err(e) if e == NixErr::Sys(Errno::EIO) => {
                         return Err(RunError::TestRuntime(
@@ -309,6 +335,7 @@ impl<'a> LinuxData<'a> {
             config,
             event_log,
             thread_count: 0,
+            offset: 0,
         }
     }
 
@@ -394,7 +421,7 @@ impl<'a> LinuxData<'a> {
                     }
                 };
                 if updated.0 {
-                    self.traces.increment_hit(rip);
+                    self.traces.increment_hit(rip - self.offset);
                 }
                 action = Some(updated.1);
             }

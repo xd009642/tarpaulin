@@ -3,6 +3,15 @@
 From 2019 onwards, all notable changes to tarpaulin will be documented in this
 file.
 
+## [Unreleased]
+### Added
+
+### Changed
+- Address offset mapping has been added which allows us to compile binaries
+without changing the relocation model
+
+### Removed
+
 ## [0.16.0] - 2020-11-02
 ### Added
 - `--command` option to build and run a binary for testing CLI apps
