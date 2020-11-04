@@ -77,7 +77,6 @@ fn get_offset(pid: Pid, config: &Config) -> u64 {
     } else if let Ok(proc) = Process::new(pid.as_raw()) {
         if let Ok(maps) = proc.maps() {
             if let Some(first) = maps.first() {
-                info!("map: {:?}", first);
                 first.address.0
             } else {
                 0
@@ -112,36 +111,7 @@ impl<'a> StateData for LinuxData<'a> {
     }
 
     fn init(&mut self) -> Result<TestState, RunError> {
-        trace_children(self.current)?;
-        let offset = get_offset(self.current, self.config);
-        self.offset = offset;
-        trace!("Address offset: 0x{:x}", offset);
-        for trace in self.traces.all_traces() {
-            for addr in &trace.address {
-                match Breakpoint::new(self.current, *addr + offset) {
-                    Ok(bp) => {
-                        let _ = self.breakpoints.insert(*addr + offset, bp);
-                    }
-                    Err(e) if e == NixErr::Sys(Errno::EIO) => {
-                        return Err(RunError::TestRuntime(
-                            "ERROR: Tarpaulin cannot find code addresses \
-                             check that pie is disabled for your linker. \
-                             If linking with gcc try adding -C link-args=-no-pie \
-                             to your rust flags"
-                                .to_string(),
-                        ));
-                    }
-                    Err(NixErr::UnsupportedOperation) => {
-                        debug!("Instrumentation address clash, ignoring 0x{:x}", addr);
-                    }
-                    Err(_) => {
-                        return Err(RunError::TestRuntime(
-                            "Failed to instrument test executable".to_string(),
-                        ));
-                    }
-                }
-            }
-        }
+        self.init_process(self.current)?;
 
         if continue_exec(self.parent, None).is_ok() {
             trace!("Initialised inferior, transitioning to wait state");
@@ -339,6 +309,51 @@ impl<'a> LinuxData<'a> {
         }
     }
 
+    fn init_process(&mut self, pid: Pid) -> Result<TracerAction<ProcessInfo>, RunError> {
+        trace_children(pid)?;
+        let offset = get_offset(pid, self.config);
+        self.offset = offset;
+        trace!("Address offset: 0x{:x}", offset);
+        for trace in self.traces.all_traces() {
+            for addr in &trace.address {
+                match Breakpoint::new(self.current, *addr + offset) {
+                    Ok(bp) => {
+                        let _ = self.breakpoints.insert(*addr + offset, bp);
+                    }
+                    Err(e) if e == NixErr::Sys(Errno::EIO) => {
+                        return Err(RunError::TestRuntime(
+                            "ERROR: Tarpaulin cannot find code addresses \
+                             check that pie is disabled for your linker. \
+                             If linking with gcc try adding -C link-args=-no-pie \
+                             to your rust flags"
+                                .to_string(),
+                        ));
+                    }
+                    Err(NixErr::UnsupportedOperation) => {
+                        debug!("Instrumentation address clash, ignoring 0x{:x}", addr);
+                    }
+                    Err(_) => {
+                        return Err(RunError::TestRuntime(
+                            "Failed to instrument test executable".to_string(),
+                        ));
+                    }
+                }
+            }
+        }
+        Ok(TracerAction::Continue(pid.into()))
+    }
+
+    fn handle_exec(
+        &mut self,
+        pid: Pid,
+    ) -> Result<(TestState, TracerAction<ProcessInfo>), RunError> {
+        trace!("Child execed other process");
+        if let Ok(proc) = Process::new(pid.into()) {
+            info!("{:?}", proc.exe());
+        }
+        Ok((TestState::wait_state(), TracerAction::Detach(pid.into())))
+    }
+
     fn handle_ptrace_event(
         &mut self,
         child: Pid,
@@ -372,10 +387,7 @@ impl<'a> LinuxData<'a> {
                         TracerAction::Continue(child.into()),
                     ))
                 }
-                PTRACE_EVENT_EXEC => {
-                    trace!("Child execed other process - detaching ptrace");
-                    Ok((TestState::wait_state(), TracerAction::Detach(child.into())))
-                }
+                PTRACE_EVENT_EXEC => self.handle_exec(child),
                 PTRACE_EVENT_EXIT => {
                     trace!("Child exiting");
                     self.thread_count -= 1;
