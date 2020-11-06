@@ -5,7 +5,7 @@ file.
 
 ## [Unreleased]
 ### Added
-- Added `--avoid-cfg-tarpaulin` flag to remove --cfg=tarpaulin from the RUSTFLAGS
+- Added `--avoid-cfg-tarpaulin` flag to remove `--cfg=tarpaulin` from the `RUSTFLAGS`
 
 ### Changed
 - Address offset mapping has been added which allows us to compile binaries
