@@ -271,7 +271,6 @@ fn cargo_home_filtering() {
     assert_eq!(res.iter().count(), 1);
 }
 
-#[ignore]
 fn follow_exes_down() {
     check_percentage("follow_exe", 1.0f64, true);
 }
