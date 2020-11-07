@@ -2,6 +2,8 @@ use crate::cargo::rust_flags;
 use crate::config::Config;
 use crate::errors::RunError;
 use crate::event_log::*;
+use crate::generate_tracemap;
+use crate::source_analysis::LineAnalysis;
 use crate::statemachine::*;
 use nix::errno::Errno;
 use nix::sys::signal::Signal;
@@ -10,6 +12,7 @@ use nix::unistd::Pid;
 use nix::Error as NixErr;
 use procfs::process::Process;
 use std::collections::{HashMap, HashSet};
+use std::path::PathBuf;
 use tracing::{debug, info, trace, warn};
 
 /// Handle to linux process state
@@ -26,6 +29,8 @@ pub struct LinuxData<'a> {
     event_log: &'a Option<EventLog>,
     /// Instrumentation points in code with associated coverage data
     traces: &'a mut TraceMap,
+    /// Source analysis, needed in case we need to follow any executables
+    analysis: &'a HashMap<PathBuf, LineAnalysis>,
     /// Processes we're tracing
     processes: HashMap<Pid, TracedProcess>,
     /// Map from pids to their parent
@@ -49,10 +54,11 @@ pub struct TracedProcess {
 pub fn create_state_machine<'a>(
     test: Pid,
     traces: &'a mut TraceMap,
+    source_analysis: &'a HashMap<PathBuf, LineAnalysis>,
     config: &'a Config,
     event_log: &'a Option<EventLog>,
 ) -> (TestState, LinuxData<'a>) {
-    let mut data = LinuxData::new(traces, config, event_log);
+    let mut data = LinuxData::new(traces, source_analysis, config, event_log);
     data.parent = test;
     (TestState::start_state(), data)
 }
@@ -320,6 +326,7 @@ impl<'a> StateData for LinuxData<'a> {
 impl<'a> LinuxData<'a> {
     pub fn new(
         traces: &'a mut TraceMap,
+        analysis: &'a HashMap<PathBuf, LineAnalysis>,
         config: &'a Config,
         event_log: &'a Option<EventLog>,
     ) -> LinuxData<'a> {
@@ -329,6 +336,7 @@ impl<'a> LinuxData<'a> {
             current: Pid::from_raw(0),
             parent: Pid::from_raw(0),
             traces,
+            analysis,
             config,
             event_log,
             pid_map: HashMap::new(),
@@ -353,9 +361,9 @@ impl<'a> LinuxData<'a> {
     fn init_process(
         &mut self,
         pid: Pid,
-        traces: Option<&mut TraceMap>,
+        trace_map: Option<TraceMap>,
     ) -> Result<TracedProcess, RunError> {
-        let traces = match traces {
+        let traces = match trace_map.as_ref() {
             Some(s) => s,
             None => self.traces,
         };
@@ -393,7 +401,7 @@ impl<'a> LinuxData<'a> {
             breakpoints,
             thread_count: 0,
             offset,
-            traces: None,
+            traces: trace_map,
         })
     }
 
@@ -402,10 +410,28 @@ impl<'a> LinuxData<'a> {
         pid: Pid,
     ) -> Result<(TestState, TracerAction<ProcessInfo>), RunError> {
         trace!("Child execed other process");
+        let res = Ok((TestState::wait_state(), TracerAction::Detach(pid.into())));
+
         if let Ok(proc) = Process::new(pid.into()) {
             info!("{:?}", proc.exe());
+            let exe = match proc.exe() {
+                Ok(e) => e,
+                _ => return res,
+            };
+            match generate_tracemap(&exe, self.analysis, self.config) {
+                Ok(tm) if !tm.is_empty() => {
+                    if let Ok(tp) = self.init_process(pid, Some(tm)) {
+                        self.processes.insert(pid, tp);
+                        Ok((TestState::wait_state(), TracerAction::Continue(pid.into())))
+                    } else {
+                        res
+                    }
+                }
+                _ => res,
+            }
+        } else {
+            res
         }
-        Ok((TestState::wait_state(), TracerAction::Detach(pid.into())))
     }
 
     fn handle_ptrace_event(
