@@ -37,6 +37,7 @@ pub struct LinuxData<'a> {
     pid_map: HashMap<Pid, Pid>,
 }
 
+#[derive(Debug)]
 pub struct TracedProcess {
     /// Map of addresses to breakpoints
     breakpoints: HashMap<u64, Breakpoint>,
@@ -255,11 +256,10 @@ impl<'a> StateData for LinuxData<'a> {
                     }
                     if &parent == child {
                         if let Some(removed) = self.processes.remove(&parent) {
+                            info!("Gonna try a merge");
                             if parent != self.parent {
                                 let traces = removed.traces.unwrap();
                                 self.traces.merge(&traces);
-                            } else {
-                                warn!("Failed to merge traces from executable");
                             }
                         }
                     }
@@ -352,8 +352,10 @@ impl<'a> LinuxData<'a> {
         let parent = self.pid_map.get(&pid)?;
         let process = self.processes.get_mut(&parent)?;
         if process.traces.is_some() {
+            trace!("Process specific trace map");
             process.traces.as_mut()
         } else {
+            trace!("Root trace map");
             Some(self.traces)
         }
     }
@@ -370,7 +372,11 @@ impl<'a> LinuxData<'a> {
         let mut breakpoints = HashMap::new();
         trace_children(pid)?;
         let offset = get_offset(pid, self.config);
-        trace!("Address offset: 0x{:x}", offset);
+        trace!(
+            "Initialising process: {}, address offset: 0x{:x}",
+            pid,
+            offset
+        );
         for trace in traces.all_traces() {
             for addr in &trace.address {
                 match Breakpoint::new(pid, *addr + offset) {
@@ -477,10 +483,14 @@ impl<'a> LinuxData<'a> {
                 PTRACE_EVENT_EXEC => self.handle_exec(child),
                 PTRACE_EVENT_EXIT => {
                     trace!("Child exiting");
+                    let mut is_parent = false;
                     if let Some(proc) = self.get_traced_process_mut(child) {
                         proc.thread_count -= 1;
+                        is_parent |= proc.parent == child;
                     }
-                    self.pid_map.remove(&child);
+                    if !is_parent {
+                        self.pid_map.remove(&child);
+                    }
                     Ok((
                         TestState::wait_state(),
                         TracerAction::TryContinue(child.into()),
