@@ -256,7 +256,6 @@ impl<'a> StateData for LinuxData<'a> {
                     }
                     if &parent == child {
                         if let Some(removed) = self.processes.remove(&parent) {
-                            info!("Gonna try a merge");
                             if parent != self.parent {
                                 let traces = removed.traces.unwrap();
                                 self.traces.merge(&traces);
@@ -352,10 +351,8 @@ impl<'a> LinuxData<'a> {
         let parent = self.pid_map.get(&pid)?;
         let process = self.processes.get_mut(&parent)?;
         if process.traces.is_some() {
-            trace!("Process specific trace map");
             process.traces.as_mut()
         } else {
-            trace!("Root trace map");
             Some(self.traces)
         }
     }
@@ -419,11 +416,11 @@ impl<'a> LinuxData<'a> {
         let res = Ok((TestState::wait_state(), TracerAction::Detach(pid.into())));
 
         if let Ok(proc) = Process::new(pid.into()) {
-            info!("{:?}", proc.exe());
             let exe = match proc.exe() {
                 Ok(e) => e,
                 _ => return res,
             };
+            info!("EXEC {:?}", exe);
             match generate_tracemap(&exe, self.analysis, self.config) {
                 Ok(tm) if !tm.is_empty() => {
                     if let Ok(tp) = self.init_process(pid, Some(tm)) {
@@ -475,6 +472,9 @@ impl<'a> LinuxData<'a> {
                 },
                 PTRACE_EVENT_FORK | PTRACE_EVENT_VFORK => {
                     trace!("Caught fork event");
+                    if let Ok(fork_child) = get_event_data(child) {
+                        trace!("Fork child: {}", fork_child);
+                    }
                     Ok((
                         TestState::wait_state(),
                         TracerAction::Continue(child.into()),
