@@ -5,6 +5,7 @@ file.
 
 ## [Unreleased]
 ### Added
+- Now trace into executed binaries
 - Added `--avoid-cfg-tarpaulin` flag to remove `--cfg=tarpaulin` from the `RUSTFLAGS`
 
 ### Changed

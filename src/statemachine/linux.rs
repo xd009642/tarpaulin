@@ -2,6 +2,8 @@ use crate::cargo::rust_flags;
 use crate::config::Config;
 use crate::errors::RunError;
 use crate::event_log::*;
+use crate::generate_tracemap;
+use crate::source_analysis::LineAnalysis;
 use crate::statemachine::*;
 use nix::errno::Errno;
 use nix::sys::signal::Signal;
@@ -10,15 +12,54 @@ use nix::unistd::Pid;
 use nix::Error as NixErr;
 use procfs::process::Process;
 use std::collections::{HashMap, HashSet};
-use tracing::{debug, info, trace};
+use std::path::PathBuf;
+use tracing::{debug, trace, warn};
+
+/// Handle to linux process state
+pub struct LinuxData<'a> {
+    /// Recent results from waitpid to be handled by statemachine
+    wait_queue: Vec<WaitStatus>,
+    /// Parent pid of the test
+    parent: Pid,
+    /// Current Pid to process
+    current: Pid,
+    /// Program config
+    config: &'a Config,
+    /// Optional event log to update as the test progresses
+    event_log: &'a Option<EventLog>,
+    /// Instrumentation points in code with associated coverage data
+    traces: &'a mut TraceMap,
+    /// Source analysis, needed in case we need to follow any executables
+    analysis: &'a HashMap<PathBuf, LineAnalysis>,
+    /// Processes we're tracing
+    processes: HashMap<Pid, TracedProcess>,
+    /// Map from pids to their parent
+    pid_map: HashMap<Pid, Pid>,
+}
+
+#[derive(Debug)]
+pub struct TracedProcess {
+    /// Map of addresses to breakpoints
+    breakpoints: HashMap<u64, Breakpoint>,
+    /// Thread count. Hopefully getting rid of in future
+    thread_count: isize,
+    /// Breakpoint offset
+    offset: u64,
+    /// Instrumentation points in code with associated coverage data
+    /// If this is the root tracemap we don't use it...
+    traces: Option<TraceMap>,
+    /// Parent pid of the process
+    parent: Pid,
+}
 
 pub fn create_state_machine<'a>(
     test: Pid,
     traces: &'a mut TraceMap,
+    source_analysis: &'a HashMap<PathBuf, LineAnalysis>,
     config: &'a Config,
     event_log: &'a Option<EventLog>,
 ) -> (TestState, LinuxData<'a>) {
-    let mut data = LinuxData::new(traces, config, event_log);
+    let mut data = LinuxData::new(traces, source_analysis, config, event_log);
     data.parent = test;
     (TestState::start_state(), data)
 }
@@ -49,35 +90,12 @@ impl From<&Pid> for ProcessInfo {
     }
 }
 
-/// Handle to linux process state
-pub struct LinuxData<'a> {
-    /// Recent results from waitpid to be handled by statemachine
-    wait_queue: Vec<WaitStatus>,
-    /// Current Pid to process
-    current: Pid,
-    /// Parent PID of test process
-    parent: Pid,
-    /// Map of addresses to breakpoints
-    breakpoints: HashMap<u64, Breakpoint>,
-    /// Instrumentation points in code with associated coverage data
-    traces: &'a mut TraceMap,
-    /// Program config
-    config: &'a Config,
-    /// Thread count. Hopefully getting rid of in future
-    thread_count: isize,
-    /// Optional event log to update as the test progresses
-    event_log: &'a Option<EventLog>,
-    /// Breakpoint offset
-    offset: u64,
-}
-
 fn get_offset(pid: Pid, config: &Config) -> u64 {
     if rust_flags(config).contains("dynamic-no-pic") {
         0
     } else if let Ok(proc) = Process::new(pid.as_raw()) {
         if let Ok(maps) = proc.maps() {
             if let Some(first) = maps.first() {
-                info!("map: {:?}", first);
                 first.address.0
             } else {
                 0
@@ -112,39 +130,11 @@ impl<'a> StateData for LinuxData<'a> {
     }
 
     fn init(&mut self) -> Result<TestState, RunError> {
-        trace_children(self.current)?;
-        let offset = get_offset(self.current, self.config);
-        self.offset = offset;
-        trace!("Address offset: 0x{:x}", offset);
-        for trace in self.traces.all_traces() {
-            for addr in &trace.address {
-                match Breakpoint::new(self.current, *addr + offset) {
-                    Ok(bp) => {
-                        let _ = self.breakpoints.insert(*addr + offset, bp);
-                    }
-                    Err(e) if e == NixErr::Sys(Errno::EIO) => {
-                        return Err(RunError::TestRuntime(
-                            "ERROR: Tarpaulin cannot find code addresses \
-                             check that pie is disabled for your linker. \
-                             If linking with gcc try adding -C link-args=-no-pie \
-                             to your rust flags"
-                                .to_string(),
-                        ));
-                    }
-                    Err(NixErr::UnsupportedOperation) => {
-                        debug!("Instrumentation address clash, ignoring 0x{:x}", addr);
-                    }
-                    Err(_) => {
-                        return Err(RunError::TestRuntime(
-                            "Failed to instrument test executable".to_string(),
-                        ));
-                    }
-                }
-            }
-        }
+        let traced_process = self.init_process(self.current, None)?;
 
-        if continue_exec(self.parent, None).is_ok() {
+        if continue_exec(traced_process.parent, None).is_ok() {
             trace!("Initialised inferior, transitioning to wait state");
+            self.processes.insert(self.current, traced_process);
             Ok(TestState::wait_state())
         } else {
             Err(RunError::TestRuntime(
@@ -196,7 +186,7 @@ impl<'a> StateData for LinuxData<'a> {
 
     fn stop(&mut self) -> Result<TestState, RunError> {
         let mut actions = Vec::new();
-        let mut pcs = HashSet::new();
+        let mut pcs = HashMap::new();
         let mut result = Ok(TestState::wait_state());
         let pending = self.wait_queue.clone();
         self.wait_queue.clear();
@@ -257,8 +247,20 @@ impl<'a> StateData for LinuxData<'a> {
                     }
                 }
                 WaitStatus::Exited(child, ec) => {
-                    for ref mut value in self.breakpoints.values_mut() {
-                        value.thread_killed(*child);
+                    let mut parent = Pid::from_raw(0);
+                    if let Some(proc) = self.get_traced_process_mut(*child) {
+                        for ref mut value in proc.breakpoints.values_mut() {
+                            value.thread_killed(*child);
+                        }
+                        parent = proc.parent;
+                    }
+                    if &parent == child {
+                        if let Some(removed) = self.processes.remove(&parent) {
+                            if parent != self.parent {
+                                let traces = removed.traces.unwrap();
+                                self.traces.merge(&traces);
+                            }
+                        }
                     }
                     trace!("Exited {:?} parent {:?}", child, self.parent);
                     if child == &self.parent {
@@ -323,19 +325,114 @@ impl<'a> StateData for LinuxData<'a> {
 impl<'a> LinuxData<'a> {
     pub fn new(
         traces: &'a mut TraceMap,
+        analysis: &'a HashMap<PathBuf, LineAnalysis>,
         config: &'a Config,
         event_log: &'a Option<EventLog>,
     ) -> LinuxData<'a> {
         LinuxData {
             wait_queue: Vec::new(),
+            processes: HashMap::new(),
             current: Pid::from_raw(0),
             parent: Pid::from_raw(0),
-            breakpoints: HashMap::new(),
             traces,
+            analysis,
             config,
             event_log,
+            pid_map: HashMap::new(),
+        }
+    }
+
+    fn get_traced_process_mut(&mut self, pid: Pid) -> Option<&mut TracedProcess> {
+        let parent = self.pid_map.get(&pid)?;
+        self.processes.get_mut(&parent)
+    }
+
+    fn get_active_trace_map(&mut self, pid: Pid) -> Option<&mut TraceMap> {
+        let parent = self.pid_map.get(&pid)?;
+        let process = self.processes.get_mut(&parent)?;
+        if process.traces.is_some() {
+            process.traces.as_mut()
+        } else {
+            Some(self.traces)
+        }
+    }
+
+    fn init_process(
+        &mut self,
+        pid: Pid,
+        trace_map: Option<TraceMap>,
+    ) -> Result<TracedProcess, RunError> {
+        let traces = match trace_map.as_ref() {
+            Some(s) => s,
+            None => self.traces,
+        };
+        let mut breakpoints = HashMap::new();
+        trace_children(pid)?;
+        let offset = get_offset(pid, self.config);
+        trace!(
+            "Initialising process: {}, address offset: 0x{:x}",
+            pid,
+            offset
+        );
+        for trace in traces.all_traces() {
+            for addr in &trace.address {
+                match Breakpoint::new(pid, *addr + offset) {
+                    Ok(bp) => {
+                        let _ = breakpoints.insert(*addr + offset, bp);
+                    }
+                    Err(e) if e == NixErr::Sys(Errno::EIO) => {
+                        return Err(RunError::TestRuntime(
+                            "Tarpaulin cannot find code addresses check your linker settings."
+                                .to_string(),
+                        ));
+                    }
+                    Err(NixErr::UnsupportedOperation) => {
+                        debug!("Instrumentation address clash, ignoring 0x{:x}", addr);
+                    }
+                    Err(_) => {
+                        return Err(RunError::TestRuntime(
+                            "Failed to instrument test executable".to_string(),
+                        ));
+                    }
+                }
+            }
+        }
+        // a processes pid is it's own parent
+        self.pid_map.insert(pid, pid);
+        Ok(TracedProcess {
+            parent: pid,
+            breakpoints,
             thread_count: 0,
-            offset: 0,
+            offset,
+            traces: trace_map,
+        })
+    }
+
+    fn handle_exec(
+        &mut self,
+        pid: Pid,
+    ) -> Result<(TestState, TracerAction<ProcessInfo>), RunError> {
+        trace!("Child execed other process");
+        let res = Ok((TestState::wait_state(), TracerAction::Detach(pid.into())));
+
+        if let Ok(proc) = Process::new(pid.into()) {
+            let exe = match proc.exe() {
+                Ok(e) => e,
+                _ => return res,
+            };
+            match generate_tracemap(&exe, self.analysis, self.config) {
+                Ok(tm) if !tm.is_empty() => {
+                    if let Ok(tp) = self.init_process(pid, Some(tm)) {
+                        self.processes.insert(pid, tp);
+                        Ok((TestState::wait_state(), TracerAction::Continue(pid.into())))
+                    } else {
+                        res
+                    }
+                }
+                _ => res,
+            }
+        } else {
+            res
         }
     }
 
@@ -352,7 +449,14 @@ impl<'a> LinuxData<'a> {
                 PTRACE_EVENT_CLONE => match get_event_data(child) {
                     Ok(t) => {
                         trace!("New thread spawned {}", t);
-                        self.thread_count += 1;
+                        let mut parent = None;
+                        if let Some(proc) = self.get_traced_process_mut(child) {
+                            proc.thread_count += 1;
+                            parent = Some(proc.parent);
+                        }
+                        if let Some(p) = parent {
+                            self.pid_map.insert(Pid::from_raw(t as _), p);
+                        }
                         Ok((
                             TestState::wait_state(),
                             TracerAction::Continue(child.into()),
@@ -366,19 +470,23 @@ impl<'a> LinuxData<'a> {
                     }
                 },
                 PTRACE_EVENT_FORK | PTRACE_EVENT_VFORK => {
-                    trace!("Caught fork event");
+                    trace!("Caught fork event. Child {:?}", get_event_data(child));
                     Ok((
                         TestState::wait_state(),
                         TracerAction::Continue(child.into()),
                     ))
                 }
-                PTRACE_EVENT_EXEC => {
-                    trace!("Child execed other process - detaching ptrace");
-                    Ok((TestState::wait_state(), TracerAction::Detach(child.into())))
-                }
+                PTRACE_EVENT_EXEC => self.handle_exec(child),
                 PTRACE_EVENT_EXIT => {
                     trace!("Child exiting");
-                    self.thread_count -= 1;
+                    let mut is_parent = false;
+                    if let Some(proc) = self.get_traced_process_mut(child) {
+                        proc.thread_count -= 1;
+                        is_parent |= proc.parent == child;
+                    }
+                    if !is_parent {
+                        self.pid_map.remove(&child);
+                    }
                     Ok((
                         TestState::wait_state(),
                         TracerAction::TryContinue(child.into()),
@@ -398,35 +506,49 @@ impl<'a> LinuxData<'a> {
 
     fn collect_coverage_data(
         &mut self,
-        visited_pcs: &mut HashSet<u64>,
+        visited_pcs: &mut HashMap<Pid, HashSet<u64>>,
     ) -> Result<UpdateContext, RunError> {
         let mut action = None;
-        if let Ok(rip) = current_instruction_pointer(self.current) {
-            let rip = (rip - 1) as u64;
-            trace!("Hit address 0x{:x}", rip);
-            if self.breakpoints.contains_key(&rip) {
-                let bp = &mut self.breakpoints.get_mut(&rip).unwrap();
-                let updated = if visited_pcs.contains(&rip) {
-                    let _ = bp.jump_to(self.current);
-                    (true, TracerAction::Continue(self.current.into()))
-                } else {
-                    let enable = self.config.count;
-                    // Don't reenable if multithreaded as can't yet sort out segfault issue
-                    if let Ok(x) = bp.process(self.current, enable) {
-                        x
+        let current = self.current;
+        let enable = self.config.count;
+        let mut hits_to_increment = HashSet::new();
+        if let Some(process) = self.get_traced_process_mut(current) {
+            let visited = visited_pcs.entry(process.parent).or_default();
+            if let Ok(rip) = current_instruction_pointer(current) {
+                let rip = (rip - 1) as u64;
+                trace!("Hit address 0x{:x}", rip);
+                if process.breakpoints.contains_key(&rip) {
+                    let bp = &mut process.breakpoints.get_mut(&rip).unwrap();
+                    let updated = if visited.contains(&rip) {
+                        let _ = bp.jump_to(current);
+                        (true, TracerAction::Continue(current.into()))
                     } else {
-                        // So failed to process a breakpoint.. Still continue to avoid
-                        // stalling
-                        (false, TracerAction::Continue(self.current.into()))
+                        // Don't reenable if multithreaded as can't yet sort out segfault issue
+                        if let Ok(x) = bp.process(current, enable) {
+                            x
+                        } else {
+                            // So failed to process a breakpoint.. Still continue to avoid
+                            // stalling
+                            (false, TracerAction::Continue(current.into()))
+                        }
+                    };
+                    if updated.0 {
+                        hits_to_increment.insert(rip - process.offset);
                     }
-                };
-                if updated.0 {
-                    self.traces.increment_hit(rip - self.offset);
+                    action = Some(updated.1);
                 }
-                action = Some(updated.1);
             }
+        } else {
+            warn!("Failed to find process for pid: {}", current);
         }
-        let action = action.unwrap_or_else(|| TracerAction::Continue(self.current.into()));
+        if let Some(traces) = self.get_active_trace_map(current) {
+            for addr in &hits_to_increment {
+                traces.increment_hit(*addr);
+            }
+        } else {
+            warn!("Failed to find traces for pid: {}", current);
+        }
+        let action = action.unwrap_or_else(|| TracerAction::Continue(current.into()));
         Ok((TestState::wait_state(), action))
     }
 

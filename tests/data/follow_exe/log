@@ -1,0 +1,26 @@
+[INFO tarpaulin] Creating config
+[INFO tarpaulin] Running Tarpaulin
+[INFO tarpaulin] Building project
+    Finished test [unoptimized + debuginfo] target(s) in 0.01s
+[INFO tarpaulin] Launching test
+[INFO tarpaulin] running /home/xd009642/code/rust/tarpaulin/tests/data/follow_exe/target/debug/deps/launcher-c3357ac07e176a4f
+
+running 2 tests
+test launch_ls ... ok
+test launch_hello_world ... ok
+
+test result: ok. 2 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out
+
+[INFO tarpaulin] Launching test
+[INFO tarpaulin] running /home/xd009642/code/rust/tarpaulin/tests/data/follow_exe/target/debug/deps/follow_exe-20b826fa2b7c2647
+
+running 0 tests
+
+test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out
+
+[INFO tarpaulin] Coverage Results:
+|| Tested/Total Lines:
+|| src/main.rs: 0/3 +0%
+|| tests/launcher.rs: 3/3 +0%
+|| 
+50.00% coverage, 3/6 lines covered, +0% change in coverage
