@@ -13,7 +13,7 @@ use nix::Error as NixErr;
 use procfs::process::Process;
 use std::collections::{HashMap, HashSet};
 use std::path::PathBuf;
-use tracing::{debug, info, trace, warn};
+use tracing::{debug, trace, warn};
 
 /// Handle to linux process state
 pub struct LinuxData<'a> {
@@ -420,7 +420,6 @@ impl<'a> LinuxData<'a> {
                 Ok(e) => e,
                 _ => return res,
             };
-            info!("EXEC {:?}", exe);
             match generate_tracemap(&exe, self.analysis, self.config) {
                 Ok(tm) if !tm.is_empty() => {
                     if let Ok(tp) = self.init_process(pid, Some(tm)) {
