@@ -441,7 +441,10 @@ pub fn rustdoc_flags(config: &Config) -> String {
 
 pub fn rust_flags(config: &Config) -> String {
     const RUSTFLAGS: &str = "RUSTFLAGS";
-    let mut value = " -C link-dead-code -C debuginfo=2 --cfg=tarpaulin ".to_string();
+    let mut value = " -C link-dead-code -C debuginfo=2 ".to_string();
+    if !config.avoid_cfg_tarpaulin {
+        value = format!("{}--cfg=tarpaulin ", value);
+    }
     if config.release {
         value = format!("{}-C debug-assertions=off ", value);
     }
