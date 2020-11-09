@@ -471,10 +471,7 @@ impl<'a> LinuxData<'a> {
                     }
                 },
                 PTRACE_EVENT_FORK | PTRACE_EVENT_VFORK => {
-                    trace!("Caught fork event");
-                    if let Ok(fork_child) = get_event_data(child) {
-                        trace!("Fork child: {}", fork_child);
-                    }
+                    trace!("Caught fork event. Child {:?}", get_event_data(child));
                     Ok((
                         TestState::wait_state(),
                         TracerAction::Continue(child.into()),

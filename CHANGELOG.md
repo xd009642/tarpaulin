@@ -5,6 +5,7 @@ file.
 
 ## [Unreleased]
 ### Added
+- Now trace into executed binaries
 
 ### Changed
 - Address offset mapping has been added which allows us to compile binaries
