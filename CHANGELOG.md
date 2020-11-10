@@ -11,6 +11,7 @@ file.
 ### Changed
 - Address offset mapping has been added which allows us to compile binaries
 without changing the relocation model
+- Tie match patterns to a single logical line
 
 ### Removed
 
