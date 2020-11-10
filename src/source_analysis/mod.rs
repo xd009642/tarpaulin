@@ -12,7 +12,7 @@ use std::io::{BufRead, BufReader, Read};
 use std::path::{Path, PathBuf};
 use syn::spanned::Spanned;
 use syn::*;
-use tracing::trace;
+use tracing::{trace, warn};
 use walkdir::WalkDir;
 
 mod attributes;
@@ -258,7 +258,11 @@ impl SourceAnalysis {
                 let file = File::open(file);
                 if let Ok(mut file) = file {
                     let mut content = String::new();
-                    let _ = file.read_to_string(&mut content);
+                    let res = file.read_to_string(&mut content);
+                    if let Err(e) = res {
+                        warn!("Unable to read file into string, skipping source analysis: {}", e);
+                        return;
+                    }
                     let file = parse_file(&content);
                     if let Ok(file) = file {
                         let ctx = Context {
