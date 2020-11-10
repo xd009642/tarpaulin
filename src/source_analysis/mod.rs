@@ -260,7 +260,10 @@ impl SourceAnalysis {
                     let mut content = String::new();
                     let res = file.read_to_string(&mut content);
                     if let Err(e) = res {
-                        warn!("Unable to read file into string, skipping source analysis: {}", e);
+                        warn!(
+                            "Unable to read file into string, skipping source analysis: {}",
+                            e
+                        );
                         return;
                     }
                     let file = parse_file(&content);
