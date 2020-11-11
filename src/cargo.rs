@@ -2,6 +2,8 @@ use crate::config::*;
 use crate::errors::RunError;
 use crate::path_utils::get_source_walker;
 use cargo_metadata::{diagnostic::DiagnosticLevel, CargoOpt, Message, Metadata, MetadataCommand};
+use lazy_static::lazy_static;
+use regex::Regex; // 1.1.5
 use serde::{Deserialize, Serialize};
 use std::collections::{HashMap, HashSet};
 use std::env;
@@ -434,36 +436,85 @@ pub fn rustdoc_flags(config: &Config) -> String {
     value
 }
 
-fn look_for_rustflags_in_file(path: &Path) -> Option<String> {
+fn look_for_rustflags_in_table(value: &Value) -> String {
+    let table = value.as_table().unwrap();
+
+    if let Some(rustflags) = table.get("rustflags") {
+        let vec_of_flags: Vec<String> = rustflags
+            .as_array()
+            .unwrap()
+            .into_iter()
+            .filter_map(|x| x.as_str())
+            .map(|x| x.to_string())
+            .collect();
+
+        vec_of_flags.join(" ")
+    } else {
+        String::new()
+    }
+}
+
+fn look_for_rustflags_in_file(
+    all_features: bool,
+    features: &Vec<&str>,
+    path: &Path,
+) -> Option<String> {
     if let Ok(contents) = read_to_string(path) {
         let value = contents.parse::<Value>().ok()?;
 
-        if let Some(build_value) = value.get("build") {
-            let build_table = build_value.as_table()?;
+        let rustflags_in_file: Vec<String> = value
+            .as_table()?
+            .into_iter()
+            .map(|(s, v)| match s.as_str() {
+                "build" => look_for_rustflags_in_table(v),
+                "target" if all_features || !features.is_empty() => {
+                    let target_table = v.as_table().unwrap();
 
-            if let Some(rustflags) = build_table.get("rustflags") {
-                let vec_of_flags: Vec<String> = rustflags
-                    .as_array()?
-                    .into_iter()
-                    .filter_map(|x| x.as_str())
-                    .map(|x| x.to_string())
-                    .collect();
+                    let rustflags_in_target: Vec<String> = target_table
+                        .into_iter()
+                        .map(|(s, v)| {
+                            lazy_static! {
+                                static ref NAMED_TARGET_PATTERN: Regex =
+                                    Regex::new(r#"cfg\(feature = "(?P<feature_name>.*)"\)$"#)
+                                        .unwrap();
+                            }
 
-                return Some(vec_of_flags.join(" "));
-            }
-        }
+                            let matches = NAMED_TARGET_PATTERN.captures(s).and_then(|cap| {
+                                cap.name("feature_name")
+                                    .map(|feature_name| feature_name.as_str())
+                            });
+
+                            let mut rustflags = String::new();
+
+                            if matches.is_some() {
+                                let feature_name = matches.unwrap();
+
+                                if all_features || features.contains(&feature_name) {
+                                    rustflags = look_for_rustflags_in_table(v);
+                                }
+                            }
+
+                            rustflags
+                        })
+                        .collect();
+
+                    rustflags_in_target.join(" ")
+                }
+                _ => String::new(),
+            })
+            .collect();
+
+        Some(rustflags_in_file.join(" "))
+    } else {
+        None
     }
-
-    None
-
-    // TODO handle [target.thumbv7em-none-eabihf] triplet flags etc.
 }
 
-fn look_for_rustflags_in(path: &Path) -> Option<String> {
+fn look_for_rustflags_in(all_features: bool, features: &Vec<&str>, path: &Path) -> Option<String> {
     let mut config_path = PathBuf::from(&path);
     config_path.push("config");
 
-    let rustflags = look_for_rustflags_in_file(&config_path);
+    let rustflags = look_for_rustflags_in_file(all_features, &features, &config_path);
     if rustflags.is_some() {
         return rustflags;
     }
@@ -471,7 +522,7 @@ fn look_for_rustflags_in(path: &Path) -> Option<String> {
     config_path.pop();
     config_path.push("config.toml");
 
-    let rustflags = look_for_rustflags_in_file(&config_path);
+    let rustflags = look_for_rustflags_in_file(all_features, &features, &config_path);
     if rustflags.is_some() {
         return rustflags;
     }
@@ -488,12 +539,32 @@ fn build_config_path(base: impl AsRef<Path>) -> PathBuf {
 }
 
 fn gather_config_rust_flags(config: &Config) -> String {
-    if let Some(rustflags) = look_for_rustflags_in(&build_config_path(&config.root())) {
+    let mut features: Vec<&str> = vec![];
+
+    if config.features.is_some() {
+        config
+            .features
+            .as_ref()
+            .unwrap()
+            .split(" ")
+            .collect::<Vec<&str>>()
+            .append(&mut features);
+    }
+
+    if let Some(rustflags) = look_for_rustflags_in(
+        config.all_features,
+        &features,
+        &build_config_path(&config.root()),
+    ) {
         return rustflags;
     }
 
     if let Ok(cargo_home_config) = env::var("CARGO_HOME") {
-        if let Some(rustflags) = look_for_rustflags_in(&build_config_path(cargo_home_config)) {
+        if let Some(rustflags) = look_for_rustflags_in(
+            config.all_features,
+            &features,
+            &PathBuf::from(cargo_home_config),
+        ) {
             return rustflags;
         }
     }
