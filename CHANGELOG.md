@@ -3,7 +3,7 @@
 From 2019 onwards, all notable changes to tarpaulin will be documented in this
 file.
 
-## [Unreleased]
+## [0.17.0] - 2020-11-10
 ### Added
 - Now trace into executed binaries
 - Added `--avoid-cfg-tarpaulin` flag to remove `--cfg=tarpaulin` from the

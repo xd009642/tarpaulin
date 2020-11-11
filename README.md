@@ -26,7 +26,8 @@ Below is the help-text for a thorough explanation of the flags and features
 available:
 
 ```
-cargo-tarpaulin version: 0.16.0
+
+cargo-tarpaulin version: 0.17.0
 Tool to analyse test coverage of cargo projects
 
 USAGE:
@@ -36,6 +37,7 @@ FLAGS:
         --all                    Alias for --workspace (deprecated)
         --all-features           Build all available features
         --all-targets            Test all targets
+        --avoid-cfg-tarpaulin    Remove --cfg=tarpaulin from the RUSTFLAG
         --benches                Test all benches
         --bins                   Test all binaries
     -b, --branch                 Branch coverage: NOT IMPLEMENTED
@@ -79,8 +81,7 @@ OPTIONS:
                                      Test, Build]
         --config <FILE>              Path to a toml file specifying a list of options this will override any other
                                      options set
-        --coveralls <KEY>            Coveralls key, either the repo token, or if you'
-re using travis use $TRAVIS_JOB_ID
+        --coveralls <KEY>            Coveralls key, either the repo token, or if you're using travis use $TRAVIS_JOB_ID
                                      and specify travis-{ci|pro} in --ciserver
         --example <NAME>...          Test only the specified example
     -e, --exclude <PACKAGE>...       Package id specifications to exclude from coverage. See cargo help pkgid for more
