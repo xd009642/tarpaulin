@@ -54,6 +54,38 @@ fn logical_lines_let_bindings() {
 }
 
 #[test]
+fn match_pattern_logical_lines() {
+    let config = Config::default();
+    let ctx = Context {
+        config: &config,
+        file_contents: "fn foo(num: i32) -> bool {
+            match num {
+            1 
+            | 3
+            | 5
+            | 7
+            | 9 => {
+                true 
+                },
+            _ => false,
+            }
+        }",
+        file: Path::new(""),
+        ignore_mods: RefCell::new(HashSet::new()),
+    };
+
+    let parser = parse_file(ctx.file_contents).unwrap();
+    let mut analysis = SourceAnalysis::new();
+    analysis.process_items(&parser.items, &ctx);
+    let lines = analysis.get_line_analysis(ctx.file.to_path_buf());
+    assert_eq!(lines.logical_lines.get(&4), Some(&3));
+    assert_eq!(lines.logical_lines.get(&5), Some(&3));
+    assert_eq!(lines.logical_lines.get(&6), Some(&3));
+    assert_eq!(lines.logical_lines.get(&7), Some(&3));
+    assert_ne!(lines.logical_lines.get(&8), Some(&3));
+}
+
+#[test]
 fn line_analysis_works() {
     let mut la = LineAnalysis::new();
     assert!(!la.should_ignore(0));

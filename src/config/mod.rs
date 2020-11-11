@@ -157,6 +157,8 @@ pub struct Config {
     /// Result of cargo_metadata ran on the crate
     #[serde(skip_deserializing, skip_serializing)]
     pub metadata: RefCell<Option<Metadata>>,
+    /// Don't pass --cfg=tarpaulin to the 'RUSTFLAG'
+    pub avoid_cfg_tarpaulin: bool,
 }
 
 fn default_test_timeout() -> Duration {
@@ -215,6 +217,7 @@ impl Default for Config {
             profile: None,
             fail_under: None,
             metadata: RefCell::new(None),
+            avoid_cfg_tarpaulin: false,
         }
     }
 }
@@ -284,6 +287,7 @@ impl<'a> From<&'a ArgMatches<'a>> for ConfigWrapper {
             fail_under: value_t!(args.value_of("fail-under"), f64).ok(),
             profile: get_profile(args),
             metadata: RefCell::new(None),
+            avoid_cfg_tarpaulin: args.is_present("avoid-cfg-tarpaulin"),
         };
         if args.is_present("ignore-config") {
             Self(vec![args_config])

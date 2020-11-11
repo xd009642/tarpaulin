@@ -266,7 +266,8 @@ fn collect_coverage(
     {
         let span = trace_span!("Collect coverage", pid=%test);
         let _enter = span.enter();
-        let (mut state, mut data) = create_state_machine(test, &mut traces, config, logger);
+        let (mut state, mut data) =
+            create_state_machine(test, &mut traces, analysis, config, logger);
         loop {
             state = state.step(&mut data, config)?;
             if state.is_finished() {
