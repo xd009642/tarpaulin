@@ -1,5 +1,5 @@
 use cargo_tarpaulin::cargo::{rust_flags, rustdoc_flags};
-use cargo_tarpaulin::config::{Config, ConfigWrapper, Mode, OutputFile, RunType};
+use cargo_tarpaulin::config::{Color, Config, ConfigWrapper, Mode, OutputFile, RunType};
 use cargo_tarpaulin::{run, setup_logging};
 use clap::{crate_version, App, Arg, ArgSettings, SubCommand};
 use std::collections::HashMap;
@@ -104,6 +104,9 @@ fn main() -> Result<(), String> {
                     .possible_values(&RunType::variants())
                     .case_insensitive(true)
                     .multiple(true),
+                Arg::from_usage("--color [WHEN] 'Coloring: auto, always, never'")
+                    .case_insensitive(true)
+                    .possible_values(&Color::variants()),
                 Arg::from_usage("--command [CMD] 'cargo subcommand to run. So far only test and build are supported'")
                     .case_insensitive(true)
                     .possible_values(&Mode::variants()),
@@ -121,8 +124,8 @@ fn main() -> Result<(), String> {
 
     let args = args.subcommand_matches("tarpaulin").unwrap_or(&args);
 
-    setup_logging(args.is_present("debug"), args.is_present("verbose"));
     let config = ConfigWrapper::from(args);
+    setup_logging(config.0[0].color, args.is_present("debug"), args.is_present("verbose"));
     let mut run_coverage = true;
     if args.is_present("print-rust-flags") {
         run_coverage = false;

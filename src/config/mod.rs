@@ -159,6 +159,8 @@ pub struct Config {
     pub metadata: RefCell<Option<Metadata>>,
     /// Don't pass --cfg=tarpaulin to the 'RUSTFLAG'
     pub avoid_cfg_tarpaulin: bool,
+    /// Colouring of logging
+    pub color: Color,
 }
 
 fn default_test_timeout() -> Duration {
@@ -218,6 +220,7 @@ impl Default for Config {
             fail_under: None,
             metadata: RefCell::new(None),
             avoid_cfg_tarpaulin: false,
+            color: Color::Auto,
         }
     }
 }
@@ -243,6 +246,7 @@ impl<'a> From<&'a ArgMatches<'a>> for ConfigWrapper {
             config: None,
             root: get_root(args),
             command: value_t!(args.value_of("command"), Mode).unwrap_or(Mode::Test),
+            color: value_t!(args.value_of("color"), Color).unwrap_or(Color::Auto),
             run_types: get_run_types(args),
             run_ignored: args.is_present("ignored"),
             ignore_tests: args.is_present("ignore-tests"),

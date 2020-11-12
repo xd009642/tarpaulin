@@ -3,6 +3,14 @@
 From 2019 onwards, all notable changes to tarpaulin will be documented in this
 file.
 
+## [Unreleased]
+### Added
+- Added `--color` option matching cargo arg
+
+### Changed
+
+### Removed
+
 ## [0.17.0] - 2020-11-10
 ### Added
 - Now trace into executed binaries

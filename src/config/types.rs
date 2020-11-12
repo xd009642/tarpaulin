@@ -5,6 +5,15 @@ use std::str::FromStr;
 
 arg_enum! {
     #[derive(Debug, Copy, Clone, PartialEq, Eq, Hash, Ord, PartialOrd, Deserialize, Serialize)]
+    pub enum Color {
+        Auto,
+        Always,
+        Never,
+    }
+}
+
+arg_enum! {
+    #[derive(Debug, Copy, Clone, PartialEq, Eq, Hash, Ord, PartialOrd, Deserialize, Serialize)]
     pub enum Mode {
         Test,
         Build

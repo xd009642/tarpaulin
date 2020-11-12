@@ -382,6 +382,8 @@ fn init_args(test_cmd: &mut Command, config: &Config) {
         test_cmd.arg("--exclude");
         test_cmd.arg(package);
     });
+    test_cmd.arg("--color");
+    test_cmd.arg(config.color.to_string().to_ascii_lowercase());
     if let Some(target) = config.target.as_ref() {
         test_cmd.args(&["--target", target]);
     }

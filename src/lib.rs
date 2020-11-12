@@ -36,7 +36,7 @@ mod ptrace_control;
 
 const RUST_LOG_ENV: &str = "RUST_LOG";
 
-pub fn setup_logging(debug: bool, verbose: bool) {
+pub fn setup_logging(color: Color, debug: bool, verbose: bool) {
     //By default, we set tarpaulin to info,debug,trace while all dependencies stay at INFO
     let base_exceptions = |env: EnvFilter| {
         if debug {
@@ -68,9 +68,12 @@ pub fn setup_logging(debug: bool, verbose: bool) {
         _ => base_exceptions(EnvFilter::from_env(RUST_LOG_ENV)),
     };
 
+    let with_ansi = color != Color::Never;
+
     tracing_subscriber::FmtSubscriber::builder()
         .with_max_level(tracing::Level::ERROR)
         .with_env_filter(filter)
+        .with_ansi(with_ansi)
         .init();
 
     debug!("set up logging");
@@ -310,6 +313,8 @@ fn execute_test(test: &TestBinary, ignored: bool, config: &Config) -> Result<(),
     for s in &config.varargs {
         argv.push(CString::new(s.as_bytes()).unwrap_or_default());
     }
+    argv.push(CString::new("--color").unwrap_or_default());
+    argv.push(CString::new(config.color.to_string().to_ascii_lowercase()).unwrap_or_default());
 
     if let Some(s) = test.pkg_name() {
         envars.push(CString::new(format!("CARGO_PKG_NAME={}", s)).unwrap_or_default());
