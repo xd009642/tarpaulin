@@ -8,6 +8,7 @@ file.
 - Added `--color` option matching cargo arg
 
 ### Changed
+- Check through memory map for the first entry belonging to the executable [FIX]
 
 ### Removed
 
