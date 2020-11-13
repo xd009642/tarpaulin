@@ -348,8 +348,40 @@ impl<'a> LinuxData<'a> {
         }
     }
 
+    fn get_traced_process(&self, pid: Pid) -> Option<&TracedProcess> {
+        let parent = match self.pid_map.get(&pid) {
+            Some(p) => *p,
+            None => {
+                self.parent
+            }
+        };
+        self.processes.get(&parent)
+    }
+
     fn get_traced_process_mut(&mut self, pid: Pid) -> Option<&mut TracedProcess> {
-        let parent = self.pid_map.get(&pid)?;
+        let mut needed_hack = false;
+        let parent = match self.pid_map.get(&pid) {
+            Some(p) => *p,
+            None => {
+                needed_hack = true;
+                let mut parent_pid = None;
+                'outer: for k in self.processes.keys() {
+                    let proc = Process::new(k.as_raw()).ok()?;
+                    if let Ok(tasks) = proc.tasks() {
+                        for task in tasks.filter_map(|x| x.ok()) {
+                            if task.tid == pid.as_raw() {
+                                parent_pid =  Some(k.clone());
+                                break 'outer;
+                            }
+                        }
+                    }
+                }
+                parent_pid?
+            }
+        };
+        if needed_hack {
+            self.pid_map.insert(pid, parent);
+        }
         self.processes.get_mut(&parent)
     }
 
@@ -459,6 +491,8 @@ impl<'a> LinuxData<'a> {
                         if let Some(proc) = self.get_traced_process_mut(child) {
                             proc.thread_count += 1;
                             parent = Some(proc.parent);
+                        } else {
+                            warn!("Couldn't find parent for {}", child);
                         }
                         if let Some(p) = parent {
                             self.pid_map.insert(Pid::from_raw(t as _), p);
@@ -476,6 +510,15 @@ impl<'a> LinuxData<'a> {
                     }
                 },
                 PTRACE_EVENT_FORK | PTRACE_EVENT_VFORK => {
+                    if let Some(proc) = self.get_traced_process(child) {
+                        let parent: Pid = proc.parent;
+                        std::mem::drop(proc); // Avoid immutable borrow during mutable borrow
+                        if let Ok(c) = get_event_data(child) {
+                            self.pid_map.insert(Pid::from_raw(c as _), parent);
+                        }
+                    } else {
+                        warn!("Couldn't find parent for {}", child);
+                    }
                     trace!("Caught fork event. Child {:?}", get_event_data(child));
                     Ok((
                         TestState::wait_state(),
