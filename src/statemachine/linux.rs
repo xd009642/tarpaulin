@@ -10,7 +10,7 @@ use nix::sys::signal::Signal;
 use nix::sys::wait::*;
 use nix::unistd::Pid;
 use nix::Error as NixErr;
-use procfs::process::{Process, MMapPath};
+use procfs::process::{MMapPath, Process};
 use std::collections::{HashMap, HashSet};
 use std::path::PathBuf;
 use tracing::{debug, trace, warn};
@@ -96,16 +96,10 @@ fn get_offset(pid: Pid, config: &Config) -> u64 {
     } else if let Ok(proc) = Process::new(pid.as_raw()) {
         let exe = proc.exe().ok();
         if let Ok(maps) = proc.maps() {
-            let offset_info = maps.iter().find(|x| {
-                match (&x.pathname, exe.as_ref()) {
-                    (MMapPath::Path(p), Some(e)) => {
-                        p == e
-                    },
-                    (MMapPath::Path(_), None) => {
-                        true
-                    }, 
-                    _ => false,
-                }
+            let offset_info = maps.iter().find(|x| match (&x.pathname, exe.as_ref()) {
+                (MMapPath::Path(p), Some(e)) => p == e,
+                (MMapPath::Path(_), None) => true,
+                _ => false,
             });
             if let Some(first) = offset_info {
                 first.address.0

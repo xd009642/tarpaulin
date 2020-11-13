@@ -125,7 +125,11 @@ fn main() -> Result<(), String> {
     let args = args.subcommand_matches("tarpaulin").unwrap_or(&args);
 
     let config = ConfigWrapper::from(args);
-    setup_logging(config.0[0].color, args.is_present("debug"), args.is_present("verbose"));
+    setup_logging(
+        config.0[0].color,
+        args.is_present("debug"),
+        args.is_present("verbose"),
+    );
     let mut run_coverage = true;
     if args.is_present("print-rust-flags") {
         run_coverage = false;
