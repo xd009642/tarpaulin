@@ -351,9 +351,7 @@ impl<'a> LinuxData<'a> {
     fn get_traced_process(&self, pid: Pid) -> Option<&TracedProcess> {
         let parent = match self.pid_map.get(&pid) {
             Some(p) => *p,
-            None => {
-                self.parent
-            }
+            None => self.parent,
         };
         self.processes.get(&parent)
     }
@@ -370,7 +368,7 @@ impl<'a> LinuxData<'a> {
                     if let Ok(tasks) = proc.tasks() {
                         for task in tasks.filter_map(|x| x.ok()) {
                             if task.tid == pid.as_raw() {
-                                parent_pid =  Some(k.clone());
+                                parent_pid = Some(k.clone());
                                 break 'outer;
                             }
                         }
