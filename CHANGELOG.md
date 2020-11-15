@@ -12,7 +12,7 @@ file.
 
 ### Removed
 
-## [0.17.0] - 2020-11-10
+## [0.17.0] - 2020-11-10 [YANKED]
 ### Added
 - Now trace into executed binaries
 - Added `--avoid-cfg-tarpaulin` flag to remove `--cfg=tarpaulin` from the

@@ -13,7 +13,7 @@ use nix::Error as NixErr;
 use procfs::process::{MMapPath, Process};
 use std::collections::{HashMap, HashSet};
 use std::path::PathBuf;
-use tracing::{debug, trace, warn};
+use tracing::{debug, info, trace, trace_span, warn};
 
 /// Handle to linux process state
 pub struct LinuxData<'a> {
@@ -197,6 +197,8 @@ impl<'a> StateData for LinuxData<'a> {
         let pending = self.wait_queue.clone();
         self.wait_queue.clear();
         for status in &pending {
+            let span = trace_span!("pending", event=?status.pid());
+            let _enter = span.enter();
             if let Some(log) = self.event_log.as_ref() {
                 let event = TraceEvent::new_from_wait(&status);
                 log.push_trace(event);
@@ -233,6 +235,10 @@ impl<'a> StateData for LinuxData<'a> {
                         "Error running test - SIGILL raised in {}",
                         child
                     )))
+                }
+                WaitStatus::Stopped(c, Signal::SIGCHLD) => {
+                    let info = ProcessInfo::new(*c, Some(Signal::SIGCHLD));
+                    Ok((TestState::wait_state(), TracerAction::TryContinue(info)))
                 }
                 WaitStatus::Stopped(c, s) => {
                     let sig = if self.config.forward_signals {
@@ -296,6 +302,7 @@ impl<'a> StateData for LinuxData<'a> {
         }
         let mut continued = false;
         for a in &actions {
+            trace!("Action: {:?}", a);
             if let Some(log) = self.event_log.as_ref() {
                 let event = TraceEvent::new_from_action(&a);
                 log.push_trace(event);
@@ -348,20 +355,10 @@ impl<'a> LinuxData<'a> {
         }
     }
 
-    fn get_traced_process(&self, pid: Pid) -> Option<&TracedProcess> {
-        let parent = match self.pid_map.get(&pid) {
-            Some(p) => *p,
-            None => self.parent,
-        };
-        self.processes.get(&parent)
-    }
-
-    fn get_traced_process_mut(&mut self, pid: Pid) -> Option<&mut TracedProcess> {
-        let mut needed_hack = false;
-        let parent = match self.pid_map.get(&pid) {
-            Some(p) => *p,
+    fn get_parent(&self, pid: Pid) -> Option<Pid> {
+        match self.pid_map.get(&pid) {
+            Some(p) => Some(*p),
             None => {
-                needed_hack = true;
                 let mut parent_pid = None;
                 'outer: for k in self.processes.keys() {
                     let proc = Process::new(k.as_raw()).ok()?;
@@ -374,17 +371,23 @@ impl<'a> LinuxData<'a> {
                         }
                     }
                 }
-                parent_pid?
+                parent_pid
             }
-        };
-        if needed_hack {
-            self.pid_map.insert(pid, parent);
         }
+    }
+
+    fn get_traced_process(&self, pid: Pid) -> Option<&TracedProcess> {
+        let parent = self.get_parent(pid)?;
+        self.processes.get(&parent)
+    }
+
+    fn get_traced_process_mut(&mut self, pid: Pid) -> Option<&mut TracedProcess> {
+        let parent = self.get_parent(pid)?;
         self.processes.get_mut(&parent)
     }
 
     fn get_active_trace_map(&mut self, pid: Pid) -> Option<&mut TraceMap> {
-        let parent = self.pid_map.get(&pid)?;
+        let parent = self.get_parent(pid)?;
         let process = self.processes.get_mut(&parent)?;
         if process.traces.is_some() {
             process.traces.as_mut()
@@ -448,11 +451,14 @@ impl<'a> LinuxData<'a> {
         &mut self,
         pid: Pid,
     ) -> Result<(TestState, TracerAction<ProcessInfo>), RunError> {
-        trace!("Child execed other process");
-        let res = Ok((TestState::wait_state(), TracerAction::Detach(pid.into())));
+        trace!("Handling process exec");
+        let res = Ok((TestState::wait_state(), TracerAction::Continue(pid.into())));
 
         if let Ok(proc) = Process::new(pid.into()) {
             let exe = match proc.exe() {
+                Ok(e) if !e.starts_with(&self.config.target_dir()) => {
+                    return res;
+                }
                 Ok(e) => e,
                 _ => return res,
             };
@@ -507,21 +513,34 @@ impl<'a> LinuxData<'a> {
                         ))
                     }
                 },
-                PTRACE_EVENT_FORK | PTRACE_EVENT_VFORK => {
-                    if let Some(proc) = self.get_traced_process(child) {
-                        let parent: Pid = proc.parent;
-                        std::mem::drop(proc); // Avoid immutable borrow during mutable borrow
-                        if let Ok(c) = get_event_data(child) {
-                            self.pid_map.insert(Pid::from_raw(c as _), parent);
-                        }
-                    } else {
-                        warn!("Couldn't find parent for {}", child);
-                    }
+                PTRACE_EVENT_FORK => {
                     trace!("Caught fork event. Child {:?}", get_event_data(child));
                     Ok((
                         TestState::wait_state(),
                         TracerAction::Continue(child.into()),
                     ))
+                }
+                PTRACE_EVENT_VFORK => {
+                    trace!("Caught vfork");
+                    if let Ok(c) = get_event_data(child) {
+                        trace!("Treating as exec: {}", c);
+                        self.handle_exec(Pid::from_raw(c as _))
+                    } else {
+                        if let Some(proc) = self.get_traced_process(child) {
+                            let parent: Pid = proc.parent;
+                            std::mem::drop(proc); // Avoid immutable borrow during mutable borrow
+                            if let Ok(c) = get_event_data(child) {
+                                self.pid_map.insert(Pid::from_raw(c as _), parent);
+                            }
+                        } else {
+                            warn!("Couldn't find parent for {}", child);
+                        }
+                        trace!("Caught fork event. Child {:?}", get_event_data(child));
+                        Ok((
+                            TestState::wait_state(),
+                            TracerAction::Continue(child.into()),
+                        ))
+                    }
                 }
                 PTRACE_EVENT_EXEC => self.handle_exec(child),
                 PTRACE_EVENT_EXIT => {
@@ -605,9 +624,14 @@ impl<'a> LinuxData<'a> {
         sig: &Signal,
         flag: bool,
     ) -> Result<UpdateContext, RunError> {
+        info!("The signal {:?}", sig);
         match (sig, flag) {
             (Signal::SIGTRAP, true) => {
                 Ok((TestState::wait_state(), TracerAction::Continue(pid.into())))
+            }
+            (Signal::SIGCHLD, _) => {
+                let info = ProcessInfo::new(*pid, Some(Signal::SIGCHLD));
+                Ok((TestState::wait_state(), TracerAction::Continue(info)))
             }
             _ => Err(RunError::StateMachine("Unexpected stop".to_string())),
         }
