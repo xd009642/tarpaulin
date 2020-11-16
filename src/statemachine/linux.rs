@@ -300,7 +300,18 @@ impl<'a> StateData for LinuxData<'a> {
             }
         }
         let mut continued = false;
+        let mut actioned_pids = HashSet::new();
         for a in &actions {
+            if let Some(d) = a.get_data() {
+                if actioned_pids.contains(&d.pid) {
+                    trace!("Skipping action '{:?}', pid already sent command", a);
+                    continue;
+                } else {
+                    trace!("No action for {} yet", d.pid);
+                }
+            } else {
+                trace!("No process info for action");
+            }
             trace!("Action: {:?}", a);
             if let Some(log) = self.event_log.as_ref() {
                 let event = TraceEvent::new_from_action(&a);
@@ -309,18 +320,22 @@ impl<'a> StateData for LinuxData<'a> {
             match a {
                 TracerAction::TryContinue(t) => {
                     continued = true;
+                    actioned_pids.insert(t.pid);
                     let _ = continue_exec(t.pid, t.signal);
                 }
                 TracerAction::Continue(t) => {
                     continued = true;
+                    actioned_pids.insert(t.pid);
                     continue_exec(t.pid, t.signal)?;
                 }
                 TracerAction::Step(t) => {
                     continued = true;
+                    actioned_pids.insert(t.pid);
                     single_step(t.pid)?;
                 }
                 TracerAction::Detach(t) => {
                     continued = true;
+                    actioned_pids.insert(t.pid);
                     detach_child(t.pid)?;
                 }
                 _ => {}
