@@ -50,6 +50,8 @@ pub struct TracedProcess {
     traces: Option<TraceMap>,
     /// Parent pid of the process
     parent: Pid,
+    /// Whether the process is part of the test binary, or the result of an exec or fork
+    is_test_proc: bool,
 }
 
 pub fn create_state_machine<'a>(
@@ -136,7 +138,8 @@ impl<'a> StateData for LinuxData<'a> {
     }
 
     fn init(&mut self) -> Result<TestState, RunError> {
-        let traced_process = self.init_process(self.current, None)?;
+        let mut traced_process = self.init_process(self.current, None)?;
+        traced_process.is_test_proc = true;
 
         if continue_exec(traced_process.parent, None).is_ok() {
             trace!("Initialised inferior, transitioning to wait state");
@@ -452,6 +455,7 @@ impl<'a> LinuxData<'a> {
             breakpoints,
             thread_count: 0,
             offset,
+            is_test_proc: false,
             traces: trace_map,
         })
     }
@@ -535,7 +539,13 @@ impl<'a> LinuxData<'a> {
                         TracerAction::Continue(child.into()),
                     ))
                 }
-                PTRACE_EVENT_EXEC => self.handle_exec(child),
+                PTRACE_EVENT_EXEC => {
+                    if self.config.follow_exec {
+                        self.handle_exec(child)
+                    } else {
+                        Ok((TestState::wait_state(), TracerAction::Detach(child.into())))
+                    }
+                }
                 PTRACE_EVENT_EXIT => {
                     trace!("Child exiting");
                     let mut is_parent = false;
@@ -617,8 +627,17 @@ impl<'a> LinuxData<'a> {
         sig: &Signal,
         flag: bool,
     ) -> Result<UpdateContext, RunError> {
-        info!("The signal {:?}", sig);
+        let parent = self.get_parent(*pid);
+        if let Some(p) = parent {
+            if let Some(proc) = self.processes.get(&p) {
+                if !proc.is_test_proc {
+                    let info = ProcessInfo::new(*pid, Some(*sig));
+                    return Ok((TestState::wait_state(), TracerAction::TryContinue(info)));
+                }
+            }
+        }
         match (sig, flag) {
+            (Signal::SIGKILL, _) => Ok((TestState::wait_state(), TracerAction::Detach(pid.into()))),
             (Signal::SIGTRAP, true) => {
                 Ok((TestState::wait_state(), TracerAction::Continue(pid.into())))
             }

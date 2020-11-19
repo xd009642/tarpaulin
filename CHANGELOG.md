@@ -6,6 +6,7 @@ file.
 ## [Unreleased]
 ### Added
 - Added `--color` option matching cargo arg
+- `--follow-exec` option making exec tracing non-default
 
 ### Changed
 - Check through memory map for the first entry belonging to the executable [FIX]
