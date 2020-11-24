@@ -168,13 +168,12 @@ fn run_cargo(
                 _ => {}
             }
         }
-        let status = child.wait().unwrap();
-        if !status.success() {
-            return Err(RunError::Cargo("cargo run failed".to_string()));
-        };
         if let Some(error) = error {
             return Err(error);
         }
+        if !child.wait().unwrap().success() {
+            return Err(RunError::Cargo("cargo run failed".to_string()));
+        };
         for (res, package) in result.iter_mut().zip(package_ids.iter()) {
             let package = &metadata[package];
             res.cargo_dir = package.manifest_path.parent().map(|x| x.to_path_buf());
