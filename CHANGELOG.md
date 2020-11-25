@@ -9,6 +9,7 @@ file.
 
 ### Changed
 - Check through memory map for the first entry belonging to the executable [FIX]
+- Pass through the non-zero exit code from cargo (issue #627)
 
 ### Removed
 

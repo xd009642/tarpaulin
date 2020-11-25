@@ -7,6 +7,24 @@ use cargo_tarpaulin::{launch_tarpaulin, run};
 use std::env;
 
 #[test]
+fn error_if_build_script_fails() {
+    let mut config = Config::default();
+    let test_dir = get_test_path("build_script_fail");
+    env::set_current_dir(&test_dir).unwrap();
+    config.manifest = test_dir;
+    config.manifest.push("Cargo.toml");
+
+    let result = launch_tarpaulin(&config, &None);
+
+    assert!(result.is_err());
+
+    if let Err(RunError::Cargo(_)) = result {
+    } else {
+        panic!("Expected a Cargo error");
+    }
+}
+
+#[test]
 fn error_if_compilation_fails() {
     let mut config = Config::default();
     let test_dir = get_test_path("compile_fail");
