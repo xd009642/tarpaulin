@@ -1116,7 +1116,7 @@ mod tests {
         assert_eq!(config.run_types.len(), 1);
         assert_eq!(config.run_types[0], RunType::Doctests);
         assert_eq!(config.ci_tool, Some(CiService::Travis));
-        assert_eq!(config.root, Some("/home/rust".to_string()));
+        assert_eq!(config.root, Some("/home/rust".into()));
         assert_eq!(config.manifest, PathBuf::from("/home/rust/foo/Cargo.toml"));
         assert_eq!(config.profile, Some("Release".to_string()));
         assert!(config.no_fail_fast);
