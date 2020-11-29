@@ -161,6 +161,8 @@ pub struct Config {
     pub avoid_cfg_tarpaulin: bool,
     /// Colouring of logging
     pub color: Color,
+    /// Follow traced executables down
+    pub follow_exec: bool,
 }
 
 fn default_test_timeout() -> Duration {
@@ -183,6 +185,7 @@ impl Default for Config {
             force_clean: false,
             verbose: false,
             debug: false,
+            follow_exec: false,
             dump_traces: false,
             count: false,
             line_coverage: true,
@@ -254,6 +257,7 @@ impl<'a> From<&'a ArgMatches<'a>> for ConfigWrapper {
             force_clean: args.is_present("force-clean"),
             no_fail_fast: args.is_present("no-fail-fast"),
             all_targets: args.is_present("all-targets"),
+            follow_exec: args.is_present("follow-exec"),
             verbose,
             debug,
             dump_traces,

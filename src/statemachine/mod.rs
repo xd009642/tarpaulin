@@ -58,6 +58,7 @@ impl<T> TracerAction<T> {
             TracerAction::Continue(d) => Some(d),
             TracerAction::Step(d) => Some(d),
             TracerAction::Detach(d) => Some(d),
+            TracerAction::TryContinue(d) => Some(d),
             _ => None,
         }
     }
