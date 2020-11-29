@@ -33,7 +33,7 @@ pub struct Config {
     /// Path to a tarpaulin.toml config file
     pub config: Option<PathBuf>,
     /// Path to the projects cargo manifest
-    root: Option<String>,
+    root: Option<PathBuf>,
     /// Flag to also run tests with the ignored attribute
     #[serde(rename = "ignored")]
     pub run_ignored: bool,
@@ -432,9 +432,15 @@ impl Config {
         if let Ok(cfs) = res.as_mut() {
             for mut c in cfs.iter_mut() {
                 c.config = Some(file.as_ref().to_path_buf());
-                if c.manifest.is_relative() {
-                    let fixed_path = parent.join(&c.manifest);
-                    c.manifest = fixed_path;
+                c.manifest = make_absolute_with_parent(&c.manifest, &parent);
+                if let Some(root) = c.root.as_mut() {
+                    *root = make_absolute_with_parent(&root, &parent);
+                }
+                if let Some(root) = c.output_directory.as_mut() {
+                    *root = make_absolute_with_parent(&root, &parent);
+                }
+                if let Some(root) = c.target_dir.as_mut() {
+                    *root = make_absolute_with_parent(&root, &parent);
                 }
             }
         }
@@ -665,6 +671,15 @@ impl Config {
     #[inline]
     pub fn is_default_output_dir(&self) -> bool {
         self.output_directory.is_none()
+    }
+}
+
+fn make_absolute_with_parent(path: impl AsRef<Path>, parent: impl AsRef<Path>) -> PathBuf {
+    let path = path.as_ref();
+    if path.is_relative() {
+        parent.as_ref().join(path)
+    } else {
+        path.to_path_buf()
     }
 }
 
