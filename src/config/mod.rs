@@ -33,7 +33,7 @@ pub struct Config {
     /// Path to a tarpaulin.toml config file
     pub config: Option<PathBuf>,
     /// Path to the projects cargo manifest
-    pub root: Option<String>,
+    root: Option<String>,
     /// Flag to also run tests with the ignored attribute
     #[serde(rename = "ignored")]
     pub run_ignored: bool,
@@ -425,9 +425,17 @@ impl Config {
         let mut buffer = Vec::new();
         f.read_to_end(&mut buffer)?;
         let mut res = Self::parse_config_toml(&buffer);
+        let parent = match file.as_ref().parent() {
+            Some(p) => p.to_path_buf(),
+            None => PathBuf::new(),
+        };
         if let Ok(cfs) = res.as_mut() {
             for mut c in cfs.iter_mut() {
                 c.config = Some(file.as_ref().to_path_buf());
+                if c.manifest.is_relative() {
+                    let fixed_path = parent.join(&c.manifest);
+                    c.manifest = fixed_path;
+                }
             }
         }
         res
@@ -473,7 +481,9 @@ impl Config {
         self.branch_coverage |= other.branch_coverage;
         self.dump_traces |= other.dump_traces;
         self.offline |= other.offline;
-        self.manifest = other.manifest.clone();
+        if self.manifest != other.manifest && self.manifest == default_manifest() {
+            self.manifest = other.manifest.clone();
+        }
         self.root = Config::pick_optional_config(&self.root, &other.root);
         self.coveralls = Config::pick_optional_config(&self.coveralls, &other.coveralls);
         self.ci_tool = Config::pick_optional_config(&self.ci_tool, &other.ci_tool);
