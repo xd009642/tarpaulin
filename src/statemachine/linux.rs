@@ -13,7 +13,7 @@ use nix::Error as NixErr;
 use procfs::process::{MMapPath, Process};
 use std::collections::{HashMap, HashSet};
 use std::path::PathBuf;
-use tracing::{debug, info, trace, trace_span, warn};
+use tracing::{debug, trace, trace_span, warn};
 
 /// Handle to linux process state
 pub struct LinuxData<'a> {

@@ -33,7 +33,7 @@ pub struct Config {
     /// Path to a tarpaulin.toml config file
     pub config: Option<PathBuf>,
     /// Path to the projects cargo manifest
-    pub root: Option<String>,
+    root: Option<PathBuf>,
     /// Flag to also run tests with the ignored attribute
     #[serde(rename = "ignored")]
     pub run_ignored: bool,
@@ -425,9 +425,23 @@ impl Config {
         let mut buffer = Vec::new();
         f.read_to_end(&mut buffer)?;
         let mut res = Self::parse_config_toml(&buffer);
+        let parent = match file.as_ref().parent() {
+            Some(p) => p.to_path_buf(),
+            None => PathBuf::new(),
+        };
         if let Ok(cfs) = res.as_mut() {
             for mut c in cfs.iter_mut() {
                 c.config = Some(file.as_ref().to_path_buf());
+                c.manifest = make_absolute_with_parent(&c.manifest, &parent);
+                if let Some(root) = c.root.as_mut() {
+                    *root = make_absolute_with_parent(&root, &parent);
+                }
+                if let Some(root) = c.output_directory.as_mut() {
+                    *root = make_absolute_with_parent(&root, &parent);
+                }
+                if let Some(root) = c.target_dir.as_mut() {
+                    *root = make_absolute_with_parent(&root, &parent);
+                }
             }
         }
         res
@@ -473,7 +487,9 @@ impl Config {
         self.branch_coverage |= other.branch_coverage;
         self.dump_traces |= other.dump_traces;
         self.offline |= other.offline;
-        self.manifest = other.manifest.clone();
+        if self.manifest != other.manifest && self.manifest == default_manifest() {
+            self.manifest = other.manifest.clone();
+        }
         self.root = Config::pick_optional_config(&self.root, &other.root);
         self.coveralls = Config::pick_optional_config(&self.coveralls, &other.coveralls);
         self.ci_tool = Config::pick_optional_config(&self.ci_tool, &other.ci_tool);
@@ -655,6 +671,15 @@ impl Config {
     #[inline]
     pub fn is_default_output_dir(&self) -> bool {
         self.output_directory.is_none()
+    }
+}
+
+fn make_absolute_with_parent(path: impl AsRef<Path>, parent: impl AsRef<Path>) -> PathBuf {
+    let path = path.as_ref();
+    if path.is_relative() {
+        parent.as_ref().join(path)
+    } else {
+        path.to_path_buf()
     }
 }
 
@@ -1091,7 +1116,7 @@ mod tests {
         assert_eq!(config.run_types.len(), 1);
         assert_eq!(config.run_types[0], RunType::Doctests);
         assert_eq!(config.ci_tool, Some(CiService::Travis));
-        assert_eq!(config.root, Some("/home/rust".to_string()));
+        assert_eq!(config.root, Some("/home/rust".into()));
         assert_eq!(config.manifest, PathBuf::from("/home/rust/foo/Cargo.toml"));
         assert_eq!(config.profile, Some("Release".to_string()));
         assert!(config.no_fail_fast);

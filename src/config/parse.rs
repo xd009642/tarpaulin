@@ -86,8 +86,8 @@ pub(super) fn get_target_dir(args: &ArgMatches) -> Option<PathBuf> {
     Some(path)
 }
 
-pub(super) fn get_root(args: &ArgMatches) -> Option<String> {
-    args.value_of("root").map(ToString::to_string)
+pub(super) fn get_root(args: &ArgMatches) -> Option<PathBuf> {
+    args.value_of("root").map(PathBuf::from)
 }
 
 pub(super) fn get_ci(args: &ArgMatches) -> Option<CiService> {
