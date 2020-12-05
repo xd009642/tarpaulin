@@ -124,7 +124,7 @@ where
 /// Finds all function entry points and returns a vector
 /// This will identify definite tests, but may be prone to false negatives.
 fn get_entry_points<R, Offset>(
-    debug_info: &CompilationUnitHeader<R, Offset>,
+    debug_info: &UnitHeader<R, Offset>,
     debug_abbrev: &Abbreviations,
     debug_str: &DebugStr<R>,
 ) -> Vec<FuncDesc>
