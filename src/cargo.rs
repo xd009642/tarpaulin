@@ -201,7 +201,6 @@ fn run_cargo(
 
         let should_panics = get_panic_candidates(&dir_entries, config);
         for dt in &dir_entries {
-            trace!("Found doctest binary {}", dt.path().display());
             let mut tb = TestBinary::new(dt.path().to_path_buf(), ty);
             // Now to do my magic!
             if let Some(meta) = DocTestBinaryMeta::new(dt.path()) {
@@ -222,7 +221,7 @@ fn convert_to_prefix(p: &Path) -> Option<String> {
 
 fn is_prefix_match(prefix: &str, entry: &Path) -> bool {
     convert_to_prefix(entry)
-        .map(|s| s.ends_with(prefix))
+        .map(|s| prefix.ends_with(&s))
         .unwrap_or(false)
 }
 
