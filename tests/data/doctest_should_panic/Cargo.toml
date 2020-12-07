@@ -1,5 +1,5 @@
 [package]
-name = "doctest_should_panic"
+name = "doctest-should-panic"
 version = "0.1.0"
 authors = ["xd009642 <danielmckenna93@gmail.com>"]
 edition = "2018"
