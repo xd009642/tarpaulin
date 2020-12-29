@@ -13,6 +13,7 @@ file.
 - Pass through the non-zero exit code from cargo (issue #627)
 - Change doctest source resolution to accommodate for binary renaming in nightly
 1.50.0
+- Changed path prefix in doctests to go from workspace package root not project root
 
 ### Removed
 
