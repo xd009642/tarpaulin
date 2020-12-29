@@ -215,8 +215,29 @@ fn run_cargo(
 }
 
 fn convert_to_prefix(p: &Path) -> Option<String> {
-    p.to_str()
-        .map(|s| s.replace(std::path::MAIN_SEPARATOR, "_").replace(".", "_"))
+    // Need to go from directory after last one with Cargo.toml
+    let convert_name = |p: &Path| {
+        if let Some(s) = p.file_name() {
+            s.to_str().map(|x| x.replace('.', "_")).unwrap_or_default()
+        } else {
+            String::new()
+        }
+    };
+    let mut buffer = vec![convert_name(p)];
+    let mut parent = p.parent();
+    while let Some(path_temp) = parent {
+        if !path_temp.join("Cargo.toml").exists() {
+            buffer.insert(0, convert_name(path_temp));
+        } else {
+            break;
+        }
+        parent = path_temp.parent();
+    }
+    if buffer.is_empty() {
+        None
+    } else {
+        Some(buffer.join("_"))
+    }
 }
 
 fn is_prefix_match(prefix: &str, entry: &Path) -> bool {
