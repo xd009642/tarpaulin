@@ -513,10 +513,13 @@ pub fn rust_flags(config: &Config) -> String {
     const RUSTFLAGS: &str = "RUSTFLAGS";
     let mut value = " -C link-dead-code -C debuginfo=2 ".to_string();
     if !config.avoid_cfg_tarpaulin {
-        value = format!("{}--cfg=tarpaulin ", value);
+        value.push_str("--cfg=tarpaulin ");
     }
     if config.release {
-        value = format!("{}-C debug-assertions=off ", value);
+        value.push_str("-C debug-assertions=off ");
+    }
+    if is_nightly_toolchain() {
+        value.push_str("-Z instrument-coverage ");
     }
     if let Ok(vtemp) = env::var(RUSTFLAGS) {
         lazy_static! {
@@ -537,4 +540,19 @@ fn setup_environment(cmd: &mut Command, config: &Config) {
     let value = rustdoc_flags(config);
     trace!("Setting RUSTDOCFLAGS='{}'", value);
     cmd.env(rustdoc, value);
+}
+
+fn is_nightly_toolchain() -> bool {
+    if let Ok(s) = env::var("RUSTUP_TOOLCHAIN") {
+        s.starts_with("nightly")
+    } else {
+        Command::new("cargo")
+            .arg("--version")
+            .output()
+            .map(|x| {
+                let s = String::from_utf8_lossy(&x.stdout);
+                s.contains("nightly")
+            })
+            .unwrap_or(false)
+    }
 }
