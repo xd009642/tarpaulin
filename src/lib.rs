@@ -329,6 +329,8 @@ fn execute_test(test: &TestBinary, ignored: bool, config: &Config) -> Result<(),
         envars
             .push(CString::new(format!("CARGO_MANIFEST_DIR={}", s.display())).unwrap_or_default());
     }
+    // Used for llvm coverage to avoid report naming clashes
+    envars.push(CString::new("LLVM_PROFILE_FILE=default_%p.profraw").unwrap_or_default());
 
     execute(exec_path, &argv, envars.as_slice())
 }
