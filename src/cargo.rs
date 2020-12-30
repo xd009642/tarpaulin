@@ -548,24 +548,20 @@ fn supports_llvm_coverage() -> bool {
         .output()
         .map(|x| {
             let s = String::from_utf8_lossy(&x.stdout);
-            check_llvm_cov_version(&s).unwrap_or(false)
+            check_llvm_cov_version(&s)
         })
         .unwrap_or(false)
 }
 
-fn check_llvm_cov_version(version: &str) -> Option<bool> {
+fn check_llvm_cov_version(version: &str) -> bool {
     lazy_static! {
         static ref COMPAT_VERSION: Regex = Regex::new(r"cargo \d\.(\d+)\.\d+\-nightly").unwrap();
     }
     if let Some(cap) = COMPAT_VERSION.captures_iter(version).next() {
         let minor = cap[1].parse().unwrap_or(0);
-        if minor >= 50 {
-            Some(true)
-        } else {
-            Some(false)
-        }
+        minor >= 50
     } else {
-        None
+        false
     }
 }
 
@@ -577,7 +573,7 @@ mod tests {
     fn llvm_cov_compatible_version() {
         assert_eq!(
             check_llvm_cov_version("cargo 1.50.0-nightly (75d5d8cff 2020-12-22)"),
-            Some(true)
+            true
         );
     }
 
@@ -585,16 +581,16 @@ mod tests {
     fn llvm_cov_incompatible_version() {
         assert_eq!(
             check_llvm_cov_version("cargo 1.48.0 (65cbdd2dc 2020-10-14)"),
-            Some(false)
+            false
         );
         assert_eq!(
             check_llvm_cov_version("cargo 1.48.0-beta (65cbdd2dc 2020-10-14)"),
-            Some(false)
+            false
         );
         assert_eq!(
             check_llvm_cov_version("cargo 1.50.0 (65cbdd2dc 2020-10-14)"),
-            Some(false)
+            false
         );
-        assert_eq!(check_llvm_cov_version("rustc 1.58.0"), None);
+        assert_eq!(check_llvm_cov_version("rustc 1.58.0"), false);
     }
 }
