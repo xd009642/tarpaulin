@@ -506,6 +506,9 @@ pub fn rustdoc_flags(config: &Config) -> String {
             value.push_str(vtemp.as_ref());
         }
     }
+    if supports_llvm_coverage() {
+        value.push_str("-Z instrument-coverage ");
+    }
     value
 }
 
