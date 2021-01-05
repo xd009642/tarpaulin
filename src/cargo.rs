@@ -475,8 +475,7 @@ fn look_for_rustflags_in_file(path: &Path) -> Option<String> {
 }
 
 fn look_for_rustflags_in(path: &Path) -> Option<String> {
-    let mut config_path = PathBuf::from(&path);
-    config_path.push("config");
+    let mut config_path = path.join("config");
 
     let rustflags = look_for_rustflags_in_file(&config_path);
     if rustflags.is_some() {
