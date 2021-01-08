@@ -259,3 +259,8 @@ fn cargo_home_filtering() {
 
     assert_eq!(res.iter().count(), 1);
 }
+
+#[test]
+fn rustflags_handling() {
+    check_percentage("rustflags", 0.0f64, true);
+}

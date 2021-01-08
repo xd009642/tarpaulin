@@ -1,0 +1,5 @@
+[package]
+name = "rustflags"
+version = "0.1.0"
+
+[dependencies]
