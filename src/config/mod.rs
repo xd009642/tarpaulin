@@ -33,7 +33,7 @@ pub struct Config {
     /// Path to a tarpaulin.toml config file
     pub config: Option<PathBuf>,
     /// Path to the projects cargo manifest
-    pub root: Option<String>,
+    root: Option<PathBuf>,
     /// Flag to also run tests with the ignored attribute
     #[serde(rename = "ignored")]
     pub run_ignored: bool,
@@ -108,6 +108,8 @@ pub struct Config {
     target_dir: Option<PathBuf>,
     /// Run tarpaulin on project without accessing the network
     pub offline: bool,
+    /// Cargo subcommand to run. So far only test and build are supported
+    pub command: Mode,
     /// Types of tests for tarpaulin to collect coverage on
     #[serde(rename = "run-types")]
     pub run_types: Vec<RunType>,
@@ -150,10 +152,17 @@ pub struct Config {
     /// Run with the given profile
     pub profile: Option<String>,
     /// returns a non-zero code if coverage is below the threshold
+    #[serde(rename = "fail-under")]
     pub fail_under: Option<f64>,
     /// Result of cargo_metadata ran on the crate
     #[serde(skip_deserializing, skip_serializing)]
     pub metadata: RefCell<Option<Metadata>>,
+    /// Don't pass --cfg=tarpaulin to the 'RUSTFLAG'
+    pub avoid_cfg_tarpaulin: bool,
+    /// Colouring of logging
+    pub color: Color,
+    /// Follow traced executables down
+    pub follow_exec: bool,
 }
 
 fn default_test_timeout() -> Duration {
@@ -164,7 +173,8 @@ impl Default for Config {
     fn default() -> Config {
         Config {
             name: String::new(),
-            run_types: vec![RunType::Tests],
+            command: Mode::Test,
+            run_types: vec![],
             manifest: default_manifest(),
             config: None,
             root: Default::default(),
@@ -175,6 +185,7 @@ impl Default for Config {
             force_clean: false,
             verbose: false,
             debug: false,
+            follow_exec: false,
             dump_traces: false,
             count: false,
             line_coverage: true,
@@ -211,6 +222,8 @@ impl Default for Config {
             profile: None,
             fail_under: None,
             metadata: RefCell::new(None),
+            avoid_cfg_tarpaulin: false,
+            color: Color::Auto,
         }
     }
 }
@@ -235,6 +248,8 @@ impl<'a> From<&'a ArgMatches<'a>> for ConfigWrapper {
             manifest: get_manifest(args),
             config: None,
             root: get_root(args),
+            command: value_t!(args.value_of("command"), Mode).unwrap_or(Mode::Test),
+            color: value_t!(args.value_of("color"), Color).unwrap_or(Color::Auto),
             run_types: get_run_types(args),
             run_ignored: args.is_present("ignored"),
             ignore_tests: args.is_present("ignore-tests"),
@@ -242,6 +257,7 @@ impl<'a> From<&'a ArgMatches<'a>> for ConfigWrapper {
             force_clean: args.is_present("force-clean"),
             no_fail_fast: args.is_present("no-fail-fast"),
             all_targets: args.is_present("all-targets"),
+            follow_exec: args.is_present("follow-exec"),
             verbose,
             debug,
             dump_traces,
@@ -279,6 +295,7 @@ impl<'a> From<&'a ArgMatches<'a>> for ConfigWrapper {
             fail_under: value_t!(args.value_of("fail-under"), f64).ok(),
             profile: get_profile(args),
             metadata: RefCell::new(None),
+            avoid_cfg_tarpaulin: args.is_present("avoid-cfg-tarpaulin"),
         };
         if args.is_present("ignore-config") {
             Self(vec![args_config])
@@ -408,9 +425,23 @@ impl Config {
         let mut buffer = Vec::new();
         f.read_to_end(&mut buffer)?;
         let mut res = Self::parse_config_toml(&buffer);
+        let parent = match file.as_ref().parent() {
+            Some(p) => p.to_path_buf(),
+            None => PathBuf::new(),
+        };
         if let Ok(cfs) = res.as_mut() {
             for mut c in cfs.iter_mut() {
                 c.config = Some(file.as_ref().to_path_buf());
+                c.manifest = make_absolute_with_parent(&c.manifest, &parent);
+                if let Some(root) = c.root.as_mut() {
+                    *root = make_absolute_with_parent(&root, &parent);
+                }
+                if let Some(root) = c.output_directory.as_mut() {
+                    *root = make_absolute_with_parent(&root, &parent);
+                }
+                if let Some(root) = c.target_dir.as_mut() {
+                    *root = make_absolute_with_parent(&root, &parent);
+                }
             }
         }
         res
@@ -456,7 +487,9 @@ impl Config {
         self.branch_coverage |= other.branch_coverage;
         self.dump_traces |= other.dump_traces;
         self.offline |= other.offline;
-        self.manifest = other.manifest.clone();
+        if self.manifest != other.manifest && self.manifest == default_manifest() {
+            self.manifest = other.manifest.clone();
+        }
         self.root = Config::pick_optional_config(&self.root, &other.root);
         self.coveralls = Config::pick_optional_config(&self.coveralls, &other.coveralls);
         self.ci_tool = Config::pick_optional_config(&self.ci_tool, &other.ci_tool);
@@ -638,6 +671,15 @@ impl Config {
     #[inline]
     pub fn is_default_output_dir(&self) -> bool {
         self.output_directory.is_none()
+    }
+}
+
+fn make_absolute_with_parent(path: impl AsRef<Path>, parent: impl AsRef<Path>) -> PathBuf {
+    let path = path.as_ref();
+    if path.is_relative() {
+        parent.as_ref().join(path)
+    } else {
+        path.to_path_buf()
     }
 }
 
@@ -1074,7 +1116,7 @@ mod tests {
         assert_eq!(config.run_types.len(), 1);
         assert_eq!(config.run_types[0], RunType::Doctests);
         assert_eq!(config.ci_tool, Some(CiService::Travis));
-        assert_eq!(config.root, Some("/home/rust".to_string()));
+        assert_eq!(config.root, Some("/home/rust".into()));
         assert_eq!(config.manifest, PathBuf::from("/home/rust/foo/Cargo.toml"));
         assert_eq!(config.profile, Some("Release".to_string()));
         assert!(config.no_fail_fast);

@@ -5,9 +5,52 @@ file.
 
 ## [Unreleased]
 ### Added
+- Added `--color` option matching cargo arg
+- `--follow-exec` option making exec tracing non-default
+
+### Changed
+- Check through memory map for the first entry belonging to the executable [FIX]
+- Pass through the non-zero exit code from cargo (issue #627)
+- Change doctest source resolution to accommodate for binary renaming in nightly
+1.50.0
+- Changed path prefix in doctests to go from workspace package root not project root
+
+### Removed
+
+## [0.17.0] - 2020-11-10 [YANKED]
+### Added
+- Now trace into executed binaries
+- Added `--avoid-cfg-tarpaulin` flag to remove `--cfg=tarpaulin` from the
+`RUSTFLAGS`
+
+### Changed
+- Address offset mapping has been added which allows us to compile binaries
+without changing the relocation model
+- Tie match patterns to a single logical line
+- Check if unable to read file to string and skip source analysis for it if 
+that's the case
+
+### Removed
+
+## [0.16.0] - 2020-11-02
+### Added
+- `--command` option to build and run a binary for testing CLI apps
+
+### Changed
+- Make `--run-types` and `--out` case insensitive
+- Filter executables on command not run type to fix #610
+
+### Removed
+
+## [0.15.0] - 2020-10-17
+### Added
 
 ### Changed
 - Moved from `log` and `env_logger` to `tracing`
+- Correct field name for `--fail-under` in config file from `fail_under` to 
+`fail-under`
+- Fix process deadlock when compiler diagnostic error or ICE occur
+- Ignore non-project files when checking source locations in DWARF (issue #566)
 
 ### Removed
 

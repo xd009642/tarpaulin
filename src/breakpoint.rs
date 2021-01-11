@@ -26,7 +26,7 @@ pub struct Breakpoint {
 
 impl Breakpoint {
     /// Creates a new breakpoint for the given process and program counter.
-    pub fn new(pid: Pid, pc: u64) -> Result<Breakpoint> {
+    pub fn new(pid: Pid, pc: u64) -> Result<Self> {
         let aligned = pc & !0x7u64;
         let data = read_address(pid, aligned)?;
         let shift = 8 * (pc - aligned);

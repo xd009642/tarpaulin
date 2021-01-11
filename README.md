@@ -26,7 +26,8 @@ Below is the help-text for a thorough explanation of the flags and features
 available:
 
 ```
-cargo-tarpaulin version: 0.14.3
+
+cargo-tarpaulin version: 0.17.0
 Tool to analyse test coverage of cargo projects
 
 USAGE:
@@ -36,6 +37,7 @@ FLAGS:
         --all                    Alias for --workspace (deprecated)
         --all-features           Build all available features
         --all-targets            Test all targets
+        --avoid-cfg-tarpaulin    Remove --cfg=tarpaulin from the RUSTFLAG
         --benches                Test all benches
         --bins                   Test all binaries
     -b, --branch                 Branch coverage: NOT IMPLEMENTED
@@ -75,6 +77,8 @@ OPTIONS:
                                      travis-ci, travis-pro, circle-ci, semaphore, jenkins and codeship.
                                      If you are interfacing with coveralls.io or another site you can also specify a
                                      name that they will recognise. Refer to their documentation for this.
+        --command <CMD>              cargo subcommand to run. So far only test and build are supported [possible values:
+                                     Test, Build]
         --config <FILE>              Path to a toml file specifying a list of options this will override any other
                                      options set
         --coveralls <KEY>            Coveralls key, either the repo token, or if you're using travis use $TRAVIS_JOB_ID
@@ -538,10 +542,6 @@ accuracy. If you see missing lines or files, check your compiler version.
 ## License
 
 Tarpaulin is currently licensed under the terms of both the MIT license and the
-Apache License (Version 2.0). See LICENSE-MIT and LICENSE-APACHE for more details.
+Apache License (Version 2.0). See LICENSE-MIT and LICENSE-APACHE for more 
+details.
 
-## Thanks
-
-I wouldn't have been able to make progress as quickly in this project without
-Joseph Kain's blog on writing a debugger in Rust and C. It's a great read, so I
-recommend you check it out [here](http://system.joekain.com/debugger/).

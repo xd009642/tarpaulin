@@ -115,13 +115,12 @@ pub fn get_tests(config: &Config) -> Result<Vec<TestBinary>, RunError> {
     if config.has_named_tests() {
         run_cargo(&metadata, manifest, config, None, &mut result)?
     } else if config.run_types.is_empty() {
-        run_cargo(
-            &metadata,
-            manifest,
-            config,
-            Some(RunType::Tests),
-            &mut result,
-        )?;
+        let ty = if config.command == Mode::Test {
+            Some(RunType::Tests)
+        } else {
+            None
+        };
+        run_cargo(&metadata, manifest, config, ty, &mut result)?;
     }
     Ok(result)
 }
@@ -146,11 +145,12 @@ fn run_cargo(
     if ty != Some(RunType::Doctests) {
         let mut package_ids = vec![];
         let reader = std::io::BufReader::new(child.stdout.take().unwrap());
+        let mut error = None;
         for msg in Message::parse_stream(reader) {
             match msg {
                 Ok(Message::CompilerArtifact(art)) => {
                     if let Some(path) = art.executable {
-                        if !art.profile.test && ty == Some(RunType::Tests) {
+                        if !art.profile.test && config.command == Mode::Test {
                             continue;
                         }
                         result.push(TestBinary::new(path, ty));
@@ -159,8 +159,8 @@ fn run_cargo(
                 }
                 Ok(Message::CompilerMessage(m)) => match m.message.level {
                     DiagnosticLevel::Error | DiagnosticLevel::Ice => {
-                        let _ = child.wait();
-                        return Err(RunError::TestCompile(m.message.message));
+                        error = Some(RunError::TestCompile(m.message.message));
+                        break;
                     }
                     _ => {}
                 },
@@ -170,6 +170,13 @@ fn run_cargo(
                 _ => {}
             }
         }
+        let status = child.wait().unwrap();
+        if let Some(error) = error {
+            return Err(error);
+        }
+        if !status.success() {
+            return Err(RunError::Cargo("cargo run failed".to_string()));
+        };
         for (res, package) in result.iter_mut().zip(package_ids.iter()) {
             let package = &metadata[package];
             res.cargo_dir = package.manifest_path.parent().map(|x| x.to_path_buf());
@@ -196,7 +203,6 @@ fn run_cargo(
 
         let should_panics = get_panic_candidates(&dir_entries, config);
         for dt in &dir_entries {
-            trace!("Found doctest binary {}", dt.path().display());
             let mut tb = TestBinary::new(dt.path().to_path_buf(), ty);
             // Now to do my magic!
             if let Some(meta) = DocTestBinaryMeta::new(dt.path()) {
@@ -211,13 +217,34 @@ fn run_cargo(
 }
 
 fn convert_to_prefix(p: &Path) -> Option<String> {
-    p.to_str()
-        .map(|s| s.replace(std::path::MAIN_SEPARATOR, "_").replace(".", "_"))
+    // Need to go from directory after last one with Cargo.toml
+    let convert_name = |p: &Path| {
+        if let Some(s) = p.file_name() {
+            s.to_str().map(|x| x.replace('.', "_")).unwrap_or_default()
+        } else {
+            String::new()
+        }
+    };
+    let mut buffer = vec![convert_name(p)];
+    let mut parent = p.parent();
+    while let Some(path_temp) = parent {
+        if !path_temp.join("Cargo.toml").exists() {
+            buffer.insert(0, convert_name(path_temp));
+        } else {
+            break;
+        }
+        parent = path_temp.parent();
+    }
+    if buffer.is_empty() {
+        None
+    } else {
+        Some(buffer.join("_"))
+    }
 }
 
 fn is_prefix_match(prefix: &str, entry: &Path) -> bool {
     convert_to_prefix(entry)
-        .map(|s| s.ends_with(prefix))
+        .map(|s| prefix.ends_with(&s))
         .unwrap_or(false)
 }
 
@@ -276,7 +303,7 @@ fn find_panics_in_file(file: &Path) -> io::Result<Vec<usize>> {
                 .map(|x| x.contains("should_panic"))
                 .unwrap_or(false)
         })
-        .map(|(i, _)| i + 1) // move from line index to line number
+        .map(|(i, _)| i + 1) // Move from line index to line number
         .collect();
     Ok(lines)
 }
@@ -296,7 +323,11 @@ fn create_command(manifest_path: &str, config: &Config, ty: Option<RunType>) -> 
         if let Ok(toolchain) = env::var("RUSTUP_TOOLCHAIN") {
             test_cmd.arg(format!("+{}", toolchain));
         }
-        test_cmd.args(&["test", "--no-run"]);
+        if config.command == Mode::Test {
+            test_cmd.args(&["test", "--no-run"]);
+        } else {
+            test_cmd.arg("build");
+        }
     }
     test_cmd.args(&["--message-format", "json", "--manifest-path", manifest_path]);
     if let Some(ty) = ty {
@@ -376,6 +407,8 @@ fn init_args(test_cmd: &mut Command, config: &Config) {
         test_cmd.arg("--exclude");
         test_cmd.arg(package);
     });
+    test_cmd.arg("--color");
+    test_cmd.arg(config.color.to_string().to_ascii_lowercase());
     if let Some(target) = config.target.as_ref() {
         test_cmd.args(&["--target", target]);
     }
@@ -390,7 +423,7 @@ fn init_args(test_cmd: &mut Command, config: &Config) {
     for feat in &config.unstable_features {
         test_cmd.arg(format!("-Z{}", feat));
     }
-    if !config.varargs.is_empty() {
+    if config.command == Mode::Test && !config.varargs.is_empty() {
         let mut args = vec!["--".to_string()];
         args.extend_from_slice(&config.varargs);
         test_cmd.args(args);
@@ -419,8 +452,7 @@ fn clean_doctest_folder<P: AsRef<Path>>(doctest_dir: P) {
 
 pub fn rustdoc_flags(config: &Config) -> String {
     const RUSTDOC: &str = "RUSTDOCFLAGS";
-    let common_opts =
-        " -C relocation-model=dynamic-no-pic -C link-dead-code -C debuginfo=2 --cfg=tarpaulin ";
+    let common_opts = " -C link-dead-code -C debuginfo=2 --cfg=tarpaulin ";
     let mut value = format!(
         "{} --persist-doctests {} -Z unstable-options ",
         common_opts,
@@ -517,9 +549,10 @@ fn gather_config_rust_flags(config: &Config) -> String {
 
 pub fn rust_flags(config: &Config) -> String {
     const RUSTFLAGS: &str = "RUSTFLAGS";
-    let mut value =
-        " -C relocation-model=dynamic-no-pic -C link-dead-code -C debuginfo=2 --cfg=tarpaulin "
-            .to_string();
+    let mut value = " -C link-dead-code -C debuginfo=2 ".to_string();
+    if !config.avoid_cfg_tarpaulin {
+        value = format!("{}--cfg=tarpaulin ", value);
+    }
     if config.release {
         value = format!("{}-C debug-assertions=off ", value);
     }

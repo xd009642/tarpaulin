@@ -132,6 +132,11 @@ impl SourceAnalysis {
         for arm in &mat.arms {
             if self.check_attr_list(&arm.attrs, ctx) {
                 if let SubResult::Ok = self.process_expr(&arm.body, ctx) {
+                    let analysis = self.get_line_analysis(ctx.file.to_path_buf());
+                    let span = arm.pat.span();
+                    for line in span.start().line..span.end().line {
+                        analysis.logical_lines.insert(line + 1, span.start().line);
+                    }
                     reachable_arm = true
                 }
             } else {

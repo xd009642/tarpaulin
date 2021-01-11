@@ -23,8 +23,6 @@ impl SourceAnalysis {
                         }
                     }
                 }
-            } else {
-                println!("I'm not meta-able {:?}", attr.tokens);
             }
             if !check_cover {
                 break;
