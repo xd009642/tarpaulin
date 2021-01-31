@@ -52,8 +52,8 @@ impl TraceEvent {
                 description: "Detach child".to_string(),
                 ..Default::default()
             },
-            _ => TraceEvent {
-                description: "Unexpected action".to_string(),
+            TracerAction::Nothing => TraceEvent {
+                description: "Do nothing".to_string(),
                 ..Default::default()
             },
         }
