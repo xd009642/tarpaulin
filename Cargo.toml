@@ -38,7 +38,7 @@ nix = "0.19.1"
 object = "0.23"
 procfs = "0.9"
 proc-macro2 = { version = "1.0", features = ["span-locations"] }
-quick-xml = "0.20"
+quick-xml = "0.21"
 quote = "1.0"
 regex = "1.4"
 rustc-demangle = "0.1.18"
