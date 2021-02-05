@@ -203,7 +203,12 @@ impl<'a> StateData for LinuxData<'a> {
             let span = trace_span!("pending", event=?status.pid());
             let _enter = span.enter();
             if let Some(log) = self.event_log.as_ref() {
-                let event = TraceEvent::new_from_wait(&status);
+                let offset = if let Some(process) = self.get_traced_process_mut(self.current) {
+                    process.offset
+                } else {
+                    0
+                };
+                let event = TraceEvent::new_from_wait(&status, offset, self.traces);
                 log.push_trace(event);
             }
             let state = match status {
