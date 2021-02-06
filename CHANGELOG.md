@@ -15,6 +15,7 @@ file.
 1.50.0
 - Changed path prefix in doctests to go from workspace package root not project root
 - Added source location to debug event logs
+- Improve error message for building tests to include target name that failed
 
 ### Removed
 

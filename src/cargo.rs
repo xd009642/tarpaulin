@@ -157,7 +157,8 @@ fn run_cargo(
                 }
                 Ok(Message::CompilerMessage(m)) => match m.message.level {
                     DiagnosticLevel::Error | DiagnosticLevel::Ice => {
-                        error = Some(RunError::TestCompile(m.message.message));
+                        let msg = format!("{}: {}", m.target.name, m.message.message);
+                        error = Some(RunError::TestCompile(msg));
                         break;
                     }
                     _ => {}
