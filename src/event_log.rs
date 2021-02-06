@@ -1,6 +1,7 @@
 use crate::cargo::TestBinary;
 use crate::ptrace_control::*;
 use crate::statemachine::{ProcessInfo, TracerAction};
+use crate::traces::{Location, TraceMap};
 use chrono::offset::Local;
 use nix::libc::*;
 use nix::sys::{signal::Signal, wait::WaitStatus};
@@ -24,6 +25,7 @@ pub struct TraceEvent {
     signal: Option<String>,
     addr: Option<u64>,
     return_val: Option<i64>,
+    location: Option<Location>,
     description: String,
 }
 
@@ -59,7 +61,7 @@ impl TraceEvent {
         }
     }
 
-    pub(crate) fn new_from_wait(wait: &WaitStatus) -> Self {
+    pub(crate) fn new_from_wait(wait: &WaitStatus, offset: u64, traces: &TraceMap) -> Self {
         let pid = wait.pid().map(|p| p.as_raw());
         let mut event = TraceEvent {
             pid,
@@ -79,6 +81,9 @@ impl TraceEvent {
                 if *sig == Signal::SIGTRAP {
                     event.description = "Stopped".to_string();
                     event.addr = current_instruction_pointer(*c).ok().map(|x| (x - 1) as u64);
+                    if let Some(addr) = event.addr {
+                        event.location = traces.get_location(addr - offset);
+                    }
                 } else {
                     event.description = "Non-trace stop".to_string();
                 }

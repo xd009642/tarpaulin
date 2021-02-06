@@ -14,6 +14,7 @@ file.
 - Change doctest source resolution to accommodate for binary renaming in nightly
 1.50.0
 - Changed path prefix in doctests to go from workspace package root not project root
+- Added source location to debug event logs
 
 ### Removed
 
