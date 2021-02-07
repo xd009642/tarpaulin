@@ -163,6 +163,8 @@ pub struct Config {
     pub color: Color,
     /// Follow traced executables down
     pub follow_exec: bool,
+    /// Number of jobs used for building the tests
+    pub jobs: Option<usize>,
 }
 
 fn default_test_timeout() -> Duration {
@@ -223,6 +225,7 @@ impl Default for Config {
             fail_under: None,
             metadata: RefCell::new(None),
             avoid_cfg_tarpaulin: false,
+            jobs: None,
             color: Color::Auto,
         }
     }
@@ -293,6 +296,7 @@ impl<'a> From<&'a ArgMatches<'a>> for ConfigWrapper {
             bench_names: get_list(args, "bench").iter().cloned().collect(),
             example_names: get_list(args, "example").iter().cloned().collect(),
             fail_under: value_t!(args.value_of("fail-under"), f64).ok(),
+            jobs: value_t!(args.value_of("jobs"), usize).ok(),
             profile: get_profile(args),
             metadata: RefCell::new(None),
             avoid_cfg_tarpaulin: args.is_present("avoid-cfg-tarpaulin"),
@@ -505,6 +509,9 @@ impl Config {
         self.ignore_tests |= other.ignore_tests;
         self.no_fail_fast |= other.no_fail_fast;
 
+        if self.jobs.is_none() {
+            self.jobs = other.jobs;
+        }
         if self.fail_under.is_none()
             || other.fail_under.is_some() && other.fail_under.unwrap() < self.fail_under.unwrap()
         {

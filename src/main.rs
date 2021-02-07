@@ -94,6 +94,7 @@ fn main() -> Result<(), String> {
                  --print-rust-flags 'Print the RUSTFLAGS options that tarpaulin will compile your program with and exit'
                  --print-rustdoc-flags 'Print the RUSTDOCFLAGS options that tarpaulin will compile any doctests with and exit'
                  --avoid-cfg-tarpaulin 'Remove --cfg=tarpaulin from the RUSTFLAG'
+                 -j --jobs [N] 'Number of parallel jobs, defaults to # of CPUs'
                  -Z [FEATURES]...   'List of unstable nightly only flags'")
             .args(&[
                 Arg::from_usage("--out -o [FMT]   'Output format of coverage report'")

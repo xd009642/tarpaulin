@@ -7,6 +7,7 @@ file.
 ### Added
 - Added `--color` option matching cargo arg
 - `--follow-exec` option making exec tracing non-default
+- `--jobs` option matching the one in cargo test
 
 ### Changed
 - Check through memory map for the first entry belonging to the executable [FIX]

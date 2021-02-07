@@ -379,6 +379,10 @@ fn init_args(test_cmd: &mut Command, config: &Config) {
         test_cmd.arg("--profile");
         test_cmd.arg(profile);
     }
+    if let Some(jobs) = config.jobs {
+        test_cmd.arg("--jobs");
+        test_cmd.arg(jobs.to_string());
+    }
     if let Some(features) = config.features.as_ref() {
         test_cmd.arg("--features");
         test_cmd.arg(features);
