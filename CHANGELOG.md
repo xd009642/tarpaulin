@@ -17,6 +17,8 @@ file.
 - Changed path prefix in doctests to go from workspace package root not project root
 - Added source location to debug event logs
 - Improve error message for building tests to include target name that failed
+- Hidden file filtering only applied for folders inside project directory not
+any folder on path. Fixes #682
 
 ### Removed
 
