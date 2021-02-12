@@ -35,6 +35,11 @@ Pull requests are welcome, after you've implemented your feature test it on your
 own system and submit a PR. Make sure to explain what the feature adds to 
 Tarpaulin and any information you feel will make the review go easier. 
 
+For a more detailed look at the internals of Tarpaulin consult the developer
+section in [the wiki](https://github.com/xd009642/tarpaulin/wiki/Developers).
+This section aims to break down the components of Tarpaulin to make it easier
+for newcomers to contribute.
+
 Tarpaulin uses the gitflow model so for new features branch off of the develop
 branch and add your changes.
 
@@ -57,6 +62,6 @@ definitive guide which you can find
 This is written in C++ but should still be easily comprehendable for
 people who don't know C++. 
 
-Additionally, for any help or guidance to working with tarpaulin there is
+Additionally, for any help or guidance to working with Tarpaulin there is
 always yours personally. Open a PR and ask questions or contact me via discord
 or email, xd009642 in any rust discords or danielmckenna93@gmail.com.
