@@ -273,5 +273,7 @@ fn cargo_home_filtering() {
 
 #[test]
 fn follow_exes_down() {
-    check_percentage("follow_exe", 1.0f64, true);
+    let mut config = Config::default();
+    config.follow_exec = true;
+    check_percentage_with_config("follow_exe", 1.0f64, true, config);
 }

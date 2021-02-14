@@ -1,0 +1,6 @@
+[lib_coverage]
+manifest-path = "lib/Cargo.toml"
+
+[bin_coverage]
+manifest-path = "bin/Cargo.toml"
+target-dir = "targ"

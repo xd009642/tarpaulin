@@ -3,7 +3,27 @@
 From 2019 onwards, all notable changes to tarpaulin will be documented in this
 file.
 
-## [0.17.0] - 2020-11-10
+## [0.18.0-alpha1] 2021-02-14
+### Added
+- Added `--color` option matching cargo arg
+- `--follow-exec` option making exec tracing non-default
+- `--jobs` option matching the one in cargo test
+
+### Changed
+- Check through memory map for the first entry belonging to the executable [FIX]
+- Pass through the non-zero exit code from cargo (issue #627)
+- Change doctest source resolution to accommodate for binary renaming in nightly
+1.50.0
+- Changed path prefix in doctests to go from workspace package root not project root
+- Added source location to debug event logs
+- Improve error message for building tests to include target name that failed
+- Hidden file filtering only applied for folders inside project directory not
+any folder on path. Fixes #682
+- Removed unimplemented `toml` report
+
+### Removed
+
+## [0.17.0] - 2020-11-10 [YANKED]
 ### Added
 - Now trace into executed binaries
 - Added `--avoid-cfg-tarpaulin` flag to remove `--cfg=tarpaulin` from the

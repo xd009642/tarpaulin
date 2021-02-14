@@ -157,7 +157,8 @@ fn run_cargo(
                 }
                 Ok(Message::CompilerMessage(m)) => match m.message.level {
                     DiagnosticLevel::Error | DiagnosticLevel::Ice => {
-                        error = Some(RunError::TestCompile(m.message.message));
+                        let msg = format!("{}: {}", m.target.name, m.message.message);
+                        error = Some(RunError::TestCompile(msg));
                         break;
                     }
                     _ => {}
@@ -168,10 +169,13 @@ fn run_cargo(
                 _ => {}
             }
         }
+        let status = child.wait().unwrap();
         if let Some(error) = error {
-            let _ = child.wait();
             return Err(error);
         }
+        if !status.success() {
+            return Err(RunError::Cargo("cargo run failed".to_string()));
+        };
         for (res, package) in result.iter_mut().zip(package_ids.iter()) {
             let package = &metadata[package];
             res.cargo_dir = package.manifest_path.parent().map(|x| x.to_path_buf());
@@ -198,7 +202,6 @@ fn run_cargo(
 
         let should_panics = get_panic_candidates(&dir_entries, config);
         for dt in &dir_entries {
-            trace!("Found doctest binary {}", dt.path().display());
             let mut tb = TestBinary::new(dt.path().to_path_buf(), ty);
             // Now to do my magic!
             if let Some(meta) = DocTestBinaryMeta::new(dt.path()) {
@@ -213,13 +216,34 @@ fn run_cargo(
 }
 
 fn convert_to_prefix(p: &Path) -> Option<String> {
-    p.to_str()
-        .map(|s| s.replace(std::path::MAIN_SEPARATOR, "_").replace(".", "_"))
+    // Need to go from directory after last one with Cargo.toml
+    let convert_name = |p: &Path| {
+        if let Some(s) = p.file_name() {
+            s.to_str().map(|x| x.replace('.', "_")).unwrap_or_default()
+        } else {
+            String::new()
+        }
+    };
+    let mut buffer = vec![convert_name(p)];
+    let mut parent = p.parent();
+    while let Some(path_temp) = parent {
+        if !path_temp.join("Cargo.toml").exists() {
+            buffer.insert(0, convert_name(path_temp));
+        } else {
+            break;
+        }
+        parent = path_temp.parent();
+    }
+    if buffer.is_empty() {
+        None
+    } else {
+        Some(buffer.join("_"))
+    }
 }
 
 fn is_prefix_match(prefix: &str, entry: &Path) -> bool {
     convert_to_prefix(entry)
-        .map(|s| s.ends_with(prefix))
+        .map(|s| prefix.ends_with(&s))
         .unwrap_or(false)
 }
 
@@ -355,6 +379,10 @@ fn init_args(test_cmd: &mut Command, config: &Config) {
         test_cmd.arg("--profile");
         test_cmd.arg(profile);
     }
+    if let Some(jobs) = config.jobs {
+        test_cmd.arg("--jobs");
+        test_cmd.arg(jobs.to_string());
+    }
     if let Some(features) = config.features.as_ref() {
         test_cmd.arg("--features");
         test_cmd.arg(features);
@@ -382,6 +410,8 @@ fn init_args(test_cmd: &mut Command, config: &Config) {
         test_cmd.arg("--exclude");
         test_cmd.arg(package);
     });
+    test_cmd.arg("--color");
+    test_cmd.arg(config.color.to_string().to_ascii_lowercase());
     if let Some(target) = config.target.as_ref() {
         test_cmd.args(&["--target", target]);
     }

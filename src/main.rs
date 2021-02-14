@@ -1,5 +1,5 @@
 use cargo_tarpaulin::cargo::{rust_flags, rustdoc_flags};
-use cargo_tarpaulin::config::{Config, ConfigWrapper, Mode, OutputFile, RunType};
+use cargo_tarpaulin::config::{Color, Config, ConfigWrapper, Mode, OutputFile, RunType};
 use cargo_tarpaulin::{run, setup_logging};
 use clap::{crate_version, App, Arg, ArgSettings, SubCommand};
 use std::collections::HashMap;
@@ -83,6 +83,7 @@ fn main() -> Result<(), String> {
                  --exclude -e [PACKAGE]... 'Package id specifications to exclude from coverage. See cargo help pkgid for more info'
                  --exclude-files [FILE]... 'Exclude given files from coverage results has * wildcard'
                  --timeout -t [SECONDS] 'Integer for the maximum time in seconds without response from test before timeout (default is 1 minute).'
+                 --follow-exec 'Follow executed processes capturing coverage information if they're part of your project.'
                  --release   'Build in release mode.'
                  --no-run 'Compile tests but don't run coverage'
                  --locked 'Do not update Cargo.lock'
@@ -93,6 +94,7 @@ fn main() -> Result<(), String> {
                  --print-rust-flags 'Print the RUSTFLAGS options that tarpaulin will compile your program with and exit'
                  --print-rustdoc-flags 'Print the RUSTDOCFLAGS options that tarpaulin will compile any doctests with and exit'
                  --avoid-cfg-tarpaulin 'Remove --cfg=tarpaulin from the RUSTFLAG'
+                 -j --jobs [N] 'Number of parallel jobs, defaults to # of CPUs'
                  -Z [FEATURES]...   'List of unstable nightly only flags'")
             .args(&[
                 Arg::from_usage("--out -o [FMT]   'Output format of coverage report'")
@@ -104,6 +106,9 @@ fn main() -> Result<(), String> {
                     .possible_values(&RunType::variants())
                     .case_insensitive(true)
                     .multiple(true),
+                Arg::from_usage("--color [WHEN] 'Coloring: auto, always, never'")
+                    .case_insensitive(true)
+                    .possible_values(&Color::variants()),
                 Arg::from_usage("--command [CMD] 'cargo subcommand to run. So far only test and build are supported'")
                     .case_insensitive(true)
                     .possible_values(&Mode::variants()),
@@ -121,8 +126,12 @@ fn main() -> Result<(), String> {
 
     let args = args.subcommand_matches("tarpaulin").unwrap_or(&args);
 
-    setup_logging(args.is_present("debug"), args.is_present("verbose"));
     let config = ConfigWrapper::from(args);
+    setup_logging(
+        config.0[0].color,
+        args.is_present("debug"),
+        args.is_present("verbose"),
+    );
     let mut run_coverage = true;
     if args.is_present("print-rust-flags") {
         run_coverage = false;

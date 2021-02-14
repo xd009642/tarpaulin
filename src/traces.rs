@@ -75,6 +75,14 @@ pub struct Trace {
     pub fn_name: Option<String>,
 }
 
+#[derive(Clone, Eq, PartialEq, PartialOrd, Ord, Hash, Serialize, Deserialize)]
+pub struct Location {
+    /// Source file
+    pub file: PathBuf,
+    /// Source line
+    pub line: u64,
+}
+
 impl Trace {
     pub fn new(line: u64, address: HashSet<u64>, length: usize, fn_name: Option<String>) -> Self {
         Self {
@@ -299,6 +307,21 @@ impl TraceMap {
         for val in self.all_traces_mut() {
             if val.address.contains(&address) {
                 return Some(val);
+            }
+        }
+        None
+    }
+
+    pub fn get_location(&self, address: u64) -> Option<Location> {
+        for (k, v) in &self.traces {
+            if let Some(s) = v
+                .iter()
+                .find(|x| x.address.iter().any(|x| (*x & !0x7u64) == address))
+            {
+                return Some(Location {
+                    file: k.to_path_buf(),
+                    line: s.line,
+                });
             }
         }
         None
