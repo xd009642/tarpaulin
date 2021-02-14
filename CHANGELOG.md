@@ -3,7 +3,7 @@
 From 2019 onwards, all notable changes to tarpaulin will be documented in this
 file.
 
-## [Unreleased]
+## [0.18.0-alpha1] 2021-02-14
 ### Added
 - Added `--color` option matching cargo arg
 - `--follow-exec` option making exec tracing non-default

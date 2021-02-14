@@ -79,7 +79,7 @@ dependencies = [
 
 [[package]]
 name = "cargo-tarpaulin"
-version = "0.17.0"
+version = "0.18.0-alpha1"
 dependencies = [
  "cargo_metadata",
  "chrono",
