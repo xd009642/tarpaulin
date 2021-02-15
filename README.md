@@ -6,11 +6,12 @@
 [![Docker](https://img.shields.io/docker/automated/xd009642/tarpaulin.svg)](https://hub.docker.com/r/xd009642/tarpaulin/)
 [![Developers Wiki](https://img.shields.io/badge/development-wiki-yellowgreen.svg)](https://github.com/xd009642/tarpaulin/wiki/Developers)
 
-Tarpaulin is designed to be a code coverage reporting tool for the Cargo build
-system, named for a waterproof cloth used to cover cargo on a ship. Currently,
-tarpaulin provides working line coverage but is still in the early development
-stage and therefore may contain some bugs. A lot of work has been done to get it
-working on some example projects and smaller crates so please report anything
+Tarpaulin is a code coverage reporting tool for the Cargo build system, named 
+for a waterproof cloth used to cover cargo on a ship. Currently, tarpaulin
+provides working line coverage and while fairly reliable may still contain 
+minor inaccuracies in the results. A lot of work has been done to get it
+working on a wide range of projects, but often unique combinations of packages
+and build features can cause issues so please report anything
 you find that's wrong. Also, check out our roadmap for planned features.
 
 **Tarpaulin only supports x86_64 processors running Linux.** This is because
@@ -530,14 +531,11 @@ accuracy. If you see missing lines or files, check your compiler version.
 
 ## Roadmap
 
-* [x] Line coverage for tests
 * [ ] Branch coverage for tests
 * [ ] Condition coverage for tests
-* [x] Annotated coverage reports
-* [x] Coverage reports in the style of existing tools (i.e. kcov)
-* [x] Integration with 3rd party tools like coveralls or codecov
-* [x] Optional coverage statistics for doctests (nightly only [tracking issue](https://github.com/rust-lang/rust/issues/56925))
 * [ ] MCDC coverage reports
+* [ ] LLVM coverage support
+* [ ] Support for embedded targets
 * [ ] OSX support
 * [ ] Windows support
 
