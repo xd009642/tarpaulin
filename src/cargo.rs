@@ -2,6 +2,8 @@ use crate::config::*;
 use crate::errors::RunError;
 use crate::path_utils::get_source_walker;
 use cargo_metadata::{diagnostic::DiagnosticLevel, CargoOpt, Message, Metadata, MetadataCommand};
+use lazy_static::lazy_static;
+use regex::Regex;
 use serde::{Deserialize, Serialize};
 use std::collections::{HashMap, HashSet};
 use std::env;
@@ -479,7 +481,10 @@ pub fn rust_flags(config: &Config) -> String {
         value = format!("{}-C debug-assertions=off ", value);
     }
     if let Ok(vtemp) = env::var(RUSTFLAGS) {
-        value.push_str(vtemp.as_ref());
+        lazy_static! {
+            static ref DEBUG_INFO: Regex = Regex::new(r#"\-C\s*debuginfo=\d"#).unwrap();
+        }
+        value.push_str(&DEBUG_INFO.replace_all(&vtemp, " "));
     }
     value
 }
