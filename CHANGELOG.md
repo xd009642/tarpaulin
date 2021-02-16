@@ -8,6 +8,7 @@ file.
 - Added `--color` option matching cargo arg
 - `--follow-exec` option making exec tracing non-default
 - `--jobs` option matching the one in cargo test
+- Check if user sets -Cdebuginfo and remove it #601
 
 ### Changed
 - Check through memory map for the first entry belonging to the executable [FIX]
