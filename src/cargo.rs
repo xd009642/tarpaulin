@@ -342,7 +342,7 @@ fn find_panics_in_file(file: &Path) -> io::Result<Vec<usize>> {
                 .map(|x| x.contains("should_panic"))
                 .unwrap_or(false)
         })
-        .map(|(i, _)| i + offset) // Move from line index to line number
+        .map(|(i, _)| i + 1) // Move from line index to line number
         .collect();
     Ok(lines)
 }
