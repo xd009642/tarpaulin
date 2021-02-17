@@ -21,6 +21,7 @@ file.
 - Hidden file filtering only applied for folders inside project directory not
 any folder on path. Fixes #682
 - Removed unimplemented `toml` report
+- Make doctest prefix matching less specific as the naming convention changed again
 
 ### Removed
 

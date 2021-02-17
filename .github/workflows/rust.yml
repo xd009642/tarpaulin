@@ -15,6 +15,8 @@ jobs:
           - stable
           - beta
           - nightly
+          - nightly-2021-02-11
+          - nightly-2021-01-25
         target:
           - x86_64-unknown-linux-gnu
           - x86_64-unknown-linux-musl

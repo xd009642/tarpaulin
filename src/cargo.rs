@@ -15,6 +15,15 @@ use std::process::{Command, Stdio};
 use tracing::{error, trace, warn};
 use walkdir::{DirEntry, WalkDir};
 
+#[derive(Clone, Debug, Eq, PartialEq, Hash, Ord, PartialOrd)]
+struct CargoVersionInfo {
+    major: usize,
+    minor: usize,
+    year: usize,
+    month: usize,
+    day: usize,
+}
+
 #[derive(Clone, PartialEq, Eq, PartialOrd, Ord, Hash, Deserialize, Serialize)]
 pub struct TestBinary {
     path: PathBuf,
@@ -95,6 +104,37 @@ impl DocTestBinaryMeta {
             None
         }
     }
+}
+
+lazy_static! {
+    static ref CARGO_VERSION_INFO: Option<CargoVersionInfo> = {
+        let version_info =
+            Regex::new(r"cargo (\d)\.(\d+)\.\d+\-nightly \([[:alnum:]]+ (\d{4})-(\d{2})-(\d{2})\)")
+                .unwrap();
+        Command::new("cargo")
+            .arg("--version")
+            .output()
+            .map(|x| {
+                let s = String::from_utf8_lossy(&x.stdout);
+                if let Some(cap) = version_info.captures(&s) {
+                    let major = cap[1].parse().unwrap();
+                    let minor = cap[2].parse().unwrap();
+                    let year = cap[3].parse().unwrap();
+                    let month = cap[4].parse().unwrap();
+                    let day = cap[5].parse().unwrap();
+                    Some(CargoVersionInfo {
+                        major,
+                        minor,
+                        year,
+                        month,
+                        day,
+                    })
+                } else {
+                    None
+                }
+            })
+            .unwrap_or(None)
+    };
 }
 
 pub fn get_tests(config: &Config) -> Result<Vec<TestBinary>, RunError> {
@@ -201,7 +241,6 @@ fn run_cargo(
             .filter_map(|e| e.ok())
             .filter(|e| matches!(e.metadata(), Ok(ref m) if m.is_file() && m.len() != 0))
             .collect::<Vec<_>>();
-
         let should_panics = get_panic_candidates(&dir_entries, config);
         for dt in &dir_entries {
             let mut tb = TestBinary::new(dt.path().to_path_buf(), ty);
@@ -245,7 +284,7 @@ fn convert_to_prefix(p: &Path) -> Option<String> {
 
 fn is_prefix_match(prefix: &str, entry: &Path) -> bool {
     convert_to_prefix(entry)
-        .map(|s| prefix.ends_with(&s))
+        .map(|s| s.contains(prefix))
         .unwrap_or(false)
 }
 
@@ -271,7 +310,6 @@ fn get_panic_candidates(tests: &[DirEntry], config: &Config) -> HashMap<String, 
                         if is_prefix_match(&test_binary.prefix, &p) && !checked_files.contains(path)
                         {
                             checked_files.insert(path.to_path_buf());
-                            trace!("Assessing {} for `should_panic` doctests", path.display());
                             let lines = find_panics_in_file(path).unwrap_or_default();
                             if !result.contains_key(&test_binary.prefix) {
                                 result.insert(test_binary.prefix.clone(), lines);
