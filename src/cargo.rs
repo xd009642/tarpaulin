@@ -521,7 +521,9 @@ pub fn rust_flags(config: &Config) -> String {
     if config.release {
         value.push_str("-C debug-assertions=off ");
     }
-    if config.engine == TraceEngine::Llvm && supports_llvm_coverage() {
+    if (config.engine == TraceEngine::Auto || config.engine == TraceEngine::Llvm)
+        && supports_llvm_coverage()
+    {
         value.push_str("-Z instrument-coverage ");
     } else if config.engine == TraceEngine::Llvm {
         error!(

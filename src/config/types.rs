@@ -15,6 +15,7 @@ arg_enum! {
 arg_enum! {
     #[derive(Debug, Copy, Clone, PartialEq, Eq, Hash, Ord, PartialOrd, Deserialize, Serialize)]
     pub enum TraceEngine {
+        Auto,
         Ptrace,
         Llvm,
     }

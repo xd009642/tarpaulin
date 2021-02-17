@@ -229,7 +229,7 @@ impl Default for Config {
             avoid_cfg_tarpaulin: false,
             jobs: None,
             color: Color::Auto,
-            engine: TraceEngine::Ptrace,
+            engine: TraceEngine::Auto,
         }
     }
 }
@@ -303,7 +303,7 @@ impl<'a> From<&'a ArgMatches<'a>> for ConfigWrapper {
             profile: get_profile(args),
             metadata: RefCell::new(None),
             avoid_cfg_tarpaulin: args.is_present("avoid-cfg-tarpaulin"),
-            engine: TraceEngine::Ptrace,
+            engine: TraceEngine::Auto,
         };
         if args.is_present("ignore-config") {
             Self(vec![args_config])
