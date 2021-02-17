@@ -14,6 +14,14 @@ arg_enum! {
 
 arg_enum! {
     #[derive(Debug, Copy, Clone, PartialEq, Eq, Hash, Ord, PartialOrd, Deserialize, Serialize)]
+    pub enum TraceEngine {
+        Ptrace,
+        Llvm,
+    }
+}
+
+arg_enum! {
+    #[derive(Debug, Copy, Clone, PartialEq, Eq, Hash, Ord, PartialOrd, Deserialize, Serialize)]
     pub enum Mode {
         Test,
         Build

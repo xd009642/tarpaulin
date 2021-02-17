@@ -521,8 +521,12 @@ pub fn rust_flags(config: &Config) -> String {
     if config.release {
         value.push_str("-C debug-assertions=off ");
     }
-    if supports_llvm_coverage() {
+    if config.engine == TraceEngine::Llvm && supports_llvm_coverage() {
         value.push_str("-Z instrument-coverage ");
+    } else if config.engine == TraceEngine::Llvm {
+        error!(
+            "unable to utilise llvm coverage. Compiler does not support it. Falling back to Ptrace"
+        );
     }
     if let Ok(vtemp) = env::var(RUSTFLAGS) {
         lazy_static! {
