@@ -493,6 +493,16 @@ fn clean_doctest_folder<P: AsRef<Path>>(doctest_dir: P) {
     }
 }
 
+fn handle_llvm_flags(value: &mut String, config: &Config) {
+    if (config.engine == TraceEngine::Auto || config.engine == TraceEngine::Llvm)
+        && supports_llvm_coverage()
+    {
+        value.push_str("-Z instrument-coverage ");
+    } else if config.engine == TraceEngine::Llvm {
+        error!("unable to utilise llvm coverage, due to compiler support. Falling back to Ptrace");
+    }
+}
+
 pub fn rustdoc_flags(config: &Config) -> String {
     const RUSTDOC: &str = "RUSTDOCFLAGS";
     let common_opts = " -C link-dead-code -C debuginfo=2 --cfg=tarpaulin ";
@@ -506,9 +516,7 @@ pub fn rustdoc_flags(config: &Config) -> String {
             value.push_str(vtemp.as_ref());
         }
     }
-    if supports_llvm_coverage() {
-        value.push_str("-Z instrument-coverage ");
-    }
+    handle_llvm_flags(&mut value, config);
     value
 }
 
@@ -521,15 +529,7 @@ pub fn rust_flags(config: &Config) -> String {
     if config.release {
         value.push_str("-C debug-assertions=off ");
     }
-    if (config.engine == TraceEngine::Auto || config.engine == TraceEngine::Llvm)
-        && supports_llvm_coverage()
-    {
-        value.push_str("-Z instrument-coverage ");
-    } else if config.engine == TraceEngine::Llvm {
-        error!(
-            "unable to utilise llvm coverage. Compiler does not support it. Falling back to Ptrace"
-        );
-    }
+    handle_llvm_flags(&mut value, config);
     if let Ok(vtemp) = env::var(RUSTFLAGS) {
         lazy_static! {
             static ref DEBUG_INFO: Regex = Regex::new(r#"\-C\s*debuginfo=\d"#).unwrap();
