@@ -165,6 +165,8 @@ pub struct Config {
     pub follow_exec: bool,
     /// Number of jobs used for building the tests
     pub jobs: Option<usize>,
+    /// Engine to use to collect coverage
+    pub engine: TraceEngine,
 }
 
 fn default_test_timeout() -> Duration {
@@ -227,6 +229,7 @@ impl Default for Config {
             avoid_cfg_tarpaulin: false,
             jobs: None,
             color: Color::Auto,
+            engine: TraceEngine::Ptrace,
         }
     }
 }
@@ -300,6 +303,7 @@ impl<'a> From<&'a ArgMatches<'a>> for ConfigWrapper {
             profile: get_profile(args),
             metadata: RefCell::new(None),
             avoid_cfg_tarpaulin: args.is_present("avoid-cfg-tarpaulin"),
+            engine: TraceEngine::Ptrace,
         };
         if args.is_present("ignore-config") {
             Self(vec![args_config])

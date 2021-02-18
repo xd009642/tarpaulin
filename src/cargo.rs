@@ -15,13 +15,27 @@ use std::process::{Command, Stdio};
 use tracing::{error, trace, warn};
 use walkdir::{DirEntry, WalkDir};
 
+#[derive(Copy, Clone, Debug, Eq, PartialEq, Hash, Ord, PartialOrd)]
+enum Channel {
+    Stable,
+    Beta,
+    Nightly,
+}
+
 #[derive(Clone, Debug, Eq, PartialEq, Hash, Ord, PartialOrd)]
 struct CargoVersionInfo {
     major: usize,
     minor: usize,
+    channel: Channel,
     year: usize,
     month: usize,
     day: usize,
+}
+
+impl CargoVersionInfo {
+    fn supports_llvm_cov(&self) -> bool {
+        self.minor >= 50 && self.channel == Channel::Nightly
+    }
 }
 
 #[derive(Clone, PartialEq, Eq, PartialOrd, Ord, Hash, Deserialize, Serialize)]
@@ -108,9 +122,10 @@ impl DocTestBinaryMeta {
 
 lazy_static! {
     static ref CARGO_VERSION_INFO: Option<CargoVersionInfo> = {
-        let version_info =
-            Regex::new(r"cargo (\d)\.(\d+)\.\d+\-nightly \([[:alnum:]]+ (\d{4})-(\d{2})-(\d{2})\)")
-                .unwrap();
+        let version_info = Regex::new(
+            r"cargo (\d)\.(\d+)\.\d+([\-betanightly]*) \([[:alnum:]]+ (\d{4})-(\d{2})-(\d{2})\)",
+        )
+        .unwrap();
         Command::new("cargo")
             .arg("--version")
             .output()
@@ -119,12 +134,20 @@ lazy_static! {
                 if let Some(cap) = version_info.captures(&s) {
                     let major = cap[1].parse().unwrap();
                     let minor = cap[2].parse().unwrap();
-                    let year = cap[3].parse().unwrap();
-                    let month = cap[4].parse().unwrap();
-                    let day = cap[5].parse().unwrap();
+                    // We expect a string like `cargo 1.50.0-nightly (a0f433460 2020-02-01)
+                    // the version number either has `-nightly` `-beta` or empty for stable
+                    let channel = match &cap[3] {
+                        "-nightly" => Channel::Nightly,
+                        "-beta" => Channel::Beta,
+                        _ => Channel::Stable,
+                    };
+                    let year = cap[4].parse().unwrap();
+                    let month = cap[5].parse().unwrap();
+                    let day = cap[6].parse().unwrap();
                     Some(CargoVersionInfo {
                         major,
                         minor,
+                        channel,
                         year,
                         month,
                         day,
@@ -493,6 +516,16 @@ fn clean_doctest_folder<P: AsRef<Path>>(doctest_dir: P) {
     }
 }
 
+fn handle_llvm_flags(value: &mut String, config: &Config) {
+    if (config.engine == TraceEngine::Auto || config.engine == TraceEngine::Llvm)
+        && supports_llvm_coverage()
+    {
+        value.push_str("-Z instrument-coverage ");
+    } else if config.engine == TraceEngine::Llvm {
+        error!("unable to utilise llvm coverage, due to compiler support. Falling back to Ptrace");
+    }
+}
+
 pub fn rustdoc_flags(config: &Config) -> String {
     const RUSTDOC: &str = "RUSTDOCFLAGS";
     let common_opts = " -C link-dead-code -C debuginfo=2 --cfg=tarpaulin ";
@@ -506,6 +539,7 @@ pub fn rustdoc_flags(config: &Config) -> String {
             value.push_str(vtemp.as_ref());
         }
     }
+    handle_llvm_flags(&mut value, config);
     value
 }
 
@@ -513,11 +547,12 @@ pub fn rust_flags(config: &Config) -> String {
     const RUSTFLAGS: &str = "RUSTFLAGS";
     let mut value = " -C link-dead-code -C debuginfo=2 ".to_string();
     if !config.avoid_cfg_tarpaulin {
-        value = format!("{}--cfg=tarpaulin ", value);
+        value.push_str("--cfg=tarpaulin ");
     }
     if config.release {
-        value = format!("{}-C debug-assertions=off ", value);
+        value.push_str("-C debug-assertions=off ");
     }
+    handle_llvm_flags(&mut value, config);
     if let Ok(vtemp) = env::var(RUSTFLAGS) {
         lazy_static! {
             static ref DEBUG_INFO: Regex = Regex::new(r#"\-C\s*debuginfo=\d"#).unwrap();
@@ -537,4 +572,50 @@ fn setup_environment(cmd: &mut Command, config: &Config) {
     let value = rustdoc_flags(config);
     trace!("Setting RUSTDOCFLAGS='{}'", value);
     cmd.env(rustdoc, value);
+}
+
+fn supports_llvm_coverage() -> bool {
+    if let Some(version) = CARGO_VERSION_INFO.as_ref() {
+        version.supports_llvm_cov()
+    } else {
+        false
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn llvm_cov_compatible_version() {
+        let version = CargoVersionInfo {
+            major: 1,
+            minor: 50,
+            channel: Channel::Nightly,
+            year: 2020,
+            month: 12,
+            day: 22,
+        };
+        assert!(version.supports_llvm_cov());
+    }
+
+    #[test]
+    fn llvm_cov_incompatible_version() {
+        let mut version = CargoVersionInfo {
+            major: 1,
+            minor: 48,
+            channel: Channel::Stable,
+            year: 2020,
+            month: 10,
+            day: 14,
+        };
+        assert!(!version.supports_llvm_cov());
+        version.channel = Channel::Beta;
+        assert!(!version.supports_llvm_cov());
+        version.minor = 50;
+        assert!(!version.supports_llvm_cov());
+        version.minor = 58;
+        version.channel = Channel::Stable;
+        assert!(!version.supports_llvm_cov());
+    }
 }
