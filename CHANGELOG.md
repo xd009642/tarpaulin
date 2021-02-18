@@ -3,12 +3,23 @@
 From 2019 onwards, all notable changes to tarpaulin will be documented in this
 file.
 
+## [Unreleased]
+### Added
+- Check if user sets -Cdebuginfo and remove it #601
+- INTERNAL Added ability to build with LLVM coverage instrumentation and detect
+compiler support. This isn't enabled so should have no effect it's just the
+start of the support work.
+
+### Changed
+- Make doctest prefix matching less specific as the naming convention changed again
+
+### Removed
+
 ## [0.18.0-alpha1] 2021-02-14
 ### Added
 - Added `--color` option matching cargo arg
 - `--follow-exec` option making exec tracing non-default
 - `--jobs` option matching the one in cargo test
-- Check if user sets -Cdebuginfo and remove it #601
 
 ### Changed
 - Check through memory map for the first entry belonging to the executable [FIX]
@@ -21,7 +32,6 @@ file.
 - Hidden file filtering only applied for folders inside project directory not
 any folder on path. Fixes #682
 - Removed unimplemented `toml` report
-- Make doctest prefix matching less specific as the naming convention changed again
 
 ### Removed
 
