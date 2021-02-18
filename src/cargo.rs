@@ -15,13 +15,27 @@ use std::process::{Command, Stdio};
 use tracing::{error, trace, warn};
 use walkdir::{DirEntry, WalkDir};
 
+#[derive(Copy, Clone, Debug, Eq, PartialEq, Hash, Ord, PartialOrd)]
+enum Channel {
+    Stable,
+    Beta,
+    Nightly,
+}
+
 #[derive(Clone, Debug, Eq, PartialEq, Hash, Ord, PartialOrd)]
 struct CargoVersionInfo {
     major: usize,
     minor: usize,
+    channel: Channel,
     year: usize,
     month: usize,
     day: usize,
+}
+
+impl CargoVersionInfo {
+    fn supports_llvm_cov(&self) -> bool {
+        self.minor >= 50 && self.channel == Channel::Nightly
+    }
 }
 
 #[derive(Clone, PartialEq, Eq, PartialOrd, Ord, Hash, Deserialize, Serialize)]
@@ -108,9 +122,10 @@ impl DocTestBinaryMeta {
 
 lazy_static! {
     static ref CARGO_VERSION_INFO: Option<CargoVersionInfo> = {
-        let version_info =
-            Regex::new(r"cargo (\d)\.(\d+)\.\d+\-nightly \([[:alnum:]]+ (\d{4})-(\d{2})-(\d{2})\)")
-                .unwrap();
+        let version_info = Regex::new(
+            r"cargo (\d)\.(\d+)\.\d+([\-betanightly]*) \([[:alnum:]]+ (\d{4})-(\d{2})-(\d{2})\)",
+        )
+        .unwrap();
         Command::new("cargo")
             .arg("--version")
             .output()
@@ -119,12 +134,20 @@ lazy_static! {
                 if let Some(cap) = version_info.captures(&s) {
                     let major = cap[1].parse().unwrap();
                     let minor = cap[2].parse().unwrap();
-                    let year = cap[3].parse().unwrap();
-                    let month = cap[4].parse().unwrap();
-                    let day = cap[5].parse().unwrap();
+                    // We expect a string like `cargo 1.50.0-nightly (a0f433460 2020-02-01)
+                    // the version number either has `-nightly` `-beta` or empty for stable
+                    let channel = match &cap[3] {
+                        "-nightly" => Channel::Nightly,
+                        "-beta" => Channel::Beta,
+                        _ => Channel::Stable,
+                    };
+                    let year = cap[4].parse().unwrap();
+                    let month = cap[5].parse().unwrap();
+                    let day = cap[6].parse().unwrap();
                     Some(CargoVersionInfo {
                         major,
                         minor,
+                        channel,
                         year,
                         month,
                         day,
@@ -552,23 +575,8 @@ fn setup_environment(cmd: &mut Command, config: &Config) {
 }
 
 fn supports_llvm_coverage() -> bool {
-    Command::new("cargo")
-        .arg("--version")
-        .output()
-        .map(|x| {
-            let s = String::from_utf8_lossy(&x.stdout);
-            check_llvm_cov_version(&s)
-        })
-        .unwrap_or(false)
-}
-
-fn check_llvm_cov_version(version: &str) -> bool {
-    lazy_static! {
-        static ref COMPAT_VERSION: Regex = Regex::new(r"cargo \d\.(\d+)\.\d+\-nightly").unwrap();
-    }
-    if let Some(cap) = COMPAT_VERSION.captures_iter(version).next() {
-        let minor = cap[1].parse().unwrap_or(0);
-        minor >= 50
+    if let Some(version) = CARGO_VERSION_INFO.as_ref() {
+        version.supports_llvm_cov()
     } else {
         false
     }
@@ -580,26 +588,34 @@ mod tests {
 
     #[test]
     fn llvm_cov_compatible_version() {
-        assert_eq!(
-            check_llvm_cov_version("cargo 1.50.0-nightly (75d5d8cff 2020-12-22)"),
-            true
-        );
+        let version = CargoVersionInfo {
+            major: 1,
+            minor: 50,
+            channel: Channel::Nightly,
+            year: 2020,
+            month: 12,
+            day: 22,
+        };
+        assert!(version.supports_llvm_cov());
     }
 
     #[test]
     fn llvm_cov_incompatible_version() {
-        assert_eq!(
-            check_llvm_cov_version("cargo 1.48.0 (65cbdd2dc 2020-10-14)"),
-            false
-        );
-        assert_eq!(
-            check_llvm_cov_version("cargo 1.48.0-beta (65cbdd2dc 2020-10-14)"),
-            false
-        );
-        assert_eq!(
-            check_llvm_cov_version("cargo 1.50.0 (65cbdd2dc 2020-10-14)"),
-            false
-        );
-        assert_eq!(check_llvm_cov_version("rustc 1.58.0"), false);
+        let mut version = CargoVersionInfo {
+            major: 1,
+            minor: 48,
+            channel: Channel::Stable,
+            year: 2020,
+            month: 10,
+            day: 14,
+        };
+        assert!(!version.supports_llvm_cov());
+        version.channel = Channel::Beta;
+        assert!(!version.supports_llvm_cov());
+        version.minor = 50;
+        assert!(!version.supports_llvm_cov());
+        version.minor = 58;
+        version.channel = Channel::Stable;
+        assert!(!version.supports_llvm_cov());
     }
 }
