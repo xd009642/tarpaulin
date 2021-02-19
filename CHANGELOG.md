@@ -12,6 +12,7 @@ start of the support work.
 
 ### Changed
 - Make doctest prefix matching less specific as the naming convention changed again
+- Ensure report is always generated if coverage is below failure threshold
 
 ### Removed
 
