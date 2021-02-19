@@ -111,7 +111,10 @@ pub fn trace(configs: &[Config]) -> Result<TraceMap, RunError> {
         match launch_tarpaulin(config, &logger) {
             Ok((t, r)) => {
                 ret |= r;
-                bad_threshold = check_fail_threshold(&t, config);
+                if configs.len() > 1 {
+                    // Otherwise threshold is a global one and we'll let the caller handle it
+                    bad_threshold = check_fail_threshold(&t, config);
+                }
                 tracemap.merge(&t);
             }
             Err(e) => {
@@ -122,6 +125,8 @@ pub fn trace(configs: &[Config]) -> Result<TraceMap, RunError> {
     }
     tracemap.dedup();
     if let Some(bad_limit) = bad_threshold {
+        // Failure threshold probably more important than reporting failing
+        let _ = report_coverage(&configs[0], &tracemap);
         Err(bad_limit)
     } else if ret == 0 {
         tarpaulin_result.map(|_| tracemap)
@@ -153,6 +158,9 @@ pub fn run(configs: &[Config]) -> Result<(), RunError> {
     if configs.len() == 1 {
         if !configs[0].no_run {
             report_coverage(&configs[0], &tracemap)?;
+            if let Some(e) = check_fail_threshold(&tracemap, &configs[0]) {
+                return Err(e);
+            }
         }
     } else if !configs.is_empty() {
         let mut reported = false;
@@ -167,6 +175,9 @@ pub fn run(configs: &[Config]) -> Result<(), RunError> {
         }
         if !configs[0].no_run && !reported {
             report_coverage(&configs[0], &tracemap)?;
+            if let Some(e) = check_fail_threshold(&tracemap, &configs[0]) {
+                return Err(e);
+            }
         }
     }
 
