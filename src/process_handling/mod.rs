@@ -18,11 +18,6 @@ cfg_if::cfg_if! {
 
         pub type ProcessHandle = nix::unistd::Pid;
     } else {
-        use crate::{TestBinary, Config, RunError, EventLog, TraceMap, LineAnalysis};
-        use std::ffi::CString;
-        use std::collections::HashMap;
-        use std::path::PathBuf;
-
         pub type ProcessHandle = u64;
 
         /// Returns the coverage statistics for a test executable in the given workspace
