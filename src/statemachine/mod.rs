@@ -1,11 +1,7 @@
 use crate::config::Config;
 use crate::errors::RunError;
 use crate::event_log::*;
-use crate::process_handling::*;
-use crate::source_analysis::LineAnalysis;
 use crate::traces::*;
-use std::collections::HashMap;
-use std::path::PathBuf;
 use std::time::Instant;
 use tracing::error;
 
@@ -16,8 +12,12 @@ cfg_if::cfg_if! {
     if #[cfg(target_os = "linux")] {
         pub use linux::*;
     } else {
+        use std::collections::HashMap;
+        use std::path::PathBuf;
+        use crate::LineAnalysis;
+
         pub fn create_state_machine<'a>(
-            test: ProcessHandle,
+            test: crate::ProcessHandle,
             traces: &'a mut TraceMap,
             source_analysis: &'a HashMap<PathBuf, LineAnalysis>,
             config: &'a Config,

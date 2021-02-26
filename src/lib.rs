@@ -9,7 +9,6 @@ use crate::source_analysis::{LineAnalysis, SourceAnalysis};
 use crate::statemachine::*;
 use crate::test_loader::*;
 use crate::traces::*;
-use nix::unistd::*;
 use std::collections::HashMap;
 use std::env;
 use std::ffi::CString;
@@ -225,47 +224,8 @@ pub fn launch_tarpaulin(
     Ok((result, return_code))
 }
 
-/// Returns the coverage statistics for a test executable in the given workspace
-pub fn get_test_coverage(
-    test: &TestBinary,
-    analysis: &HashMap<PathBuf, LineAnalysis>,
-    config: &Config,
-    ignored: bool,
-    logger: &Option<EventLog>,
-) -> Result<Option<(TraceMap, i32)>, RunError> {
-    if !test.path().exists() {
-        return Ok(None);
-    }
-    if let Err(e) = limit_affinity() {
-        warn!("Failed to set processor affinity {}", e);
-    }
-    if let Some(log) = logger.as_ref() {
-        log.push_binary(test.clone());
-    }
-    unsafe {
-        match fork() {
-            Ok(ForkResult::Parent { child }) => {
-                match collect_coverage(test.path(), child, analysis, config, logger) {
-                    Ok(t) => Ok(Some(t)),
-                    Err(e) => Err(RunError::TestCoverage(e.to_string())),
-                }
-            }
-            Ok(ForkResult::Child) => {
-                info!("Launching test");
-                execute_test(test, ignored, config)?;
-                Ok(None)
-            }
-            Err(err) => Err(RunError::TestCoverage(format!(
-                "Failed to run test {}, Error: {}",
-                test.path().display(),
-                err.to_string()
-            ))),
-        }
-    }
-}
-
 /// Collects the coverage data from the launched test
-fn collect_coverage(
+pub(crate) fn collect_coverage(
     test_path: &Path,
     test: ProcessHandle,
     analysis: &HashMap<PathBuf, LineAnalysis>,

@@ -1,5 +1,6 @@
 use crate::report::cobertura;
 use std::fmt::{self, Display, Formatter};
+
 /// Error states that could be returned from tarpaulin
 #[derive(Debug)]
 pub enum RunError {
