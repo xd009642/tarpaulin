@@ -1,9 +1,14 @@
 use crate::cargo::TestBinary;
+#[cfg(target_os = "linux")]
 use crate::ptrace_control::*;
-use crate::statemachine::{ProcessInfo, TracerAction};
+#[cfg(target_os = "linux")]
+use crate::statemachine::ProcessInfo;
+use crate::statemachine::TracerAction;
 use crate::traces::{Location, TraceMap};
 use chrono::offset::Local;
+#[cfg(target_os = "linux")]
 use nix::libc::*;
+#[cfg(target_os = "linux")]
 use nix::sys::{signal::Signal, wait::WaitStatus};
 use serde::{Deserialize, Serialize};
 use std::cell::RefCell;
@@ -20,8 +25,8 @@ pub enum Event {
 
 #[derive(Clone, Default, Eq, PartialEq, PartialOrd, Ord, Hash, Serialize, Deserialize)]
 pub struct TraceEvent {
-    pid: Option<pid_t>,
-    child: Option<pid_t>,
+    pid: Option<i64>,
+    child: Option<i64>,
     signal: Option<String>,
     addr: Option<u64>,
     return_val: Option<i64>,
@@ -30,27 +35,28 @@ pub struct TraceEvent {
 }
 
 impl TraceEvent {
+    #[cfg(target_os = "linux")]
     pub(crate) fn new_from_action(action: &TracerAction<ProcessInfo>) -> Self {
         match *action {
             TracerAction::TryContinue(t) => TraceEvent {
-                pid: Some(t.pid.as_raw()),
+                pid: Some(t.pid.as_raw().into()),
                 signal: t.signal.map(|x| x.to_string()),
                 description: "Try continue child".to_string(),
                 ..Default::default()
             },
             TracerAction::Continue(t) => TraceEvent {
-                pid: Some(t.pid.as_raw()),
+                pid: Some(t.pid.as_raw().into()),
                 signal: t.signal.map(|x| x.to_string()),
                 description: "Continue child".to_string(),
                 ..Default::default()
             },
             TracerAction::Step(t) => TraceEvent {
-                pid: Some(t.pid.as_raw()),
+                pid: Some(t.pid.as_raw().into()),
                 description: "Step child".to_string(),
                 ..Default::default()
             },
             TracerAction::Detach(t) => TraceEvent {
-                pid: Some(t.pid.as_raw()),
+                pid: Some(t.pid.as_raw().into()),
                 description: "Detach child".to_string(),
                 ..Default::default()
             },
@@ -61,8 +67,9 @@ impl TraceEvent {
         }
     }
 
+    #[cfg(target_os = "linux")]
     pub(crate) fn new_from_wait(wait: &WaitStatus, offset: u64, traces: &TraceMap) -> Self {
-        let pid = wait.pid().map(|p| p.as_raw());
+        let pid = wait.pid().map(|p| p.as_raw().into());
         let mut event = TraceEvent {
             pid,
             ..Default::default()
@@ -94,7 +101,7 @@ impl TraceEvent {
                     PTRACE_EVENT_CLONE => {
                         event.description = "Ptrace Clone".to_string();
                         if *sig == Signal::SIGTRAP {
-                            event.child = get_event_data(*pid).ok().map(|x| x as pid_t);
+                            event.child = get_event_data(*pid).ok();
                         }
                     }
                     PTRACE_EVENT_FORK => {

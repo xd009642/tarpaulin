@@ -82,6 +82,7 @@ name = "cargo-tarpaulin"
 version = "0.18.0-alpha1"
 dependencies = [
  "cargo_metadata",
+ "cfg-if 1.0.0",
  "chrono",
  "clap",
  "coveralls-api",

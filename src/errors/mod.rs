@@ -1,5 +1,6 @@
 use crate::report::cobertura;
 use std::fmt::{self, Display, Formatter};
+
 /// Error states that could be returned from tarpaulin
 #[derive(Debug)]
 pub enum RunError {
@@ -23,6 +24,7 @@ pub enum RunError {
     OutFormat(String),
     IO(std::io::Error),
     StateMachine(String),
+    #[cfg(target_os = "linux")]
     NixError(nix::Error),
     Html(String),
     XML(cobertura::Error),
@@ -50,6 +52,7 @@ impl Display for RunError {
             Self::OutFormat(e) => write!(f, "{}", e),
             Self::IO(e) => write!(f, "{}", e),
             Self::StateMachine(e) => write!(f, "Error running test: {}", e),
+            #[cfg(target_os = "linux")]
             Self::NixError(e) => write!(f, "{}", e),
             Self::Html(e) => write!(f, "Failed to generate HTML report! Error: {}", e),
             Self::XML(e) => write!(f, "Failed to generate XML report! Error: {}", e),
@@ -69,6 +72,7 @@ impl From<std::io::Error> for RunError {
     }
 }
 
+#[cfg(target_os = "linux")]
 impl From<nix::Error> for RunError {
     fn from(e: nix::Error) -> Self {
         RunError::NixError(e)
