@@ -826,8 +826,8 @@ mod tests {
         let rel_path = path_relative_from(path_b, path_a);
         assert!(rel_path.is_some());
         assert_eq!(
-            rel_path.unwrap().to_str().unwrap(),
-            "../../../b/rel/path",
+            rel_path.unwrap(),
+            Path::new("../../../b/rel/path"),
             "Wrong relative path"
         );
 
@@ -843,8 +843,8 @@ mod tests {
         let rel_path = path_relative_from(path_b, path_a);
         assert!(rel_path.is_some());
         assert_eq!(
-            rel_path.unwrap().to_str().unwrap(),
-            "../../../b/rel/path",
+            rel_path.unwrap(),
+            Path::new("../../../b/rel/path"),
             "Wrong relative path"
         );
     }
