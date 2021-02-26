@@ -1,7 +1,7 @@
 use crate::collect_coverage;
 use crate::errors::*;
 use crate::event_log::*;
-use crate::execute_test;
+use crate::process_handling::execute_test;
 use crate::ptrace_control::*;
 use crate::source_analysis::LineAnalysis;
 use crate::traces::*;
