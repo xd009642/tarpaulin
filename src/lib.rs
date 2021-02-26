@@ -26,13 +26,13 @@ pub mod errors;
 pub mod event_log;
 mod path_utils;
 mod process_handling;
+#[cfg(unix)]
+mod ptrace_control;
 pub mod report;
 mod source_analysis;
 mod statemachine;
 pub mod test_loader;
 pub mod traces;
-
-mod ptrace_control;
 
 const RUST_LOG_ENV: &str = "RUST_LOG";
 

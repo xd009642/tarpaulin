@@ -30,13 +30,10 @@ git2 = "0.13"
 humantime-serde = "1"
 indexmap = { version = "1.6.1", features = ["serde-1"] }
 lazy_static = "1.0"
-libc = "0.2.86"
 tracing = { version = "0.1", default-features = false }
 tracing-subscriber = {version = "0.2.16", default-features = false, features = ["env-filter", "fmt", "chrono", "ansi", "smallvec", "tracing-log"]}
 memmap = "0.7.0"
-nix = "0.20.0"
 object = "0.23"
-procfs = "0.9"
 proc-macro2 = { version = "1.0", features = ["span-locations"] }
 quick-xml = "0.22"
 quote = "1.0"
@@ -47,6 +44,11 @@ serde_json = "1.0"
 syn = { version = "1.0", features = ["full"]}
 toml = "0.5"
 walkdir = "2.3.1"
+
+[target.'cfg(unix)'.dependencies]
+libc = "0.2.86"
+nix = "0.20.0"
+procfs = "0.9"
 
 [features]
 default = []
