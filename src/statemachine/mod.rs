@@ -1,16 +1,34 @@
-use crate::breakpoint::*;
 use crate::config::Config;
 use crate::errors::RunError;
-use crate::ptrace_control::*;
+use crate::event_log::*;
+use crate::process_handling::*;
+use crate::source_analysis::LineAnalysis;
 use crate::traces::*;
+use std::collections::HashMap;
+use std::path::PathBuf;
 use std::time::Instant;
 use tracing::error;
 
 #[cfg(target_os = "linux")]
 pub mod linux;
 
-#[cfg(target_os = "linux")]
-pub use linux::*;
+cfg_if::cfg_if! {
+    if #[cfg(target_os = "linux")] {
+        pub use linux::*;
+    } else {
+        pub fn create_state_machine<'a>(
+            test: ProcessHandle,
+            traces: &'a mut TraceMap,
+            source_analysis: &'a HashMap<PathBuf, LineAnalysis>,
+            config: &'a Config,
+            event_log: &'a Option<EventLog>,
+        ) -> (TestState, ()) {
+            error!("Tarpaulin is not currently supported on this system");
+            (TestState::End(1), ())
+        }
+
+    }
+}
 
 #[derive(Debug, Copy, Clone, Eq, PartialEq)]
 pub enum TestState {
@@ -83,6 +101,29 @@ pub trait StateData {
     fn stop(&mut self) -> Result<TestState, RunError>;
 }
 
+impl StateData for () {
+    fn start(&mut self) -> Result<Option<TestState>, RunError> {
+        Err(RunError::StateMachine(
+            "No valid coverage collector".to_string(),
+        ))
+    }
+    fn init(&mut self) -> Result<TestState, RunError> {
+        Err(RunError::StateMachine(
+            "No valid coverage collector".to_string(),
+        ))
+    }
+    fn wait(&mut self) -> Result<Option<TestState>, RunError> {
+        Err(RunError::StateMachine(
+            "No valid coverage collector".to_string(),
+        ))
+    }
+    fn stop(&mut self) -> Result<TestState, RunError> {
+        Err(RunError::StateMachine(
+            "No valid coverage collector".to_string(),
+        ))
+    }
+}
+
 impl TestState {
     /// Convenience function used to check if the test has finished or errored
     pub fn is_finished(self) -> bool {
@@ -130,13 +171,7 @@ impl TestState {
                 }
             }
             TestState::Stopped => data.stop(),
-            _ => {
-                // Unhandled
-                if config.verbose {
-                    error!("Tarpaulin error: unhandled test state");
-                }
-                Ok(TestState::End(-1))
-            }
+            TestState::End(e) => Ok(TestState::End(e)),
         }
     }
 }

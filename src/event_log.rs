@@ -1,10 +1,14 @@
 use crate::cargo::TestBinary;
+#[cfg(target_os = "linux")]
 use crate::ptrace_control::*;
-use crate::statemachine::{ProcessInfo, TracerAction};
+#[cfg(target_os = "linux")]
+use crate::statemachine::ProcessInfo;
+use crate::statemachine::TracerAction;
 use crate::traces::{Location, TraceMap};
 use chrono::offset::Local;
-#[cfg(unix)]
+#[cfg(target_os = "linux")]
 use nix::libc::*;
+#[cfg(target_os = "linux")]
 use nix::sys::{signal::Signal, wait::WaitStatus};
 use serde::{Deserialize, Serialize};
 use std::cell::RefCell;
@@ -31,7 +35,7 @@ pub struct TraceEvent {
 }
 
 impl TraceEvent {
-    #[cfg(unix)]
+    #[cfg(target_os = "linux")]
     pub(crate) fn new_from_action(action: &TracerAction<ProcessInfo>) -> Self {
         match *action {
             TracerAction::TryContinue(t) => TraceEvent {
@@ -63,7 +67,7 @@ impl TraceEvent {
         }
     }
 
-    #[cfg(unix)]
+    #[cfg(target_os = "linux")]
     pub(crate) fn new_from_wait(wait: &WaitStatus, offset: u64, traces: &TraceMap) -> Self {
         let pid = wait.pid().map(|p| p.as_raw().into());
         let mut event = TraceEvent {

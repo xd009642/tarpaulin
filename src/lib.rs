@@ -19,15 +19,12 @@ use tracing::{debug, error, info, trace_span, warn};
 use tracing_subscriber::{filter::LevelFilter, EnvFilter};
 
 pub mod branching;
-pub mod breakpoint;
 pub mod cargo;
 pub mod config;
 pub mod errors;
 pub mod event_log;
 mod path_utils;
 mod process_handling;
-#[cfg(unix)]
-mod ptrace_control;
 pub mod report;
 mod source_analysis;
 mod statemachine;
@@ -270,7 +267,7 @@ pub fn get_test_coverage(
 /// Collects the coverage data from the launched test
 fn collect_coverage(
     test_path: &Path,
-    test: Pid,
+    test: ProcessHandle,
     analysis: &HashMap<PathBuf, LineAnalysis>,
     config: &Config,
     logger: &Option<EventLog>,

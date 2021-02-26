@@ -44,8 +44,9 @@ serde_json = "1.0"
 syn = { version = "1.0", features = ["full"]}
 toml = "0.5"
 walkdir = "2.3.1"
+cfg-if = "1.0.0"
 
-[target.'cfg(unix)'.dependencies]
+[target.'cfg(target_os = "linux")'.dependencies]
 libc = "0.2.86"
 nix = "0.20.0"
 procfs = "0.9"
