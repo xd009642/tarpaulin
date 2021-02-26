@@ -13,6 +13,9 @@ start of the support work.
 ### Changed
 - Make doctest prefix matching less specific as the naming convention changed again
 - Ensure report is always generated if coverage is below failure threshold
+- Rearrange crate internals and enable cross compilation for windows and macos.
+This doesn't allow tarpaulin to work on these Operating Systems but it will
+print an error and exit instead of failing to build
 
 ### Removed
 
