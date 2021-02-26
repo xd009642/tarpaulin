@@ -92,6 +92,8 @@ jobs:
           override: true
       - name: build
         run: cargo build
+      - name: dummy
+        run: cargo run -- tarpaulin -r tests/data/simple_project
       - name: test
         run: cargo test -- --test-threads 1 || true
         env:
