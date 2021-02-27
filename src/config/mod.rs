@@ -820,31 +820,39 @@ mod tests {
 
     #[test]
     fn relative_path_test() {
-        let path_a = Path::new("/this/should/form/a/rel/path/");
-        let path_b = Path::new("/this/should/form/b/rel/path/");
+        cfg_if::cfg_if! {
+            if #[cfg(windows)] {
+                let root_base = "C:";
+            } else {
+                let root_base = "";
+            }
+        }
+        let path_a = PathBuf::from(format!("{}/this/should/form/a/rel/path/", root_base));
+        let path_b = PathBuf::from(format!("{}/this/should/form/b/rel/path/", root_base));
 
-        let rel_path = path_relative_from(path_b, path_a);
+        let rel_path = path_relative_from(&path_b, &path_a);
         assert!(rel_path.is_some());
         assert_eq!(
-            rel_path.unwrap().to_str().unwrap(),
-            "../../../b/rel/path",
+            rel_path.unwrap(),
+            Path::new("../../../b/rel/path"),
             "Wrong relative path"
         );
 
-        let path_a = Path::new("/this/should/not/form/a/rel/path/");
-        let path_b = Path::new("./this/should/not/form/a/rel/path/");
-
-        let rel_path = path_relative_from(path_b, path_a);
+        let path_a = PathBuf::from(format!("{}/this/should/not/form/a/rel/path/", root_base));
+        let path_b = Path::new("this/should/not/form/a/rel/path/");
+        assert!(!path_b.is_absolute());
+        assert!(path_a.is_absolute());
+        let rel_path = path_relative_from(path_b, &path_a);
         assert_eq!(rel_path, None, "Did not expect relative path");
 
-        let path_a = Path::new("./this/should/form/a/rel/path/");
-        let path_b = Path::new("./this/should/form/b/rel/path/");
+        let path_a = Path::new("this/should/form/a/rel/path/");
+        let path_b = Path::new("this/should/form/b/rel/path/");
 
         let rel_path = path_relative_from(path_b, path_a);
         assert!(rel_path.is_some());
         assert_eq!(
-            rel_path.unwrap().to_str().unwrap(),
-            "../../../b/rel/path",
+            rel_path.unwrap(),
+            Path::new("../../../b/rel/path"),
             "Wrong relative path"
         );
     }
