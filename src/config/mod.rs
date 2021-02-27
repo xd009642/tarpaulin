@@ -832,13 +832,13 @@ mod tests {
         );
 
         let path_a = Path::new("/this/should/not/form/a/rel/path/");
-        let path_b = Path::new("./this/should/not/form/a/rel/path/");
+        let path_b = Path::new("this/should/not/form/a/rel/path/");
 
         let rel_path = path_relative_from(path_b, path_a);
         assert_eq!(rel_path, None, "Did not expect relative path");
 
-        let path_a = Path::new("./this/should/form/a/rel/path/");
-        let path_b = Path::new("./this/should/form/b/rel/path/");
+        let path_a = Path::new("this/should/form/a/rel/path/");
+        let path_b = Path::new("this/should/form/b/rel/path/");
 
         let rel_path = path_relative_from(path_b, path_a);
         assert!(rel_path.is_some());
