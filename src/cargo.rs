@@ -7,11 +7,13 @@ use regex::Regex;
 use serde::{Deserialize, Serialize};
 use std::collections::{HashMap, HashSet};
 use std::env;
-use std::fs::{read_dir, remove_dir_all, File};
+use std::fs::{read_dir, read_to_string, remove_dir_all, File};
 use std::io;
 use std::io::{BufRead, BufReader};
 use std::path::{Component, Path, PathBuf};
 use std::process::{Command, Stdio};
+
+use toml::Value;
 use tracing::{error, trace, warn};
 use walkdir::{DirEntry, WalkDir};
 
@@ -543,6 +545,87 @@ pub fn rustdoc_flags(config: &Config) -> String {
     value
 }
 
+fn look_for_rustflags_in_table(value: &Value) -> String {
+    let table = value.as_table().unwrap();
+
+    if let Some(rustflags) = table.get("rustflags") {
+        let vec_of_flags: Vec<String> = rustflags
+            .as_array()
+            .unwrap()
+            .into_iter()
+            .filter_map(|x| x.as_str())
+            .map(|x| x.to_string())
+            .collect();
+
+        vec_of_flags.join(" ")
+    } else {
+        String::new()
+    }
+}
+
+fn look_for_rustflags_in_file(path: &Path) -> Option<String> {
+    if let Ok(contents) = read_to_string(path) {
+        let value = contents.parse::<Value>().ok()?;
+
+        let rustflags_in_file: Vec<String> = value
+            .as_table()?
+            .into_iter()
+            .map(|(s, v)| {
+                if s.as_str() == "build" {
+                    look_for_rustflags_in_table(v)
+                } else {
+                    String::new()
+                }
+            })
+            .collect();
+
+        Some(rustflags_in_file.join(" "))
+    } else {
+        None
+    }
+}
+
+fn look_for_rustflags_in(path: &Path) -> Option<String> {
+    let mut config_path = path.join("config");
+
+    let rustflags = look_for_rustflags_in_file(&config_path);
+    if rustflags.is_some() {
+        return rustflags;
+    }
+
+    config_path.pop();
+    config_path.push("config.toml");
+
+    let rustflags = look_for_rustflags_in_file(&config_path);
+    if rustflags.is_some() {
+        return rustflags;
+    }
+
+    None
+}
+
+fn build_config_path(base: impl AsRef<Path>) -> PathBuf {
+    let mut config_path = PathBuf::from(base.as_ref());
+    config_path.push(base);
+    config_path.push(".cargo");
+
+    config_path
+}
+
+fn gather_config_rust_flags(config: &Config) -> String {
+    if let Some(rustflags) = look_for_rustflags_in(&build_config_path(&config.root())) {
+        return rustflags;
+    }
+
+    if let Ok(cargo_home_config) = env::var("CARGO_HOME") {
+        if let Some(rustflags) = look_for_rustflags_in(&PathBuf::from(cargo_home_config)) {
+            return rustflags;
+        }
+    }
+
+    String::new()
+}
+
 pub fn rust_flags(config: &Config) -> String {
     const RUSTFLAGS: &str = "RUSTFLAGS";
     let mut value = " -C link-dead-code -C debuginfo=2 ".to_string();
@@ -553,10 +636,13 @@ pub fn rust_flags(config: &Config) -> String {
         value.push_str("-C debug-assertions=off ");
     }
     handle_llvm_flags(&mut value, config);
+    lazy_static! {
+        static ref DEBUG_INFO: Regex = Regex::new(r#"\-C\s*debuginfo=\d"#).unwrap();
+    }
     if let Ok(vtemp) = env::var(RUSTFLAGS) {
-        lazy_static! {
-            static ref DEBUG_INFO: Regex = Regex::new(r#"\-C\s*debuginfo=\d"#).unwrap();
-        }
+        value.push_str(&DEBUG_INFO.replace_all(&vtemp, " "));
+    } else {
+        let vtemp = gather_config_rust_flags(config);
         value.push_str(&DEBUG_INFO.replace_all(&vtemp, " "));
     }
     value
