@@ -64,7 +64,8 @@ pub fn check_percentage_with_config(
     // tarpaulin logs
     //cargo_tarpaulin::setup_logging(true, true);
 
-    let (res, _) = launch_tarpaulin(&config, &None).unwrap();
+    let (res, ret) = launch_tarpaulin(&config, &None).unwrap();
+    assert_eq!(ret, 0);
 
     env::set_current_dir(restore_dir).unwrap();
     if has_lines {
@@ -273,7 +274,20 @@ fn cargo_home_filtering() {
 
 #[test]
 fn rustflags_handling() {
-    check_percentage("rustflags", 0.0f64, true);
+    check_percentage("rustflags", 1.0f64, true);
+    env::set_var("RUSTFLAGS", "--cfg=foo");
+    let mut config = Config::default();
+   
+    let restore_dir = env::current_dir().unwrap();
+    let test_dir = get_test_path("rustflags");
+    env::set_current_dir(&test_dir).unwrap();
+    config.manifest = test_dir;
+    config.manifest.push("Cargo.toml");
+
+    let (_, ret) = launch_tarpaulin(&config, &None).unwrap();
+    env::set_current_dir(restore_dir).unwrap();
+    env::remove_var("RUSTFLAGS");
+    assert_ne!(ret, 0);
 }
 
 fn follow_exes_down() {
