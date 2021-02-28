@@ -636,14 +636,14 @@ pub fn rust_flags(config: &Config) -> String {
         value.push_str("-C debug-assertions=off ");
     }
     handle_llvm_flags(&mut value, config);
+    lazy_static! {
+        static ref DEBUG_INFO: Regex = Regex::new(r#"\-C\s*debuginfo=\d"#).unwrap();
+    }
     if let Ok(vtemp) = env::var(RUSTFLAGS) {
-        value.push_str(vtemp.as_ref());
-        lazy_static! {
-            static ref DEBUG_INFO: Regex = Regex::new(r#"\-C\s*debuginfo=\d"#).unwrap();
-        }
         value.push_str(&DEBUG_INFO.replace_all(&vtemp, " "));
     } else {
-        value.push_str(gather_config_rust_flags(config).as_ref());
+        let vtemp = gather_config_rust_flags(config);
+        value.push_str(&DEBUG_INFO.replace_all(&vtemp, " "));
     }
     value
 }
