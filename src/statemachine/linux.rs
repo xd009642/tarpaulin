@@ -1,8 +1,9 @@
+use crate::breakpoint::*;
 use crate::cargo::rust_flags;
 use crate::config::Config;
 use crate::errors::RunError;
-use crate::event_log::*;
 use crate::generate_tracemap;
+use crate::ptrace_control::*;
 use crate::source_analysis::LineAnalysis;
 use crate::statemachine::*;
 use nix::errno::Errno;
@@ -203,7 +204,12 @@ impl<'a> StateData for LinuxData<'a> {
             let span = trace_span!("pending", event=?status.pid());
             let _enter = span.enter();
             if let Some(log) = self.event_log.as_ref() {
-                let event = TraceEvent::new_from_wait(&status);
+                let offset = if let Some(process) = self.get_traced_process_mut(self.current) {
+                    process.offset
+                } else {
+                    0
+                };
+                let event = TraceEvent::new_from_wait(&status, offset, self.traces);
                 log.push_trace(event);
             }
             let state = match status {

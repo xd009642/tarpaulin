@@ -5,8 +5,25 @@ file.
 
 ## [Unreleased]
 ### Added
+- Check if user sets -Cdebuginfo and remove it #601
+- INTERNAL Added ability to build with LLVM coverage instrumentation and detect
+compiler support. This isn't enabled so should have no effect it's just the
+start of the support work.
+
+### Changed
+- Make doctest prefix matching less specific as the naming convention changed again
+- Ensure report is always generated if coverage is below failure threshold
+- Rearrange crate internals and enable cross compilation for windows and macos.
+This doesn't allow tarpaulin to work on these Operating Systems but it will
+print an error and exit instead of failing to build
+
+### Removed
+
+## [0.18.0-alpha1] 2021-02-14
+### Added
 - Added `--color` option matching cargo arg
 - `--follow-exec` option making exec tracing non-default
+- `--jobs` option matching the one in cargo test
 
 ### Changed
 - Check through memory map for the first entry belonging to the executable [FIX]
@@ -14,6 +31,11 @@ file.
 - Change doctest source resolution to accommodate for binary renaming in nightly
 1.50.0
 - Changed path prefix in doctests to go from workspace package root not project root
+- Added source location to debug event logs
+- Improve error message for building tests to include target name that failed
+- Hidden file filtering only applied for folders inside project directory not
+any folder on path. Fixes #682
+- Removed unimplemented `toml` report
 
 ### Removed
 

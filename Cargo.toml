@@ -1,6 +1,6 @@
 [package]
 name = "cargo-tarpaulin"
-version = "0.17.0"
+version = "0.18.0-alpha1"
 authors = ["Daniel McKenna <danielmckenna93@gmail.com>"]
 description = "Cargo-Tarpaulin is a tool to determine code coverage achieved via tests"
 repository = "https://github.com/xd009642/tarpaulin"
@@ -30,15 +30,12 @@ git2 = "0.13"
 humantime-serde = "1"
 indexmap = { version = "1.6.1", features = ["serde-1"] }
 lazy_static = "1.0"
-libc = "0.2.82"
 tracing = { version = "0.1", default-features = false }
-tracing-subscriber = {version = "0.2.15", default-features = false, features = ["env-filter", "fmt", "chrono", "ansi", "smallvec", "tracing-log"]}
+tracing-subscriber = {version = "0.2.16", default-features = false, features = ["env-filter", "fmt", "chrono", "ansi", "smallvec", "tracing-log"]}
 memmap = "0.7.0"
-nix = "0.19.1"
 object = "0.23"
-procfs = "0.9"
 proc-macro2 = { version = "1.0", features = ["span-locations"] }
-quick-xml = "0.20"
+quick-xml = "0.22"
 quote = "1.0"
 regex = "1.4"
 rustc-demangle = "0.1.18"
@@ -47,6 +44,12 @@ serde_json = "1.0"
 syn = { version = "1.0", features = ["full"]}
 toml = "0.5"
 walkdir = "2.3.1"
+cfg-if = "1.0.0"
+
+[target.'cfg(target_os = "linux")'.dependencies]
+libc = "0.2.86"
+nix = "0.20.0"
+procfs = "0.9"
 
 [features]
 default = []

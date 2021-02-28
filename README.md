@@ -6,11 +6,12 @@
 [![Docker](https://img.shields.io/docker/automated/xd009642/tarpaulin.svg)](https://hub.docker.com/r/xd009642/tarpaulin/)
 [![Developers Wiki](https://img.shields.io/badge/development-wiki-yellowgreen.svg)](https://github.com/xd009642/tarpaulin/wiki/Developers)
 
-Tarpaulin is designed to be a code coverage reporting tool for the Cargo build
-system, named for a waterproof cloth used to cover cargo on a ship. Currently,
-tarpaulin provides working line coverage but is still in the early development
-stage and therefore may contain some bugs. A lot of work has been done to get it
-working on some example projects and smaller crates so please report anything
+Tarpaulin is a code coverage reporting tool for the Cargo build system, named 
+for a waterproof cloth used to cover cargo on a ship. Currently, tarpaulin
+provides working line coverage and while fairly reliable may still contain 
+minor inaccuracies in the results. A lot of work has been done to get it
+working on a wide range of projects, but often unique combinations of packages
+and build features can cause issues so please report anything
 you find that's wrong. Also, check out our roadmap for planned features.
 
 **Tarpaulin only supports x86_64 processors running Linux.** This is because
@@ -26,8 +27,7 @@ Below is the help-text for a thorough explanation of the flags and features
 available:
 
 ```
-
-cargo-tarpaulin version: 0.17.0
+cargo-tarpaulin version: 0.18.0-alpha1
 Tool to analyse test coverage of cargo projects
 
 USAGE:
@@ -46,6 +46,8 @@ FLAGS:
         --doc                    Test only this library's documentation
         --dump-traces            Log tracing events and save to a json file. Also, enabled when --debug is used
         --examples               Test all examples
+        --follow-exec            Follow executed processes capturing coverage information if they're part of your
+                                 project.
         --force-clean            Adds a clean stage to work around cargo bugs that may affect coverage results
     -f, --forward                Forwards unexpected signals to test. Tarpaulin will still take signals it is expecting.
         --frozen                 Do not update Cargo.lock or any caches
@@ -77,6 +79,7 @@ OPTIONS:
                                      travis-ci, travis-pro, circle-ci, semaphore, jenkins and codeship.
                                      If you are interfacing with coveralls.io or another site you can also specify a
                                      name that they will recognise. Refer to their documentation for this.
+        --color <WHEN>               Coloring: auto, always, never [possible values: Auto, Always, Never]
         --command <CMD>              cargo subcommand to run. So far only test and build are supported [possible values:
                                      Test, Build]
         --config <FILE>              Path to a toml file specifying a list of options this will override any other
@@ -90,9 +93,9 @@ OPTIONS:
         --fail-under <PERCENTAGE>    Sets a percentage threshold for failure ranging from 0-100, if coverage is below
                                      exit with a non-zero code
         --features <FEATURES>...     Features to be included in the target project
+    -j, --jobs <N>                   Number of parallel jobs, defaults to # of CPUs
         --manifest-path <PATH>       Path to Cargo.toml
-    -o, --out <FMT>...               Output format of coverage report [possible values: Json, Toml, Stdout, Xml, Html,
-                                     Lcov]
+    -o, --out <FMT>...               Output format of coverage report [possible values: Json, Stdout, Xml, Html, Lcov]
         --output-dir <PATH>          Specify a custom directory to write report files
     -p, --packages <PACKAGE>...      Package id specifications for which package should be build. See cargo help pkgid
                                      for more info
@@ -528,14 +531,11 @@ accuracy. If you see missing lines or files, check your compiler version.
 
 ## Roadmap
 
-* [x] Line coverage for tests
 * [ ] Branch coverage for tests
 * [ ] Condition coverage for tests
-* [x] Annotated coverage reports
-* [x] Coverage reports in the style of existing tools (i.e. kcov)
-* [x] Integration with 3rd party tools like coveralls or codecov
-* [x] Optional coverage statistics for doctests (nightly only [tracking issue](https://github.com/rust-lang/rust/issues/56925))
 * [ ] MCDC coverage reports
+* [ ] LLVM coverage support
+* [ ] Support for embedded targets
 * [ ] OSX support
 * [ ] Windows support
 

@@ -45,3 +45,24 @@ fn simple_project_coverage() {
         }
     }
 }
+
+#[test]
+fn debug_info_0() {
+    // From issue #601
+    let mut config = Config::default();
+    let restore_dir = env::current_dir().unwrap();
+    let test_dir = get_test_path("simple_project");
+    env::set_current_dir(&test_dir).unwrap();
+    config.manifest = test_dir.clone();
+    config.manifest.push("Cargo.toml");
+    let backup_flag = env::var("RUSTFLAGS").ok();
+    env::set_var("RUSTFLAGS", "-Cdebuginfo=0");
+    let (res, ret) = launch_tarpaulin(&config, &None).unwrap();
+    match backup_flag {
+        None => env::remove_var("RUSTFLAGS"),
+        Some(s) => env::set_var("RUSTFLAGS", s),
+    };
+    assert_eq!(ret, 0);
+    assert!(!res.is_empty());
+    env::set_current_dir(restore_dir).unwrap();
+}

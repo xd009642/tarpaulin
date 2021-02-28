@@ -14,6 +14,15 @@ arg_enum! {
 
 arg_enum! {
     #[derive(Debug, Copy, Clone, PartialEq, Eq, Hash, Ord, PartialOrd, Deserialize, Serialize)]
+    pub enum TraceEngine {
+        Auto,
+        Ptrace,
+        Llvm,
+    }
+}
+
+arg_enum! {
+    #[derive(Debug, Copy, Clone, PartialEq, Eq, Hash, Ord, PartialOrd, Deserialize, Serialize)]
     pub enum Mode {
         Test,
         Build
@@ -37,7 +46,6 @@ arg_enum! {
     #[derive(Debug, Copy, Clone, Eq, PartialEq, Ord, PartialOrd, Hash, Deserialize, Serialize)]
     pub enum OutputFile {
         Json,
-        Toml,
         Stdout,
         Xml,
         Html,

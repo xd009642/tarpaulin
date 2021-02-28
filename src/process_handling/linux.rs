@@ -1,11 +1,21 @@
+use crate::collect_coverage;
 use crate::errors::*;
+use crate::event_log::*;
+use crate::process_handling::execute_test;
 use crate::ptrace_control::*;
+use crate::source_analysis::LineAnalysis;
+use crate::traces::*;
+use crate::Config;
+use crate::TestBinary;
 use nix::errno::Errno;
 use nix::libc::{c_int, c_long};
 use nix::sched::*;
 use nix::unistd::*;
 use nix::Error;
+use std::collections::HashMap;
 use std::ffi::{CStr, CString};
+use std::path::PathBuf;
+use tracing::{info, warn};
 
 #[cfg(any(target_arch = "x86", target_arch = "x86_64", target_arch = "arm"))]
 type Persona = c_long;
@@ -18,6 +28,45 @@ mod ffi {
 
     extern "C" {
         pub fn personality(persona: c_long) -> c_int;
+    }
+}
+
+/// Returns the coverage statistics for a test executable in the given workspace
+pub fn get_test_coverage(
+    test: &TestBinary,
+    analysis: &HashMap<PathBuf, LineAnalysis>,
+    config: &Config,
+    ignored: bool,
+    logger: &Option<EventLog>,
+) -> Result<Option<(TraceMap, i32)>, RunError> {
+    if !test.path().exists() {
+        return Ok(None);
+    }
+    if let Err(e) = limit_affinity() {
+        warn!("Failed to set processor affinity {}", e);
+    }
+    if let Some(log) = logger.as_ref() {
+        log.push_binary(test.clone());
+    }
+    unsafe {
+        match fork() {
+            Ok(ForkResult::Parent { child }) => {
+                match collect_coverage(test.path(), child, analysis, config, logger) {
+                    Ok(t) => Ok(Some(t)),
+                    Err(e) => Err(RunError::TestCoverage(e.to_string())),
+                }
+            }
+            Ok(ForkResult::Child) => {
+                info!("Launching test");
+                execute_test(test, ignored, config)?;
+                Ok(None)
+            }
+            Err(err) => Err(RunError::TestCoverage(format!(
+                "Failed to run test {}, Error: {}",
+                test.path().display(),
+                err.to_string()
+            ))),
+        }
     }
 }
 

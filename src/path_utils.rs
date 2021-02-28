@@ -16,8 +16,12 @@ fn is_target_folder(entry: &Path, target: &Path) -> bool {
 }
 
 /// Returns true if the file or folder is hidden
-fn is_hidden(entry: &Path) -> bool {
-    entry.iter().any(|x| x.to_string_lossy().starts_with('.'))
+fn is_hidden(entry: &Path, root: &Path) -> bool {
+    let check_hidden = |e: &Path| e.iter().any(|x| x.to_string_lossy().starts_with('.'));
+    match entry.strip_prefix(root) {
+        Ok(e) => check_hidden(e),
+        Err(_) => check_hidden(entry),
+    }
 }
 
 /// If `CARGO_HOME` is set filters out all folders within `CARGO_HOME`
@@ -53,8 +57,9 @@ pub fn is_coverable_file_path(
     target: impl AsRef<Path>,
 ) -> bool {
     let e = path.as_ref();
-    let ignorable_paths =
-        !(is_target_folder(e, target.as_ref()) || is_hidden(e) || is_cargo_home(e, root.as_ref()));
+    let ignorable_paths = !(is_target_folder(e, target.as_ref())
+        || is_hidden(e, root.as_ref())
+        || is_cargo_home(e, root.as_ref()));
 
     ignorable_paths && is_part_of_project(e, root.as_ref())
 }
@@ -75,11 +80,22 @@ mod tests {
     use super::*;
 
     #[test]
+    #[cfg(unix)]
     fn system_headers_not_coverable() {
         assert!(!is_coverable_file_path(
             "/usr/include/c++/9/iostream",
             "/home/ferris/rust/project",
             "/home/ferris/rust/project/target"
+        ));
+    }
+
+    #[test]
+    #[cfg(windows)]
+    fn system_headers_not_coverable() {
+        assert!(!is_coverable_file_path(
+            "C:/Program Files/Visual Studio/include/c++/9/iostream",
+            "C:/User/ferris/rust/project",
+            "C:/User/ferris/rust/project/target"
         ));
     }
 
@@ -95,5 +111,21 @@ mod tests {
             "/foo",
             "/foo/target"
         ));
+    }
+
+    #[test]
+    fn is_hidden_check() {
+        // From issue#682
+        let hidden_root = Path::new("/home/.jenkins/project/");
+        let visible_root = Path::new("/home/jenkins/project/");
+
+        let hidden_file = Path::new(".cargo/src/hello.rs");
+        let visible_file = Path::new("src/hello.rs");
+
+        assert!(is_hidden(&hidden_root.join(hidden_file), &hidden_root));
+        assert!(is_hidden(&visible_root.join(hidden_file), &visible_root));
+
+        assert!(!is_hidden(&hidden_root.join(visible_file), &hidden_root));
+        assert!(!is_hidden(&visible_root.join(visible_file), &visible_root));
     }
 }
