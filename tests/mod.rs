@@ -288,6 +288,10 @@ fn rustflags_handling() {
     env::set_current_dir(restore_dir).unwrap();
     env::remove_var("RUSTFLAGS");
     assert_ne!(ret, 0);
+
+    let (_, ret) = launch_tarpaulin(&config, &None).unwrap();
+    env::set_current_dir(restore_dir).unwrap();
+    assert_eq!(ret, 0);
 }
 
 fn follow_exes_down() {
