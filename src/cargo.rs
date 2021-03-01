@@ -14,7 +14,7 @@ use std::path::{Component, Path, PathBuf};
 use std::process::{Command, Stdio};
 
 use toml::Value;
-use tracing::{error, trace, warn};
+use tracing::{error, info, trace, warn};
 use walkdir::{DirEntry, WalkDir};
 
 #[derive(Copy, Clone, Debug, Eq, PartialEq, Hash, Ord, PartialOrd)]
@@ -197,6 +197,15 @@ fn run_cargo(
     ty: Option<RunType>,
     result: &mut Vec<TestBinary>,
 ) -> Result<(), RunError> {
+    if config.force_clean {
+        if let Ok(clean) = Command::new("cargo").arg("clean").output() {
+            info!("Cleaning project");
+            if !clean.status.success() {
+                error!("Cargo clean failed:");
+                println!("{}", std::str::from_utf8(&clean.stderr).unwrap_or_default());
+            }
+        }
+    }
     let mut cmd = create_command(manifest, config, ty);
     if ty != Some(RunType::Doctests) {
         cmd.stdout(Stdio::piped());

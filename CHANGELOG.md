@@ -17,6 +17,7 @@ start of the support work.
 - Rearrange crate internals and enable cross compilation for windows and macos.
 This doesn't allow tarpaulin to work on these Operating Systems but it will
 print an error and exit instead of failing to build
+- Fixed `--force-clean` so it actually cleans the project
 
 ### Removed
 
