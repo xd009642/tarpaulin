@@ -18,6 +18,7 @@ start of the support work.
 This doesn't allow tarpaulin to work on these Operating Systems but it will
 print an error and exit instead of failing to build
 - Fixed `--force-clean` so it actually cleans the project
+- Change event log to now contain a time for each event
 
 ### Removed
 

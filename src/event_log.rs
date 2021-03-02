@@ -14,6 +14,7 @@ use serde::{Deserialize, Serialize};
 use std::cell::RefCell;
 use std::fs::File;
 use std::path::Path;
+use std::time::Instant;
 use tracing::{info, warn};
 
 #[derive(Clone, Eq, PartialEq, PartialOrd, Ord, Hash, Serialize, Deserialize)]
@@ -21,6 +22,21 @@ pub enum Event {
     ConfigLaunch(String),
     BinaryLaunch(TestBinary),
     Trace(TraceEvent),
+}
+
+#[derive(Clone, PartialEq, PartialOrd, Serialize, Deserialize)]
+pub struct EventWrapper {
+    #[serde(flatten)]
+    event: Event,
+    // The time this was created in seconds
+    created: f64,
+}
+
+impl EventWrapper {
+    fn new(event: Event, since: Instant) -> Self {
+        let created = Instant::now().duration_since(since).as_secs_f64();
+        Self { event, created }
+    }
 }
 
 #[derive(Clone, Default, Eq, PartialEq, PartialOrd, Ord, Hash, Serialize, Deserialize)]
@@ -135,28 +151,45 @@ impl TraceEvent {
     }
 }
 
-#[derive(Clone, Eq, PartialEq, PartialOrd, Ord, Serialize, Deserialize)]
+#[derive(Clone, PartialEq, PartialOrd, Serialize, Deserialize)]
 pub struct EventLog {
-    events: RefCell<Vec<Event>>,
+    events: RefCell<Vec<EventWrapper>>,
+    #[serde(skip)]
+    start: Option<Instant>,
+}
+
+impl Default for EventLog {
+    fn default() -> Self {
+        Self::new()
+    }
 }
 
 impl EventLog {
     pub fn new() -> Self {
         Self {
             events: RefCell::new(vec![]),
+            start: Some(Instant::now()),
         }
     }
 
     pub fn push_binary(&self, binary: TestBinary) {
-        self.events.borrow_mut().push(Event::BinaryLaunch(binary));
+        self.events.borrow_mut().push(EventWrapper::new(
+            Event::BinaryLaunch(binary),
+            self.start.unwrap(),
+        ));
     }
 
     pub fn push_trace(&self, event: TraceEvent) {
-        self.events.borrow_mut().push(Event::Trace(event));
+        self.events
+            .borrow_mut()
+            .push(EventWrapper::new(Event::Trace(event), self.start.unwrap()));
     }
 
     pub fn push_config(&self, name: String) {
-        self.events.borrow_mut().push(Event::ConfigLaunch(name));
+        self.events.borrow_mut().push(EventWrapper::new(
+            Event::ConfigLaunch(name),
+            self.start.unwrap(),
+        ));
     }
 }
 
