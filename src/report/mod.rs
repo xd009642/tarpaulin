@@ -21,7 +21,8 @@ pub trait Report<Out: Serialize> {
 }
 
 fn coverage_report_name(config: &Config) -> String {
-    config.get_metadata()
+    config
+        .get_metadata()
         .as_ref()
         .and_then(|x| x.root_package())
         .map(|x| format!("{}-coverage.json", x.name))
