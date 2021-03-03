@@ -333,7 +333,7 @@ impl Config {
             s.clone()
         } else {
             match *self.get_metadata() {
-                Some(ref meta) => meta.target_directory.clone(),
+                Some(ref meta) => PathBuf::from(meta.target_directory.clone()),
                 _ => self
                     .manifest
                     .parent()
@@ -363,7 +363,7 @@ impl Config {
     }
     pub fn root(&self) -> PathBuf {
         match *self.get_metadata() {
-            Some(ref meta) => meta.workspace_root.clone(),
+            Some(ref meta) => PathBuf::from(meta.workspace_root.clone()),
             _ => self
                 .manifest
                 .parent()
