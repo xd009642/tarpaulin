@@ -227,7 +227,7 @@ fn run_cargo(
                         if !art.profile.test && config.command == Mode::Test {
                             continue;
                         }
-                        result.push(TestBinary::new(path, ty));
+                        result.push(TestBinary::new(PathBuf::from(path), ty));
                         package_ids.push(art.package_id.clone());
                     }
                 }
@@ -254,7 +254,10 @@ fn run_cargo(
         };
         for (res, package) in result.iter_mut().zip(package_ids.iter()) {
             let package = &metadata[package];
-            res.cargo_dir = package.manifest_path.parent().map(|x| x.to_path_buf());
+            res.cargo_dir = package
+                .manifest_path
+                .parent()
+                .map(|x| PathBuf::from(x.to_path_buf()));
             res.pkg_name = Some(package.name.clone());
             res.pkg_version = Some(package.version.to_string());
             res.pkg_authors = Some(package.authors.clone());
