@@ -1062,6 +1062,46 @@ mod tests {
     }
 
     #[test]
+    fn rustflags_merge() {
+        let toml = r#"
+        [flag1]
+        rustflags = "xyz"
+        
+        [flag2]
+        rustflags = "bar"
+        "#;
+
+        let configs = Config::parse_config_toml(toml.as_bytes()).unwrap();
+        let flag1 = configs
+            .iter()
+            .find(|x| x.name == "flag1")
+            .unwrap()
+            .clone();
+        let flag2 = configs
+            .iter()
+            .find(|x| x.name == "flag2")
+            .unwrap()
+            .clone();
+        let noflags = Config::default();
+
+        let mut yes_no = flag1.clone();
+        yes_no.merge(&noflags);
+        assert_eq!(yes_no.rustflags, Some("flag1".to_string()));
+
+        let mut no_yes = noflags.clone();
+        no_yes.merge(&flag2);
+        assert_eq!(no_yes.rustflags, Some("flag2".to_string()));
+
+        let mut f1_2 = flag1.clone();
+        f1_2.merge(&flag2);
+        let flags = f1_2.rustflags.unwrap();
+        let split = flags.split_ascii_whitespace().collect::<Vec<_>>();
+        assert_eq!(split.len(), 2);
+        assert!(split.contains(&"xyz"));
+        assert!(split.contains(&"bar"));
+    }
+
+    #[test]
     fn all_toml_options() {
         let toml = r#"[all]
         debug = true
