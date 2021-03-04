@@ -640,7 +640,8 @@ fn gather_config_rust_flags(config: &Config) -> String {
 
 pub fn rust_flags(config: &Config) -> String {
     const RUSTFLAGS: &str = "RUSTFLAGS";
-    let mut value = " -C link-dead-code -C debuginfo=2 ".to_string();
+    let mut value = config.rustflags.clone().unwrap_or_default();
+    value.push_str(" -C link-dead-code -C debuginfo=2 ");
     if !config.avoid_cfg_tarpaulin {
         value.push_str("--cfg=tarpaulin ");
     }

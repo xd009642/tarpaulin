@@ -167,6 +167,8 @@ pub struct Config {
     pub jobs: Option<usize>,
     /// Engine to use to collect coverage
     pub engine: TraceEngine,
+    /// Specifying per-config rust flags
+    pub rustflags: Option<String>,
 }
 
 fn default_test_timeout() -> Duration {
@@ -230,6 +232,7 @@ impl Default for Config {
             jobs: None,
             color: Color::Auto,
             engine: TraceEngine::Ptrace,
+            rustflags: None,
         }
     }
 }
@@ -303,6 +306,7 @@ impl<'a> From<&'a ArgMatches<'a>> for ConfigWrapper {
             profile: get_profile(args),
             metadata: RefCell::new(None),
             avoid_cfg_tarpaulin: args.is_present("avoid-cfg-tarpaulin"),
+            rustflags: get_rustflags(args),
             engine: TraceEngine::Ptrace,
         };
         if args.is_present("ignore-config") {
@@ -512,6 +516,14 @@ impl Config {
         self.force_clean |= other.force_clean;
         self.ignore_tests |= other.ignore_tests;
         self.no_fail_fast |= other.no_fail_fast;
+
+        let new_flags = match (self.rustflags.as_ref(), other.rustflags.as_ref()) {
+            (Some(a), Some(b)) => Some(format!("{} {}", a, b)),
+            (Some(a), None) => Some(a.clone()),
+            (None, Some(b)) => Some(b.clone()),
+            _ => None,
+        };
+        self.rustflags = new_flags;
 
         if self.jobs.is_none() {
             self.jobs = other.jobs;

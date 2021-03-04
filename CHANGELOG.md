@@ -10,6 +10,7 @@ file.
 compiler support. This isn't enabled so should have no effect it's just the
 start of the support work.
 - Now factors in rustflags from toml files #528
+- Now able to add to rustflags via CLI args and via tarpaulin config files
 
 ### Changed
 - Make doctest prefix matching less specific as the naming convention changed again
