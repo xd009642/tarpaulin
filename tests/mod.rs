@@ -36,13 +36,13 @@ pub fn check_percentage_with_cli_args(minimum_coverage: f64, has_lines: bool, ar
     }
     res.dedup();
     env::set_current_dir(restore_dir).unwrap();
-    assert!(
-        res.coverage_percentage() >= minimum_coverage,
-        "Assertion failed {} >= {}",
-        res.coverage_percentage(),
-        minimum_coverage
-    );
     if has_lines {
+        assert!(
+            res.coverage_percentage() >= minimum_coverage,
+            "Assertion failed {} >= {}",
+            res.coverage_percentage(),
+            minimum_coverage
+        );
         assert!(res.total_coverable() > 0);
     }
 }
@@ -179,6 +179,19 @@ fn config_file_coverage() {
     check_percentage_with_cli_args(1.0f64, true, &args);
     args.push("--ignore-config".to_string());
     check_percentage_with_cli_args(0.0f64, true, &args);
+}
+
+#[test]
+fn rustflags_config_coverage() {
+    let test_dir = get_test_path("multiple_rustflags");
+    let mut args = vec![
+        "tarpaulin".to_string(),
+        "--root".to_string(),
+        test_dir.display().to_string(),
+    ];
+    check_percentage_with_cli_args(1.0f64, true, &args);
+    args.push("--ignore-config".to_string());
+    check_percentage_with_cli_args(0.0f64, false, &args);
 }
 
 #[test]
