@@ -27,7 +27,7 @@ Below is the help-text for a thorough explanation of the flags and features
 available:
 
 ```
-cargo-tarpaulin version: 0.18.0-alpha1
+cargo-tarpaulin version: 0.18.0-alpha2
 Tool to analyse test coverage of cargo projects
 
 USAGE:
@@ -66,6 +66,7 @@ FLAGS:
         --print-rust-flags       Print the RUSTFLAGS options that tarpaulin will compile your program with and exit
         --print-rustdoc-flags    Print the RUSTDOCFLAGS options that tarpaulin will compile any doctests with and exit
         --release                Build in release mode.
+        --skip-clean             The opposite of --force-clean
         --tests                  Test all tests
     -V, --version                Prints version information
     -v, --verbose                Show extra output
@@ -105,6 +106,7 @@ OPTIONS:
                                      will look for a Cargo.toml in root
         --run-types <TYPE>...        Type of the coverage run [possible values: Tests, Doctests, Benchmarks, Examples,
                                      Lib, Bins, AllTargets]
+        --rustflags <FLAGS>          rustflags to add when building project (can also be set via RUSTFLAGS env var)
         --target <TRIPLE>            Compilation target triple
         --target-dir <DIR>           Directory for all generated artifacts
         --test <NAME>...             Test only the specified test target

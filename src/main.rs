@@ -68,6 +68,7 @@ fn main() -> Result<(), String> {
                  --count   'Counts the number of hits during coverage'
                  --ignored -i 'Run ignored tests as well'
                  --line -l    'Line coverage'
+                 --skip-clean 'The opposite of --force-clean'
                  --force-clean 'Adds a clean stage to work around cargo bugs that may affect coverage results'
                  --fail-under [PERCENTAGE] 'Sets a percentage threshold for failure ranging from 0-100, if coverage is below exit with a non-zero code'
                  --branch -b  'Branch coverage: NOT IMPLEMENTED'

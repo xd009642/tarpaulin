@@ -188,7 +188,7 @@ impl Default for Config {
             all_targets: false,
             ignore_tests: false,
             ignore_panics: false,
-            force_clean: false,
+            force_clean: true,
             verbose: false,
             debug: false,
             follow_exec: false,
@@ -251,6 +251,17 @@ impl<'a> From<&'a ArgMatches<'a>> for ConfigWrapper {
         } else {
             Some(features.join(" "))
         };
+        let force_clean = match (
+            args.is_present("force-clean"),
+            args.is_present("skip-clean"),
+        ) {
+            (true, false) | (false, false) => true,
+            (false, true) => false,
+            _ => {
+                warn!("skip-clean and force-clean are incompatible. Selecting force-clean");
+                true
+            }
+        };
 
         let args_config = Config {
             name: String::new(),
@@ -263,7 +274,7 @@ impl<'a> From<&'a ArgMatches<'a>> for ConfigWrapper {
             run_ignored: args.is_present("ignored"),
             ignore_tests: args.is_present("ignore-tests"),
             ignore_panics: args.is_present("ignore-panics"),
-            force_clean: args.is_present("force-clean"),
+            force_clean,
             no_fail_fast: args.is_present("no-fail-fast"),
             all_targets: args.is_present("all-targets"),
             follow_exec: args.is_present("follow-exec"),

@@ -3,7 +3,7 @@
 From 2019 onwards, all notable changes to tarpaulin will be documented in this
 file.
 
-## [Unreleased]
+## [0.18.0-alpha2] 2021-04-16
 ### Added
 - Check if user sets -Cdebuginfo and remove it #601
 - INTERNAL Added ability to build with LLVM coverage instrumentation and detect
