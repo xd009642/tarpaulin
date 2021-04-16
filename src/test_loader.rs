@@ -359,6 +359,14 @@ fn open_symbols_file(test: &Path) -> io::Result<File> {
     File::open(&d_sym)
 }
 
+#[cfg(target_os = "windows")]
+fn open_symbols_file(test: &Path) -> io::Result<File> {
+    Err(io::Error::new(
+        io::ErrorKind::Other,
+        "Windows is not currently supported",
+    ))
+}
+
 pub fn generate_tracemap(
     test: &Path,
     analysis: &HashMap<PathBuf, LineAnalysis>,

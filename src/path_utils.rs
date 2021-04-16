@@ -80,11 +80,22 @@ mod tests {
     use super::*;
 
     #[test]
+    #[cfg(unix)]
     fn system_headers_not_coverable() {
         assert!(!is_coverable_file_path(
             "/usr/include/c++/9/iostream",
             "/home/ferris/rust/project",
             "/home/ferris/rust/project/target"
+        ));
+    }
+
+    #[test]
+    #[cfg(windows)]
+    fn system_headers_not_coverable() {
+        assert!(!is_coverable_file_path(
+            "C:/Program Files/Visual Studio/include/c++/9/iostream",
+            "C:/User/ferris/rust/project",
+            "C:/User/ferris/rust/project/target"
         ));
     }
 

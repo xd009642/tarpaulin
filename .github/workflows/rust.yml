@@ -7,7 +7,7 @@ on:
   pull_request:
 
 jobs:
-  build:
+  linux:
     runs-on: ubuntu-latest
     strategy:
       matrix:
@@ -15,6 +15,8 @@ jobs:
           - stable
           - beta
           - nightly
+          - nightly-2021-02-11
+          - nightly-2021-01-25
         target:
           - x86_64-unknown-linux-gnu
           - x86_64-unknown-linux-musl
@@ -29,7 +31,7 @@ jobs:
       - name: clean
         run: cargo clean
       - name: build
-        run: cargo build --verbose
+        run: cargo build
         env:
           RUST_BACKTRACE: 1
       - name: test
@@ -50,3 +52,47 @@ jobs:
             --data '{"build": true}' \
             https://registry.hub.docker.com/u/xd009642/tarpaulin/trigger/${{ secrets.DOCKER_TOKEN }}/
         if: github.ref == 'ref/heads/master' || github.ref == 'refs/heads/develop'
+  windows:
+    runs-on: windows-latest
+    strategy:
+      matrix:
+        version:
+          - nightly
+        target:
+          - x86_64-pc-windows-gnu
+          - x86_64-pc-windows-msvc
+      fail-fast: false
+    steps:
+      - uses: actions/checkout@v2
+      - uses: actions-rs/toolchain@v1
+        with:
+          toolchain: ${{ matrix.version }}
+          override: true
+      - name: build
+        run: cargo build
+      - name: test
+        run: cargo test -- --test-threads 1 || true
+        env:
+          RUST_BACKTRACE: 1
+  mac:
+    runs-on: macos-latest
+    strategy:
+      matrix:
+        version:
+          - nightly
+        target:
+          - x86_64-pc-windows-gnu
+          - x86_64-pc-windows-msvc
+      fail-fast: false
+    steps:
+      - uses: actions/checkout@v2
+      - uses: actions-rs/toolchain@v1
+        with:
+          toolchain: ${{ matrix.version }}
+          override: true
+      - name: build
+        run: cargo build
+      - name: test
+        run: cargo test -- --test-threads 1 || true
+        env:
+          RUST_BACKTRACE: 1

@@ -2,16 +2,43 @@ use crate::config::*;
 use crate::errors::RunError;
 use crate::path_utils::get_source_walker;
 use cargo_metadata::{diagnostic::DiagnosticLevel, CargoOpt, Message, Metadata, MetadataCommand};
+use lazy_static::lazy_static;
+use regex::Regex;
 use serde::{Deserialize, Serialize};
 use std::collections::{HashMap, HashSet};
 use std::env;
-use std::fs::{read_dir, remove_dir_all, File};
+use std::fs::{read_dir, read_to_string, remove_dir_all, File};
 use std::io;
 use std::io::{BufRead, BufReader};
 use std::path::{Component, Path, PathBuf};
 use std::process::{Command, Stdio};
-use tracing::{error, trace, warn};
+
+use toml::Value;
+use tracing::{error, info, trace, warn};
 use walkdir::{DirEntry, WalkDir};
+
+#[derive(Copy, Clone, Debug, Eq, PartialEq, Hash, Ord, PartialOrd)]
+enum Channel {
+    Stable,
+    Beta,
+    Nightly,
+}
+
+#[derive(Clone, Debug, Eq, PartialEq, Hash, Ord, PartialOrd)]
+struct CargoVersionInfo {
+    major: usize,
+    minor: usize,
+    channel: Channel,
+    year: usize,
+    month: usize,
+    day: usize,
+}
+
+impl CargoVersionInfo {
+    fn supports_llvm_cov(&self) -> bool {
+        self.minor >= 50 && self.channel == Channel::Nightly
+    }
+}
 
 #[derive(Clone, PartialEq, Eq, PartialOrd, Ord, Hash, Deserialize, Serialize)]
 pub struct TestBinary {
@@ -95,6 +122,46 @@ impl DocTestBinaryMeta {
     }
 }
 
+lazy_static! {
+    static ref CARGO_VERSION_INFO: Option<CargoVersionInfo> = {
+        let version_info = Regex::new(
+            r"cargo (\d)\.(\d+)\.\d+([\-betanightly]*) \([[:alnum:]]+ (\d{4})-(\d{2})-(\d{2})\)",
+        )
+        .unwrap();
+        Command::new("cargo")
+            .arg("--version")
+            .output()
+            .map(|x| {
+                let s = String::from_utf8_lossy(&x.stdout);
+                if let Some(cap) = version_info.captures(&s) {
+                    let major = cap[1].parse().unwrap();
+                    let minor = cap[2].parse().unwrap();
+                    // We expect a string like `cargo 1.50.0-nightly (a0f433460 2020-02-01)
+                    // the version number either has `-nightly` `-beta` or empty for stable
+                    let channel = match &cap[3] {
+                        "-nightly" => Channel::Nightly,
+                        "-beta" => Channel::Beta,
+                        _ => Channel::Stable,
+                    };
+                    let year = cap[4].parse().unwrap();
+                    let month = cap[5].parse().unwrap();
+                    let day = cap[6].parse().unwrap();
+                    Some(CargoVersionInfo {
+                        major,
+                        minor,
+                        channel,
+                        year,
+                        month,
+                        day,
+                    })
+                } else {
+                    None
+                }
+            })
+            .unwrap_or(None)
+    };
+}
+
 pub fn get_tests(config: &Config) -> Result<Vec<TestBinary>, RunError> {
     let mut result = vec![];
     let manifest = match config.manifest.as_path().to_str() {
@@ -130,6 +197,15 @@ fn run_cargo(
     ty: Option<RunType>,
     result: &mut Vec<TestBinary>,
 ) -> Result<(), RunError> {
+    if config.force_clean {
+        if let Ok(clean) = Command::new("cargo").arg("clean").output() {
+            info!("Cleaning project");
+            if !clean.status.success() {
+                error!("Cargo clean failed:");
+                println!("{}", std::str::from_utf8(&clean.stderr).unwrap_or_default());
+            }
+        }
+    }
     let mut cmd = create_command(manifest, config, ty);
     if ty != Some(RunType::Doctests) {
         cmd.stdout(Stdio::piped());
@@ -151,7 +227,7 @@ fn run_cargo(
                         if !art.profile.test && config.command == Mode::Test {
                             continue;
                         }
-                        result.push(TestBinary::new(path, ty));
+                        result.push(TestBinary::new(PathBuf::from(path), ty));
                         package_ids.push(art.package_id.clone());
                     }
                 }
@@ -178,7 +254,10 @@ fn run_cargo(
         };
         for (res, package) in result.iter_mut().zip(package_ids.iter()) {
             let package = &metadata[package];
-            res.cargo_dir = package.manifest_path.parent().map(|x| x.to_path_buf());
+            res.cargo_dir = package
+                .manifest_path
+                .parent()
+                .map(|x| PathBuf::from(x.to_path_buf()));
             res.pkg_name = Some(package.name.clone());
             res.pkg_version = Some(package.version.to_string());
             res.pkg_authors = Some(package.authors.clone());
@@ -199,7 +278,6 @@ fn run_cargo(
             .filter_map(|e| e.ok())
             .filter(|e| matches!(e.metadata(), Ok(ref m) if m.is_file() && m.len() != 0))
             .collect::<Vec<_>>();
-
         let should_panics = get_panic_candidates(&dir_entries, config);
         for dt in &dir_entries {
             let mut tb = TestBinary::new(dt.path().to_path_buf(), ty);
@@ -243,7 +321,7 @@ fn convert_to_prefix(p: &Path) -> Option<String> {
 
 fn is_prefix_match(prefix: &str, entry: &Path) -> bool {
     convert_to_prefix(entry)
-        .map(|s| prefix.ends_with(&s))
+        .map(|s| s.contains(prefix))
         .unwrap_or(false)
 }
 
@@ -269,7 +347,6 @@ fn get_panic_candidates(tests: &[DirEntry], config: &Config) -> HashMap<String, 
                         if is_prefix_match(&test_binary.prefix, &p) && !checked_files.contains(path)
                         {
                             checked_files.insert(path.to_path_buf());
-                            trace!("Assessing {} for `should_panic` doctests", path.display());
                             let lines = find_panics_in_file(path).unwrap_or_default();
                             if !result.contains_key(&test_binary.prefix) {
                                 result.insert(test_binary.prefix.clone(), lines);
@@ -453,6 +530,16 @@ fn clean_doctest_folder<P: AsRef<Path>>(doctest_dir: P) {
     }
 }
 
+fn handle_llvm_flags(value: &mut String, config: &Config) {
+    if (config.engine == TraceEngine::Auto || config.engine == TraceEngine::Llvm)
+        && supports_llvm_coverage()
+    {
+        value.push_str("-Z instrument-coverage ");
+    } else if config.engine == TraceEngine::Llvm {
+        error!("unable to utilise llvm coverage, due to compiler support. Falling back to Ptrace");
+    }
+}
+
 pub fn rustdoc_flags(config: &Config) -> String {
     const RUSTDOC: &str = "RUSTDOCFLAGS";
     let common_opts = " -C link-dead-code -C debuginfo=2 --cfg=tarpaulin ";
@@ -466,20 +553,110 @@ pub fn rustdoc_flags(config: &Config) -> String {
             value.push_str(vtemp.as_ref());
         }
     }
+    handle_llvm_flags(&mut value, config);
     value
+}
+
+fn look_for_rustflags_in_table(value: &Value) -> String {
+    let table = value.as_table().unwrap();
+
+    if let Some(rustflags) = table.get("rustflags") {
+        let vec_of_flags: Vec<String> = rustflags
+            .as_array()
+            .unwrap()
+            .into_iter()
+            .filter_map(|x| x.as_str())
+            .map(|x| x.to_string())
+            .collect();
+
+        vec_of_flags.join(" ")
+    } else {
+        String::new()
+    }
+}
+
+fn look_for_rustflags_in_file(path: &Path) -> Option<String> {
+    if let Ok(contents) = read_to_string(path) {
+        let value = contents.parse::<Value>().ok()?;
+
+        let rustflags_in_file: Vec<String> = value
+            .as_table()?
+            .into_iter()
+            .map(|(s, v)| {
+                if s.as_str() == "build" {
+                    look_for_rustflags_in_table(v)
+                } else {
+                    String::new()
+                }
+            })
+            .collect();
+
+        Some(rustflags_in_file.join(" "))
+    } else {
+        None
+    }
+}
+
+fn look_for_rustflags_in(path: &Path) -> Option<String> {
+    let mut config_path = path.join("config");
+
+    let rustflags = look_for_rustflags_in_file(&config_path);
+    if rustflags.is_some() {
+        return rustflags;
+    }
+
+    config_path.pop();
+    config_path.push("config.toml");
+
+    let rustflags = look_for_rustflags_in_file(&config_path);
+    if rustflags.is_some() {
+        return rustflags;
+    }
+
+    None
+}
+
+fn build_config_path(base: impl AsRef<Path>) -> PathBuf {
+    let mut config_path = PathBuf::from(base.as_ref());
+    config_path.push(base);
+    config_path.push(".cargo");
+
+    config_path
+}
+
+fn gather_config_rust_flags(config: &Config) -> String {
+    if let Some(rustflags) = look_for_rustflags_in(&build_config_path(&config.root())) {
+        return rustflags;
+    }
+
+    if let Ok(cargo_home_config) = env::var("CARGO_HOME") {
+        if let Some(rustflags) = look_for_rustflags_in(&PathBuf::from(cargo_home_config)) {
+            return rustflags;
+        }
+    }
+
+    String::new()
 }
 
 pub fn rust_flags(config: &Config) -> String {
     const RUSTFLAGS: &str = "RUSTFLAGS";
-    let mut value = " -C link-dead-code -C debuginfo=2 ".to_string();
+    let mut value = config.rustflags.clone().unwrap_or_default();
+    value.push_str(" -C link-dead-code -C debuginfo=2 ");
     if !config.avoid_cfg_tarpaulin {
-        value = format!("{}--cfg=tarpaulin ", value);
+        value.push_str("--cfg=tarpaulin ");
     }
     if config.release {
-        value = format!("{}-C debug-assertions=off ", value);
+        value.push_str("-C debug-assertions=off ");
+    }
+    handle_llvm_flags(&mut value, config);
+    lazy_static! {
+        static ref DEBUG_INFO: Regex = Regex::new(r#"\-C\s*debuginfo=\d"#).unwrap();
     }
     if let Ok(vtemp) = env::var(RUSTFLAGS) {
-        value.push_str(vtemp.as_ref());
+        value.push_str(&DEBUG_INFO.replace_all(&vtemp, " "));
+    } else {
+        let vtemp = gather_config_rust_flags(config);
+        value.push_str(&DEBUG_INFO.replace_all(&vtemp, " "));
     }
     value
 }
@@ -494,4 +671,50 @@ fn setup_environment(cmd: &mut Command, config: &Config) {
     let value = rustdoc_flags(config);
     trace!("Setting RUSTDOCFLAGS='{}'", value);
     cmd.env(rustdoc, value);
+}
+
+fn supports_llvm_coverage() -> bool {
+    if let Some(version) = CARGO_VERSION_INFO.as_ref() {
+        version.supports_llvm_cov()
+    } else {
+        false
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn llvm_cov_compatible_version() {
+        let version = CargoVersionInfo {
+            major: 1,
+            minor: 50,
+            channel: Channel::Nightly,
+            year: 2020,
+            month: 12,
+            day: 22,
+        };
+        assert!(version.supports_llvm_cov());
+    }
+
+    #[test]
+    fn llvm_cov_incompatible_version() {
+        let mut version = CargoVersionInfo {
+            major: 1,
+            minor: 48,
+            channel: Channel::Stable,
+            year: 2020,
+            month: 10,
+            day: 14,
+        };
+        assert!(!version.supports_llvm_cov());
+        version.channel = Channel::Beta;
+        assert!(!version.supports_llvm_cov());
+        version.minor = 50;
+        assert!(!version.supports_llvm_cov());
+        version.minor = 58;
+        version.channel = Channel::Stable;
+        assert!(!version.supports_llvm_cov());
+    }
 }

@@ -7,7 +7,7 @@ use std::time::Duration;
 #[test]
 fn only_test_coverage() {
     let mut config = Config::default();
-    config.verbose = true;
+    config.force_clean = false;
     config.test_timeout = Duration::from_secs(60);
     config.run_types = vec![RunType::Tests];
     let restore_dir = env::current_dir().unwrap();
@@ -33,7 +33,7 @@ fn only_test_coverage() {
 #[test]
 fn only_example_coverage() {
     let mut config = Config::default();
-    config.verbose = true;
+    config.force_clean = false;
     config.test_timeout = Duration::from_secs(60);
     config.run_types = vec![RunType::Examples];
     let restore_dir = env::current_dir().unwrap();
@@ -60,7 +60,7 @@ fn only_example_coverage() {
 #[ignore]
 fn only_bench_coverage() {
     let mut config = Config::default();
-    config.verbose = true;
+    config.force_clean = false;
     config.test_timeout = Duration::from_secs(60);
     config.run_types = vec![RunType::Benchmarks];
     let restore_dir = env::current_dir().unwrap();
@@ -87,7 +87,7 @@ fn only_bench_coverage() {
 #[cfg(feature = "nightly")]
 fn only_doctest_coverage() {
     let mut config = Config::default();
-    config.verbose = true;
+    config.force_clean = false;
     config.test_timeout = Duration::from_secs(60);
     config.run_types = vec![RunType::Doctests];
     let restore_dir = env::current_dir().unwrap();

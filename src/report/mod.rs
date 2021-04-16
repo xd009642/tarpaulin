@@ -20,6 +20,15 @@ pub trait Report<Out: Serialize> {
     fn export(coverage_data: &[TracerData], config: &Config);
 }
 
+fn coverage_report_name(config: &Config) -> String {
+    config
+        .get_metadata()
+        .as_ref()
+        .and_then(|x| x.root_package())
+        .map(|x| format!("{}-coverage.json", x.name))
+        .unwrap_or_else(|| "coverage.json".to_string())
+}
+
 /// Reports the test coverage using the users preferred method. See config.rs
 /// or help text for details.
 pub fn report_coverage(config: &Config, result: &TraceMap) -> Result<(), RunError> {
@@ -35,7 +44,7 @@ pub fn report_coverage(config: &Config, result: &TraceMap) -> Result<(), RunErro
         if !report_dir.exists() {
             let _ = create_dir_all(&report_dir);
         }
-        report_dir.push("coverage.json");
+        report_dir.push(coverage_report_name(config));
         let file = File::create(&report_dir)
             .map_err(|_| RunError::CovReport("Failed to create run report".to_string()))?;
         serde_json::to_writer(&file, &result)
@@ -117,7 +126,7 @@ fn get_previous_result(config: &Config) -> Option<TraceMap> {
     report_dir.push("tarpaulin");
     if report_dir.exists() {
         // is report there?
-        report_dir.push("coverage.json");
+        report_dir.push(coverage_report_name(config));
         let file = File::open(&report_dir).ok()?;
         let reader = BufReader::new(file);
         serde_json::from_reader(reader).ok()

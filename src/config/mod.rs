@@ -165,6 +165,10 @@ pub struct Config {
     pub follow_exec: bool,
     /// Number of jobs used for building the tests
     pub jobs: Option<usize>,
+    /// Engine to use to collect coverage
+    pub engine: TraceEngine,
+    /// Specifying per-config rust flags
+    pub rustflags: Option<String>,
 }
 
 fn default_test_timeout() -> Duration {
@@ -184,7 +188,7 @@ impl Default for Config {
             all_targets: false,
             ignore_tests: false,
             ignore_panics: false,
-            force_clean: false,
+            force_clean: true,
             verbose: false,
             debug: false,
             follow_exec: false,
@@ -227,6 +231,8 @@ impl Default for Config {
             avoid_cfg_tarpaulin: false,
             jobs: None,
             color: Color::Auto,
+            engine: TraceEngine::Ptrace,
+            rustflags: None,
         }
     }
 }
@@ -245,6 +251,17 @@ impl<'a> From<&'a ArgMatches<'a>> for ConfigWrapper {
         } else {
             Some(features.join(" "))
         };
+        let force_clean = match (
+            args.is_present("force-clean"),
+            args.is_present("skip-clean"),
+        ) {
+            (true, false) | (false, false) => true,
+            (false, true) => false,
+            _ => {
+                warn!("skip-clean and force-clean are incompatible. Selecting force-clean");
+                true
+            }
+        };
 
         let args_config = Config {
             name: String::new(),
@@ -257,7 +274,7 @@ impl<'a> From<&'a ArgMatches<'a>> for ConfigWrapper {
             run_ignored: args.is_present("ignored"),
             ignore_tests: args.is_present("ignore-tests"),
             ignore_panics: args.is_present("ignore-panics"),
-            force_clean: args.is_present("force-clean"),
+            force_clean,
             no_fail_fast: args.is_present("no-fail-fast"),
             all_targets: args.is_present("all-targets"),
             follow_exec: args.is_present("follow-exec"),
@@ -300,6 +317,8 @@ impl<'a> From<&'a ArgMatches<'a>> for ConfigWrapper {
             profile: get_profile(args),
             metadata: RefCell::new(None),
             avoid_cfg_tarpaulin: args.is_present("avoid-cfg-tarpaulin"),
+            rustflags: get_rustflags(args),
+            engine: TraceEngine::Ptrace,
         };
         if args.is_present("ignore-config") {
             Self(vec![args_config])
@@ -329,7 +348,7 @@ impl Config {
             s.clone()
         } else {
             match *self.get_metadata() {
-                Some(ref meta) => meta.target_directory.clone(),
+                Some(ref meta) => PathBuf::from(meta.target_directory.clone()),
                 _ => self
                     .manifest
                     .parent()
@@ -346,7 +365,7 @@ impl Config {
         result
     }
 
-    fn get_metadata(&self) -> Ref<Option<Metadata>> {
+    pub(crate) fn get_metadata(&self) -> Ref<Option<Metadata>> {
         if self.metadata.borrow().is_none() {
             match MetadataCommand::new().manifest_path(&self.manifest).exec() {
                 Ok(meta) => {
@@ -359,7 +378,7 @@ impl Config {
     }
     pub fn root(&self) -> PathBuf {
         match *self.get_metadata() {
-            Some(ref meta) => meta.workspace_root.clone(),
+            Some(ref meta) => PathBuf::from(meta.workspace_root.clone()),
             _ => self
                 .manifest
                 .parent()
@@ -508,6 +527,14 @@ impl Config {
         self.force_clean |= other.force_clean;
         self.ignore_tests |= other.ignore_tests;
         self.no_fail_fast |= other.no_fail_fast;
+
+        let new_flags = match (self.rustflags.as_ref(), other.rustflags.as_ref()) {
+            (Some(a), Some(b)) => Some(format!("{} {}", a, b)),
+            (Some(a), None) => Some(a.clone()),
+            (None, Some(b)) => Some(b.clone()),
+            _ => None,
+        };
+        self.rustflags = new_flags;
 
         if self.jobs.is_none() {
             self.jobs = other.jobs;
@@ -816,31 +843,39 @@ mod tests {
 
     #[test]
     fn relative_path_test() {
-        let path_a = Path::new("/this/should/form/a/rel/path/");
-        let path_b = Path::new("/this/should/form/b/rel/path/");
+        cfg_if::cfg_if! {
+            if #[cfg(windows)] {
+                let root_base = "C:";
+            } else {
+                let root_base = "";
+            }
+        }
+        let path_a = PathBuf::from(format!("{}/this/should/form/a/rel/path/", root_base));
+        let path_b = PathBuf::from(format!("{}/this/should/form/b/rel/path/", root_base));
 
-        let rel_path = path_relative_from(path_b, path_a);
+        let rel_path = path_relative_from(&path_b, &path_a);
         assert!(rel_path.is_some());
         assert_eq!(
-            rel_path.unwrap().to_str().unwrap(),
-            "../../../b/rel/path",
+            rel_path.unwrap(),
+            Path::new("../../../b/rel/path"),
             "Wrong relative path"
         );
 
-        let path_a = Path::new("/this/should/not/form/a/rel/path/");
-        let path_b = Path::new("./this/should/not/form/a/rel/path/");
-
-        let rel_path = path_relative_from(path_b, path_a);
+        let path_a = PathBuf::from(format!("{}/this/should/not/form/a/rel/path/", root_base));
+        let path_b = Path::new("this/should/not/form/a/rel/path/");
+        assert!(!path_b.is_absolute());
+        assert!(path_a.is_absolute());
+        let rel_path = path_relative_from(path_b, &path_a);
         assert_eq!(rel_path, None, "Did not expect relative path");
 
-        let path_a = Path::new("./this/should/form/a/rel/path/");
-        let path_b = Path::new("./this/should/form/b/rel/path/");
+        let path_a = Path::new("this/should/form/a/rel/path/");
+        let path_b = Path::new("this/should/form/b/rel/path/");
 
         let rel_path = path_relative_from(path_b, path_a);
         assert!(rel_path.is_some());
         assert_eq!(
-            rel_path.unwrap().to_str().unwrap(),
-            "../../../b/rel/path",
+            rel_path.unwrap(),
+            Path::new("../../../b/rel/path"),
             "Wrong relative path"
         );
     }
@@ -1035,6 +1070,38 @@ mod tests {
         let mut both_merged_dir = has_dir;
         both_merged_dir.merge(&other_dir);
         assert_eq!(both_merged_dir.output_dir(), PathBuf::from("bar"));
+    }
+
+    #[test]
+    fn rustflags_merge() {
+        let toml = r#"
+        [flag1]
+        rustflags = "xyz"
+        
+        [flag2]
+        rustflags = "bar"
+        "#;
+
+        let configs = Config::parse_config_toml(toml.as_bytes()).unwrap();
+        let flag1 = configs.iter().find(|x| x.name == "flag1").unwrap().clone();
+        let flag2 = configs.iter().find(|x| x.name == "flag2").unwrap().clone();
+        let noflags = Config::default();
+
+        let mut yes_no = flag1.clone();
+        yes_no.merge(&noflags);
+        assert_eq!(yes_no.rustflags, Some("xyz".to_string()));
+
+        let mut no_yes = noflags.clone();
+        no_yes.merge(&flag2);
+        assert_eq!(no_yes.rustflags, Some("bar".to_string()));
+
+        let mut f1_2 = flag1.clone();
+        f1_2.merge(&flag2);
+        let flags = f1_2.rustflags.unwrap();
+        let split = flags.split_ascii_whitespace().collect::<Vec<_>>();
+        assert_eq!(split.len(), 2);
+        assert!(split.contains(&"xyz"));
+        assert!(split.contains(&"bar"));
     }
 
     #[test]

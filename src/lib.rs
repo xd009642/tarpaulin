@@ -6,20 +6,13 @@ use crate::path_utils::*;
 use crate::process_handling::*;
 use crate::report::report_coverage;
 use crate::source_analysis::{LineAnalysis, SourceAnalysis};
-use crate::statemachine::*;
 use crate::test_loader::*;
 use crate::traces::*;
-use nix::unistd::*;
-use std::collections::HashMap;
-use std::env;
-use std::ffi::CString;
 use std::fs::create_dir_all;
-use std::path::{Path, PathBuf};
-use tracing::{debug, error, info, trace_span, warn};
+use tracing::{debug, error, info, warn};
 use tracing_subscriber::{filter::LevelFilter, EnvFilter};
 
 pub mod branching;
-pub mod breakpoint;
 pub mod cargo;
 pub mod config;
 pub mod errors;
@@ -31,8 +24,6 @@ mod source_analysis;
 mod statemachine;
 pub mod test_loader;
 pub mod traces;
-
-mod ptrace_control;
 
 const RUST_LOG_ENV: &str = "RUST_LOG";
 
@@ -111,7 +102,10 @@ pub fn trace(configs: &[Config]) -> Result<TraceMap, RunError> {
         match launch_tarpaulin(config, &logger) {
             Ok((t, r)) => {
                 ret |= r;
-                bad_threshold = check_fail_threshold(&t, config);
+                if configs.len() > 1 {
+                    // Otherwise threshold is a global one and we'll let the caller handle it
+                    bad_threshold = check_fail_threshold(&t, config);
+                }
                 tracemap.merge(&t);
             }
             Err(e) => {
@@ -122,6 +116,8 @@ pub fn trace(configs: &[Config]) -> Result<TraceMap, RunError> {
     }
     tracemap.dedup();
     if let Some(bad_limit) = bad_threshold {
+        // Failure threshold probably more important than reporting failing
+        let _ = report_coverage(&configs[0], &tracemap);
         Err(bad_limit)
     } else if ret == 0 {
         tarpaulin_result.map(|_| tracemap)
@@ -153,6 +149,9 @@ pub fn run(configs: &[Config]) -> Result<(), RunError> {
     if configs.len() == 1 {
         if !configs[0].no_run {
             report_coverage(&configs[0], &tracemap)?;
+            if let Some(e) = check_fail_threshold(&tracemap, &configs[0]) {
+                return Err(e);
+            }
         }
     } else if !configs.is_empty() {
         let mut reported = false;
@@ -167,6 +166,9 @@ pub fn run(configs: &[Config]) -> Result<(), RunError> {
         }
         if !configs[0].no_run && !reported {
             report_coverage(&configs[0], &tracemap)?;
+            if let Some(e) = check_fail_threshold(&tracemap, &configs[0]) {
+                return Err(e);
+            }
         }
     }
 
@@ -215,120 +217,4 @@ pub fn launch_tarpaulin(
         result.dedup();
     }
     Ok((result, return_code))
-}
-
-/// Returns the coverage statistics for a test executable in the given workspace
-pub fn get_test_coverage(
-    test: &TestBinary,
-    analysis: &HashMap<PathBuf, LineAnalysis>,
-    config: &Config,
-    ignored: bool,
-    logger: &Option<EventLog>,
-) -> Result<Option<(TraceMap, i32)>, RunError> {
-    if !test.path().exists() {
-        return Ok(None);
-    }
-    if let Err(e) = limit_affinity() {
-        warn!("Failed to set processor affinity {}", e);
-    }
-    if let Some(log) = logger.as_ref() {
-        log.push_binary(test.clone());
-    }
-    unsafe {
-        match fork() {
-            Ok(ForkResult::Parent { child }) => {
-                match collect_coverage(test.path(), child, analysis, config, logger) {
-                    Ok(t) => Ok(Some(t)),
-                    Err(e) => Err(RunError::TestCoverage(e.to_string())),
-                }
-            }
-            Ok(ForkResult::Child) => {
-                info!("Launching test");
-                execute_test(test, ignored, config)?;
-                Ok(None)
-            }
-            Err(err) => Err(RunError::TestCoverage(format!(
-                "Failed to run test {}, Error: {}",
-                test.path().display(),
-                err.to_string()
-            ))),
-        }
-    }
-}
-
-/// Collects the coverage data from the launched test
-fn collect_coverage(
-    test_path: &Path,
-    test: Pid,
-    analysis: &HashMap<PathBuf, LineAnalysis>,
-    config: &Config,
-    logger: &Option<EventLog>,
-) -> Result<(TraceMap, i32), RunError> {
-    let mut ret_code = 0;
-    let mut traces = generate_tracemap(test_path, analysis, config)?;
-    {
-        let span = trace_span!("Collect coverage", pid=%test);
-        let _enter = span.enter();
-        let (mut state, mut data) =
-            create_state_machine(test, &mut traces, analysis, config, logger);
-        loop {
-            state = state.step(&mut data, config)?;
-            if state.is_finished() {
-                if let TestState::End(i) = state {
-                    ret_code = i;
-                }
-                break;
-            }
-        }
-    }
-    Ok((traces, ret_code))
-}
-
-/// Launches the test executable
-fn execute_test(test: &TestBinary, ignored: bool, config: &Config) -> Result<(), RunError> {
-    let exec_path = CString::new(test.path().to_str().unwrap()).unwrap();
-    info!("running {}", test.path().display());
-    let _ = match test.manifest_dir() {
-        Some(md) => env::set_current_dir(&md),
-        None => env::set_current_dir(&config.root()),
-    };
-
-    let mut envars: Vec<CString> = Vec::new();
-
-    for (key, value) in env::vars() {
-        let mut temp = String::new();
-        temp.push_str(key.as_str());
-        temp.push('=');
-        temp.push_str(value.as_str());
-        envars.push(CString::new(temp).unwrap());
-    }
-    let mut argv = if ignored {
-        vec![exec_path.clone(), CString::new("--ignored").unwrap()]
-    } else {
-        vec![exec_path.clone()]
-    };
-    if config.verbose {
-        envars.push(CString::new("RUST_BACKTRACE=1").unwrap());
-    }
-    for s in &config.varargs {
-        argv.push(CString::new(s.as_bytes()).unwrap_or_default());
-    }
-    argv.push(CString::new("--color").unwrap_or_default());
-    argv.push(CString::new(config.color.to_string().to_ascii_lowercase()).unwrap_or_default());
-
-    if let Some(s) = test.pkg_name() {
-        envars.push(CString::new(format!("CARGO_PKG_NAME={}", s)).unwrap_or_default());
-    }
-    if let Some(s) = test.pkg_version() {
-        envars.push(CString::new(format!("CARGO_PKG_VERSION={}", s)).unwrap_or_default());
-    }
-    if let Some(s) = test.pkg_authors() {
-        envars.push(CString::new(format!("CARGO_PKG_AUTHORS={}", s.join(":"))).unwrap_or_default());
-    }
-    if let Some(s) = test.manifest_dir() {
-        envars
-            .push(CString::new(format!("CARGO_MANIFEST_DIR={}", s.display())).unwrap_or_default());
-    }
-
-    execute(exec_path, &argv, envars.as_slice())
 }

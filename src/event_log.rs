@@ -1,14 +1,20 @@
 use crate::cargo::TestBinary;
+#[cfg(target_os = "linux")]
 use crate::ptrace_control::*;
-use crate::statemachine::{ProcessInfo, TracerAction};
+#[cfg(target_os = "linux")]
+use crate::statemachine::ProcessInfo;
+use crate::statemachine::TracerAction;
 use crate::traces::{Location, TraceMap};
 use chrono::offset::Local;
+#[cfg(target_os = "linux")]
 use nix::libc::*;
+#[cfg(target_os = "linux")]
 use nix::sys::{signal::Signal, wait::WaitStatus};
 use serde::{Deserialize, Serialize};
 use std::cell::RefCell;
 use std::fs::File;
 use std::path::Path;
+use std::time::Instant;
 use tracing::{info, warn};
 
 #[derive(Clone, Eq, PartialEq, PartialOrd, Ord, Hash, Serialize, Deserialize)]
@@ -18,10 +24,25 @@ pub enum Event {
     Trace(TraceEvent),
 }
 
+#[derive(Clone, PartialEq, PartialOrd, Serialize, Deserialize)]
+pub struct EventWrapper {
+    #[serde(flatten)]
+    event: Event,
+    // The time this was created in seconds
+    created: f64,
+}
+
+impl EventWrapper {
+    fn new(event: Event, since: Instant) -> Self {
+        let created = Instant::now().duration_since(since).as_secs_f64();
+        Self { event, created }
+    }
+}
+
 #[derive(Clone, Default, Eq, PartialEq, PartialOrd, Ord, Hash, Serialize, Deserialize)]
 pub struct TraceEvent {
-    pid: Option<pid_t>,
-    child: Option<pid_t>,
+    pid: Option<i64>,
+    child: Option<i64>,
     signal: Option<String>,
     addr: Option<u64>,
     return_val: Option<i64>,
@@ -30,27 +51,28 @@ pub struct TraceEvent {
 }
 
 impl TraceEvent {
+    #[cfg(target_os = "linux")]
     pub(crate) fn new_from_action(action: &TracerAction<ProcessInfo>) -> Self {
         match *action {
             TracerAction::TryContinue(t) => TraceEvent {
-                pid: Some(t.pid.as_raw()),
+                pid: Some(t.pid.as_raw().into()),
                 signal: t.signal.map(|x| x.to_string()),
                 description: "Try continue child".to_string(),
                 ..Default::default()
             },
             TracerAction::Continue(t) => TraceEvent {
-                pid: Some(t.pid.as_raw()),
+                pid: Some(t.pid.as_raw().into()),
                 signal: t.signal.map(|x| x.to_string()),
                 description: "Continue child".to_string(),
                 ..Default::default()
             },
             TracerAction::Step(t) => TraceEvent {
-                pid: Some(t.pid.as_raw()),
+                pid: Some(t.pid.as_raw().into()),
                 description: "Step child".to_string(),
                 ..Default::default()
             },
             TracerAction::Detach(t) => TraceEvent {
-                pid: Some(t.pid.as_raw()),
+                pid: Some(t.pid.as_raw().into()),
                 description: "Detach child".to_string(),
                 ..Default::default()
             },
@@ -61,8 +83,9 @@ impl TraceEvent {
         }
     }
 
+    #[cfg(target_os = "linux")]
     pub(crate) fn new_from_wait(wait: &WaitStatus, offset: u64, traces: &TraceMap) -> Self {
-        let pid = wait.pid().map(|p| p.as_raw());
+        let pid = wait.pid().map(|p| p.as_raw().into());
         let mut event = TraceEvent {
             pid,
             ..Default::default()
@@ -94,7 +117,7 @@ impl TraceEvent {
                     PTRACE_EVENT_CLONE => {
                         event.description = "Ptrace Clone".to_string();
                         if *sig == Signal::SIGTRAP {
-                            event.child = get_event_data(*pid).ok().map(|x| x as pid_t);
+                            event.child = get_event_data(*pid).ok();
                         }
                     }
                     PTRACE_EVENT_FORK => {
@@ -128,28 +151,45 @@ impl TraceEvent {
     }
 }
 
-#[derive(Clone, Eq, PartialEq, PartialOrd, Ord, Serialize, Deserialize)]
+#[derive(Clone, PartialEq, PartialOrd, Serialize, Deserialize)]
 pub struct EventLog {
-    events: RefCell<Vec<Event>>,
+    events: RefCell<Vec<EventWrapper>>,
+    #[serde(skip)]
+    start: Option<Instant>,
+}
+
+impl Default for EventLog {
+    fn default() -> Self {
+        Self::new()
+    }
 }
 
 impl EventLog {
     pub fn new() -> Self {
         Self {
             events: RefCell::new(vec![]),
+            start: Some(Instant::now()),
         }
     }
 
     pub fn push_binary(&self, binary: TestBinary) {
-        self.events.borrow_mut().push(Event::BinaryLaunch(binary));
+        self.events.borrow_mut().push(EventWrapper::new(
+            Event::BinaryLaunch(binary),
+            self.start.unwrap(),
+        ));
     }
 
     pub fn push_trace(&self, event: TraceEvent) {
-        self.events.borrow_mut().push(Event::Trace(event));
+        self.events
+            .borrow_mut()
+            .push(EventWrapper::new(Event::Trace(event), self.start.unwrap()));
     }
 
     pub fn push_config(&self, name: String) {
-        self.events.borrow_mut().push(Event::ConfigLaunch(name));
+        self.events.borrow_mut().push(EventWrapper::new(
+            Event::ConfigLaunch(name),
+            self.start.unwrap(),
+        ));
     }
 }
 

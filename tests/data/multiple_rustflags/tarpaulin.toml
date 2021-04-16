@@ -1,0 +1,5 @@
+[coverage]
+rustflags = "--cfg=config1"
+
+[coverage_2]
+rustflags = "--cfg=config2"

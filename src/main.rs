@@ -68,6 +68,7 @@ fn main() -> Result<(), String> {
                  --count   'Counts the number of hits during coverage'
                  --ignored -i 'Run ignored tests as well'
                  --line -l    'Line coverage'
+                 --skip-clean 'The opposite of --force-clean'
                  --force-clean 'Adds a clean stage to work around cargo bugs that may affect coverage results'
                  --fail-under [PERCENTAGE] 'Sets a percentage threshold for failure ranging from 0-100, if coverage is below exit with a non-zero code'
                  --branch -b  'Branch coverage: NOT IMPLEMENTED'
@@ -95,6 +96,7 @@ fn main() -> Result<(), String> {
                  --print-rustdoc-flags 'Print the RUSTDOCFLAGS options that tarpaulin will compile any doctests with and exit'
                  --avoid-cfg-tarpaulin 'Remove --cfg=tarpaulin from the RUSTFLAG'
                  -j --jobs [N] 'Number of parallel jobs, defaults to # of CPUs'
+                 --rustflags [FLAGS] 'rustflags to add when building project (can also be set via RUSTFLAGS env var)'
                  -Z [FEATURES]...   'List of unstable nightly only flags'")
             .args(&[
                 Arg::from_usage("--out -o [FMT]   'Output format of coverage report'")

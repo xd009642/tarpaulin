@@ -3,6 +3,29 @@
 From 2019 onwards, all notable changes to tarpaulin will be documented in this
 file.
 
+## [0.18.0-alpha2] 2021-04-16
+### Added
+- Check if user sets -Cdebuginfo and remove it #601
+- INTERNAL Added ability to build with LLVM coverage instrumentation and detect
+compiler support. This isn't enabled so should have no effect it's just the
+start of the support work.
+- Now factors in rustflags from toml files #528
+- Now able to add to rustflags via CLI args and via tarpaulin config files
+- Added `--skip-clean` arg as an inverse to `--force-clean` and made cleaning default
+
+### Changed
+- Make doctest prefix matching less specific as the naming convention changed again
+- Ensure report is always generated if coverage is below failure threshold
+- Rearrange crate internals and enable cross compilation for windows and macos.
+This doesn't allow tarpaulin to work on these Operating Systems but it will
+print an error and exit instead of failing to build
+- Fixed `--force-clean` so it actually cleans the project
+- Change event log to now contain a time for each event
+- Add project name to coverage report in target dir to make things nicer for people
+reusing a target dir for multiple projects (#710)
+
+### Removed
+
 ## [0.18.0-alpha1] 2021-02-14
 ### Added
 - Added `--color` option matching cargo arg

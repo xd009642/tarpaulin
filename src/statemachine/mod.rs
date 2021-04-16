@@ -1,7 +1,6 @@
-use crate::breakpoint::*;
 use crate::config::Config;
 use crate::errors::RunError;
-use crate::ptrace_control::*;
+use crate::event_log::*;
 use crate::traces::*;
 use std::time::Instant;
 use tracing::error;
@@ -9,8 +8,27 @@ use tracing::error;
 #[cfg(target_os = "linux")]
 pub mod linux;
 
-#[cfg(target_os = "linux")]
-pub use linux::*;
+cfg_if::cfg_if! {
+    if #[cfg(target_os = "linux")] {
+        pub use linux::*;
+    } else {
+        use std::collections::HashMap;
+        use std::path::PathBuf;
+        use crate::LineAnalysis;
+
+        pub fn create_state_machine<'a>(
+            test: crate::ProcessHandle,
+            traces: &'a mut TraceMap,
+            source_analysis: &'a HashMap<PathBuf, LineAnalysis>,
+            config: &'a Config,
+            event_log: &'a Option<EventLog>,
+        ) -> (TestState, ()) {
+            error!("Tarpaulin is not currently supported on this system");
+            (TestState::End(1), ())
+        }
+
+    }
+}
 
 #[derive(Debug, Copy, Clone, Eq, PartialEq)]
 pub enum TestState {
@@ -41,18 +59,6 @@ pub enum TracerAction<T> {
 }
 
 impl<T> TracerAction<T> {
-    pub fn is_detach(&self) -> bool {
-        matches!(self, TracerAction::Detach(_))
-    }
-
-    pub fn is_continue(&self) -> bool {
-        matches!(self, TracerAction::Continue(_))
-    }
-
-    pub fn is_step(&self) -> bool {
-        matches!(self, TracerAction::Step(_))
-    }
-
     pub fn get_data(&self) -> Option<&T> {
         match self {
             TracerAction::Continue(d) => Some(d),
@@ -81,6 +87,29 @@ pub trait StateData {
     /// Handle a stop in the test executable. Coverage data will
     /// be collected here as well as other OS specific functions
     fn stop(&mut self) -> Result<TestState, RunError>;
+}
+
+impl StateData for () {
+    fn start(&mut self) -> Result<Option<TestState>, RunError> {
+        Err(RunError::StateMachine(
+            "No valid coverage collector".to_string(),
+        ))
+    }
+    fn init(&mut self) -> Result<TestState, RunError> {
+        Err(RunError::StateMachine(
+            "No valid coverage collector".to_string(),
+        ))
+    }
+    fn wait(&mut self) -> Result<Option<TestState>, RunError> {
+        Err(RunError::StateMachine(
+            "No valid coverage collector".to_string(),
+        ))
+    }
+    fn stop(&mut self) -> Result<TestState, RunError> {
+        Err(RunError::StateMachine(
+            "No valid coverage collector".to_string(),
+        ))
+    }
 }
 
 impl TestState {
@@ -130,13 +159,7 @@ impl TestState {
                 }
             }
             TestState::Stopped => data.stop(),
-            _ => {
-                // Unhandled
-                if config.verbose {
-                    error!("Tarpaulin error: unhandled test state");
-                }
-                Ok(TestState::End(-1))
-            }
+            TestState::End(e) => Ok(TestState::End(e)),
         }
     }
 }

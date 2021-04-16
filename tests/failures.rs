@@ -13,6 +13,7 @@ fn error_if_build_script_fails() {
     env::set_current_dir(&test_dir).unwrap();
     config.manifest = test_dir;
     config.manifest.push("Cargo.toml");
+    config.force_clean = false;
 
     let result = launch_tarpaulin(&config, &None);
 
@@ -31,6 +32,7 @@ fn error_if_compilation_fails() {
     env::set_current_dir(&test_dir).unwrap();
     config.manifest = test_dir;
     config.manifest.push("Cargo.toml");
+    config.force_clean = false;
 
     let result = launch_tarpaulin(&config, &None);
 
@@ -49,6 +51,7 @@ fn error_if_test_fails() {
     env::set_current_dir(&test_dir).unwrap();
     config.manifest = test_dir;
     config.manifest.push("Cargo.toml");
+    config.force_clean = false;
 
     let result = run(&[config]);
 
@@ -68,6 +71,7 @@ fn issue_610() {
     env::set_current_dir(&test_dir).unwrap();
     config.manifest = test_dir;
     config.manifest.push("Cargo.toml");
+    config.force_clean = false;
 
     let result = run(&[config.clone()]);
     assert!(result.is_ok());
