@@ -8,7 +8,7 @@ use std::time::Duration;
 #[test]
 fn simple_project_coverage() {
     let mut config = Config::default();
-    config.verbose = true;
+    config.force_clean = false;
     config.test_timeout = Duration::from_secs(60);
     let restore_dir = env::current_dir().unwrap();
     let test_dir = get_test_path("simple_project");
@@ -50,6 +50,7 @@ fn simple_project_coverage() {
 fn debug_info_0() {
     // From issue #601
     let mut config = Config::default();
+    config.force_clean = false;
     let restore_dir = env::current_dir().unwrap();
     let test_dir = get_test_path("simple_project");
     env::set_current_dir(&test_dir).unwrap();

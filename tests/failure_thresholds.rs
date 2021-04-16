@@ -11,6 +11,7 @@ fn coverage_below_threshold() {
     config.manifest = test_dir;
     config.manifest.push("Cargo.toml");
     config.fail_under = Some(100.0);
+    config.force_clean = false;
 
     let result = run(&[config]);
 
@@ -31,6 +32,7 @@ fn coverage_above_threshold() {
     config.manifest = test_dir;
     config.manifest.push("Cargo.toml");
     config.fail_under = Some(30.0);
+    config.force_clean = false;
 
     let result = run(&[config]);
 
@@ -45,6 +47,7 @@ fn report_coverage_fail() {
     config.manifest = test_dir.clone();
     config.manifest.push("Cargo.toml");
     config.fail_under = Some(10.0);
+    config.force_clean = false;
 
     let mut report = Config::default();
     report.name = "report".to_string();

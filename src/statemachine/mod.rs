@@ -59,18 +59,6 @@ pub enum TracerAction<T> {
 }
 
 impl<T> TracerAction<T> {
-    pub fn is_detach(&self) -> bool {
-        matches!(self, TracerAction::Detach(_))
-    }
-
-    pub fn is_continue(&self) -> bool {
-        matches!(self, TracerAction::Continue(_))
-    }
-
-    pub fn is_step(&self) -> bool {
-        matches!(self, TracerAction::Step(_))
-    }
-
     pub fn get_data(&self) -> Option<&T> {
         match self {
             TracerAction::Continue(d) => Some(d),
