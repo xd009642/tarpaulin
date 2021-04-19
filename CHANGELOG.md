@@ -9,6 +9,8 @@ file.
 ### Changed
 - Updated logging so for the build mode it says "launching binary" instead of
 "launching test"
+- Don't apply `--color` argument to test executables if "auto" to prevent issues
+with tests that can't have color controlled
 
 ### Removed
 
