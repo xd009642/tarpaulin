@@ -198,7 +198,11 @@ fn run_cargo(
     result: &mut Vec<TestBinary>,
 ) -> Result<(), RunError> {
     if config.force_clean {
-        if let Ok(clean) = Command::new("cargo").arg("clean").output() {
+        if let Ok(clean) = Command::new("cargo")
+            .current_dir(config.root())
+            .arg("clean")
+            .output()
+        {
             info!("Cleaning project");
             if !clean.status.success() {
                 error!("Cargo clean failed:");

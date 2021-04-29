@@ -11,6 +11,7 @@ file.
 "launching test"
 - Don't apply `--color` argument to test executables if "auto" to prevent issues
 with tests that can't have color controlled
+- Fix directory that `cargo clean` is run from
 
 ### Removed
 
