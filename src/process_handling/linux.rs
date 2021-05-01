@@ -41,6 +41,7 @@ pub fn get_test_coverage(
     logger: &Option<EventLog>,
 ) -> Result<Option<(TraceMap, i32)>, RunError> {
     if !test.path().exists() {
+        warn!("Test at {} doesn't exist", test.path().display());
         return Ok(None);
     }
     if let Err(e) = limit_affinity() {

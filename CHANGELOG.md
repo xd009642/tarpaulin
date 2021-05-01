@@ -12,6 +12,8 @@ file.
 - Don't apply `--color` argument to test executables if "auto" to prevent issues
 with tests that can't have color controlled
 - Fix directory that `cargo clean` is run from
+- Reduce number of cleans fixing issue where only last run-type was ran
+- Clean without `cargo clean` removing directory to preserve coverage run delta reporting
 
 ### Removed
 
