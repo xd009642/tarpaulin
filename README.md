@@ -27,7 +27,7 @@ Below is the help-text for a thorough explanation of the flags and features
 available:
 
 ```
-cargo-tarpaulin version: 0.18.0-alpha2
+cargo-tarpaulin version: 0.18.0-alpha3
 Tool to analyse test coverage of cargo projects
 
 USAGE:
