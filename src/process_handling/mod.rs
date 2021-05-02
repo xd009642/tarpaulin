@@ -1,3 +1,4 @@
+use crate::config::Color;
 use crate::generate_tracemap;
 use crate::statemachine::{create_state_machine, TestState};
 use crate::traces::*;
@@ -96,8 +97,10 @@ fn execute_test(test: &TestBinary, ignored: bool, config: &Config) -> Result<(),
     for s in &config.varargs {
         argv.push(CString::new(s.as_bytes()).unwrap_or_default());
     }
-    argv.push(CString::new("--color").unwrap_or_default());
-    argv.push(CString::new(config.color.to_string().to_ascii_lowercase()).unwrap_or_default());
+    if config.color != Color::Auto {
+        argv.push(CString::new("--color").unwrap_or_default());
+        argv.push(CString::new(config.color.to_string().to_ascii_lowercase()).unwrap_or_default());
+    }
 
     if let Some(s) = test.pkg_name() {
         envars.push(CString::new(format!("CARGO_PKG_NAME={}", s)).unwrap_or_default());

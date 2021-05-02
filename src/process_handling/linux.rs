@@ -1,4 +1,5 @@
 use crate::collect_coverage;
+use crate::config::types::Mode;
 use crate::errors::*;
 use crate::event_log::*;
 use crate::process_handling::execute_test;
@@ -40,6 +41,7 @@ pub fn get_test_coverage(
     logger: &Option<EventLog>,
 ) -> Result<Option<(TraceMap, i32)>, RunError> {
     if !test.path().exists() {
+        warn!("Test at {} doesn't exist", test.path().display());
         return Ok(None);
     }
     if let Err(e) = limit_affinity() {
@@ -57,7 +59,11 @@ pub fn get_test_coverage(
                 }
             }
             Ok(ForkResult::Child) => {
-                info!("Launching test");
+                let bin_type = match config.command {
+                    Mode::Test => "test",
+                    Mode::Build => "binary",
+                };
+                info!("Launching {}", bin_type);
                 execute_test(test, ignored, config)?;
                 Ok(None)
             }

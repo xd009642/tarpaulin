@@ -3,6 +3,20 @@
 From 2019 onwards, all notable changes to tarpaulin will be documented in this
 file.
 
+## Unreleased
+### Added
+
+### Changed
+- Updated logging so for the build mode it says "launching binary" instead of
+"launching test"
+- Don't apply `--color` argument to test executables if "auto" to prevent issues
+with tests that can't have color controlled
+- Fix directory that `cargo clean` is run from
+- Reduce number of cleans fixing issue where only last run-type was ran
+- Clean without `cargo clean` removing directory to preserve coverage run delta reporting
+
+### Removed
+
 ## [0.18.0-alpha2] 2021-04-16
 ### Added
 - Check if user sets -Cdebuginfo and remove it #601
