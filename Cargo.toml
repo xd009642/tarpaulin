@@ -31,7 +31,7 @@ humantime-serde = "1"
 indexmap = { version = "1.6.2", features = ["serde-1"] }
 lazy_static = "1.0"
 tracing = { version = "0.1", default-features = false }
-tracing-subscriber = {version = "0.2.17", default-features = false, features = ["env-filter", "fmt", "chrono", "ansi", "smallvec", "tracing-log"]}
+tracing-subscriber = {version = "0.2.18", default-features = false, features = ["env-filter", "fmt", "chrono", "ansi", "smallvec", "tracing-log"]}
 memmap = "0.7.0"
 object = "0.23"
 proc-macro2 = { version = "1.0", features = ["span-locations"] }
