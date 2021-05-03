@@ -196,7 +196,10 @@ where
                                 .map(|&(_, t, fn_name)| (t, fn_name.to_owned()))
                                 .next()
                                 .unwrap_or((LineType::Unknown, None));
-                            let loc = SourceLocation { path, line };
+                            let loc = SourceLocation {
+                                path,
+                                line: line.into(),
+                            };
                             if desc != LineType::TestMain {
                                 let trace = TracerData {
                                     address: Some(address),
