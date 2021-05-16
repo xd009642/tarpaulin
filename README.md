@@ -170,6 +170,10 @@ cargo tarpaulin --help
 Currently no options are required, if no root directory is defined Tarpaulin
 will run in the current working directory.
 
+As tarpaulin is a custom Cargo sub-command the Cargo derived environment variables
+will [not be available](https://doc.rust-lang.org/cargo/reference/environment-variables.html#environment-variables-cargo-sets-for-3rd-party-subcommands) and any test relying on say CARGO_MANIFEST_PATH may see
+unexpecte behaviour.
+
 Below is a Tarpaulin run utilising one of our example projects. This is a
 relatively simple project to test and if you check the test, you can see the
 output correctly reports the lines the test hits.
