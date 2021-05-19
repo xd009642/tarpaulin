@@ -159,6 +159,27 @@ installation and massively reducing the install time on CI.
 When using the [Nix](https://nixos.org/nix) package manager, the `nixpkgs.cargo-tarpaulin` package can be used.
 This ensures that tarpaulin will be built with the same rust version as the rest of your packages.
 
+### Environment Vars
+
+Tarpaulin in best effort basis sets the below environment vars under test:
+
+- **RUST_BACKTRACE**      - _When --verbose flag is used_
+- **CARGO_MANIFEST_DIR**  - _Cargo.toml Path guessed from the current working or parent directory_
+- **CARGO_PKG_NAME**      - _When manifest was found_
+- **CARGO_PKG_AUTHORS**   - _When manifest was found_
+- **CARGO_PKG_VERSION**   - _When manifest was found_
+- **LLVM_PROFILE_FILE**   - _Used for LLVM coverage_
+
+**Cargo Limitations**
+
+Since tarpaulin is a custom Cargo sub-command, the regular Cargo environment has been constructed by tarpaulin via 
+guesswork which may result in unexpected behaviour under test.
+
+In order for tarpaulin to construct the Cargo environment correctly, the cargo command must be invoked either from 
+the directory holding the Cargo.toml manifest or from a child directory directly under.
+
+Several RFCs are open in rust-lang to expose [more of these](https://doc.rust-lang.org/cargo/reference/environment-variables.html#environment-variables-cargo-sets-for-3rd-party-subcommands) directly in order to avoid the issues arising out of this.
+
 ### Command line
 
 To get detailed help on available arguments when running tarpaulin call:
@@ -169,10 +190,6 @@ cargo tarpaulin --help
 
 Currently no options are required, if no root directory is defined Tarpaulin
 will run in the current working directory.
-
-As tarpaulin is a custom Cargo sub-command the Cargo derived environment variables
-will [not be available](https://doc.rust-lang.org/cargo/reference/environment-variables.html#environment-variables-cargo-sets-for-3rd-party-subcommands) and any test relying on say CARGO_MANIFEST_PATH may see
-unexpected behaviour.
 
 Below is a Tarpaulin run utilising one of our example projects. This is a
 relatively simple project to test and if you check the test, you can see the
