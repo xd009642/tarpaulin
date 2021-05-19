@@ -164,7 +164,7 @@ This ensures that tarpaulin will be built with the same rust version as the rest
 Tarpaulin sets the below environment vars under test:
 
 - **RUST_BACKTRACE**      - _When --verbose flag is used_
-- **CARGO_MANIFEST_DIR**  - _Cargo.toml From --root | --manifest-path or guessed from the current or parent directory_
+- **CARGO_MANIFEST_DIR**  - _Path to Cargo.toml From --root | --manifest-path or guessed from the current or parent directory_
 - **CARGO_PKG_NAME**      - _From Cargo.toml_
 - **CARGO_PKG_AUTHORS**   - _From Cargo.toml_
 - **CARGO_PKG_VERSION**   - _From Cargo.toml_
