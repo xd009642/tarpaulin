@@ -174,6 +174,7 @@ In order to achieve this it sets the following environment variables when execut
 ### Cargo Manifest
 
 In order for tarpaulin to construct the Cargo environment correctly, tarpaulin needs to find Cargo.toml by either:
+
 - Using *--root* or *--manifest-path* or
 - By invoking Cargo from the current working directory within the project holding Cargo.toml manifest or
 - By invoking Cargo from a sub-directory within the project
