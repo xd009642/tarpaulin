@@ -172,15 +172,14 @@ Tarpaulin sets the below environment vars under test:
 
 **Cargo Limitations**
 
-Since tarpaulin is a custom Cargo sub-command, the regular Cargo environment has been constructed by tarpaulin via 
-guesswork which may in rare cases result in unexpected behaviour under test.
+Since tarpaulin is a custom Cargo sub-command, the regular Cargo environment has been constructed by tarpaulin.
 
 In order for tarpaulin to construct the Cargo environment correctly, tarpaulin needs to find Cargo.toml by either:
 - Using *--root* or *--manifest-path* or
 - By invoking cargo from the current working directory holding the Cargo.toml manifest or
 - By invoking cargo from a child directory under the parent holding the Cargo.toml
 
-If Cargo does not find any Cargo.toml from using either of above methods the run will error and exit.
+If Cargo does not find any Cargo.toml from using either of above methods the run will error "cargo metadata" and exit.
 
 Several RFCs are open in rust-lang to expose [more of these](https://doc.rust-lang.org/cargo/reference/environment-variables.html#environment-variables-cargo-sets-for-3rd-party-subcommands) directly in order to avoid the issues arising out of this.
 
