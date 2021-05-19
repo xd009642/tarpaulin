@@ -159,9 +159,10 @@ installation and massively reducing the install time on CI.
 When using the [Nix](https://nixos.org/nix) package manager, the `nixpkgs.cargo-tarpaulin` package can be used.
 This ensures that tarpaulin will be built with the same rust version as the rest of your packages.
 
-### Environment Vars
+### Environment Variables
 
-Tarpaulin sets the below environment vars under test:
+When tarpaulin runs your tests it strives to run them in the same environment as if they were ran via cargo test. 
+In order to achieve this it sets the following environment variables when executing the test binaries:
 
 - **RUST_BACKTRACE**      - _When --verbose flag is used_
 - **CARGO_MANIFEST_DIR**  - _Path to Cargo.toml From --root | --manifest-path or guessed from the current or parent directory_
@@ -170,14 +171,14 @@ Tarpaulin sets the below environment vars under test:
 - **CARGO_PKG_VERSION**   - _From Cargo.toml_
 - **LLVM_PROFILE_FILE**   - _Used for LLVM coverage_
 
-**Cargo Limitations**
+### Cargo Limitations
 
 Since tarpaulin is a custom Cargo sub-command, the regular Cargo environment has been constructed by tarpaulin.
 
 In order for tarpaulin to construct the Cargo environment correctly, tarpaulin needs to find Cargo.toml by either:
 - Using *--root* or *--manifest-path* or
-- By invoking cargo from the current working directory holding the Cargo.toml manifest or
-- By invoking cargo from a child directory under the parent holding the Cargo.toml
+- By invoking Cargo from the current working directory within the project holding Cargo.toml manifest or
+- By invoking Cargo from a sub-directory within the project
 
 If Cargo does not find any Cargo.toml from using either of above methods the run will error "cargo metadata" and exit.
 
