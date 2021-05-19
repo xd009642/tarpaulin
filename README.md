@@ -171,9 +171,7 @@ In order to achieve this it sets the following environment variables when execut
 - **CARGO_PKG_VERSION**   - _From Cargo.toml_
 - **LLVM_PROFILE_FILE**   - _Used for LLVM coverage_
 
-### Cargo Limitations
-
-Since tarpaulin is a custom Cargo sub-command, the regular Cargo environment has been constructed by tarpaulin.
+### Cargo Manifest
 
 In order for tarpaulin to construct the Cargo environment correctly, tarpaulin needs to find Cargo.toml by either:
 - Using *--root* or *--manifest-path* or
