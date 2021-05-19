@@ -165,9 +165,9 @@ Tarpaulin sets the below environment vars under test:
 
 - **RUST_BACKTRACE**      - _When --verbose flag is used_
 - **CARGO_MANIFEST_DIR**  - _Cargo.toml From --root | --manifest-path or guessed from the current or parent directory_
-- **CARGO_PKG_NAME**      - _When manifest was found_
-- **CARGO_PKG_AUTHORS**   - _When manifest was found_
-- **CARGO_PKG_VERSION**   - _When manifest was found_
+- **CARGO_PKG_NAME**      - _From Cargo.toml_
+- **CARGO_PKG_AUTHORS**   - _From Cargo.toml_
+- **CARGO_PKG_VERSION**   - _From Cargo.toml_
 - **LLVM_PROFILE_FILE**   - _Used for LLVM coverage_
 
 **Cargo Limitations**
