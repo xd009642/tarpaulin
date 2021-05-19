@@ -284,6 +284,19 @@ fn run_cargo(
         let should_panics = get_panic_candidates(&dir_entries, config);
         for dt in &dir_entries {
             let mut tb = TestBinary::new(dt.path().to_path_buf(), ty);
+            let mut current_dir = dt.path();
+            loop {
+                if current_dir.is_dir() && current_dir.join("Cargo.toml").exists() {
+                    tb.cargo_dir = Some(current_dir.to_path_buf());
+                    break;
+                }
+                match current_dir.parent() {
+                    Some(s) => {
+                        current_dir = s;
+                    }
+                    None => break,
+                }
+            }
             // Now to do my magic!
             if let Some(meta) = DocTestBinaryMeta::new(dt.path()) {
                 if let Some(lines) = should_panics.get(&meta.prefix) {
