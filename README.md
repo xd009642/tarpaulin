@@ -161,10 +161,10 @@ This ensures that tarpaulin will be built with the same rust version as the rest
 
 ### Environment Vars
 
-Tarpaulin in best effort basis sets the below environment vars under test:
+Tarpaulin sets the below environment vars under test:
 
 - **RUST_BACKTRACE**      - _When --verbose flag is used_
-- **CARGO_MANIFEST_DIR**  - _Cargo.toml Path guessed from the current working or parent directory_
+- **CARGO_MANIFEST_DIR**  - _Cargo.toml From --root | --manifest-path or guessed from the current or parent directory_
 - **CARGO_PKG_NAME**      - _When manifest was found_
 - **CARGO_PKG_AUTHORS**   - _When manifest was found_
 - **CARGO_PKG_VERSION**   - _When manifest was found_
@@ -173,10 +173,14 @@ Tarpaulin in best effort basis sets the below environment vars under test:
 **Cargo Limitations**
 
 Since tarpaulin is a custom Cargo sub-command, the regular Cargo environment has been constructed by tarpaulin via 
-guesswork which may result in unexpected behaviour under test.
+guesswork which may in rare cases result in unexpected behaviour under test.
 
-In order for tarpaulin to construct the Cargo environment correctly, the cargo command must be invoked either from 
-the directory holding the Cargo.toml manifest or from a child directory directly under.
+In order for tarpaulin to construct the Cargo environment correctly, tarpaulin needs to find Cargo.toml by either:
+- Using *--root* or *--manifest-path* or
+- By invoking cargo from the current working directory holding the Cargo.toml manifest or
+- By invoking cargo from a child directory under the parent holding the Cargo.toml
+
+If Cargo does not find any Cargo.toml from using either of above methods the run will error and exit.
 
 Several RFCs are open in rust-lang to expose [more of these](https://doc.rust-lang.org/cargo/reference/environment-variables.html#environment-variables-cargo-sets-for-3rd-party-subcommands) directly in order to avoid the issues arising out of this.
 
