@@ -165,9 +165,9 @@ pub fn get_tests(config: &Config) -> Result<Vec<TestBinary>, RunError> {
     let mut result = vec![];
     if config.force_clean {
         let cleanup_dir = if config.release {
-            config.target_dir().join("debug")
-        } else {
             config.target_dir().join("release")
+        } else {
+            config.target_dir().join("debug")
         };
         info!("Cleaning project");
         if cleanup_dir.exists() {
