@@ -75,7 +75,7 @@ pub struct Trace {
     pub fn_name: Option<String>,
 }
 
-#[derive(Clone, Eq, PartialEq, PartialOrd, Ord, Hash, Serialize, Deserialize)]
+#[derive(Clone, Debug, Eq, PartialEq, PartialOrd, Ord, Hash, Serialize, Deserialize)]
 pub struct Location {
     /// Source file
     pub file: PathBuf,
