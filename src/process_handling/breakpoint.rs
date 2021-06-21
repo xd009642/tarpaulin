@@ -27,7 +27,7 @@ pub struct Breakpoint {
 impl Breakpoint {
     /// Creates a new breakpoint for the given process and program counter.
     pub fn new(pid: Pid, pc: u64) -> Result<Self> {
-        let aligned = pc & !0x7u64;
+        let aligned = align_address(pc);
         let data = read_address(pid, aligned)?;
         let shift = 8 * (pc - aligned);
         let data = ((data >> shift) & 0xFF) as u8;
@@ -61,7 +61,7 @@ impl Breakpoint {
         }
     }
 
-    fn disable(&self, pid: Pid) -> Result<()> {
+    pub fn disable(&self, pid: Pid) -> Result<()> {
         // I require the bit fiddlin this end.
         let data = read_address(pid, self.aligned_address())?;
         let mut orgdata = data & (!(0xFFu64 << self.shift) as i64);
@@ -110,7 +110,12 @@ impl Breakpoint {
         Ok(())
     }
 
-    fn aligned_address(&self) -> u64 {
-        self.pc & !0x7u64
+    pub fn aligned_address(&self) -> u64 {
+        align_address(self.pc)
     }
+}
+
+#[inline(always)]
+pub(crate) fn align_address(addr: u64) -> u64 {
+    addr & !0x7u64
 }

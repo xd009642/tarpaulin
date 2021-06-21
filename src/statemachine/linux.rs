@@ -431,8 +431,16 @@ impl<'a> LinuxData<'a> {
             pid,
             offset
         );
+        let mut clashes = HashSet::new();
         for trace in traces.all_traces() {
             for addr in &trace.address {
+                if clashes.contains(&align_address(*addr)) {
+                    trace!(
+                        "Skipping {} as it clashes with previously disabled breakpoints",
+                        addr
+                    );
+                    continue;
+                }
                 match Breakpoint::new(pid, *addr + offset) {
                     Ok(bp) => {
                         let _ = breakpoints.insert(*addr + offset, bp);
@@ -445,6 +453,22 @@ impl<'a> LinuxData<'a> {
                     }
                     Err(NixErr::UnsupportedOperation) => {
                         debug!("Instrumentation address clash, ignoring 0x{:x}", addr);
+                        // Now to avoid weird false positives lets get rid of the other breakpoint
+                        // at this address.
+                        let aligned = align_address(*addr);
+                        clashes.insert(aligned);
+                        let removed_keys = breakpoints
+                            .keys()
+                            .filter(|x| align_address(*x - offset) == aligned)
+                            .copied()
+                            .collect::<Vec<_>>();
+                        for key in &removed_keys {
+                            let breakpoint = breakpoints.remove(key).unwrap();
+                            trace!("Disabling clashing breakpoint");
+                            if let Err(e) = breakpoint.disable(pid) {
+                                error!("Unable to disable breakpoint: {}", e);
+                            }
+                        }
                     }
                     Err(_) => {
                         return Err(RunError::TestRuntime(
