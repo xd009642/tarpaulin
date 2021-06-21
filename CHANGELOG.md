@@ -15,6 +15,7 @@ with tests that can't have color controlled
 - Reduce number of cleans fixing issue where only last run-type was ran
 - Clean without `cargo clean` removing directory to preserve coverage run delta reporting
 - Set `CARGO_MANIFEST_DIR` when running doc tests
+- Stop processing a DWARF line number program after the end sequence is hit
 
 ### Removed
 

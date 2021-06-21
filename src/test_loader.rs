@@ -164,6 +164,9 @@ where
     for s in seq {
         let mut sm = cprog.resume_from(&s);
         while let Ok(Some((header, &ln_row))) = sm.next_row() {
+            if ln_row.end_sequence() {
+                break;
+            }
             // If this row isn't useful move on
             if !ln_row.is_stmt() || ln_row.line().is_none() {
                 continue;
