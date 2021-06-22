@@ -18,6 +18,7 @@ with tests that can't have color controlled
 - Stop processing a DWARF line number program after the end sequence is hit
 - If a breakpoint gets disabled due to instruction clash also disable the first breakpoint
 that fell upon that aligned address
+- Make percentage change in CLI printout two decimal places
 
 ### Removed
 
