@@ -164,6 +164,9 @@ where
     for s in seq {
         let mut sm = cprog.resume_from(&s);
         while let Ok(Some((header, &ln_row))) = sm.next_row() {
+            if ln_row.end_sequence() {
+                break;
+            }
             // If this row isn't useful move on
             if !ln_row.is_stmt() || ln_row.line().is_none() {
                 continue;
@@ -178,35 +181,35 @@ where
                 if let Ok(p) = path.canonicalize() {
                     path = p;
                 }
-                // Source is part of project so we cover it.
-                if let Some(file) = ln_row.file(header) {
-                    let file = file.path_name();
-                    let line = ln_row.line().unwrap();
-                    if let Some(file) = file.string_value(debug_strs).and_then(get_string) {
-                        path.push(file);
-                        if !path.is_file() {
-                            // Not really a source file!
-                            continue;
-                        }
-                        if is_coverable_file_path(&path, &project, &config.target_dir()) {
-                            let address = ln_row.address();
-                            let (desc, fn_name) = entries
-                                .iter()
-                                .filter(|&&(addr, _, _)| addr == address)
-                                .map(|&(_, t, fn_name)| (t, fn_name.to_owned()))
-                                .next()
-                                .unwrap_or((LineType::Unknown, None));
-                            let loc = SourceLocation { path, line };
-                            if desc != LineType::TestMain {
-                                let trace = TracerData {
-                                    address: Some(address),
-                                    trace_type: desc,
-                                    length: 1,
-                                    fn_name,
-                                };
-                                let tracerdata = result.entry(loc).or_default();
-                                tracerdata.push(trace);
-                            }
+                let file = file.path_name();
+                let line = ln_row.line().unwrap();
+                if let Some(file) = file.string_value(debug_strs).and_then(get_string) {
+                    path.push(file);
+                    if !path.is_file() {
+                        // Not really a source file!
+                        continue;
+                    }
+                    if is_coverable_file_path(&path, &project, &config.target_dir()) {
+                        let address = ln_row.address();
+                        let (desc, fn_name) = entries
+                            .iter()
+                            .filter(|&&(addr, _, _)| addr == address)
+                            .map(|&(_, t, fn_name)| (t, fn_name.to_owned()))
+                            .next()
+                            .unwrap_or((LineType::Unknown, None));
+                        let loc = SourceLocation {
+                            path,
+                            line: line.into(),
+                        };
+                        if desc != LineType::TestMain {
+                            let trace = TracerData {
+                                address: Some(address),
+                                trace_type: desc,
+                                length: 1,
+                                fn_name,
+                            };
+                            let tracerdata = result.entry(loc).or_default();
+                            tracerdata.push(trace);
                         }
                     }
                 }

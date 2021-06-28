@@ -27,7 +27,7 @@ Below is the help-text for a thorough explanation of the flags and features
 available:
 
 ```
-cargo-tarpaulin version: 0.18.0-alpha3
+cargo-tarpaulin version: 0.18.0
 Tool to analyse test coverage of cargo projects
 
 USAGE:
@@ -158,6 +158,30 @@ installation and massively reducing the install time on CI.
 
 When using the [Nix](https://nixos.org/nix) package manager, the `nixpkgs.cargo-tarpaulin` package can be used.
 This ensures that tarpaulin will be built with the same rust version as the rest of your packages.
+
+### Environment Variables
+
+When tarpaulin runs your tests it strives to run them in the same environment as if they were ran via cargo test. 
+In order to achieve this it sets the following environment variables when executing the test binaries:
+
+- **RUST_BACKTRACE**      - _When --verbose flag is used_
+- **CARGO_MANIFEST_DIR**  - _Path to Cargo.toml From --root | --manifest-path or guessed from the current or parent directory_
+- **CARGO_PKG_NAME**      - _From Cargo.toml_
+- **CARGO_PKG_AUTHORS**   - _From Cargo.toml_
+- **CARGO_PKG_VERSION**   - _From Cargo.toml_
+- **LLVM_PROFILE_FILE**   - _Used for LLVM coverage_
+
+### Cargo Manifest
+
+In order for tarpaulin to construct the Cargo environment correctly, tarpaulin needs to find Cargo.toml by either:
+
+- Using *--root* or *--manifest-path* or
+- By invoking Cargo from the current working directory within the project holding Cargo.toml manifest or
+- By invoking Cargo from a sub-directory within the project
+
+If Cargo does not find any Cargo.toml from using either of above methods the run will error "cargo metadata" and exit.
+
+Several RFCs are open in rust-lang to expose [more of these](https://doc.rust-lang.org/cargo/reference/environment-variables.html#environment-variables-cargo-sets-for-3rd-party-subcommands) directly in order to avoid the issues arising out of this.
 
 ### Command line
 

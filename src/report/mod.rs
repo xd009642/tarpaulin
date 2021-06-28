@@ -154,7 +154,7 @@ fn print_summary(config: &Config, result: &TraceMap) {
             let current_percent = coverage_percentage(&result.get_child_traces(file));
             let delta = 100.0f64 * (current_percent - last_percent);
             println!(
-                "|| {}: {}/{} {:+}%",
+                "|| {}: {}/{} {:+.2}%",
                 path.display(),
                 result.covered_in_path(&file),
                 result.coverable_in_path(&file),
