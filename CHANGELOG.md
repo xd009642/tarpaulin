@@ -3,7 +3,7 @@
 From 2019 onwards, all notable changes to tarpaulin will be documented in this
 file.
 
-## Unreleased
+## [0.18.0] 2021-06-28
 ### Added
 
 ### Changed
