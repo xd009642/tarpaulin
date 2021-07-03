@@ -408,7 +408,7 @@ jobs:
     name:                       coverage
     runs-on:                    ubuntu-latest
     container:
-      image:                    <your [CI] docker image with installed tarpaulin>
+      image:                    xd009642/tarpaulin:develop-nightly
       options:                  --security-opt seccomp=unconfined
     steps:
       - name:                   Checkout repository
