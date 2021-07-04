@@ -1,10 +1,13 @@
 use crate::config::Config;
 use crate::errors::RunError;
 use crate::event_log::*;
+use crate::process_handling::ProcessHandle;
 use crate::traces::*;
+use std::process::Child;
 use std::time::Instant;
 use tracing::error;
 
+pub mod instrumented;
 #[cfg(target_os = "linux")]
 pub mod linux;
 
@@ -17,7 +20,7 @@ cfg_if::cfg_if! {
         use crate::LineAnalysis;
 
         pub fn create_state_machine<'a>(
-            test: crate::ProcessHandle,
+            test: impl Into<TestHandle>,
             traces: &'a mut TraceMap,
             source_analysis: &'a HashMap<PathBuf, LineAnalysis>,
             config: &'a Config,
@@ -27,6 +30,23 @@ cfg_if::cfg_if! {
             (TestState::End(1), ())
         }
 
+    }
+}
+
+pub enum TestHandle {
+    Id(ProcessHandle),
+    Process(Child),
+}
+
+impl From<ProcessHandle> for TestHandle {
+    fn from(handle: ProcessHandle) -> Self {
+        Self::Id(handle)
+    }
+}
+
+impl From<Child> for TestHandle {
+    fn from(handle: Child) -> Self {
+        Self::Process(handle)
     }
 }
 
