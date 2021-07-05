@@ -6,6 +6,7 @@ use crate::generate_tracemap;
 use crate::ptrace_control::*;
 use crate::source_analysis::LineAnalysis;
 use crate::statemachine::*;
+use crate::TestHandle;
 use nix::errno::Errno;
 use nix::sys::signal::Signal;
 use nix::sys::wait::*;

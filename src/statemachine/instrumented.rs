@@ -2,6 +2,7 @@ use crate::config::Config;
 use crate::errors::RunError;
 use crate::source_analysis::LineAnalysis;
 use crate::statemachine::*;
+use crate::TestHandle;
 use std::collections::HashMap;
 use std::path::PathBuf;
 use std::process::{Child, ExitStatus};

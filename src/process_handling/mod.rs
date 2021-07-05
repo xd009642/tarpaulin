@@ -6,8 +6,88 @@ use crate::{Config, EventLog, LineAnalysis, RunError, TestBinary, TraceEngine};
 use std::collections::HashMap;
 use std::env;
 use std::ffi::CString;
+use std::fmt;
 use std::path::{Path, PathBuf};
-use tracing::{info, trace_span};
+use std::process::Child;
+use tracing::{error, info, trace_span};
+
+/// Handle to a test currently either PID or a `std::process::Child`
+pub enum TestHandle {
+    Id(ProcessHandle),
+    Process(Child),
+}
+
+impl fmt::Display for TestHandle {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        match self {
+            TestHandle::Id(id) => write!(f, "{}", id),
+            TestHandle::Process(c) => write!(f, "{}", c.id()),
+        }
+    }
+}
+
+impl From<ProcessHandle> for TestHandle {
+    fn from(handle: ProcessHandle) -> Self {
+        Self::Id(handle)
+    }
+}
+
+impl From<Child> for TestHandle {
+    fn from(handle: Child) -> Self {
+        Self::Process(handle)
+    }
+}
+pub fn get_test_coverage(
+    test: &TestBinary,
+    analysis: &HashMap<PathBuf, LineAnalysis>,
+    config: &Config,
+    ignored: bool,
+    logger: &Option<EventLog>,
+) -> Result<Option<(TraceMap, i32)>, RunError> {
+    let handle = launch_test(test, config, ignored, logger)?;
+    if let Some(handle) = handle {
+        match collect_coverage(test.path(), handle, analysis, config, logger) {
+            Ok(t) => Ok(Some(t)),
+            Err(e) => Err(RunError::TestCoverage(e.to_string())),
+        }
+    } else {
+        Ok(None)
+    }
+}
+
+fn launch_test(
+    test: &TestBinary,
+    config: &Config,
+    ignored: bool,
+    logger: &Option<EventLog>,
+) -> Result<Option<TestHandle>, RunError> {
+    if let Some(log) = logger.as_ref() {
+        log.push_binary(test.clone());
+    }
+    match config.engine() {
+        TraceEngine::Ptrace => {
+            cfg_if::cfg_if! {
+                if #[cfg(target_os="linux")] {
+                    linux::get_test_coverage(test, config, ignored)
+                } else {
+                    error!("Ptrace is not supported on this platform");
+                    Err(RunError::TestCoverage("Unsupported OS".to_string()))
+                }
+            }
+        }
+        TraceEngine::Llvm => {
+            let res = execute_test(test, ignored, config)?;
+            Ok(Some(res))
+        }
+        e => {
+            error!(
+                "Tarpaulin cannot execute tests with {:?} on this platform",
+                e
+            );
+            Err(RunError::TestCoverage("Unsupported OS".to_string()))
+        }
+    }
+}
 
 cfg_if::cfg_if! {
     if #[cfg(target_os= "linux")] {
@@ -43,7 +123,7 @@ cfg_if::cfg_if! {
 /// Collects the coverage data from the launched test
 pub(crate) fn collect_coverage(
     test_path: &Path,
-    test: ProcessHandle,
+    test: TestHandle,
     analysis: &HashMap<PathBuf, LineAnalysis>,
     config: &Config,
     logger: &Option<EventLog>,
@@ -69,7 +149,7 @@ pub(crate) fn collect_coverage(
 }
 
 /// Launches the test executable
-fn execute_test(test: &TestBinary, ignored: bool, config: &Config) -> Result<(), RunError> {
+fn execute_test(test: &TestBinary, ignored: bool, config: &Config) -> Result<TestHandle, RunError> {
     let exec_path = CString::new(test.path().to_str().unwrap()).unwrap();
     info!("running {}", test.path().display());
     let _ = match test.manifest_dir() {
@@ -115,10 +195,13 @@ fn execute_test(test: &TestBinary, ignored: bool, config: &Config) -> Result<(),
         envars
             .push(CString::new(format!("CARGO_MANIFEST_DIR={}", s.display())).unwrap_or_default());
     }
-    if config.engine == TraceEngine::Llvm || config.engine == TraceEngine::Auto {
-        // Used for llvm coverage to avoid report naming clashes
-        envars.push(CString::new("LLVM_PROFILE_FILE=default_%p.profraw").unwrap_or_default());
+    match config.engine() {
+        TraceEngine::Llvm => {
+            // Used for llvm coverage to avoid report naming clashes
+            envars.push(CString::new("LLVM_PROFILE_FILE=default_%p.profraw").unwrap_or_default());
+            
+        }
+        TraceEngine::Ptrace => execute(exec_path, &argv, envars.as_slice()),
+        _ => unreachable!(),
     }
-
-    execute(exec_path, &argv, envars.as_slice())
 }

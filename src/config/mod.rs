@@ -1,6 +1,6 @@
-pub use self::types::*;
-
 use self::parse::*;
+pub use self::types::*;
+use crate::cargo::supports_llvm_coverage;
 use cargo_metadata::{Metadata, MetadataCommand, Package};
 use clap::{value_t, ArgMatches};
 use coveralls_api::CiService;
@@ -166,7 +166,7 @@ pub struct Config {
     /// Number of jobs used for building the tests
     pub jobs: Option<usize>,
     /// Engine to use to collect coverage
-    pub engine: TraceEngine,
+    engine: TraceEngine,
     /// Specifying per-config rust flags
     pub rustflags: Option<String>,
 }
@@ -343,6 +343,18 @@ impl<'a> From<&'a ArgMatches<'a>> for ConfigWrapper {
 }
 
 impl Config {
+    pub fn engine(&self) -> TraceEngine {
+        match self.engine {
+            TraceEngine::Auto | TraceEngine::Llvm if supports_llvm_coverage() => TraceEngine::Llvm,
+            engine => {
+                if engine == TraceEngine::Llvm {
+                    error!("unable to utilise llvm coverage, due to compiler support. Falling back to Ptrace");
+                }
+                TraceEngine::Ptrace
+            }
+        }
+    }
+
     pub fn target_dir(&self) -> PathBuf {
         if let Some(s) = &self.target_dir {
             s.clone()

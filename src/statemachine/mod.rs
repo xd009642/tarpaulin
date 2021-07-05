@@ -3,7 +3,7 @@ use crate::errors::RunError;
 use crate::event_log::*;
 use crate::process_handling::ProcessHandle;
 use crate::traces::*;
-use std::process::Child;
+use crate::TestHandle;
 use std::time::Instant;
 use tracing::error;
 
@@ -30,23 +30,6 @@ cfg_if::cfg_if! {
             (TestState::End(1), ())
         }
 
-    }
-}
-
-pub enum TestHandle {
-    Id(ProcessHandle),
-    Process(Child),
-}
-
-impl From<ProcessHandle> for TestHandle {
-    fn from(handle: ProcessHandle) -> Self {
-        Self::Id(handle)
-    }
-}
-
-impl From<Child> for TestHandle {
-    fn from(handle: Child) -> Self {
-        Self::Process(handle)
     }
 }
 

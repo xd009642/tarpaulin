@@ -1,21 +1,16 @@
-use crate::collect_coverage;
 use crate::config::types::Mode;
 use crate::errors::*;
-use crate::event_log::*;
 use crate::process_handling::execute_test;
 use crate::ptrace_control::*;
-use crate::source_analysis::LineAnalysis;
-use crate::traces::*;
 use crate::Config;
 use crate::TestBinary;
+use crate::TestHandle;
 use nix::errno::Errno;
 use nix::libc::{c_int, c_long};
 use nix::sched::*;
 use nix::unistd::*;
 use nix::Error;
-use std::collections::HashMap;
 use std::ffi::{CStr, CString};
-use std::path::PathBuf;
 use tracing::{info, warn};
 
 #[cfg(any(target_arch = "x86", target_arch = "x86_64", target_arch = "arm"))]
@@ -35,11 +30,9 @@ mod ffi {
 /// Returns the coverage statistics for a test executable in the given workspace
 pub fn get_test_coverage(
     test: &TestBinary,
-    analysis: &HashMap<PathBuf, LineAnalysis>,
     config: &Config,
     ignored: bool,
-    logger: &Option<EventLog>,
-) -> Result<Option<(TraceMap, i32)>, RunError> {
+) -> Result<Option<TestHandle>, RunError> {
     if !test.path().exists() {
         warn!("Test at {} doesn't exist", test.path().display());
         return Ok(None);
@@ -47,17 +40,9 @@ pub fn get_test_coverage(
     if let Err(e) = limit_affinity() {
         warn!("Failed to set processor affinity {}", e);
     }
-    if let Some(log) = logger.as_ref() {
-        log.push_binary(test.clone());
-    }
     unsafe {
         match fork() {
-            Ok(ForkResult::Parent { child }) => {
-                match collect_coverage(test.path(), child, analysis, config, logger) {
-                    Ok(t) => Ok(Some(t)),
-                    Err(e) => Err(RunError::TestCoverage(e.to_string())),
-                }
-            }
+            Ok(ForkResult::Parent { child }) => Ok(Some(TestHandle::Id(child))),
             Ok(ForkResult::Child) => {
                 let bin_type = match config.command {
                     Mode::Test => "test",
@@ -104,14 +89,18 @@ pub fn limit_affinity() -> nix::Result<()> {
     sched_setaffinity(this, &cpu_set)
 }
 
-pub fn execute(program: CString, argv: &[CString], envar: &[CString]) -> Result<(), RunError> {
+pub fn execute(
+    program: CString,
+    argv: &[CString],
+    envar: &[CString],
+) -> Result<TestHandle, RunError> {
     disable_aslr().map_err(|e| RunError::TestRuntime(format!("ASLR disable failed: {}", e)))?;
 
     request_trace().map_err(|e| RunError::Trace(e.to_string()))?;
 
     let arg_ref = argv.iter().map(|x| x.as_ref()).collect::<Vec<&CStr>>();
     let env_ref = envar.iter().map(|x| x.as_ref()).collect::<Vec<&CStr>>();
-    execve(&program, &arg_ref, &env_ref)
-        .map_err(|_| RunError::Internal)
-        .map(|_| ())
+    execve(&program, &arg_ref, &env_ref).map_err(|_| RunError::Internal)?;
+
+    unreachable!();
 }
