@@ -11,6 +11,7 @@ use nix::sched::*;
 use nix::unistd::*;
 use nix::Error;
 use std::ffi::{CStr, CString};
+use std::path::Path;
 use tracing::{info, warn};
 
 #[cfg(any(target_arch = "x86", target_arch = "x86_64", target_arch = "arm"))]
@@ -90,13 +91,24 @@ pub fn limit_affinity() -> nix::Result<()> {
 }
 
 pub fn execute(
-    program: CString,
-    argv: &[CString],
-    envar: &[CString],
+    test: &Path,
+    argv: &[String],
+    envar: &[(String, String)],
 ) -> Result<TestHandle, RunError> {
+    let program = CString::new(test.display().to_string()).unwrap_or_default();
     disable_aslr().map_err(|e| RunError::TestRuntime(format!("ASLR disable failed: {}", e)))?;
 
     request_trace().map_err(|e| RunError::Trace(e.to_string()))?;
+
+    let envar = envar
+        .iter()
+        .map(|(k, v)| CString::new(format!("{}={}", k, v).as_str()).unwrap_or_default())
+        .collect::<Vec<CString>>();
+
+    let argv = argv
+        .iter()
+        .map(|x| CString::new(x.as_str()).unwrap_or_default())
+        .collect::<Vec<CString>>();
 
     let arg_ref = argv.iter().map(|x| x.as_ref()).collect::<Vec<&CStr>>();
     let env_ref = envar.iter().map(|x| x.as_ref()).collect::<Vec<&CStr>>();

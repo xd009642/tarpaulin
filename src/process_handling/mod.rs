@@ -5,10 +5,9 @@ use crate::traces::*;
 use crate::{Config, EventLog, LineAnalysis, RunError, TestBinary, TraceEngine};
 use std::collections::HashMap;
 use std::env;
-use std::ffi::CString;
 use std::fmt;
 use std::path::{Path, PathBuf};
-use std::process::Child;
+use std::process::{Child, Command};
 use tracing::{error, info, trace_span};
 
 /// Handle to a test currently either PID or a `std::process::Child`
@@ -150,58 +149,57 @@ pub(crate) fn collect_coverage(
 
 /// Launches the test executable
 fn execute_test(test: &TestBinary, ignored: bool, config: &Config) -> Result<TestHandle, RunError> {
-    let exec_path = CString::new(test.path().to_str().unwrap()).unwrap();
     info!("running {}", test.path().display());
     let _ = match test.manifest_dir() {
         Some(md) => env::set_current_dir(&md),
         None => env::set_current_dir(&config.root()),
     };
 
-    let mut envars: Vec<CString> = Vec::new();
+    let mut envars: Vec<(String, String)> = Vec::new();
 
     for (key, value) in env::vars() {
-        let mut temp = String::new();
-        temp.push_str(key.as_str());
-        temp.push('=');
-        temp.push_str(value.as_str());
-        envars.push(CString::new(temp).unwrap());
+        envars.push((key.to_string(), value.to_string()));
     }
-    let mut argv = if ignored {
-        vec![exec_path.clone(), CString::new("--ignored").unwrap()]
-    } else {
-        vec![exec_path.clone()]
-    };
+    let mut argv = vec![test.path().display().to_string()];
+    if ignored {
+        argv.push("--ignored".to_string());
+    }
     if config.verbose {
-        envars.push(CString::new("RUST_BACKTRACE=1").unwrap());
+        envars.push(("RUST_BACKTRACE".to_string(), "1".to_string()));
     }
-    for s in &config.varargs {
-        argv.push(CString::new(s.as_bytes()).unwrap_or_default());
-    }
+    argv.extend_from_slice(&config.varargs);
     if config.color != Color::Auto {
-        argv.push(CString::new("--color").unwrap_or_default());
-        argv.push(CString::new(config.color.to_string().to_ascii_lowercase()).unwrap_or_default());
+        argv.push("--color".to_string());
+        argv.push(config.color.to_string().to_ascii_lowercase());
     }
 
     if let Some(s) = test.pkg_name() {
-        envars.push(CString::new(format!("CARGO_PKG_NAME={}", s)).unwrap_or_default());
+        envars.push(("CARGO_PKG_NAME".to_string(), s.to_string()));
     }
     if let Some(s) = test.pkg_version() {
-        envars.push(CString::new(format!("CARGO_PKG_VERSION={}", s)).unwrap_or_default());
+        envars.push(("CARGO_PKG_VERSION".to_string(), s.to_string()));
     }
     if let Some(s) = test.pkg_authors() {
-        envars.push(CString::new(format!("CARGO_PKG_AUTHORS={}", s.join(":"))).unwrap_or_default());
+        envars.push(("CARGO_PKG_AUTHORS".to_string(), s.join(":")));
     }
     if let Some(s) = test.manifest_dir() {
-        envars
-            .push(CString::new(format!("CARGO_MANIFEST_DIR={}", s.display())).unwrap_or_default());
+        envars.push(("CARGO_MANIFEST_DIR".to_string(), s.display().to_string()));
     }
     match config.engine() {
         TraceEngine::Llvm => {
             // Used for llvm coverage to avoid report naming clashes
-            envars.push(CString::new("LLVM_PROFILE_FILE=default_%p.profraw").unwrap_or_default());
-            
+            envars.push((
+                "LLVM_PROFILE_FILE".to_string(),
+                "default_%p.profraw".to_string(),
+            ));
+            let child = Command::new(test.path())
+                .envs(envars)
+                .args(&argv)
+                .spawn()
+                .unwrap();
+            Ok(child.into())
         }
-        TraceEngine::Ptrace => execute(exec_path, &argv, envars.as_slice()),
+        TraceEngine::Ptrace => execute(test.path(), &argv, envars.as_slice()),
         _ => unreachable!(),
     }
 }
