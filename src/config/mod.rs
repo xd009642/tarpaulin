@@ -345,6 +345,8 @@ impl<'a> From<&'a ArgMatches<'a>> for ConfigWrapper {
 }
 
 impl Config {
+    /// This returns the engine selected for tarpaulin to run. This function will not return Auto
+    /// instead it will resolve to the best-fit `TraceEngine` for the given configuration
     pub fn engine(&self) -> TraceEngine {
         let engine = *self.engine.borrow();
         match engine {
