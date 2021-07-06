@@ -143,7 +143,7 @@ fn execute_test(test: &TestBinary, ignored: bool, config: &Config) -> Result<Tes
     for (key, value) in env::vars() {
         envars.push((key.to_string(), value.to_string()));
     }
-    let mut argv = vec![test.path().display().to_string()];
+    let mut argv = vec![];
     if ignored {
         argv.push("--ignored".to_string());
     }
@@ -182,7 +182,7 @@ fn execute_test(test: &TestBinary, ignored: bool, config: &Config) -> Result<Tes
                 .unwrap();
             Ok(child.into())
         }
-        #[cfg(target_os="linux")] 
+        #[cfg(target_os = "linux")]
         TraceEngine::Ptrace => execute(test.path(), &argv, envars.as_slice()),
         _ => unreachable!(),
     }

@@ -268,6 +268,7 @@ impl<'a> From<&'a ArgMatches<'a>> for ConfigWrapper {
             manifest: get_manifest(args),
             config: None,
             root: get_root(args),
+            engine: value_t!(args.value_of("engine"), TraceEngine).unwrap_or(TraceEngine::Ptrace),
             command: value_t!(args.value_of("command"), Mode).unwrap_or(Mode::Test),
             color: value_t!(args.value_of("color"), Color).unwrap_or(Color::Auto),
             run_types: get_run_types(args),
@@ -318,7 +319,6 @@ impl<'a> From<&'a ArgMatches<'a>> for ConfigWrapper {
             metadata: RefCell::new(None),
             avoid_cfg_tarpaulin: args.is_present("avoid-cfg-tarpaulin"),
             rustflags: get_rustflags(args),
-            engine: TraceEngine::Ptrace,
         };
         if args.is_present("ignore-config") {
             Self(vec![args_config])
@@ -689,10 +689,8 @@ impl Config {
             .any(|x| x.is_match(project.to_str().unwrap_or("")))
     }
 
-    ///
     /// returns the relative path from the base_dir
     /// uses root if set, else env::current_dir()
-    ///
     #[inline]
     pub fn get_base_dir(&self) -> PathBuf {
         if let Some(root) = &self.root {
@@ -700,7 +698,11 @@ impl Config {
                 PathBuf::from(root)
             } else {
                 let base_dir = env::current_dir().unwrap();
-                base_dir.join(root).canonicalize().unwrap()
+                if let Ok(res) = base_dir.join(root).canonicalize() {
+                    res
+                } else {
+                    base_dir
+                }
             }
         } else {
             env::current_dir().unwrap()
@@ -708,7 +710,6 @@ impl Config {
     }
 
     /// returns the relative path from the base_dir
-    ///
     #[inline]
     pub fn strip_base_dir(&self, path: &Path) -> PathBuf {
         path_relative_from(path, &self.get_base_dir()).unwrap_or_else(|| path.to_path_buf())

@@ -1,5 +1,7 @@
 use cargo_tarpaulin::cargo::{rust_flags, rustdoc_flags};
-use cargo_tarpaulin::config::{Color, Config, ConfigWrapper, Mode, OutputFile, RunType};
+use cargo_tarpaulin::config::{
+    Color, Config, ConfigWrapper, Mode, OutputFile, RunType, TraceEngine,
+};
 use cargo_tarpaulin::{run, setup_logging};
 use clap::{crate_version, App, Arg, ArgSettings, SubCommand};
 use std::collections::HashMap;
@@ -103,6 +105,10 @@ fn main() -> Result<(), String> {
                     .possible_values(&OutputFile::variants())
                     .case_insensitive(true)
                     .multiple(true),
+                Arg::from_usage("--engine [ENGINE] '*UNSTABLE* Coverage tracing backend to use'")
+                    .possible_values(&TraceEngine::variants())
+                    .case_insensitive(true)
+                    .multiple(false),
                 Arg::from_usage("--output-dir [PATH] 'Specify a custom directory to write report files'"),
                 Arg::from_usage("--run-types [TYPE]... 'Type of the coverage run'")
                     .possible_values(&RunType::variants())
