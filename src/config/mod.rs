@@ -166,7 +166,7 @@ pub struct Config {
     /// Number of jobs used for building the tests
     pub jobs: Option<usize>,
     /// Engine to use to collect coverage
-    engine: TraceEngine,
+    engine: RefCell<TraceEngine>,
     /// Specifying per-config rust flags
     pub rustflags: Option<String>,
 }
@@ -231,7 +231,7 @@ impl Default for Config {
             avoid_cfg_tarpaulin: false,
             jobs: None,
             color: Color::Auto,
-            engine: TraceEngine::Ptrace,
+            engine: RefCell::new(TraceEngine::Ptrace),
             rustflags: None,
         }
     }
@@ -263,12 +263,14 @@ impl<'a> From<&'a ArgMatches<'a>> for ConfigWrapper {
             }
         };
 
+        let engine = value_t!(args.value_of("engine"), TraceEngine).unwrap_or(TraceEngine::Ptrace);
+
         let args_config = Config {
             name: String::new(),
             manifest: get_manifest(args),
             config: None,
             root: get_root(args),
-            engine: value_t!(args.value_of("engine"), TraceEngine).unwrap_or(TraceEngine::Ptrace),
+            engine: RefCell::new(engine),
             command: value_t!(args.value_of("command"), Mode).unwrap_or(Mode::Test),
             color: value_t!(args.value_of("color"), Color).unwrap_or(Color::Auto),
             run_types: get_run_types(args),
@@ -344,11 +346,13 @@ impl<'a> From<&'a ArgMatches<'a>> for ConfigWrapper {
 
 impl Config {
     pub fn engine(&self) -> TraceEngine {
-        match self.engine {
+        let engine = *self.engine.borrow();
+        match engine {
             TraceEngine::Auto | TraceEngine::Llvm if supports_llvm_coverage() => TraceEngine::Llvm,
             engine => {
                 if engine == TraceEngine::Llvm {
                     error!("unable to utilise llvm coverage, due to compiler support. Falling back to Ptrace");
+                    self.engine.replace(TraceEngine::Ptrace);
                 }
                 TraceEngine::Ptrace
             }
