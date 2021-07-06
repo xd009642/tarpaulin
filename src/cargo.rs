@@ -458,6 +458,8 @@ fn create_command(manifest_path: &str, config: &Config, ty: Option<RunType>) -> 
 fn init_args(test_cmd: &mut Command, config: &Config) {
     if config.debug {
         test_cmd.arg("-vvv");
+    } else if config.verbose {
+        test_cmd.arg("-v");
     }
     if config.locked {
         test_cmd.arg("--locked");
