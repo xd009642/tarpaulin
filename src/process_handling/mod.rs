@@ -182,6 +182,7 @@ fn execute_test(test: &TestBinary, ignored: bool, config: &Config) -> Result<Tes
                 .unwrap();
             Ok(child.into())
         }
+        #[cfg(target_os="linux")] 
         TraceEngine::Ptrace => execute(test.path(), &argv, envars.as_slice()),
         _ => unreachable!(),
     }
