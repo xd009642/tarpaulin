@@ -19,12 +19,16 @@ pub enum TestHandle {
 }
 
 pub struct RunningProcessHandle {
+    /// Used to map coverage counters to line numbers
+    pub(crate) path: PathBuf,
+    /// Get the exit status to work out if tests have passed
     pub(crate) child: Child,
+    /// maintain a list of existing profraws in the project root to avoid picking up old results
     pub(crate) existing_profraws: Vec<PathBuf>,
 }
 
 impl RunningProcessHandle {
-    pub fn new(cmd: &mut Command, config: &Config) -> Result<Self, RunError> {
+    pub fn new(path: PathBuf, cmd: &mut Command, config: &Config) -> Result<Self, RunError> {
         let child = cmd.spawn()?;
         let existing_profraws = fs::read_dir(config.root())?
             .into_iter()
@@ -34,6 +38,7 @@ impl RunningProcessHandle {
             .collect();
 
         Ok(Self {
+            path,
             child,
             existing_profraws,
         })
@@ -195,7 +200,8 @@ fn execute_test(test: &TestBinary, ignored: bool, config: &Config) -> Result<Tes
     }
     match config.engine() {
         TraceEngine::Llvm => {
-            // Used for llvm coverage to avoid report naming clashes
+            // Used for llvm coverage to avoid report naming clashes TODO could have clashes
+            // between runs
             envars.push((
                 "LLVM_PROFILE_FILE".to_string(),
                 "default_%p.profraw".to_string(),
@@ -203,7 +209,7 @@ fn execute_test(test: &TestBinary, ignored: bool, config: &Config) -> Result<Tes
             let mut child = Command::new(test.path());
             child.envs(envars).args(&argv);
 
-            let hnd = RunningProcessHandle::new(&mut child, config)?;
+            let hnd = RunningProcessHandle::new(test.path().to_path_buf(), &mut child, config)?;
             Ok(hnd.into())
         }
         #[cfg(target_os = "linux")]
