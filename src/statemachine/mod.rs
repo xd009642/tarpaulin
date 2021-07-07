@@ -1,7 +1,6 @@
 use crate::config::{Config, TraceEngine};
 use crate::errors::RunError;
 use crate::event_log::*;
-use crate::process_handling::ProcessHandle;
 use crate::traces::*;
 use crate::LineAnalysis;
 use crate::TestHandle;

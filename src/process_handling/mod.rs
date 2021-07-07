@@ -5,7 +5,9 @@ use crate::traces::*;
 use crate::{Config, EventLog, LineAnalysis, RunError, TestBinary, TraceEngine};
 use std::collections::HashMap;
 use std::env;
+use std::ffi::OsStr;
 use std::fmt;
+use std::fs;
 use std::path::{Path, PathBuf};
 use std::process::{Child, Command};
 use tracing::{error, info, trace_span};
@@ -13,14 +15,36 @@ use tracing::{error, info, trace_span};
 /// Handle to a test currently either PID or a `std::process::Child`
 pub enum TestHandle {
     Id(ProcessHandle),
-    Process(Child),
+    Process(RunningProcessHandle),
+}
+
+pub struct RunningProcessHandle {
+    pub(crate) child: Child,
+    pub(crate) existing_profraws: Vec<PathBuf>,
+}
+
+impl RunningProcessHandle {
+    pub fn new(cmd: &mut Command, config: &Config) -> Result<Self, RunError> {
+        let child = cmd.spawn()?;
+        let existing_profraws = fs::read_dir(config.root())?
+            .into_iter()
+            .filter_map(|x| x.ok())
+            .filter(|x| x.path().is_file() && x.path().extension() == Some(OsStr::new("profraw")))
+            .map(|x| x.path())
+            .collect();
+
+        Ok(Self {
+            child,
+            existing_profraws,
+        })
+    }
 }
 
 impl fmt::Display for TestHandle {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         match self {
             TestHandle::Id(id) => write!(f, "{}", id),
-            TestHandle::Process(c) => write!(f, "{}", c.id()),
+            TestHandle::Process(c) => write!(f, "{}", c.child.id()),
         }
     }
 }
@@ -31,11 +55,12 @@ impl From<ProcessHandle> for TestHandle {
     }
 }
 
-impl From<Child> for TestHandle {
-    fn from(handle: Child) -> Self {
+impl From<RunningProcessHandle> for TestHandle {
+    fn from(handle: RunningProcessHandle) -> Self {
         Self::Process(handle)
     }
 }
+
 pub fn get_test_coverage(
     test: &TestBinary,
     analysis: &HashMap<PathBuf, LineAnalysis>,
@@ -175,15 +200,17 @@ fn execute_test(test: &TestBinary, ignored: bool, config: &Config) -> Result<Tes
                 "LLVM_PROFILE_FILE".to_string(),
                 "default_%p.profraw".to_string(),
             ));
-            let child = Command::new(test.path())
-                .envs(envars)
-                .args(&argv)
-                .spawn()
-                .unwrap();
-            Ok(child.into())
+            let mut child = Command::new(test.path());
+            child.envs(envars).args(&argv);
+
+            let hnd = RunningProcessHandle::new(&mut child, config)?;
+            Ok(hnd.into())
         }
         #[cfg(target_os = "linux")]
         TraceEngine::Ptrace => execute(test.path(), &argv, envars.as_slice()),
-        _ => unreachable!(),
+        e => Err(RunError::Engine(format!(
+            "invalid execution engine {:?}",
+            e
+        ))),
     }
 }

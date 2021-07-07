@@ -10,6 +10,8 @@ pub enum RunError {
     Cargo(String),
     /// Error trying to resolve package configuration in manifest
     Packages(String),
+    /// Failure when attempting to launch test
+    TestLaunch(String),
     /// Tests failed to compile
     TestCompile(String),
     /// Test failed during run
@@ -33,6 +35,8 @@ pub enum RunError {
     Internal,
     /// Tuple of actual coverage and threshold
     BelowThreshold(f64, f64),
+    /// Error relating to tracing engine selected
+    Engine(String),
 }
 
 impl Display for RunError {
@@ -41,6 +45,7 @@ impl Display for RunError {
             Self::Manifest(e) => write!(f, "Failed to parse Cargo.toml! Error: {}", e),
             Self::Cargo(e) => write!(f, "Cargo failed to run! Error: {}", e),
             Self::Packages(e) => write!(f, "Failed to resolve package in manifest! Error: {}", e),
+            Self::TestLaunch(e) => write!(f, "Failed to launch test: {}", e),
             Self::TestCompile(e) => write!(f, "Failed to compile tests! Error: {}", e),
             Self::TestRuntime(e) => write!(f, "Failed to run tests: {}", e),
             Self::TestFailed => write!(f, "Test failed during run"),
@@ -62,6 +67,7 @@ impl Display for RunError {
             Self::BelowThreshold(a, e) => {
                 write!(f, "Coverage is below the failure threshold {}% < {}%", a, e)
             }
+            Self::Engine(s) => write!(f, "Engine error: {}", s),
         }
     }
 }
