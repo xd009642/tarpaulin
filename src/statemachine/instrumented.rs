@@ -8,7 +8,6 @@ use std::collections::HashMap;
 use std::ffi::OsStr;
 use std::fs;
 use std::path::PathBuf;
-use std::process::ExitStatus;
 use tracing::info;
 
 pub fn create_state_machine<'a>(
@@ -22,7 +21,6 @@ pub fn create_state_machine<'a>(
     if let TestHandle::Process(process) = handle {
         let llvm = LlvmInstrumentedData {
             process: Some(process),
-            output: None,
             event_log,
             config,
             traces,
@@ -33,7 +31,6 @@ pub fn create_state_machine<'a>(
         error!("The llvm cov statemachine requires a process::Child");
         let invalid = LlvmInstrumentedData {
             process: None,
-            output: None,
             config,
             event_log,
             traces,
@@ -47,8 +44,6 @@ pub fn create_state_machine<'a>(
 pub struct LlvmInstrumentedData<'a> {
     /// Parent pid of the test
     process: Option<RunningProcessHandle>,
-    /// Program outpuit
-    output: Option<ExitStatus>,
     /// Program config
     config: &'a Config,
     /// Optional event log to update as the test progresses
@@ -74,8 +69,6 @@ impl<'a> StateData for LlvmInstrumentedData<'a> {
         if let Some(parent) = self.process.as_mut() {
             match parent.child.wait() {
                 Ok(exit) => {
-                    self.output = Some(exit);
-
                     let profraws = fs::read_dir(self.config.root())?
                         .into_iter()
                         .filter_map(|x| x.ok())
@@ -87,26 +80,25 @@ impl<'a> StateData for LlvmInstrumentedData<'a> {
                         .map(|x| x.path())
                         .collect::<Vec<_>>();
 
+                    info!(
+                        "For binary: {}",
+                        self.config.strip_base_dir(&parent.path).display()
+                    );
                     for prof in &profraws {
                         info!("Generated: {}", self.config.strip_base_dir(&prof).display());
                     }
                     self.process = None;
+                    let code = exit.code().unwrap_or(1);
+                    Ok(Some(TestState::End(code)))
                 }
-                Err(e) => {}
+                Err(e) => Err(e.into()),
             }
-            todo!()
         } else {
             Err(RunError::TestCoverage("Test was not launched".to_string()))
         }
     }
 
     fn stop(&mut self) -> Result<TestState, RunError> {
-        if let Some(status) = self.output {
-            todo!()
-        } else {
-            Err(RunError::TestCoverage(
-                "No ExitStatus available for test executable".to_string(),
-            ))
-        }
+        unreachable!();
     }
 }
