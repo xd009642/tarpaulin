@@ -105,10 +105,11 @@ fn main() -> Result<(), String> {
                     .possible_values(&OutputFile::variants())
                     .case_insensitive(true)
                     .multiple(true),
-                Arg::from_usage("--engine [ENGINE] '*UNSTABLE* Coverage tracing backend to use'")
+                Arg::from_usage("--engine [ENGINE] 'Coverage tracing backend to use'")
                     .possible_values(&TraceEngine::variants())
                     .case_insensitive(true)
-                    .multiple(false),
+                    .multiple(false)
+                    .hidden(true),
                 Arg::from_usage("--output-dir [PATH] 'Specify a custom directory to write report files'"),
                 Arg::from_usage("--run-types [TYPE]... 'Type of the coverage run'")
                     .possible_values(&RunType::variants())
