@@ -1,32 +1,54 @@
-use crate::config::Config;
+use crate::config::{Config, TraceEngine};
 use crate::errors::RunError;
 use crate::event_log::*;
 use crate::traces::*;
+use crate::LineAnalysis;
+use crate::TestHandle;
+use std::collections::HashMap;
+use std::path::PathBuf;
 use std::time::Instant;
 use tracing::error;
 
-#[cfg(target_os = "linux")]
-pub mod linux;
-
+pub mod instrumented;
 cfg_if::cfg_if! {
     if #[cfg(target_os = "linux")] {
-        pub use linux::*;
-    } else {
-        use std::collections::HashMap;
-        use std::path::PathBuf;
-        use crate::LineAnalysis;
-
-        pub fn create_state_machine<'a>(
-            test: crate::ProcessHandle,
-            traces: &'a mut TraceMap,
-            source_analysis: &'a HashMap<PathBuf, LineAnalysis>,
-            config: &'a Config,
-            event_log: &'a Option<EventLog>,
-        ) -> (TestState, ()) {
-            error!("Tarpaulin is not currently supported on this system");
-            (TestState::End(1), ())
+        pub mod linux;
+        pub use linux::ProcessInfo;
+    }
+}
+pub fn create_state_machine<'a>(
+    test: impl Into<TestHandle>,
+    traces: &'a mut TraceMap,
+    source_analysis: &'a HashMap<PathBuf, LineAnalysis>,
+    config: &'a Config,
+    event_log: &'a Option<EventLog>,
+) -> (TestState, Box<dyn StateData + 'a>) {
+    match config.engine() {
+        TraceEngine::Ptrace => {
+            cfg_if::cfg_if! {
+                if #[cfg(target_os="linux")] {
+                    let (state, machine) = linux::create_state_machine(test, traces, source_analysis, config, event_log);
+                    (state, Box::new(machine))
+                } else {
+                    error!("The ptrace backend is not supported on this system");
+                    (TestState::End(1), Box::new(()))
+                }
+            }
         }
-
+        TraceEngine::Llvm => {
+            let (state, machine) = instrumented::create_state_machine(
+                test,
+                traces,
+                source_analysis,
+                config,
+                event_log,
+            );
+            (state, Box::new(machine))
+        }
+        _ => {
+            error!("Tarpaulin is not currently supported on this system");
+            (TestState::End(1), Box::new(()))
+        }
     }
 }
 
@@ -109,6 +131,24 @@ impl StateData for () {
         Err(RunError::StateMachine(
             "No valid coverage collector".to_string(),
         ))
+    }
+}
+
+impl<'a> StateData for Box<dyn StateData + 'a> {
+    fn start(&mut self) -> Result<Option<TestState>, RunError> {
+        self.as_mut().start()
+    }
+
+    fn init(&mut self) -> Result<TestState, RunError> {
+        self.as_mut().init()
+    }
+
+    fn wait(&mut self) -> Result<Option<TestState>, RunError> {
+        self.as_mut().wait()
+    }
+
+    fn stop(&mut self) -> Result<TestState, RunError> {
+        self.as_mut().stop()
     }
 }
 

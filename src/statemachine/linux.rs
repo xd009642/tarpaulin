@@ -6,6 +6,7 @@ use crate::generate_tracemap;
 use crate::ptrace_control::*;
 use crate::source_analysis::LineAnalysis;
 use crate::statemachine::*;
+use crate::TestHandle;
 use nix::errno::Errno;
 use nix::sys::signal::Signal;
 use nix::sys::wait::*;
@@ -56,14 +57,20 @@ pub struct TracedProcess {
 }
 
 pub fn create_state_machine<'a>(
-    test: Pid,
+    test: impl Into<TestHandle>,
     traces: &'a mut TraceMap,
     source_analysis: &'a HashMap<PathBuf, LineAnalysis>,
     config: &'a Config,
     event_log: &'a Option<EventLog>,
 ) -> (TestState, LinuxData<'a>) {
     let mut data = LinuxData::new(traces, source_analysis, config, event_log);
-    data.parent = test;
+    let handle = test.into();
+    match handle {
+        TestHandle::Id(test) => {
+            data.parent = test;
+        }
+        _ => unreachable!("Test handle must be a PID for ptrace engine"),
+    }
     (TestState::start_state(), data)
 }
 

@@ -549,12 +549,8 @@ fn clean_doctest_folder<P: AsRef<Path>>(doctest_dir: P) {
 }
 
 fn handle_llvm_flags(value: &mut String, config: &Config) {
-    if (config.engine == TraceEngine::Auto || config.engine == TraceEngine::Llvm)
-        && supports_llvm_coverage()
-    {
+    if config.engine() == TraceEngine::Llvm {
         value.push_str("-Z instrument-coverage ");
-    } else if config.engine == TraceEngine::Llvm {
-        error!("unable to utilise llvm coverage, due to compiler support. Falling back to Ptrace");
     }
 }
 
@@ -691,7 +687,7 @@ fn setup_environment(cmd: &mut Command, config: &Config) {
     cmd.env(rustdoc, value);
 }
 
-fn supports_llvm_coverage() -> bool {
+pub fn supports_llvm_coverage() -> bool {
     if let Some(version) = CARGO_VERSION_INFO.as_ref() {
         version.supports_llvm_cov()
     } else {
