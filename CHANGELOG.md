@@ -8,6 +8,7 @@ file.
 
 ### Changed
 - `--verbose` now calls cargo with `-v` flag
+- Now handles string values for rustflags in .cargo/config not just a list of values
 
 ### Removed
 
