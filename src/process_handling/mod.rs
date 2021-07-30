@@ -204,7 +204,7 @@ fn execute_test(test: &TestBinary, ignored: bool, config: &Config) -> Result<Tes
             // between runs
             envars.push((
                 "LLVM_PROFILE_FILE".to_string(),
-                "default_%p.profraw".to_string(),
+                format!("{}_%p.profraw", test.file_name()),
             ));
             let mut child = Command::new(test.path());
             child.envs(envars).args(&argv);

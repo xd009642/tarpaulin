@@ -98,6 +98,15 @@ impl TestBinary {
     pub fn should_panic(&self) -> bool {
         self.should_panic
     }
+
+    /// Convenience function to get the file name of the binary as a string, default string if the
+    /// path has no filename as this should _never_ happen
+    pub fn file_name(&self) -> String {
+        self.path
+            .file_name()
+            .map(|x| x.to_string_lossy().to_string())
+            .unwrap_or_default()
+    }
 }
 
 impl DocTestBinaryMeta {
