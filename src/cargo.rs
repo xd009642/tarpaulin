@@ -584,15 +584,21 @@ fn look_for_rustflags_in_table(value: &Value) -> String {
     let table = value.as_table().unwrap();
 
     if let Some(rustflags) = table.get("rustflags") {
-        let vec_of_flags: Vec<String> = rustflags
-            .as_array()
-            .unwrap()
-            .into_iter()
-            .filter_map(|x| x.as_str())
-            .map(|x| x.to_string())
-            .collect();
+        if rustflags.is_array() {
+            let vec_of_flags: Vec<String> = rustflags
+                .as_array()
+                .unwrap()
+                .into_iter()
+                .filter_map(|x| x.as_str())
+                .map(|x| x.to_string())
+                .collect();
 
-        vec_of_flags.join(" ")
+            vec_of_flags.join(" ")
+        } else if rustflags.is_str() {
+            rustflags.as_str().unwrap().to_string()
+        } else {
+            String::new()
+        }
     } else {
         String::new()
     }
@@ -707,6 +713,28 @@ pub fn supports_llvm_coverage() -> bool {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use toml::toml;
+
+    #[test]
+    fn parse_rustflags_from_toml() {
+        let list_flags = toml! {
+            rustflags = ["--cfg=foo", "--cfg=bar"]
+        };
+
+        assert_eq!(
+            look_for_rustflags_in_table(&list_flags),
+            "--cfg=foo --cfg=bar"
+        );
+
+        let string_flags = toml! {
+            rustflags = "--cfg=bar --cfg=baz"
+        };
+
+        assert_eq!(
+            look_for_rustflags_in_table(&string_flags),
+            "--cfg=bar --cfg=baz"
+        );
+    }
 
     #[test]
     fn llvm_cov_compatible_version() {
