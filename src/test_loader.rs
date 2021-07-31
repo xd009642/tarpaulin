@@ -1,4 +1,4 @@
-use crate::config::Config;
+use crate::config::{types::TraceEngine, Config};
 use crate::path_utils::is_coverable_file_path;
 use crate::source_analysis::*;
 use crate::traces::*;
@@ -375,7 +375,13 @@ pub fn generate_tracemap(
     analysis: &HashMap<PathBuf, LineAnalysis>,
     config: &Config,
 ) -> io::Result<TraceMap> {
-    let file = open_symbols_file(test)?;
+    let file = match open_symbols_file(test) {
+        Ok(s) => Ok(s),
+        Err(e) if config.engine() != TraceEngine::Llvm => Err(e),
+        _ => {
+            return Ok(TraceMap::new());
+        }
+    }?;
     let file = unsafe { MmapOptions::new().map(&file)? };
     if let Ok(obj) = OFile::parse(&*file) {
         let endian = if obj.is_little_endian() {
