@@ -560,6 +560,8 @@ fn clean_doctest_folder<P: AsRef<Path>>(doctest_dir: P) {
 fn handle_llvm_flags(value: &mut String, config: &Config) {
     if config.engine() == TraceEngine::Llvm {
         value.push_str("-Z instrument-coverage ");
+    } else {
+        value.push_str(" -C link-dead-code ");
     }
 }
 
@@ -670,7 +672,7 @@ fn gather_config_rust_flags(config: &Config) -> String {
 pub fn rust_flags(config: &Config) -> String {
     const RUSTFLAGS: &str = "RUSTFLAGS";
     let mut value = config.rustflags.clone().unwrap_or_default();
-    value.push_str(" -C link-dead-code -C debuginfo=2 ");
+    value.push_str(" -C debuginfo=2 ");
     if !config.avoid_cfg_tarpaulin {
         value.push_str("--cfg=tarpaulin ");
     }

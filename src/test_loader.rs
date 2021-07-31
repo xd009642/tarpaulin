@@ -1,4 +1,4 @@
-use crate::config::{Config, types::TraceEngine};
+use crate::config::{types::TraceEngine, Config};
 use crate::path_utils::is_coverable_file_path;
 use crate::source_analysis::*;
 use crate::traces::*;
