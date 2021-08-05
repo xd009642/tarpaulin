@@ -3,7 +3,7 @@ use cargo_tarpaulin::config::{
     Color, Config, ConfigWrapper, Mode, OutputFile, RunType, TraceEngine,
 };
 use cargo_tarpaulin::{run, setup_logging};
-use clap::{crate_version, App, Arg, ArgSettings, SubCommand};
+use clap::{crate_version, value_t, App, Arg, ArgSettings, SubCommand};
 use std::collections::HashMap;
 use std::path::Path;
 use tracing::{info, trace};
@@ -135,12 +135,15 @@ fn main() -> Result<(), String> {
 
     let args = args.subcommand_matches("tarpaulin").unwrap_or(&args);
 
-    let config = ConfigWrapper::from(args);
     setup_logging(
-        config.0[0].color,
+        value_t!(args.value_of("color"), Color).unwrap_or(Color::Auto),
         args.is_present("debug"),
         args.is_present("verbose"),
     );
+    let config = ConfigWrapper::from(args);
+
+    trace!("Config vector: {:#?}", config);
+
     let mut run_coverage = true;
     if args.is_present("print-rust-flags") {
         run_coverage = false;
