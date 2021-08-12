@@ -10,6 +10,7 @@ file.
 - `--verbose` now calls cargo with `-v` flag
 - Now handles string values for rustflags in .cargo/config not just a list of values
 - INTERNAL If llvm coverage is enabled and test binary can't be loaded start with empty `TraceMap`
+- Config parse errors are logged
 
 ### Removed
 
