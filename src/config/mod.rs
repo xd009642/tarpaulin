@@ -20,6 +20,7 @@ use tracing::{error, info, warn};
 mod parse;
 pub mod types;
 
+#[derive(Debug)]
 pub struct ConfigWrapper(pub Vec<Config>);
 
 /// Specifies the current configuration tarpaulin is using.
