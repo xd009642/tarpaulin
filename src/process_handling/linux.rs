@@ -9,7 +9,6 @@ use nix::errno::Errno;
 use nix::libc::{c_int, c_long};
 use nix::sched::*;
 use nix::unistd::*;
-use nix::Error;
 use std::ffi::{CStr, CString};
 use std::path::Path;
 use tracing::{info, warn};
@@ -68,7 +67,7 @@ fn personality(persona: Persona) -> nix::Result<c_int> {
         ffi::personality(persona)
     };
     match Errno::result(ret) {
-        Ok(..) | Err(Error::Sys(Errno::UnknownErrno)) => Ok(ret),
+        Ok(..) | Err(Errno::UnknownErrno) => Ok(ret),
         err @ Err(..) => err,
     }
 }

@@ -3,7 +3,7 @@ use nix::libc::{c_long, c_void};
 use nix::sys::ptrace::*;
 use nix::sys::signal::Signal;
 use nix::unistd::Pid;
-use nix::{Error, Result};
+use nix::Result;
 use std::ptr;
 
 const RIP: u8 = 128;
@@ -52,7 +52,7 @@ pub fn current_instruction_pointer(pid: Pid) -> Result<c_long> {
         )
     };
     match Errno::result(ret) {
-        Ok(..) | Err(Error::Sys(Errno::UnknownErrno)) => Ok(ret),
+        Ok(..) | Err(Errno::UnknownErrno) => Ok(ret),
         err @ Err(..) => err,
     }
 }
