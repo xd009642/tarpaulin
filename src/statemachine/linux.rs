@@ -452,13 +452,13 @@ impl<'a> LinuxData<'a> {
                     Ok(bp) => {
                         let _ = breakpoints.insert(*addr + offset, bp);
                     }
-                    Err(e) if e == NixErr::Sys(Errno::EIO) => {
+                    Err(e) if e == Errno::EIO => {
                         return Err(RunError::TestRuntime(
                             "Tarpaulin cannot find code addresses check your linker settings."
                                 .to_string(),
                         ));
                     }
-                    Err(NixErr::UnsupportedOperation) => {
+                    Err(NixErr::UnknownErrno) => {
                         debug!("Instrumentation address clash, ignoring 0x{:x}", addr);
                         // Now to avoid weird false positives lets get rid of the other breakpoint
                         // at this address.
