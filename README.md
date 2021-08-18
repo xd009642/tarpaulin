@@ -444,11 +444,32 @@ jobs:
 ### Gitlab Pipelines
 
 To get the coverage results showing up in your Gitlab pipelines add the following regex to the `Test
-coverage parsing` section in the pipelines settings.
+coverage parsing` section in the CI/CD settings.
 
 ```yml
 ^\d+.\d+% coverage
 ```
+
+Or add the regex to the job definition in `.gitlab-ci.yml`:
+
+```yml
+job: ...
+  coverage: '/^\d+.\d+% coverage/'
+```
+
+Gitlab can [show coverage information] in the diff of a merge request. For that, use
+
+```yml
+job: ...
+  artifacts:
+    reports:
+      cobertura:
+        - cobertura.xml
+```
+
+and generate a `cobertura.xml` as described under [Pycobertura](#pycobertura).
+
+  [show coverage information]: https://docs.gitlab.com/ee/user/project/merge_requests/test_coverage_visualization.html
 
 For installation add `cargo install cargo-tarpaulin -f` to the script section.
 
