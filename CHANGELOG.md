@@ -3,6 +3,25 @@
 From 2019 onwards, all notable changes to tarpaulin will be documented in this
 file.
 
+## [Unreleased]
+### Added
+
+### Changed
+
+### Removed
+
+## [0.18.1] 2021-09-03
+### Added
+
+### Changed
+- `--verbose` now calls cargo with `-v` flag
+- Now handles string values for rustflags in .cargo/config not just a list of values
+- [INTERNAL] If llvm coverage is enabled and test binary can't be loaded start with empty `TraceMap`
+- Config parse errors are logged
+- Setting the processor affinity now uses an existing core from the initial affinity mask instead of defaulting to the first one (see issue #817)
+
+### Removed
+
 ## [0.18.0] 2021-06-28
 ### Added
 

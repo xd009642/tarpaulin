@@ -98,6 +98,15 @@ impl TestBinary {
     pub fn should_panic(&self) -> bool {
         self.should_panic
     }
+
+    /// Convenience function to get the file name of the binary as a string, default string if the
+    /// path has no filename as this should _never_ happen
+    pub fn file_name(&self) -> String {
+        self.path
+            .file_name()
+            .map(|x| x.to_string_lossy().to_string())
+            .unwrap_or_default()
+    }
 }
 
 impl DocTestBinaryMeta {
@@ -458,6 +467,8 @@ fn create_command(manifest_path: &str, config: &Config, ty: Option<RunType>) -> 
 fn init_args(test_cmd: &mut Command, config: &Config) {
     if config.debug {
         test_cmd.arg("-vvv");
+    } else if config.verbose {
+        test_cmd.arg("-v");
     }
     if config.locked {
         test_cmd.arg("--locked");
@@ -547,12 +558,10 @@ fn clean_doctest_folder<P: AsRef<Path>>(doctest_dir: P) {
 }
 
 fn handle_llvm_flags(value: &mut String, config: &Config) {
-    if (config.engine == TraceEngine::Auto || config.engine == TraceEngine::Llvm)
-        && supports_llvm_coverage()
-    {
+    if config.engine() == TraceEngine::Llvm {
         value.push_str("-Z instrument-coverage ");
-    } else if config.engine == TraceEngine::Llvm {
-        error!("unable to utilise llvm coverage, due to compiler support. Falling back to Ptrace");
+    } else {
+        value.push_str(" -C link-dead-code ");
     }
 }
 
@@ -577,15 +586,21 @@ fn look_for_rustflags_in_table(value: &Value) -> String {
     let table = value.as_table().unwrap();
 
     if let Some(rustflags) = table.get("rustflags") {
-        let vec_of_flags: Vec<String> = rustflags
-            .as_array()
-            .unwrap()
-            .into_iter()
-            .filter_map(|x| x.as_str())
-            .map(|x| x.to_string())
-            .collect();
+        if rustflags.is_array() {
+            let vec_of_flags: Vec<String> = rustflags
+                .as_array()
+                .unwrap()
+                .into_iter()
+                .filter_map(|x| x.as_str())
+                .map(|x| x.to_string())
+                .collect();
 
-        vec_of_flags.join(" ")
+            vec_of_flags.join(" ")
+        } else if rustflags.is_str() {
+            rustflags.as_str().unwrap().to_string()
+        } else {
+            String::new()
+        }
     } else {
         String::new()
     }
@@ -657,7 +672,7 @@ fn gather_config_rust_flags(config: &Config) -> String {
 pub fn rust_flags(config: &Config) -> String {
     const RUSTFLAGS: &str = "RUSTFLAGS";
     let mut value = config.rustflags.clone().unwrap_or_default();
-    value.push_str(" -C link-dead-code -C debuginfo=2 ");
+    value.push_str(" -C debuginfo=2 ");
     if !config.avoid_cfg_tarpaulin {
         value.push_str("--cfg=tarpaulin ");
     }
@@ -689,7 +704,7 @@ fn setup_environment(cmd: &mut Command, config: &Config) {
     cmd.env(rustdoc, value);
 }
 
-fn supports_llvm_coverage() -> bool {
+pub fn supports_llvm_coverage() -> bool {
     if let Some(version) = CARGO_VERSION_INFO.as_ref() {
         version.supports_llvm_cov()
     } else {
@@ -700,6 +715,28 @@ fn supports_llvm_coverage() -> bool {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use toml::toml;
+
+    #[test]
+    fn parse_rustflags_from_toml() {
+        let list_flags = toml! {
+            rustflags = ["--cfg=foo", "--cfg=bar"]
+        };
+
+        assert_eq!(
+            look_for_rustflags_in_table(&list_flags),
+            "--cfg=foo --cfg=bar"
+        );
+
+        let string_flags = toml! {
+            rustflags = "--cfg=bar --cfg=baz"
+        };
+
+        assert_eq!(
+            look_for_rustflags_in_table(&string_flags),
+            "--cfg=bar --cfg=baz"
+        );
+    }
 
     #[test]
     fn llvm_cov_compatible_version() {

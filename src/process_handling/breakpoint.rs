@@ -55,7 +55,7 @@ impl Breakpoint {
         let mut intdata = data & (!(0xFFu64 << self.shift) as i64);
         intdata |= (INT << self.shift) as i64;
         if data == intdata {
-            Err(Error::UnsupportedOperation)
+            Err(Error::UnknownErrno)
         } else {
             write_to_address(pid, self.aligned_address(), intdata)
         }
