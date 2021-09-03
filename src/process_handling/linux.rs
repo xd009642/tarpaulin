@@ -83,9 +83,19 @@ fn disable_aslr() -> nix::Result<i32> {
 }
 
 pub fn limit_affinity() -> nix::Result<()> {
-    let mut cpu_set = CpuSet::new();
-    cpu_set.set(0)?;
     let this = Pid::this();
+    // Get current affinity to be able to limit the cores to one of
+    // those already in the affinity mask.
+    let affinity = sched_getaffinity(this)?;
+    let mut selected_cpu = 0;
+    for i in 0..CpuSet::count() {
+        if affinity.is_set(i)? {
+            selected_cpu = i;
+            break;
+        }
+    }
+    let mut cpu_set = CpuSet::new();
+    cpu_set.set(selected_cpu)?;
     sched_setaffinity(this, &cpu_set)
 }
 
