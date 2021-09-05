@@ -79,12 +79,12 @@ fn test_threads_1() {
     config.manifest.push("Cargo.toml");
     config.varargs.push("--test-threads".to_string());
     config.varargs.push("1".to_string());
-    
+
     let (res, ret) = launch_tarpaulin(&config, &None).unwrap();
     assert_eq!(ret, 0);
     assert!(!res.is_empty());
     env::set_current_dir(restore_dir).unwrap();
-    
+
     let lib_file = test_dir.join("src/lib.rs");
     let lib_traces = res.get_child_traces(&lib_file);
     for l in &lib_traces {
