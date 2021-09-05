@@ -3,10 +3,11 @@
 From 2019 onwards, all notable changes to tarpaulin will be documented in this
 file.
 
-## [Unreleased]
+## [0.18.2] 2021-09-05
 ### Added
 
 ### Changed
+- Fix #819 incorrect handling of test args caused by removing the executable path as first program arg in execve
 
 ### Removed
 

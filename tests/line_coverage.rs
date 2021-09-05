@@ -67,3 +67,31 @@ fn debug_info_0() {
     assert!(!res.is_empty());
     env::set_current_dir(restore_dir).unwrap();
 }
+
+#[test]
+fn test_threads_1() {
+    let mut config = Config::default();
+    config.force_clean = false;
+    let restore_dir = env::current_dir().unwrap();
+    let test_dir = get_test_path("simple_project");
+    env::set_current_dir(&test_dir).unwrap();
+    config.manifest = test_dir.clone();
+    config.manifest.push("Cargo.toml");
+    config.varargs.push("--test-threads".to_string());
+    config.varargs.push("1".to_string());
+
+    let (res, ret) = launch_tarpaulin(&config, &None).unwrap();
+    assert_eq!(ret, 0);
+    assert!(!res.is_empty());
+    env::set_current_dir(restore_dir).unwrap();
+
+    let lib_file = test_dir.join("src/lib.rs");
+    let lib_traces = res.get_child_traces(&lib_file);
+    for l in &lib_traces {
+        if l.line == 6 {
+            assert_eq!(CoverageStat::Line(0), l.stats);
+        } else if l.line == 8 {
+            assert_eq!(CoverageStat::Line(1), l.stats);
+        }
+    }
+}
