@@ -7,6 +7,7 @@ file.
 ### Added
 
 ### Changed
+- Fix #819 incorrect handling of test args caused by removing the executable path as first program arg in execve
 
 ### Removed
 

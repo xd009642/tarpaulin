@@ -213,7 +213,10 @@ fn execute_test(test: &TestBinary, ignored: bool, config: &Config) -> Result<Tes
             Ok(hnd.into())
         }
         #[cfg(target_os = "linux")]
-        TraceEngine::Ptrace => execute(test.path(), &argv, envars.as_slice()),
+        TraceEngine::Ptrace => {
+            argv.insert(0, test.path().display().to_string());
+            execute(test.path(), &argv, envars.as_slice())
+        }
         e => Err(RunError::Engine(format!(
             "invalid execution engine {:?}",
             e
