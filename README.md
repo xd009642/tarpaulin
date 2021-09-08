@@ -159,6 +159,12 @@ installation and massively reducing the install time on CI.
 When using the [Nix](https://nixos.org/nix) package manager, the `nixpkgs.cargo-tarpaulin` package can be used.
 This ensures that tarpaulin will be built with the same rust version as the rest of your packages.
 
+You can also use [cargo-binstall](https://github.com/ryankurte/cargo-binstall):
+
+```text
+cargo binstall cargo-tarpaulin
+```
+
 ### Environment Variables
 
 When tarpaulin runs your tests it strives to run them in the same environment as if they were ran via cargo test. 
