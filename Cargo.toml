@@ -57,3 +57,8 @@ vendored-openssl = ["git2/vendored-openssl"]
 
 [build-dependencies]
 rustc_version = "0.4"
+
+[package.metadata.binstall]
+pkg-url = "{ repo }/releases/download/{ version }/cargo-tarpaulin-{ version }-travis.tar.gz"
+bin-dir = "cargo-tarpaulin"
+pkg-fmt = "tgz"
