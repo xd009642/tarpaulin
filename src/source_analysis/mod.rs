@@ -66,10 +66,29 @@ pub trait SourceAnalysisQuery {
     fn normalise(&self, path: &Path, l: usize) -> (PathBuf, usize);
 }
 
-#[derive(Copy, Clone, Debug)]
+#[derive(Copy, Clone, Debug, Eq, PartialEq, Ord, PartialOrd, Hash)]
 pub(crate) enum SubResult {
+    /// Expression should be a reachable one (or we don't care to check further)
     Ok,
+    /// Expression definitely reachable - reserved for early returns from functions to stop
+    /// unreachable expressions wiping them out
+    Definite,
+    /// Unreachable expression i.e. unreachable!()
     Unreachable,
+}
+
+impl SubResult {
+    pub fn is_reachable(&self) -> bool {
+        if *self == Self::Unreachable {
+            false
+        } else {
+            true
+        }
+    }
+
+    pub fn is_unreachable(&self) -> bool {
+        !self.is_reachable()
+    }
 }
 
 impl SourceAnalysisQuery for HashMap<PathBuf, LineAnalysis> {

@@ -6,18 +6,20 @@ impl SourceAnalysis {
         // in a list of statements, if any of them is unreachable, the whole list is
         // unreachable
         let mut unreachable = false;
+        let mut definite = false;
         for stmt in stmts.iter() {
             let res = match *stmt {
                 Stmt::Item(ref i) => self.process_items(&[i.clone()], ctx),
                 Stmt::Expr(ref i) | Stmt::Semi(ref i, _) => self.process_expr(&i, ctx),
                 Stmt::Local(ref i) => self.process_local(&i, ctx),
             };
-            if let SubResult::Unreachable = res {
-                unreachable = true;
+            unreachable |= res.is_unreachable();
+            if SubResult::Definite == res {
+                definite = true;
             }
         }
         // We must be in a block, the parent will handle marking the span as unreachable
-        if unreachable {
+        if unreachable && !definite {
             SubResult::Unreachable
         } else {
             SubResult::Ok

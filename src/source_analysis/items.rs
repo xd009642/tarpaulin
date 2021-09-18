@@ -33,7 +33,7 @@ impl SourceAnalysis {
                 Item::Trait(ref i) => self.visit_trait(&i, ctx),
                 Item::Impl(ref i) => self.visit_impl(&i, ctx),
                 Item::Macro(ref i) => {
-                    if let SubResult::Unreachable = self.visit_macro_call(&i.mac, ctx) {
+                    if self.visit_macro_call(&i.mac, ctx).is_unreachable() {
                         res = SubResult::Unreachable;
                     }
                 }
@@ -130,7 +130,10 @@ impl SourceAnalysis {
                 // We need to force cover!
                 analysis.cover_span(func.block.brace_token.span, Some(ctx.file_contents));
             }
-            if let SubResult::Unreachable = self.process_statements(&func.block.stmts, ctx) {
+            if self
+                .process_statements(&func.block.stmts, ctx)
+                .is_unreachable()
+            {
                 // if the whole body of the function is unreachable, that means the function itself
                 // cannot be called, so is unreachable as a whole
                 let analysis = self.get_line_analysis(ctx.file.to_path_buf());
@@ -201,7 +204,9 @@ impl SourceAnalysis {
                             analysis
                                 .cover_token_stream(i.into_token_stream(), Some(ctx.file_contents));
                         }
-                        if let SubResult::Unreachable = self.process_statements(&i.block.stmts, ctx)
+                        if self
+                            .process_statements(&i.block.stmts, ctx)
+                            .is_unreachable()
                         {
                             let analysis = self.get_line_analysis(ctx.file.to_path_buf());
                             // if the body of this method is unreachable, this means that the method

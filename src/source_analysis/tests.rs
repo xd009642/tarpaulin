@@ -1227,3 +1227,34 @@ fn unreachable_propagate() {
     assert!(lines.ignore.contains(&Lines::Line(6)));
     assert!(lines.ignore.contains(&Lines::Line(7)));
 }
+
+#[test]
+fn unreachable_include_returns() {
+    let config = Config::default();
+    let ctx = Context {
+        config: &config,
+        file_contents: "fn test_not_unreachable() -> Result<(), Box<dyn std::error::Error>> {
+            let x: u32 = foo();
+            if x > 5 {
+                bar();
+                return true;
+            }
+            std::fs::remove_dir(\"I don't exist and will definitely fail/so yeahhhh...\")?;
+            unreachable!();
+        }",
+        file: Path::new(""),
+        ignore_mods: RefCell::new(HashSet::new()),
+    };
+    let parser = parse_file(ctx.file_contents).unwrap();
+    let mut analysis = SourceAnalysis::new();
+    analysis.process_items(&parser.items, &ctx);
+    let lines = analysis.get_line_analysis(ctx.file.to_path_buf());
+    assert!(!lines.ignore.contains(&Lines::Line(1)));
+    assert!(!lines.ignore.contains(&Lines::Line(2)));
+    assert!(!lines.ignore.contains(&Lines::Line(3)));
+    assert!(!lines.ignore.contains(&Lines::Line(4)));
+    assert!(!lines.ignore.contains(&Lines::Line(5)));
+    assert!(!lines.ignore.contains(&Lines::Line(6)));
+    assert!(!lines.ignore.contains(&Lines::Line(7)));
+    assert!(lines.ignore.contains(&Lines::Line(8)));
+}
