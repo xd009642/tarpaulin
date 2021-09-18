@@ -1258,3 +1258,37 @@ fn unreachable_include_returns() {
     assert!(!lines.ignore.contains(&Lines::Line(7)));
     assert!(lines.ignore.contains(&Lines::Line(8)));
 }
+
+#[test]
+fn single_line_callables() {
+    let config = Config::default();
+    let ctx = Context {
+        config: &config,
+        file_contents: "struct A;
+        impl A {
+        fn foo() {}
+        fn bar(i: i32) {}
+        }
+
+        fn foo() {}
+        fn bar(i: i32) {}
+
+        fn blah() {
+             foo();
+             A::foo();
+             bar(2);
+             A::bar(2);
+        }
+        ",
+        file: Path::new(""),
+        ignore_mods: RefCell::new(HashSet::new()),
+    };
+    let parser = parse_file(ctx.file_contents).unwrap();
+    let mut analysis = SourceAnalysis::new();
+    analysis.process_items(&parser.items, &ctx);
+    let lines = analysis.get_line_analysis(ctx.file.to_path_buf());
+    assert!(!lines.ignore.contains(&Lines::Line(11)));
+    assert!(!lines.ignore.contains(&Lines::Line(12)));
+    assert!(!lines.ignore.contains(&Lines::Line(13)));
+    assert!(!lines.ignore.contains(&Lines::Line(14)));
+}

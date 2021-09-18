@@ -239,12 +239,14 @@ impl SourceAnalysis {
     fn visit_callable(&mut self, call: &ExprCall, ctx: &Context) -> SubResult {
         if self.check_attr_list(&call.attrs, ctx) {
             if !call.args.is_empty() {
-                let lines = get_coverable_args(&call.args);
-                let lines = get_line_range(call)
-                    .filter(|x| !lines.contains(&x))
-                    .collect::<Vec<_>>();
-                let analysis = self.get_line_analysis(ctx.file.to_path_buf());
-                analysis.add_to_ignore(&lines);
+                if call.span().start().line != call.span().end().line {
+                    let lines = get_coverable_args(&call.args);
+                    let lines = get_line_range(call)
+                        .filter(|x| !lines.contains(&x))
+                        .collect::<Vec<_>>();
+                    let analysis = self.get_line_analysis(ctx.file.to_path_buf());
+                    analysis.add_to_ignore(&lines);
+                }
             }
             self.process_expr(&call.func, ctx);
         } else {

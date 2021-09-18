@@ -8,6 +8,8 @@ file.
 
 ### Changed
 - Fix #819 incorrect handling of test args caused by removing the executable path as first program arg in execve
+- Now factor in try and return blocks in reachability calculation
+- Remove erroneous filtering of function calls that take a single line with arguments present
 
 ### Removed
 
