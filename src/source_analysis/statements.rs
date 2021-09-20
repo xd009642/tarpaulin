@@ -21,12 +21,15 @@ impl SourceAnalysis {
         // We must be in a block, the parent will handle marking the span as unreachable
         if unreachable && !definite {
             SubResult::Unreachable
+        } else if definite {
+            SubResult::Definite
         } else {
             SubResult::Ok
         }
     }
 
     fn process_local(&mut self, local: &Local, ctx: &Context) -> SubResult {
+        let mut result = SubResult::Ok;
         if let Some((eq, expr)) = &local.init {
             let check_cover = self.check_attr_list(&local.attrs, ctx);
             if check_cover {
@@ -52,14 +55,13 @@ impl SourceAnalysis {
                             .insert(expr.span().start().line, base_line);
                     }
                     std::mem::drop(analysis);
-                    self.process_expr(&expr, ctx);
+                    result += self.process_expr(&expr, ctx);
                 }
             } else {
                 let analysis = self.get_line_analysis(ctx.file.to_path_buf());
                 analysis.ignore_tokens(local);
             }
         }
-
-        SubResult::Ok
+        result
     }
 }

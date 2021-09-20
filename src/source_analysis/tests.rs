@@ -1257,6 +1257,101 @@ fn unreachable_include_returns() {
     assert!(!lines.ignore.contains(&Lines::Line(6)));
     assert!(!lines.ignore.contains(&Lines::Line(7)));
     assert!(lines.ignore.contains(&Lines::Line(8)));
+
+    let ctx = Context {
+        config: &config,
+        file_contents: "fn excluded_from_coverage(option: bool) -> bool {
+            if option {
+                return true;
+            }
+            if !option {
+                return false;
+            }
+            unreachable!();
+        }
+        ",
+        file: Path::new(""),
+        ignore_mods: RefCell::new(HashSet::new()),
+    };
+    let parser = parse_file(ctx.file_contents).unwrap();
+    let mut analysis = SourceAnalysis::new();
+    analysis.process_items(&parser.items, &ctx);
+    let lines = analysis.get_line_analysis(ctx.file.to_path_buf());
+    assert!(!lines.ignore.contains(&Lines::Line(1)));
+    assert!(!lines.ignore.contains(&Lines::Line(2)));
+    assert!(!lines.ignore.contains(&Lines::Line(3)));
+    assert!(!lines.ignore.contains(&Lines::Line(4)));
+    assert!(!lines.ignore.contains(&Lines::Line(5)));
+    assert!(!lines.ignore.contains(&Lines::Line(6)));
+    assert!(!lines.ignore.contains(&Lines::Line(7)));
+    assert!(lines.ignore.contains(&Lines::Line(8)));
+}
+
+#[test]
+fn unreachable_include_loops() {
+    let config = Config::default();
+    let ctx = Context {
+        config: &config,
+        file_contents: "fn test_not_unreachable() {
+            loop {
+                bar();
+            }
+            unreachable!();
+        }",
+        file: Path::new(""),
+        ignore_mods: RefCell::new(HashSet::new()),
+    };
+    let parser = parse_file(ctx.file_contents).unwrap();
+    let mut analysis = SourceAnalysis::new();
+    analysis.process_items(&parser.items, &ctx);
+    let lines = analysis.get_line_analysis(ctx.file.to_path_buf());
+    assert!(!lines.ignore.contains(&Lines::Line(1)));
+    assert!(!lines.ignore.contains(&Lines::Line(2)));
+    assert!(!lines.ignore.contains(&Lines::Line(3)));
+    assert!(!lines.ignore.contains(&Lines::Line(4)));
+    assert!(lines.ignore.contains(&Lines::Line(5)));
+
+    let ctx = Context {
+        config: &config,
+        file_contents: "fn test_not_unreachable() {
+            while true {
+                bar();
+            }
+            unreachable!();
+        }",
+        file: Path::new(""),
+        ignore_mods: RefCell::new(HashSet::new()),
+    };
+    let parser = parse_file(ctx.file_contents).unwrap();
+    let mut analysis = SourceAnalysis::new();
+    analysis.process_items(&parser.items, &ctx);
+    let lines = analysis.get_line_analysis(ctx.file.to_path_buf());
+    assert!(!lines.ignore.contains(&Lines::Line(1)));
+    assert!(!lines.ignore.contains(&Lines::Line(2)));
+    assert!(!lines.ignore.contains(&Lines::Line(3)));
+    assert!(!lines.ignore.contains(&Lines::Line(4)));
+    assert!(lines.ignore.contains(&Lines::Line(5)));
+
+    let ctx = Context {
+        config: &config,
+        file_contents: "fn test_not_unreachable() -> usize {
+            for i in &[1,2,3,4] {
+                return *i;
+            }
+            unreachable!();
+        }",
+        file: Path::new(""),
+        ignore_mods: RefCell::new(HashSet::new()),
+    };
+    let parser = parse_file(ctx.file_contents).unwrap();
+    let mut analysis = SourceAnalysis::new();
+    analysis.process_items(&parser.items, &ctx);
+    let lines = analysis.get_line_analysis(ctx.file.to_path_buf());
+    assert!(!lines.ignore.contains(&Lines::Line(1)));
+    assert!(!lines.ignore.contains(&Lines::Line(2)));
+    assert!(!lines.ignore.contains(&Lines::Line(3)));
+    assert!(!lines.ignore.contains(&Lines::Line(4)));
+    assert!(lines.ignore.contains(&Lines::Line(5)));
 }
 
 #[test]

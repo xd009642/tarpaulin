@@ -77,6 +77,29 @@ pub(crate) enum SubResult {
     Unreachable,
 }
 
+// Addition works for this by forcing anything + definite to definite, otherwise prioritising
+// unreachable.
+impl std::ops::AddAssign for SubResult {
+    fn add_assign(&mut self, other: Self) {
+        if *self == Self::Definite || other == Self::Definite {
+            *self = Self::Definite;
+        } else if *self == Self::Unreachable || other == Self::Unreachable {
+            *self = Self::Unreachable;
+        } else {
+            *self = Self::Ok;
+        }
+    }
+}
+
+impl std::ops::Add for SubResult {
+    type Output = Self;
+
+    fn add(mut self, rhs: Self) -> Self::Output {
+        self += rhs;
+        self
+    }
+}
+
 impl SubResult {
     pub fn is_reachable(&self) -> bool {
         if *self == Self::Unreachable {
