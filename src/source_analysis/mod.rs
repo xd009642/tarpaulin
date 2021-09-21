@@ -66,10 +66,52 @@ pub trait SourceAnalysisQuery {
     fn normalise(&self, path: &Path, l: usize) -> (PathBuf, usize);
 }
 
-#[derive(Copy, Clone, Debug)]
+#[derive(Copy, Clone, Debug, Eq, PartialEq, Ord, PartialOrd, Hash)]
 pub(crate) enum SubResult {
+    /// Expression should be a reachable one (or we don't care to check further)
     Ok,
+    /// Expression definitely reachable - reserved for early returns from functions to stop
+    /// unreachable expressions wiping them out
+    Definite,
+    /// Unreachable expression i.e. unreachable!()
     Unreachable,
+}
+
+// Addition works for this by forcing anything + definite to definite, otherwise prioritising
+// unreachable.
+impl std::ops::AddAssign for SubResult {
+    fn add_assign(&mut self, other: Self) {
+        if *self == Self::Definite || other == Self::Definite {
+            *self = Self::Definite;
+        } else if *self == Self::Unreachable || other == Self::Unreachable {
+            *self = Self::Unreachable;
+        } else {
+            *self = Self::Ok;
+        }
+    }
+}
+
+impl std::ops::Add for SubResult {
+    type Output = Self;
+
+    fn add(mut self, rhs: Self) -> Self::Output {
+        self += rhs;
+        self
+    }
+}
+
+impl SubResult {
+    pub fn is_reachable(&self) -> bool {
+        if *self == Self::Unreachable {
+            false
+        } else {
+            true
+        }
+    }
+
+    pub fn is_unreachable(&self) -> bool {
+        !self.is_reachable()
+    }
 }
 
 impl SourceAnalysisQuery for HashMap<PathBuf, LineAnalysis> {
