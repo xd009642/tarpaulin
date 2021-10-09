@@ -119,3 +119,20 @@ fn doc_test_compile_fail() {
 
     assert!(launch_tarpaulin(&config, &None).is_err());
 }
+
+#[test]
+fn doc_test_no_run() {
+    let mut config = Config::default();
+    config.verbose = true;
+    config.force_clean = false;
+    config.test_timeout = Duration::from_secs(60);
+    let test_dir = get_test_path("doctest_norun");
+    env::set_current_dir(&test_dir).unwrap();
+    config.manifest = test_dir;
+    config.manifest.push("Cargo.toml");
+
+    config.run_types = vec![RunType::Doctests];
+
+    let (_, ret) = launch_tarpaulin(&config, &None).unwrap();
+    assert_eq!(ret, 0);
+}
