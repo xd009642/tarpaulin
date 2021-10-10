@@ -46,19 +46,23 @@ jobs:
           && docker push xd009642/tarpaulin:latest-slim \
           && docker push xd009642/tarpaulin:latest-nightly \
           && docker push xd009642/tarpaulin:latest-nightly-slim
-      - name: fetch_tags
+      - uses: opryin/find-latest-tag@v1
+        id: tarpaulin
+        with:
+          repository: xd009642/tarpaulin
+          releases-only: true
+      - name: checkout_last_release
         uses: actions/checkout@v2
         with:
-          fetch-depth: 0
+          ref: ${{ steps.tarpaulin.outputs.tag }}
       - name: build_last_release
         run: | 
-          latest_tag=$(git describe --tags `git rev-list --tags --max-count=1`) \
-          git checkout $latest_tag \
-          && docker build -t xd009642/tarpaulin:$latest_tag . \
-          && docker build -t xd009642/tarpaulin:&latest_tag-slim -f Dockerfile-slim . \
-          && docker build -t xd009642/tarpaulin:&latest_tag-nightly -f Dockerfile-nightly . \
-          && docker build -t xd009642/tarpaulin:&latest_tag-nightly-slim -f Dockerfile-nightly-slim . \
-          && docker push xd009642/tarpaulin:$latest_tag \
-          && docker push xd009642/tarpaulin:$latest_tag-slim \
-          && docker push xd009642/tarpaulin:$latest_tag-nightly \
-          && docker push xd009642/tarpaulin:$latest_tag-nightly-slim
+          latest_tag=
+          && docker build -t xd009642/tarpaulin:${{ steps.tarpaulin.outputs.tag }} . \
+          && docker build -t xd009642/tarpaulin:${{ steps.tarpaulin.outputs.tag }}-slim -f Dockerfile-slim . \
+          && docker build -t xd009642/tarpaulin:${{ steps.tarpaulin.outputs.tag }}-nightly -f Dockerfile-nightly . \
+          && docker build -t xd009642/tarpaulin:${{ steps.tarpaulin.outputs.tag }}-nightly-slim -f Dockerfile-nightly-slim . \
+          && docker push xd009642/tarpaulin:${{ steps.tarpaulin.outputs.tag }} \
+          && docker push xd009642/tarpaulin:${{ steps.tarpaulin.outputs.tag }}-slim \
+          && docker push xd009642/tarpaulin:${{ steps.tarpaulin.outputs.tag }}-nightly \
+          && docker push xd009642/tarpaulin:${{ steps.tarpaulin.outputs.tag }}-nightly-slim
