@@ -6,6 +6,7 @@ file.
 ## [Unreleased]
 ### Added
 - Added support for doctest `no_run` attribute
+- Add support for source filter via inner attributes
 
 ### Changed
 
