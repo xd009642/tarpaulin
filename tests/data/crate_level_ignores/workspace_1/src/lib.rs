@@ -1,5 +1,6 @@
 
 pub mod foo;
+pub mod bar;
 
 fn print_hello() {
     println!("HellO");
