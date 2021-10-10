@@ -1,0 +1,57 @@
+name: docker
+on:
+  push:
+    branches:
+      - develop
+      - master
+      - main
+  # TODO delete once I know this works
+  pull_request:
+  schedule:
+    # Just to keep the nightly images fresh if there's a period of inactivity on tarpaulin
+    # run this on the 1st of every month
+    - cron: '0 0 1 * *'
+jobs:
+  build_images:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v2
+      - name: Login to DockerHub
+        users: docker/login-action@v1
+        with:
+          username: ${{ secrets.DOCKERHUB_USERNAME }}
+          password: ${{ secrets.DOCKERHUB_TOKEN }}
+      - name: build_develop
+        run: |
+          docker build -t xd009642/tarpaulin:develop . \
+          && docker build -t xd009642/tarpaulin:develop-slim -f Dockerfile-slim . \
+          && docker build -t xd009642/tarpaulin:develop-nightly -f Dockerfile-nightly . \
+          && docker build -t xd009642/tarpaulin:develop-nightly-slim -f Dockerfile-nightly-slim . \
+          && docker push xd009642/tarpaulin:develop \
+          && docker push xd009642/tarpaulin:develop-slim \
+          && docker push xd009642/tarpaulin:develop-nightly \
+          && docker push xd009642/tarpaulin:develop-nightly-slim
+        if: github.ref == 'refs/heads/develop'
+      - name: build_latest
+        run: |
+          git checkout master \
+          docker build -t xd009642/tarpaulin:latest . \
+          && docker build -t xd009642/tarpaulin:latest-slim -f Dockerfile-slim . \
+          && docker build -t xd009642/tarpaulin:latest-nightly -f Dockerfile-nightly . \
+          && docker build -t xd009642/tarpaulin:latest-nightly-slim -f Dockerfile-nightly-slim . \
+          && docker push xd009642/tarpaulin:latest \
+          && docker push xd009642/tarpaulin:latest-slim \
+          && docker push xd009642/tarpaulin:latest-nightly \
+          && docker push xd009642/tarpaulin:latest-nightly-slim
+      - name: build_last_release
+        run: | 
+          latest_tag=$(git describe --tags `git rev-list --tags --max-count=1`) \
+          git checkout $latest_tag \
+          && docker build -t xd009642/tarpaulin:$latest_tag . \
+          && docker build -t xd009642/tarpaulin:&latest_tag-slim -f Dockerfile-slim . \
+          && docker build -t xd009642/tarpaulin:&latest_tag-nightly -f Dockerfile-nightly . \
+          && docker build -t xd009642/tarpaulin:&latest_tag-nightly-slim -f Dockerfile-nightly-slim . \
+          && docker push xd009642/tarpaulin:$latest_tag \
+          && docker push xd009642/tarpaulin:$latest_tag-slim \
+          && docker push xd009642/tarpaulin:$latest_tag-nightly \
+          && docker push xd009642/tarpaulin:$latest_tag-nightly-slim
