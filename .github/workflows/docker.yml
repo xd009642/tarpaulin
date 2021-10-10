@@ -1,11 +1,12 @@
 name: docker
 on:
+  push:
+    branches:
+      - develop
   # TODO delete once I know this works
   pull_request:
   schedule:
-    # Just to keep the nightly images fresh if there's a period of inactivity on tarpaulin
-    # run this on the 1st of every month
-    - cron: '0 0 1 * *'
+    - cron: '0 0 * * 0'
 jobs:
   build_images:
     runs-on: ubuntu-latest
