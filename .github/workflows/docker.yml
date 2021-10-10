@@ -29,8 +29,8 @@ jobs:
           else 
             export NAME="${{ matrix.branch }}"
           fi \
-          docker build -t xd009642/tarpaulin:$NAME${{image}} -f Dockerfile${{ matrix.image}} . \
-          && docker push xd009642/tarpaulin:$NAME${{image}} \
+          docker build -t xd009642/tarpaulin:$NAME${{ matrix.image }} -f Dockerfile${{ matrix.image}} . \
+          && docker push xd009642/tarpaulin:$NAME${{ matrix.image }} \
       - uses: oprypin/find-latest-tag@v1
         id: tarpaulin
         with:
@@ -44,6 +44,6 @@ jobs:
         if: matrix.branch == 'master'
       - name: build_last_release
         run: | 
-          docker build -t xd009642/tarpaulin:${{ steps.tarpaulin.outputs.tag }}${{image}} -f Dockerfile${{ matrix.image}} . \
-          && docker push xd009642/tarpaulin:${{ steps.tarpaulin.outputs.tag }}${{image}} \
+          docker build -t xd009642/tarpaulin:${{ steps.tarpaulin.outputs.tag }}${{ matrix.image }} -f Dockerfile${{ matrix.image}} . \
+          && docker push xd009642/tarpaulin:${{ steps.tarpaulin.outputs.tag }}${{ matrix.image }} \
         if: matrix.branch == 'master'
