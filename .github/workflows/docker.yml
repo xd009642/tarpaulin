@@ -29,7 +29,7 @@ jobs:
           else 
             export NAME="${{ matrix.branch }}"
           fi \
-          docker build -t xd009642/tarpaulin:$NAME${{ matrix.image }} -f Dockerfile${{ matrix.image}} . \
+          && docker build -t xd009642/tarpaulin:$NAME${{ matrix.image }} -f Dockerfile${{ matrix.image}} . \
           && docker push xd009642/tarpaulin:$NAME${{ matrix.image }} \
       - uses: oprypin/find-latest-tag@v1
         id: tarpaulin
