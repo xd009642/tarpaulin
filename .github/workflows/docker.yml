@@ -57,7 +57,6 @@ jobs:
           ref: ${{ steps.tarpaulin.outputs.tag }}
       - name: build_last_release
         run: | 
-          latest_tag=
           && docker build -t xd009642/tarpaulin:${{ steps.tarpaulin.outputs.tag }} . \
           && docker build -t xd009642/tarpaulin:${{ steps.tarpaulin.outputs.tag }}-slim -f Dockerfile-slim . \
           && docker build -t xd009642/tarpaulin:${{ steps.tarpaulin.outputs.tag }}-nightly -f Dockerfile-nightly . \
