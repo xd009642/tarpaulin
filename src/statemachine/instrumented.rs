@@ -1,3 +1,4 @@
+#![allow(dead_code)]
 use crate::config::Config;
 use crate::errors::RunError;
 use crate::process_handling::RunningProcessHandle;

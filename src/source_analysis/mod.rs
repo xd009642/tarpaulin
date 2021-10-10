@@ -235,17 +235,16 @@ impl LineAnalysis {
     }
 }
 
+#[derive(Default)]
 pub struct SourceAnalysis {
     pub lines: HashMap<PathBuf, LineAnalysis>,
     pub branches: HashMap<PathBuf, BranchAnalysis>,
+    ignored_modules: Vec<PathBuf>,
 }
 
 impl SourceAnalysis {
     pub fn new() -> Self {
-        Self {
-            lines: HashMap::new(),
-            branches: HashMap::new(),
-        }
+        Default::default()
     }
 
     pub fn get_line_analysis(&mut self, path: PathBuf) -> &mut LineAnalysis {
@@ -256,6 +255,10 @@ impl SourceAnalysis {
         self.branches
             .entry(path)
             .or_insert_with(BranchAnalysis::new)
+    }
+
+    fn is_ignored_module(&self, path: &Path) -> bool {
+        self.ignored_modules.iter().any(|x| path.starts_with(&x))
     }
 
     pub fn get_analysis(config: &Config) -> Self {
@@ -296,7 +299,11 @@ impl SourceAnalysis {
             let skip_cause_test = config.ignore_tests && path.starts_with(root.join("tests"));
             let skip_cause_example = path.starts_with(root.join("examples"))
                 && !config.run_types.contains(&RunType::Examples);
-            if !(skip_cause_test || skip_cause_example) {
+            if self.is_ignored_module(path) {
+                let mut analysis = LineAnalysis::new();
+                analysis.ignore_all();
+                self.lines.insert(path.to_path_buf(), analysis);
+            } else if !(skip_cause_test || skip_cause_example) {
                 let file = File::open(file);
                 if let Ok(mut file) = file {
                     let mut content = String::new();
@@ -335,6 +342,34 @@ impl SourceAnalysis {
                             }
                             maybe_ignore_first_line(path, &mut self.lines);
                         } else {
+                            // Now we need to ignore not only this file but if it is a lib.rs or
+                            // mod.rs we need to get the others
+                            let bad_module = match (
+                                path.parent(),
+                                path.file_name().map(|x| x.to_string_lossy()),
+                            ) {
+                                (Some(p), Some(n)) => {
+                                    if n == "lib.rs" || n == "mod.rs" {
+                                        Some(p.to_path_buf())
+                                    } else {
+                                        let ignore = p.join(n.trim_end_matches(".rs"));
+                                        if ignore.exists() && ignore.is_dir() {
+                                            Some(ignore)
+                                        } else {
+                                            None
+                                        }
+                                    }
+                                }
+                                _ => None,
+                            };
+                            // Kill it with fire!`
+                            if let Some(module) = bad_module {
+                                self.lines
+                                    .iter_mut()
+                                    .filter(|(k, _)| k.starts_with(module.as_path()))
+                                    .for_each(|(_, v)| v.ignore_all());
+                                self.ignored_modules.push(module);
+                            }
                             let analysis = self.get_line_analysis(path.to_path_buf());
                             analysis.ignore_span(file.span());
                         }
