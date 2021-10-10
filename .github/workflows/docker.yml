@@ -46,7 +46,7 @@ jobs:
           && docker push xd009642/tarpaulin:latest-slim \
           && docker push xd009642/tarpaulin:latest-nightly \
           && docker push xd009642/tarpaulin:latest-nightly-slim
-      - uses: opryin/find-latest-tag@v1
+      - uses: oprypin/find-latest-tag@v1
         id: tarpaulin
         with:
           repository: xd009642/tarpaulin
