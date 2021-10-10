@@ -325,3 +325,8 @@ fn follow_exes_down() {
     config.force_clean = false;
     check_percentage_with_config("follow_exe", 1.0f64, true, config);
 }
+
+#[test]
+fn handle_module_level_exclude_attrs() {
+    check_percentage("crate_level_ignores", 1.0f64, true);
+}
