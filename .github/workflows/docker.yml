@@ -1,10 +1,5 @@
 name: docker
 on:
-  push:
-    branches:
-      - develop
-      - master
-      - main
   # TODO delete once I know this works
   pull_request:
   schedule:
@@ -14,54 +9,41 @@ on:
 jobs:
   build_images:
     runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        image: ['', '-slim', '-nightly', '-nightly-slim']
+        branch: ['master', 'develop']
     steps:
       - uses: actions/checkout@v2
+        with:
+          ref: ${{ matrix.branch }}
       - name: Login to DockerHub
         uses: docker/login-action@v1
         with:
           username: ${{ secrets.DOCKERHUB_USERNAME }}
           password: ${{ secrets.DOCKERHUB_TOKEN }}
-      - name: build_develop
+      - name: build_image
         run: |
-          docker build -t xd009642/tarpaulin:develop . \
-          && docker build -t xd009642/tarpaulin:develop-slim -f Dockerfile-slim . \
-          && docker build -t xd009642/tarpaulin:develop-nightly -f Dockerfile-nightly . \
-          && docker build -t xd009642/tarpaulin:develop-nightly-slim -f Dockerfile-nightly-slim . \
-          && docker push xd009642/tarpaulin:develop \
-          && docker push xd009642/tarpaulin:develop-slim \
-          && docker push xd009642/tarpaulin:develop-nightly \
-          && docker push xd009642/tarpaulin:develop-nightly-slim
-        if: github.ref == 'refs/heads/develop'
-      - name: checkout_master
-        uses: actions/checkout@v2
-        with:
-          ref: master
-      - name: build_master
-        run: |
-          docker build -t xd009642/tarpaulin:latest . \
-          && docker build -t xd009642/tarpaulin:latest-slim -f Dockerfile-slim . \
-          && docker build -t xd009642/tarpaulin:latest-nightly -f Dockerfile-nightly . \
-          && docker build -t xd009642/tarpaulin:latest-nightly-slim -f Dockerfile-nightly-slim . \
-          && docker push xd009642/tarpaulin:latest \
-          && docker push xd009642/tarpaulin:latest-slim \
-          && docker push xd009642/tarpaulin:latest-nightly \
-          && docker push xd009642/tarpaulin:latest-nightly-slim
+          if [[ "${{ matrix.branch }}" = "master" ]]; then 
+            export NAME="latest" 
+          else 
+            export NAME="${{ matrix.branch }}"
+          fi \
+          docker build -t xd009642/tarpaulin:$NAME${{image}} -f Dockerfile${{ matrix.image}} . \
+          && docker push xd009642/tarpaulin:$NAME${{image}} \
       - uses: oprypin/find-latest-tag@v1
         id: tarpaulin
         with:
           repository: xd009642/tarpaulin
           releases-only: true
+        if: matrix.branch == 'master'
       - name: checkout_last_release
         uses: actions/checkout@v2
         with:
           ref: ${{ steps.tarpaulin.outputs.tag }}
+        if: matrix.branch == 'master'
       - name: build_last_release
         run: | 
-          && docker build -t xd009642/tarpaulin:${{ steps.tarpaulin.outputs.tag }} . \
-          && docker build -t xd009642/tarpaulin:${{ steps.tarpaulin.outputs.tag }}-slim -f Dockerfile-slim . \
-          && docker build -t xd009642/tarpaulin:${{ steps.tarpaulin.outputs.tag }}-nightly -f Dockerfile-nightly . \
-          && docker build -t xd009642/tarpaulin:${{ steps.tarpaulin.outputs.tag }}-nightly-slim -f Dockerfile-nightly-slim . \
-          && docker push xd009642/tarpaulin:${{ steps.tarpaulin.outputs.tag }} \
-          && docker push xd009642/tarpaulin:${{ steps.tarpaulin.outputs.tag }}-slim \
-          && docker push xd009642/tarpaulin:${{ steps.tarpaulin.outputs.tag }}-nightly \
-          && docker push xd009642/tarpaulin:${{ steps.tarpaulin.outputs.tag }}-nightly-slim
+          docker build -t xd009642/tarpaulin:${{ steps.tarpaulin.outputs.tag }}${{image}} -f Dockerfile${{ matrix.image}} . \
+          && docker push xd009642/tarpaulin:${{ steps.tarpaulin.outputs.tag }}${{image}} \
+        if: matrix.branch == 'master'
