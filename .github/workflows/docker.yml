@@ -32,9 +32,12 @@ jobs:
           && docker push xd009642/tarpaulin:develop-nightly \
           && docker push xd009642/tarpaulin:develop-nightly-slim
         if: github.ref == 'refs/heads/develop'
-      - name: build_latest
+      - name: checkout_master
+        uses: actions/checkout@v2
+        with:
+          ref: master
+      - name: build_master
         run: |
-          git checkout master \
           docker build -t xd009642/tarpaulin:latest . \
           && docker build -t xd009642/tarpaulin:latest-slim -f Dockerfile-slim . \
           && docker build -t xd009642/tarpaulin:latest-nightly -f Dockerfile-nightly . \
@@ -43,6 +46,10 @@ jobs:
           && docker push xd009642/tarpaulin:latest-slim \
           && docker push xd009642/tarpaulin:latest-nightly \
           && docker push xd009642/tarpaulin:latest-nightly-slim
+      - name: fetch_tags
+        uses: actions/checkout@v2
+        with:
+          fetch-depth: 0
       - name: build_last_release
         run: | 
           latest_tag=$(git describe --tags `git rev-list --tags --max-count=1`) \
