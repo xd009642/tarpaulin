@@ -9,6 +9,7 @@ file.
 - Add support for source filter via inner attributes
 
 ### Changed
+- [INTERNAL] Made link-dead-code apply for non-windows llvm instrumentation builds
 
 ### Removed
 
