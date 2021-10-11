@@ -198,40 +198,14 @@ impl SourceAnalysis {
         if check_cover {
             for item in &impl_blk.items {
                 if let ImplItem::Method(ref i) = *item {
-                    if self.check_attr_list(&i.attrs, ctx) {
-                        {
-                            let analysis = self.get_line_analysis(ctx.file.to_path_buf());
-                            analysis
-                                .cover_token_stream(i.into_token_stream(), Some(ctx.file_contents));
-                        }
-                        if self
-                            .process_statements(&i.block.stmts, ctx)
-                            .is_unreachable()
-                        {
-                            let analysis = self.get_line_analysis(ctx.file.to_path_buf());
-                            // if the body of this method is unreachable, this means that the method
-                            // cannot be called, and is unreachable
-                            analysis.ignore_tokens(i);
-                            return;
-                        }
-
-                        self.visit_generics(&i.sig.generics, ctx);
-                        let analysis = self.get_line_analysis(ctx.file.to_path_buf());
-                        analysis.ignore.remove(&Lines::Line(i.span().start().line));
-
-                        // Ignore multiple lines of fn decl
-                        let decl_start = i.sig.fn_token.span().start().line + 1;
-                        let stmts_start = i.block.span().start().line;
-                        let lines = (decl_start..(stmts_start + 1)).collect::<Vec<_>>();
-                        analysis.add_to_ignore(&lines);
-                    } else {
-                        let analysis = self.get_line_analysis(ctx.file.to_path_buf());
-                        analysis.ignore_tokens(item);
-                    }
-                    let analysis = self.get_line_analysis(ctx.file.to_path_buf());
-                    for a in &i.attrs {
-                        analysis.ignore_tokens(a);
-                    }
+                    let item = i.clone();
+                    let item_fn = ItemFn {
+                        attrs: item.attrs,
+                        vis: item.vis,
+                        sig: item.sig,
+                        block: Box::new(item.block),
+                    };
+                    self.visit_fn(&item_fn, ctx);
                 }
             }
             self.visit_generics(&impl_blk.generics, ctx);
