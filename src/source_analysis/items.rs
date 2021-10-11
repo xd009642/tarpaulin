@@ -1,5 +1,4 @@
 use crate::source_analysis::prelude::*;
-use quote::ToTokens;
 use std::path::PathBuf;
 use syn::{spanned::Spanned, *};
 
@@ -158,23 +157,19 @@ impl SourceAnalysis {
             for item in &trait_item.items {
                 if let TraitItem::Method(ref i) = *item {
                     if self.check_attr_list(&i.attrs, ctx) {
-                        if let Some(ref block) = i.default {
+                        let item = i.clone();
+                        if let Some(block) = item.default {
+                            let item_fn = ItemFn {
+                                attrs: item.attrs,
+                                // Trait functions inherit visibility from the trait
+                                vis: trait_item.vis.clone(),
+                                sig: item.sig,
+                                block: Box::new(block)
+                            };
+                            self.visit_fn(&item_fn, ctx);
+                        } else {
                             let analysis = self.get_line_analysis(ctx.file.to_path_buf());
-                            analysis.cover_token_stream(
-                                item.into_token_stream(),
-                                Some(ctx.file_contents),
-                            );
-                            self.visit_generics(&i.sig.generics, ctx);
-                            let analysis = self.get_line_analysis(ctx.file.to_path_buf());
-                            analysis
-                                .ignore
-                                .remove(&Lines::Line(i.sig.span().start().line));
-
-                            // Ignore multiple lines of fn decl
-                            let decl_start = i.sig.fn_token.span().start().line + 1;
-                            let stmts_start = block.span().start().line;
-                            let lines = (decl_start..(stmts_start + 1)).collect::<Vec<_>>();
-                            analysis.add_to_ignore(&lines);
+                            analysis.ignore_tokens(i);      
                         }
                     } else {
                         let analysis = self.get_line_analysis(ctx.file.to_path_buf());
