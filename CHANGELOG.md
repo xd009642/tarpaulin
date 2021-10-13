@@ -10,6 +10,7 @@ file.
 
 ### Changed
 - [INTERNAL] Made link-dead-code apply for non-windows llvm instrumentation builds
+- Consolidate fn/impl-fn/trait-fn source analysis to use same implementation for consistency
 
 ### Removed
 
