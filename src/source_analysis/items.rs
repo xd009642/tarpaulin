@@ -16,7 +16,7 @@ impl SourceAnalysis {
                     analysis.ignore_tokens(i);
                 }
                 Item::Mod(ref i) => self.visit_mod(&i, ctx),
-                Item::Fn(ref i) => self.visit_fn(&i, ctx),
+                Item::Fn(ref i) => self.visit_fn(&i, ctx, false),
                 Item::Struct(ref i) => {
                     let analysis = self.get_line_analysis(ctx.file.to_path_buf());
                     analysis.ignore_tokens(i);
@@ -94,11 +94,12 @@ impl SourceAnalysis {
         }
     }
 
-    fn visit_fn(&mut self, func: &ItemFn, ctx: &Context) {
+    fn visit_fn(&mut self, func: &ItemFn, ctx: &Context, force_cover: bool) {
         let mut test_func = false;
         let mut ignored_attr = false;
         let mut is_inline = false;
         let mut ignore_span = false;
+        let is_generic = !func.sig.generics.params.is_empty();
         for attr in &func.attrs {
             if let Ok(x) = attr.parse_meta() {
                 let id = x.path();
@@ -124,7 +125,7 @@ impl SourceAnalysis {
             let analysis = self.get_line_analysis(ctx.file.to_path_buf());
             analysis.ignore_tokens(func);
         } else {
-            if is_inline {
+            if is_inline || is_generic || force_cover {
                 let analysis = self.get_line_analysis(ctx.file.to_path_buf());
                 // We need to force cover!
                 analysis.cover_span(func.block.brace_token.span, Some(ctx.file_contents));
@@ -164,12 +165,13 @@ impl SourceAnalysis {
                                 // Trait functions inherit visibility from the trait
                                 vis: trait_item.vis.clone(),
                                 sig: item.sig,
-                                block: Box::new(block)
+                                block: Box::new(block),
                             };
-                            self.visit_fn(&item_fn, ctx);
+                            // We visit the function and force cover it
+                            self.visit_fn(&item_fn, ctx, true);
                         } else {
                             let analysis = self.get_line_analysis(ctx.file.to_path_buf());
-                            analysis.ignore_tokens(i);      
+                            analysis.ignore_tokens(i);
                         }
                     } else {
                         let analysis = self.get_line_analysis(ctx.file.to_path_buf());
@@ -200,7 +202,11 @@ impl SourceAnalysis {
                         sig: item.sig,
                         block: Box::new(item.block),
                     };
-                    self.visit_fn(&item_fn, ctx);
+
+                    // If the impl is on a generic, we need to force cover
+                    let force_cover = !impl_blk.generics.params.is_empty();
+
+                    self.visit_fn(&item_fn, ctx, force_cover);
                 }
             }
             self.visit_generics(&impl_blk.generics, ctx);
