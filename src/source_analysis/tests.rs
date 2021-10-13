@@ -602,6 +602,68 @@ fn filter_unsafe() {
 }
 
 #[test]
+fn cover_generic_impl_methods() {
+    let config = Config::default();
+    let ctx = Context {
+        config: &config,
+        file_contents: "struct GenericStruct<T>(T);
+        impl<T> GenericStruct<T> {
+            fn hw(&self) {
+                println!(\"hello world\");
+            }
+        }",
+        file: Path::new(""),
+        ignore_mods: RefCell::new(HashSet::new()),
+    };
+    let parser = parse_file(ctx.file_contents).unwrap();
+    let mut analysis = SourceAnalysis::new();
+    analysis.process_items(&parser.items, &ctx);
+    let lines = analysis.get_line_analysis(ctx.file.to_path_buf());
+    assert!(lines.cover.contains(&3));
+    assert!(lines.cover.contains(&4));
+
+    let ctx = Context {
+        config: &config,
+        file_contents: "struct GenericStruct<T>{v:Vec<T>}
+        impl<T> Default for GenericStruct<T> {
+            fn default() -> Self {
+                T {
+                    v: vec![],
+                }
+            }
+        }",
+        file: Path::new(""),
+        ignore_mods: RefCell::new(HashSet::new()),
+    };
+    let parser = parse_file(ctx.file_contents).unwrap();
+    let mut analysis = SourceAnalysis::new();
+    analysis.process_items(&parser.items, &ctx);
+    let lines = analysis.get_line_analysis(ctx.file.to_path_buf());
+    assert!(lines.cover.contains(&5));
+}
+
+#[test]
+fn cover_default_trait_methods() {
+    let config = Config::default();
+    let ctx = Context {
+        config: &config,
+        file_contents: "trait Thing {
+            fn hw(&self) {
+                println!(\"hello world\");
+                }
+            }",
+        file: Path::new(""),
+        ignore_mods: RefCell::new(HashSet::new()),
+    };
+    let parser = parse_file(ctx.file_contents).unwrap();
+    let mut analysis = SourceAnalysis::new();
+    analysis.process_items(&parser.items, &ctx);
+    let lines = analysis.get_line_analysis(ctx.file.to_path_buf());
+    assert!(lines.cover.contains(&2));
+    assert!(lines.cover.contains(&3));
+}
+
+#[test]
 fn filter_method_args() {
     let config = Config::default();
     let ctx = Context {
