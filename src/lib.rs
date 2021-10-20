@@ -20,8 +20,8 @@ pub mod event_log;
 mod path_utils;
 mod process_handling;
 pub mod report;
-mod source_analysis;
-mod statemachine;
+pub mod source_analysis;
+pub mod statemachine;
 pub mod test_loader;
 pub mod traces;
 
