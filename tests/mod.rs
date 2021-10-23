@@ -333,6 +333,12 @@ fn handle_module_level_exclude_attrs() {
 }
 
 #[test]
+fn handle_forks() {
+    // Some false negatives on more recent compilers so lets just aim for >90% and 0 return code
+    check_percentage("fork-test", 0.9f64, true);
+}
+
+#[test]
 fn dot_rs_in_dir_name() {
     // issue #857
     let mut config = Config::default();
