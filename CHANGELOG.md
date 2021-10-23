@@ -12,7 +12,7 @@ file.
 - [INTERNAL] Made link-dead-code apply for non-windows llvm instrumentation builds
 - Consolidate fn/impl-fn/trait-fn source analysis to use same implementation for consistency
 - Add check to make sure a `DirEntry` with a .rs extension is actually a file and not a directory fixes #857
-- Make `path_utils` a public module
+- Make `path_utils`, `source_analysis` and `statemachine` public modules
 
 ### Removed
 
