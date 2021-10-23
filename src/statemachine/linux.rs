@@ -570,7 +570,21 @@ impl<'a> LinuxData<'a> {
                     }
                 },
                 PTRACE_EVENT_FORK | PTRACE_EVENT_VFORK => {
-                    trace!("Caught fork event. Child {:?}", get_event_data(child));
+                    if let Ok(fork_child) = get_event_data(child) {
+                        trace!("Caught fork event. Child {}", fork_child);
+                        let parent = if let Some(process) = self.get_traced_process_mut(child) {
+                            // Counting a fork as a new thread ?
+                            process.thread_count += 1;
+                            Some(process.parent)
+                        } else {
+                            None
+                        };
+                        if let Some(parent) = parent {
+                            self.pid_map.insert(Pid::from_raw(fork_child as _), parent);
+                        }
+                    } else {
+                        trace!("No event data for child");
+                    }
                     Ok((
                         TestState::wait_state(),
                         TracerAction::Continue(child.into()),

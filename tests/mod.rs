@@ -333,6 +333,11 @@ fn handle_module_level_exclude_attrs() {
 }
 
 #[test]
+fn handle_forks() {
+    check_percentage("fork-test", 1.0f64, true);
+}
+
+#[test]
 fn dot_rs_in_dir_name() {
     // issue #857
     let mut config = Config::default();
