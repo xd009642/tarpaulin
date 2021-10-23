@@ -1,6 +1,7 @@
 use crate::utils::get_test_path;
 use cargo_tarpaulin::config::{Config, ConfigWrapper, Mode, RunType};
 use cargo_tarpaulin::launch_tarpaulin;
+use cargo_tarpaulin::path_utils::*;
 use cargo_tarpaulin::traces::TraceMap;
 use clap::App;
 use std::env;
@@ -329,4 +330,26 @@ fn follow_exes_down() {
 #[test]
 fn handle_module_level_exclude_attrs() {
     check_percentage("crate_level_ignores", 1.0f64, true);
+}
+
+#[test]
+fn dot_rs_in_dir_name() {
+    // issue #857
+    let mut config = Config::default();
+    config.force_clean = false;
+
+    let restore_dir = env::current_dir().unwrap();
+    let test_dir = get_test_path("not_a_file.rs");
+    env::set_current_dir(&test_dir).unwrap();
+    config.manifest = test_dir;
+    config.manifest.push("Cargo.toml");
+
+    let (res, _ret) = launch_tarpaulin(&config, &None).unwrap();
+    env::set_current_dir(&restore_dir).unwrap();
+
+    assert_eq!(res.files().len(), 1);
+
+    for dir in get_source_walker(&config) {
+        assert!(dir.path().is_file());
+    }
 }

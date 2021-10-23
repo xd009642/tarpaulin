@@ -17,7 +17,7 @@ pub mod cargo;
 pub mod config;
 pub mod errors;
 pub mod event_log;
-mod path_utils;
+pub mod path_utils;
 mod process_handling;
 pub mod report;
 pub mod source_analysis;
