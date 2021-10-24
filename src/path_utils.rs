@@ -7,7 +7,7 @@ use walkdir::{DirEntry, WalkDir};
 /// Returns true if the file is a rust source file
 pub fn is_source_file(entry: &DirEntry) -> bool {
     let p = entry.path();
-    p.extension() == Some(OsStr::new("rs"))
+    p.is_file() && p.extension() == Some(OsStr::new("rs"))
 }
 
 /// Returns true if the folder is a target folder

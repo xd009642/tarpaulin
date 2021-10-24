@@ -27,7 +27,7 @@ Below is the help-text for a thorough explanation of the flags and features
 available:
 
 ```
-cargo-tarpaulin version: 0.18.2
+cargo-tarpaulin version: 0.18.3
 Tool to analyse test coverage of cargo projects
 
 USAGE:
@@ -159,6 +159,12 @@ installation and massively reducing the install time on CI.
 When using the [Nix](https://nixos.org/nix) package manager, the `nixpkgs.cargo-tarpaulin` package can be used.
 This ensures that tarpaulin will be built with the same rust version as the rest of your packages.
 
+You can also use [cargo-binstall](https://github.com/ryankurte/cargo-binstall):
+
+```text
+cargo binstall cargo-tarpaulin
+```
+
 ### Environment Variables
 
 When tarpaulin runs your tests it strives to run them in the same environment as if they were ran via cargo test. 
@@ -260,7 +266,11 @@ my crate [keygraph-rs](https://github.com/xd009642/keygraph-rs).
 
 Before tarpaulin 0.13.4 you could ignore code in blocks with
 `#[cfg_attr(tarpaulin, skip)]` this has changed with 0.13.4 and onwards
-and the new instructions are described below.
+and the new instructions are described below. If you get compiler errors
+mentioning unknown attribute skip use the `--avoid-cfg-tarpaulin` flag, this
+affects a small number of users as it wasn't a largely adopted feature so also
+look to updating your code or seeing if any of your dependencies are out of
+date.
 
 Tarpaulin allows you to ignore modules or functions using attributes.
 Below is an example of ignoring the main function in a project:
@@ -419,7 +429,7 @@ jobs:
           cargo +nightly tarpaulin --verbose --all-features --workspace --timeout 120 --out Xml
 
       - name:                   Upload to codecov.io
-        uses:                   codecov/codecov-action@v1
+        uses:                   codecov/codecov-action@v2
         with:
           # token:                ${{secrets.CODECOV_TOKEN}} # not required for public repos
           fail_ci_if_error:     true

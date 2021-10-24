@@ -290,9 +290,24 @@ fn run_cargo(
             .filter_map(|e| e.ok())
             .filter(|e| matches!(e.metadata(), Ok(ref m) if m.is_file() && m.len() != 0))
             .collect::<Vec<_>>();
-        let should_panics = get_panic_candidates(&dir_entries, config);
+        let should_panics = get_attribute_candidates(&dir_entries, config, "should_panic");
+        let no_runs = get_attribute_candidates(&dir_entries, config, "no_run");
         for dt in &dir_entries {
             let mut tb = TestBinary::new(dt.path().to_path_buf(), ty);
+
+            if let Some(meta) = DocTestBinaryMeta::new(dt.path()) {
+                if no_runs
+                    .get(&meta.prefix)
+                    .map(|x| x.contains(&meta.line))
+                    .unwrap_or(false)
+                {
+                    info!("Skipping no_run doctest: {}", dt.path().display());
+                    continue;
+                }
+                if let Some(lines) = should_panics.get(&meta.prefix) {
+                    tb.should_panic |= lines.contains(&meta.line);
+                }
+            }
             let mut current_dir = dt.path();
             loop {
                 if current_dir.is_dir() && current_dir.join("Cargo.toml").exists() {
@@ -304,12 +319,6 @@ fn run_cargo(
                         current_dir = s;
                     }
                     None => break,
-                }
-            }
-            // Now to do my magic!
-            if let Some(meta) = DocTestBinaryMeta::new(dt.path()) {
-                if let Some(lines) = should_panics.get(&meta.prefix) {
-                    tb.should_panic |= lines.contains(&meta.line);
                 }
             }
             result.push(tb);
@@ -356,10 +365,14 @@ fn is_prefix_match(prefix: &str, entry: &Path) -> bool {
 ///
 /// Currently all doctest files take the pattern of `{name}_{line}_{number}` where name is the
 /// path to the file with directory separators and dots replaced with underscores. Therefore
-/// each name could potentially map to many files as `src_some_folder_foo_rs_0_1` could go to
+/// each name could potentially map to many files as `src_some_folder_foo_rs_1_1` could go to
 /// `src/some/folder_foo.rs` or `src/some/folder/foo.rs` here we're going to work on a heuristic
 /// that any matching file is good because we can't do any better
-fn get_panic_candidates(tests: &[DirEntry], config: &Config) -> HashMap<String, Vec<usize>> {
+fn get_attribute_candidates(
+    tests: &[DirEntry],
+    config: &Config,
+    attribute: &str,
+) -> HashMap<String, Vec<usize>> {
     let mut result = HashMap::new();
     let mut checked_files = HashSet::new();
     let root = config.root();
@@ -372,7 +385,7 @@ fn get_panic_candidates(tests: &[DirEntry], config: &Config) -> HashMap<String, 
                         if is_prefix_match(&test_binary.prefix, &p) && !checked_files.contains(path)
                         {
                             checked_files.insert(path.to_path_buf());
-                            let lines = find_panics_in_file(path).unwrap_or_default();
+                            let lines = find_str_in_file(path, attribute).unwrap_or_default();
                             if !result.contains_key(&test_binary.prefix) {
                                 result.insert(test_binary.prefix.clone(), lines);
                             } else if let Some(current_lines) = result.get_mut(&test_binary.prefix)
@@ -393,17 +406,13 @@ fn get_panic_candidates(tests: &[DirEntry], config: &Config) -> HashMap<String, 
     result
 }
 
-fn find_panics_in_file(file: &Path) -> io::Result<Vec<usize>> {
+fn find_str_in_file(file: &Path, value: &str) -> io::Result<Vec<usize>> {
     let f = File::open(file)?;
     let reader = BufReader::new(f);
     let lines = reader
         .lines()
         .enumerate()
-        .filter(|(_, l)| {
-            l.as_ref()
-                .map(|x| x.contains("should_panic"))
-                .unwrap_or(false)
-        })
+        .filter(|(_, l)| l.as_ref().map(|x| x.contains(value)).unwrap_or(false))
         .map(|(i, _)| i + 1) // Move from line index to line number
         .collect();
     Ok(lines)
@@ -560,7 +569,8 @@ fn clean_doctest_folder<P: AsRef<Path>>(doctest_dir: P) {
 fn handle_llvm_flags(value: &mut String, config: &Config) {
     if config.engine() == TraceEngine::Llvm {
         value.push_str("-Z instrument-coverage ");
-    } else {
+    }
+    if cfg!(not(windows)) {
         value.push_str(" -C link-dead-code ");
     }
 }

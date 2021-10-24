@@ -1,5 +1,4 @@
 use crate::source_analysis::prelude::*;
-use quote::ToTokens;
 use std::path::PathBuf;
 use syn::{spanned::Spanned, *};
 
@@ -17,7 +16,7 @@ impl SourceAnalysis {
                     analysis.ignore_tokens(i);
                 }
                 Item::Mod(ref i) => self.visit_mod(&i, ctx),
-                Item::Fn(ref i) => self.visit_fn(&i, ctx),
+                Item::Fn(ref i) => self.visit_fn(&i, ctx, false),
                 Item::Struct(ref i) => {
                     let analysis = self.get_line_analysis(ctx.file.to_path_buf());
                     analysis.ignore_tokens(i);
@@ -33,7 +32,7 @@ impl SourceAnalysis {
                 Item::Trait(ref i) => self.visit_trait(&i, ctx),
                 Item::Impl(ref i) => self.visit_impl(&i, ctx),
                 Item::Macro(ref i) => {
-                    if let SubResult::Unreachable = self.visit_macro_call(&i.mac, ctx) {
+                    if self.visit_macro_call(&i.mac, ctx).is_unreachable() {
                         res = SubResult::Unreachable;
                     }
                 }
@@ -95,11 +94,12 @@ impl SourceAnalysis {
         }
     }
 
-    fn visit_fn(&mut self, func: &ItemFn, ctx: &Context) {
+    fn visit_fn(&mut self, func: &ItemFn, ctx: &Context, force_cover: bool) {
         let mut test_func = false;
         let mut ignored_attr = false;
         let mut is_inline = false;
         let mut ignore_span = false;
+        let is_generic = !func.sig.generics.params.is_empty();
         for attr in &func.attrs {
             if let Ok(x) = attr.parse_meta() {
                 let id = x.path();
@@ -125,12 +125,15 @@ impl SourceAnalysis {
             let analysis = self.get_line_analysis(ctx.file.to_path_buf());
             analysis.ignore_tokens(func);
         } else {
-            if is_inline {
+            if is_inline || is_generic || force_cover {
                 let analysis = self.get_line_analysis(ctx.file.to_path_buf());
                 // We need to force cover!
                 analysis.cover_span(func.block.brace_token.span, Some(ctx.file_contents));
             }
-            if let SubResult::Unreachable = self.process_statements(&func.block.stmts, ctx) {
+            if self
+                .process_statements(&func.block.stmts, ctx)
+                .is_unreachable()
+            {
                 // if the whole body of the function is unreachable, that means the function itself
                 // cannot be called, so is unreachable as a whole
                 let analysis = self.get_line_analysis(ctx.file.to_path_buf());
@@ -155,23 +158,20 @@ impl SourceAnalysis {
             for item in &trait_item.items {
                 if let TraitItem::Method(ref i) = *item {
                     if self.check_attr_list(&i.attrs, ctx) {
-                        if let Some(ref block) = i.default {
+                        let item = i.clone();
+                        if let Some(block) = item.default {
+                            let item_fn = ItemFn {
+                                attrs: item.attrs,
+                                // Trait functions inherit visibility from the trait
+                                vis: trait_item.vis.clone(),
+                                sig: item.sig,
+                                block: Box::new(block),
+                            };
+                            // We visit the function and force cover it
+                            self.visit_fn(&item_fn, ctx, true);
+                        } else {
                             let analysis = self.get_line_analysis(ctx.file.to_path_buf());
-                            analysis.cover_token_stream(
-                                item.into_token_stream(),
-                                Some(ctx.file_contents),
-                            );
-                            self.visit_generics(&i.sig.generics, ctx);
-                            let analysis = self.get_line_analysis(ctx.file.to_path_buf());
-                            analysis
-                                .ignore
-                                .remove(&Lines::Line(i.sig.span().start().line));
-
-                            // Ignore multiple lines of fn decl
-                            let decl_start = i.sig.fn_token.span().start().line + 1;
-                            let stmts_start = block.span().start().line;
-                            let lines = (decl_start..(stmts_start + 1)).collect::<Vec<_>>();
-                            analysis.add_to_ignore(&lines);
+                            analysis.ignore_tokens(i);
                         }
                     } else {
                         let analysis = self.get_line_analysis(ctx.file.to_path_buf());
@@ -195,38 +195,18 @@ impl SourceAnalysis {
         if check_cover {
             for item in &impl_blk.items {
                 if let ImplItem::Method(ref i) = *item {
-                    if self.check_attr_list(&i.attrs, ctx) {
-                        {
-                            let analysis = self.get_line_analysis(ctx.file.to_path_buf());
-                            analysis
-                                .cover_token_stream(i.into_token_stream(), Some(ctx.file_contents));
-                        }
-                        if let SubResult::Unreachable = self.process_statements(&i.block.stmts, ctx)
-                        {
-                            let analysis = self.get_line_analysis(ctx.file.to_path_buf());
-                            // if the body of this method is unreachable, this means that the method
-                            // cannot be called, and is unreachable
-                            analysis.ignore_tokens(i);
-                            return;
-                        }
+                    let item = i.clone();
+                    let item_fn = ItemFn {
+                        attrs: item.attrs,
+                        vis: item.vis,
+                        sig: item.sig,
+                        block: Box::new(item.block),
+                    };
 
-                        self.visit_generics(&i.sig.generics, ctx);
-                        let analysis = self.get_line_analysis(ctx.file.to_path_buf());
-                        analysis.ignore.remove(&Lines::Line(i.span().start().line));
+                    // If the impl is on a generic, we need to force cover
+                    let force_cover = !impl_blk.generics.params.is_empty();
 
-                        // Ignore multiple lines of fn decl
-                        let decl_start = i.sig.fn_token.span().start().line + 1;
-                        let stmts_start = i.block.span().start().line;
-                        let lines = (decl_start..(stmts_start + 1)).collect::<Vec<_>>();
-                        analysis.add_to_ignore(&lines);
-                    } else {
-                        let analysis = self.get_line_analysis(ctx.file.to_path_buf());
-                        analysis.ignore_tokens(item);
-                    }
-                    let analysis = self.get_line_analysis(ctx.file.to_path_buf());
-                    for a in &i.attrs {
-                        analysis.ignore_tokens(a);
-                    }
+                    self.visit_fn(&item_fn, ctx, force_cover);
                 }
             }
             self.visit_generics(&impl_blk.generics, ctx);

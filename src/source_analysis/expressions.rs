@@ -27,12 +27,18 @@ impl SourceAnalysis {
             Expr::Group(ref g) => self.process_expr(&g.expr, ctx),
             Expr::Await(ref a) => self.process_expr(&a.base, ctx),
             Expr::Async(ref a) => self.visit_block(&a.block, ctx),
-            Expr::Try(ref t) => self.process_expr(&t.expr, ctx),
-            Expr::TryBlock(ref t) => self.visit_block(&t.block, ctx),
+            Expr::Try(ref t) => {
+                self.process_expr(&t.expr, ctx);
+                SubResult::Definite
+            }
+            Expr::TryBlock(ref t) => {
+                self.visit_block(&t.block, ctx);
+                SubResult::Definite
+            }
             // don't try to compute unreachability on other things
             _ => SubResult::Ok,
         };
-        if let SubResult::Unreachable = res {
+        if res.is_unreachable() {
             let analysis = self.get_line_analysis(ctx.file.to_path_buf());
             analysis.ignore_tokens(expr);
         }
@@ -42,6 +48,7 @@ impl SourceAnalysis {
     fn visit_let(&mut self, let_expr: &ExprLet, ctx: &Context) -> SubResult {
         let check_cover = self.check_attr_list(&let_expr.attrs, ctx);
         let analysis = self.get_line_analysis(ctx.file.to_path_buf());
+        let mut res = SubResult::Ok;
         if check_cover {
             for a in &let_expr.attrs {
                 analysis.ignore_tokens(a);
@@ -63,12 +70,12 @@ impl SourceAnalysis {
                         .logical_lines
                         .insert(let_expr.expr.span().start().line, base_line);
                 }
-                self.process_expr(&let_expr.expr, ctx);
+                res += self.process_expr(&let_expr.expr, ctx);
             }
         } else {
             analysis.ignore_tokens(let_expr);
         }
-        SubResult::Ok
+        res
     }
 
     fn visit_path(&mut self, path: &ExprPath, ctx: &Context) -> SubResult {
@@ -96,7 +103,7 @@ impl SourceAnalysis {
         } else {
             analysis.ignore_tokens(ret);
         }
-        SubResult::Ok
+        SubResult::Definite
     }
 
     fn visit_expr_block(&mut self, block: &ExprBlock, ctx: &Context) -> SubResult {
@@ -110,135 +117,137 @@ impl SourceAnalysis {
     }
 
     fn visit_block(&mut self, block: &Block, ctx: &Context) -> SubResult {
-        if let SubResult::Unreachable = self.process_statements(&block.stmts, ctx) {
+        let reachable = self.process_statements(&block.stmts, ctx);
+        if reachable.is_unreachable() {
             let analysis = self.get_line_analysis(ctx.file.to_path_buf());
             analysis.ignore_tokens(block);
-            SubResult::Unreachable
-        } else {
-            SubResult::Ok
         }
+        reachable
     }
 
     fn visit_closure(&mut self, closure: &ExprClosure, ctx: &Context) -> SubResult {
-        self.process_expr(&closure.body, ctx);
+        let res = self.process_expr(&closure.body, ctx);
         // Even if a closure is "unreachable" it might be part of a chained method
         // call and I don't want that propagating up.
-        SubResult::Ok
+        if res.is_unreachable() {
+            SubResult::Ok
+        } else {
+            res
+        }
     }
 
     fn visit_match(&mut self, mat: &ExprMatch, ctx: &Context) -> SubResult {
         // a match with some arms is unreachable iff all its arms are unreachable
-        let mut reachable_arm = false;
+        let mut result = None;
         for arm in &mat.arms {
             if self.check_attr_list(&arm.attrs, ctx) {
-                if let SubResult::Ok = self.process_expr(&arm.body, ctx) {
+                let reachable = self.process_expr(&arm.body, ctx);
+                if reachable.is_reachable() {
                     let analysis = self.get_line_analysis(ctx.file.to_path_buf());
                     let span = arm.pat.span();
                     for line in span.start().line..span.end().line {
                         analysis.logical_lines.insert(line + 1, span.start().line);
                     }
-                    reachable_arm = true
+                    result = result.map(|x| x + reachable).or_else(|| Some(reachable));
                 }
             } else {
                 let analysis = self.get_line_analysis(ctx.file.to_path_buf());
                 analysis.ignore_tokens(arm);
             }
         }
-        if !reachable_arm {
+        if let Some(result) = result {
+            result
+        } else {
             let analysis = self.get_line_analysis(ctx.file.to_path_buf());
             analysis.ignore_tokens(mat);
             SubResult::Unreachable
-        } else {
-            SubResult::Ok
         }
     }
 
     fn visit_if(&mut self, if_block: &ExprIf, ctx: &Context) -> SubResult {
         // an if expression is unreachable iff both its branches are unreachable
-        let mut reachable_arm = false;
 
-        self.process_expr(&if_block.cond, ctx);
-
-        if let SubResult::Ok = self.visit_block(&if_block.then_branch, ctx) {
-            reachable_arm = true;
-        }
+        let mut reachable = self.process_expr(&if_block.cond, ctx);
+        reachable += self.visit_block(&if_block.then_branch, ctx);
         if let Some((_, ref else_block)) = if_block.else_branch {
-            if let SubResult::Ok = self.process_expr(&else_block, ctx) {
-                reachable_arm = true;
-            }
+            reachable += self.process_expr(&else_block, ctx);
         } else {
             // an empty else branch is reachable
-            reachable_arm = true;
+            reachable += SubResult::Ok;
         }
-        if !reachable_arm {
+        if reachable.is_unreachable() {
             let analysis = self.get_line_analysis(ctx.file.to_path_buf());
             analysis.ignore_tokens(if_block);
             SubResult::Unreachable
         } else {
-            SubResult::Ok
+            reachable
         }
     }
 
     fn visit_while(&mut self, whl: &ExprWhile, ctx: &Context) -> SubResult {
         if self.check_attr_list(&whl.attrs, ctx) {
             // a while block is unreachable iff its body is
-            if let SubResult::Unreachable = self.visit_block(&whl.body, ctx) {
+            if self.visit_block(&whl.body, ctx).is_unreachable() {
                 let analysis = self.get_line_analysis(ctx.file.to_path_buf());
                 analysis.ignore_tokens(whl);
                 SubResult::Unreachable
             } else {
-                SubResult::Ok
+                SubResult::Definite
             }
         } else {
             let analysis = self.get_line_analysis(ctx.file.to_path_buf());
             analysis.ignore_tokens(whl);
-            SubResult::Ok
+            SubResult::Definite
         }
     }
 
     fn visit_for(&mut self, for_loop: &ExprForLoop, ctx: &Context) -> SubResult {
         if self.check_attr_list(&for_loop.attrs, ctx) {
             // a for block is unreachable iff its body is
-            if let SubResult::Unreachable = self.visit_block(&for_loop.body, ctx) {
+            if self.visit_block(&for_loop.body, ctx).is_unreachable() {
                 let analysis = self.get_line_analysis(ctx.file.to_path_buf());
                 analysis.ignore_tokens(for_loop);
                 SubResult::Unreachable
             } else {
-                SubResult::Ok
+                SubResult::Definite
             }
         } else {
             let analysis = self.get_line_analysis(ctx.file.to_path_buf());
             analysis.ignore_tokens(for_loop);
-            SubResult::Ok
+            SubResult::Definite
         }
     }
 
     fn visit_loop(&mut self, loopex: &ExprLoop, ctx: &Context) -> SubResult {
         if self.check_attr_list(&loopex.attrs, ctx) {
             // a loop block is unreachable iff its body is
-            if let SubResult::Unreachable = self.visit_block(&loopex.body, ctx) {
+            // given we can't reason if a loop terminates we should make it as definite as
+            // it may last forever
+            if self.visit_block(&loopex.body, ctx).is_unreachable() {
                 let analysis = self.get_line_analysis(ctx.file.to_path_buf());
                 analysis.ignore_tokens(loopex);
                 SubResult::Unreachable
             } else {
-                SubResult::Ok
+                SubResult::Definite
             }
         } else {
             let analysis = self.get_line_analysis(ctx.file.to_path_buf());
             analysis.ignore_tokens(loopex);
-            SubResult::Ok
+            SubResult::Definite
         }
     }
 
     fn visit_callable(&mut self, call: &ExprCall, ctx: &Context) -> SubResult {
         if self.check_attr_list(&call.attrs, ctx) {
             if !call.args.is_empty() {
-                let lines = get_coverable_args(&call.args);
-                let lines = get_line_range(call)
-                    .filter(|x| !lines.contains(&x))
-                    .collect::<Vec<_>>();
-                let analysis = self.get_line_analysis(ctx.file.to_path_buf());
-                analysis.add_to_ignore(&lines);
+                if call.span().start().line != call.span().end().line {
+                    let lines = get_coverable_args(&call.args);
+                    let lines = get_line_range(call)
+                        .filter(|x| !lines.contains(&x))
+                        .collect::<Vec<_>>();
+                    let analysis = self.get_line_analysis(ctx.file.to_path_buf());
+                    analysis.add_to_ignore(&lines);
+                }
             }
             self.process_expr(&call.func, ctx);
         } else {
@@ -270,7 +279,7 @@ impl SourceAnalysis {
 
     fn visit_unsafe_block(&mut self, unsafe_expr: &ExprUnsafe, ctx: &Context) -> SubResult {
         let u_line = unsafe_expr.unsafe_token.span().start().line;
-
+        let mut res = SubResult::Ok;
         let blk = &unsafe_expr.block;
         if u_line != blk.brace_token.span.start().line || blk.stmts.is_empty() {
             let analysis = self.get_line_analysis(ctx.file.to_path_buf());
@@ -286,17 +295,19 @@ impl SourceAnalysis {
                 let analysis = self.get_line_analysis(ctx.file.to_path_buf());
                 analysis.ignore_tokens(unsafe_expr.unsafe_token);
             }
-            if let SubResult::Unreachable = self.process_statements(&blk.stmts, ctx) {
+            let reachable = self.process_statements(&blk.stmts, ctx);
+            if reachable.is_unreachable() {
                 let analysis = self.get_line_analysis(ctx.file.to_path_buf());
                 analysis.ignore_tokens(unsafe_expr);
                 return SubResult::Unreachable;
             }
+            res += reachable;
         } else {
             let analysis = self.get_line_analysis(ctx.file.to_path_buf());
             analysis.ignore_tokens(unsafe_expr.unsafe_token);
             analysis.ignore_span(blk.brace_token.span);
         }
-        SubResult::Ok
+        res
     }
 
     fn visit_struct_expr(&mut self, structure: &ExprStruct, ctx: &Context) -> SubResult {

@@ -3,11 +3,27 @@
 From 2019 onwards, all notable changes to tarpaulin will be documented in this
 file.
 
+## [Unreleased]
+### Added
+- Added support for doctest `no_run` attribute
+- Add support for source filter via inner attributes
+
+### Changed
+- [INTERNAL] Made link-dead-code apply for non-windows llvm instrumentation builds
+- Consolidate fn/impl-fn/trait-fn source analysis to use same implementation for consistency
+- Add check to make sure a `DirEntry` with a .rs extension is actually a file and not a directory fixes #857
+- Make `path_utils`, `source_analysis` and `statemachine` public modules
+- Add fork child to PID map to fix #790
+
+### Removed
+
 ## [0.18.2] 2021-09-05
 ### Added
 
 ### Changed
 - Fix #819 incorrect handling of test args caused by removing the executable path as first program arg in execve
+- Now factor in try and return blocks in reachability calculation
+- Remove erroneous filtering of function calls that take a single line with arguments present
 
 ### Removed
 
