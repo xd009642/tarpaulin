@@ -27,7 +27,7 @@ Below is the help-text for a thorough explanation of the flags and features
 available:
 
 ```
-cargo-tarpaulin version: 0.18.2
+cargo-tarpaulin version: 0.18.3
 Tool to analyse test coverage of cargo projects
 
 USAGE:
@@ -266,7 +266,11 @@ my crate [keygraph-rs](https://github.com/xd009642/keygraph-rs).
 
 Before tarpaulin 0.13.4 you could ignore code in blocks with
 `#[cfg_attr(tarpaulin, skip)]` this has changed with 0.13.4 and onwards
-and the new instructions are described below.
+and the new instructions are described below. If you get compiler errors
+mentioning unknown attribute skip use the `--avoid-cfg-tarpaulin` flag, this
+affects a small number of users as it wasn't a largely adopted feature so also
+look to updating your code or seeing if any of your dependencies are out of
+date.
 
 Tarpaulin allows you to ignore modules or functions using attributes.
 Below is an example of ignoring the main function in a project:
