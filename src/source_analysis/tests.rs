@@ -809,6 +809,11 @@ fn tarpaulin_skip_attr() {
         fn uncovered2() {
             println!(\"oof\");
         }
+
+        #[no_coverage]
+        fn uncovered3() {
+            println!(\"zombie lincoln\");
+        }
         ",
         file: Path::new(""),
         ignore_mods: RefCell::new(HashSet::new()),
@@ -825,6 +830,8 @@ fn tarpaulin_skip_attr() {
     assert!(lines.ignore.contains(&Lines::Line(13)));
     assert!(lines.ignore.contains(&Lines::Line(17)));
     assert!(lines.ignore.contains(&Lines::Line(18)));
+    assert!(lines.ignore.contains(&Lines::Line(22)));
+    assert!(lines.ignore.contains(&Lines::Line(23)));
 
     let ctx = Context {
         config: &config,
