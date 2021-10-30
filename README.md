@@ -280,6 +280,12 @@ Below is an example of ignoring the main function in a project:
 fn main() {
     println!("I won't be included in results");
 }
+
+// Also supports the rustc `no_coverage` attribute.
+#[no_coverage]
+fn not_included() {
+
+}
 ```
 
 However, the skip attribute only allows you to exclude code from coverage

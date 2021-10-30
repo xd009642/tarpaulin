@@ -5,6 +5,7 @@ file.
 
 ## [Unreleased]
 ### Added
+- Support for `#[no_coverage]` to exclude expressions from coverage results
 
 ### Changed
 
