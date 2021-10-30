@@ -105,7 +105,7 @@ impl From<&ExprMatch> for Branches {
         let ranges = expr
             .arms
             .iter()
-            .map(|x| LineRange::from(x))
+            .map(LineRange::from)
             .collect::<Vec<_>>();
         Self {
             implicit_default: false,
@@ -189,16 +189,7 @@ mod tests {
         if let Item::Fn(func) = func {
             for stmt in &func.block.stmts {
                 match stmt {
-                    Stmt::Expr(e) => {
-                        if let Expr::If(i) = e {
-                            branches = Some(Branches::from(i));
-                        }
-                    }
-                    Stmt::Semi(e, _) => {
-                        if let Expr::If(i) = e {
-                            branches = Some(Branches::from(i));
-                        }
-                    }
+                    Stmt::Semi(Expr::If(i), _) | Stmt::Expr(Expr::If(i)) => branches = Some(Branches::from(i)),
                     _ => {}
                 }
             }
@@ -221,16 +212,7 @@ mod tests {
         if let Item::Fn(func) = func {
             for stmt in &func.block.stmts {
                 match stmt {
-                    Stmt::Expr(e) => {
-                        if let Expr::If(i) = e {
-                            branches = Some(Branches::from(i));
-                        }
-                    }
-                    Stmt::Semi(e, _) => {
-                        if let Expr::If(i) = e {
-                            branches = Some(Branches::from(i));
-                        }
-                    }
+                    Stmt::Semi(Expr::If(i), _) | Stmt::Expr(Expr::If(i)) => branches = Some(Branches::from(i)),
                     _ => {}
                 }
             }
@@ -261,16 +243,7 @@ mod tests {
         if let Item::Fn(func) = func {
             for stmt in &func.block.stmts {
                 match stmt {
-                    Stmt::Expr(e) => {
-                        if let Expr::Match(m) = e {
-                            branches = Some(Branches::from(m));
-                        }
-                    }
-                    Stmt::Semi(e, _) => {
-                        if let Expr::Match(m) = e {
-                            branches = Some(Branches::from(m));
-                        }
-                    }
+                    Stmt::Semi(Expr::Match(m), _) | Stmt::Expr(Expr::Match(m)) => branches = Some(Branches::from(m)),
                     _ => {}
                 }
             }
@@ -296,16 +269,7 @@ mod tests {
         if let Item::Fn(func) = func {
             for stmt in &func.block.stmts {
                 match stmt {
-                    Stmt::Expr(e) => {
-                        if let Expr::ForLoop(f) = e {
-                            branches = Some(Branches::from(f));
-                        }
-                    }
-                    Stmt::Semi(e, _) => {
-                        if let Expr::ForLoop(f) = e {
-                            branches = Some(Branches::from(f));
-                        }
-                    }
+                    Stmt::Semi(Expr::ForLoop(f), _) | Stmt::Expr(Expr::ForLoop(f)) => branches = Some(Branches::from(f)),
                     _ => {}
                 }
             }
@@ -330,16 +294,7 @@ mod tests {
         if let Item::Fn(func) = func {
             for stmt in &func.block.stmts {
                 match stmt {
-                    Stmt::Expr(e) => {
-                        if let Expr::While(w) = e {
-                            branches = Some(Branches::from(w));
-                        }
-                    }
-                    Stmt::Semi(e, _) => {
-                        if let Expr::While(w) = e {
-                            branches = Some(Branches::from(w));
-                        }
-                    }
+                    Stmt::Semi(Expr::While(w), _) | Stmt::Expr(Expr::While(w)) => branches = Some(Branches::from(w)),
                     _ => {}
                 }
             }

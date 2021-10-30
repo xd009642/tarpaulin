@@ -8,30 +8,30 @@ impl SourceAnalysis {
             let branches = self.get_branch_analysis(ctx.file.to_path_buf());
             branches.register_expr(expr);
         }
-        let res = match *expr {
-            Expr::Macro(ref m) => self.visit_macro_call(&m.mac, ctx),
-            Expr::Struct(ref s) => self.visit_struct_expr(&s, ctx),
-            Expr::Unsafe(ref u) => self.visit_unsafe_block(&u, ctx),
-            Expr::Call(ref c) => self.visit_callable(&c, ctx),
-            Expr::MethodCall(ref m) => self.visit_methodcall(&m, ctx),
-            Expr::Match(ref m) => self.visit_match(&m, ctx),
-            Expr::Block(ref b) => self.visit_expr_block(&b, ctx),
-            Expr::If(ref i) => self.visit_if(&i, ctx),
-            Expr::While(ref w) => self.visit_while(&w, ctx),
-            Expr::ForLoop(ref f) => self.visit_for(&f, ctx),
-            Expr::Loop(ref l) => self.visit_loop(&l, ctx),
-            Expr::Return(ref r) => self.visit_return(&r, ctx),
-            Expr::Closure(ref c) => self.visit_closure(&c, ctx),
-            Expr::Path(ref p) => self.visit_path(&p, ctx),
-            Expr::Let(ref l) => self.visit_let(&l, ctx),
-            Expr::Group(ref g) => self.process_expr(&g.expr, ctx),
-            Expr::Await(ref a) => self.process_expr(&a.base, ctx),
-            Expr::Async(ref a) => self.visit_block(&a.block, ctx),
-            Expr::Try(ref t) => {
+        let res = match expr {
+            Expr::Macro(m) => self.visit_macro_call(&m.mac, ctx),
+            Expr::Struct(s) => self.visit_struct_expr(s, ctx),
+            Expr::Unsafe(u) => self.visit_unsafe_block(u, ctx),
+            Expr::Call(c) => self.visit_callable(c, ctx),
+            Expr::MethodCall(m) => self.visit_methodcall(m, ctx),
+            Expr::Match(m) => self.visit_match(m, ctx),
+            Expr::Block(b) => self.visit_expr_block(b, ctx),
+            Expr::If(i) => self.visit_if(i, ctx),
+            Expr::While(w) => self.visit_while(w, ctx),
+            Expr::ForLoop(f) => self.visit_for(f, ctx),
+            Expr::Loop(l) => self.visit_loop(l, ctx),
+            Expr::Return(r) => self.visit_return(r, ctx),
+            Expr::Closure(c) => self.visit_closure(c, ctx),
+            Expr::Path(p) => self.visit_path(p, ctx),
+            Expr::Let(l) => self.visit_let(l, ctx),
+            Expr::Group(g) => self.process_expr(&g.expr, ctx),
+            Expr::Await(a) => self.process_expr(&a.base, ctx),
+            Expr::Async(a) => self.visit_block(&a.block, ctx),
+            Expr::Try(t) => {
                 self.process_expr(&t.expr, ctx);
                 SubResult::Definite
             }
-            Expr::TryBlock(ref t) => {
+            Expr::TryBlock(t) => {
                 self.visit_block(&t.block, ctx);
                 SubResult::Definite
             }
@@ -148,7 +148,7 @@ impl SourceAnalysis {
                     for line in span.start().line..span.end().line {
                         analysis.logical_lines.insert(line + 1, span.start().line);
                     }
-                    result = result.map(|x| x + reachable).or_else(|| Some(reachable));
+                    result = result.map(|x| x + reachable).or(Some(reachable));
                 }
             } else {
                 let analysis = self.get_line_analysis(ctx.file.to_path_buf());
@@ -170,7 +170,7 @@ impl SourceAnalysis {
         let mut reachable = self.process_expr(&if_block.cond, ctx);
         reachable += self.visit_block(&if_block.then_branch, ctx);
         if let Some((_, ref else_block)) = if_block.else_branch {
-            reachable += self.process_expr(&else_block, ctx);
+            reachable += self.process_expr(else_block, ctx);
         } else {
             // an empty else branch is reachable
             reachable += SubResult::Ok;
@@ -239,15 +239,13 @@ impl SourceAnalysis {
 
     fn visit_callable(&mut self, call: &ExprCall, ctx: &Context) -> SubResult {
         if self.check_attr_list(&call.attrs, ctx) {
-            if !call.args.is_empty() {
-                if call.span().start().line != call.span().end().line {
-                    let lines = get_coverable_args(&call.args);
-                    let lines = get_line_range(call)
-                        .filter(|x| !lines.contains(&x))
-                        .collect::<Vec<_>>();
-                    let analysis = self.get_line_analysis(ctx.file.to_path_buf());
-                    analysis.add_to_ignore(&lines);
-                }
+            if !call.args.is_empty() && call.span().start().line != call.span().end().line {
+                let lines = get_coverable_args(&call.args);
+                let lines = get_line_range(call)
+                    .filter(|x| !lines.contains(x))
+                    .collect::<Vec<_>>();
+                let analysis = self.get_line_analysis(ctx.file.to_path_buf());
+                analysis.add_to_ignore(&lines);
             }
             self.process_expr(&call.func, ctx);
         } else {
@@ -265,7 +263,7 @@ impl SourceAnalysis {
             let range = get_line_range(meth);
             let lines = get_coverable_args(&meth.args);
             let lines = (start..range.end)
-                .filter(|x| !lines.contains(&x))
+                .filter(|x| !lines.contains(x))
                 .collect::<Vec<_>>();
             let analysis = self.get_line_analysis(ctx.file.to_path_buf());
             analysis.add_to_ignore(&lines);
@@ -284,12 +282,12 @@ impl SourceAnalysis {
         if u_line != blk.brace_token.span.start().line || blk.stmts.is_empty() {
             let analysis = self.get_line_analysis(ctx.file.to_path_buf());
             analysis.ignore_tokens(unsafe_expr.unsafe_token);
-        } else if let Some(ref first_stmt) = blk.stmts.get(0) {
-            let s = match **first_stmt {
-                Stmt::Local(ref l) => l.span(),
-                Stmt::Item(ref i) => i.span(),
-                Stmt::Expr(ref e) => e.span(),
-                Stmt::Semi(ref e, _) => e.span(),
+        } else if let Some(first_stmt) = blk.stmts.get(0) {
+            let s = match first_stmt {
+                Stmt::Local(l) => l.span(),
+                Stmt::Item(i) => i.span(),
+                Stmt::Expr(e) => e.span(),
+                Stmt::Semi(e, _) => e.span(),
             };
             if u_line != s.start().line {
                 let analysis = self.get_line_analysis(ctx.file.to_path_buf());
@@ -329,7 +327,7 @@ impl SourceAnalysis {
             }
         }
         let x = get_line_range(structure)
-            .filter(|x| !cover.contains(&x))
+            .filter(|x| !cover.contains(x))
             .collect::<Vec<usize>>();
         let analysis = self.get_line_analysis(ctx.file.to_path_buf());
         analysis.add_to_ignore(&x);

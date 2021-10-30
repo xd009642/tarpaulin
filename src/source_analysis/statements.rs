@@ -8,10 +8,10 @@ impl SourceAnalysis {
         let mut unreachable = false;
         let mut definite = false;
         for stmt in stmts.iter() {
-            let res = match *stmt {
-                Stmt::Item(ref i) => self.process_items(&[i.clone()], ctx),
-                Stmt::Expr(ref i) | Stmt::Semi(ref i, _) => self.process_expr(&i, ctx),
-                Stmt::Local(ref i) => self.process_local(&i, ctx),
+            let res = match stmt {
+                Stmt::Item(i) => self.process_items(&[i.clone()], ctx),
+                Stmt::Expr(i) | Stmt::Semi(i, _) => self.process_expr(i, ctx),
+                Stmt::Local(i) => self.process_local(i, ctx),
             };
             unreachable |= res.is_unreachable();
             if SubResult::Definite == res {
@@ -31,9 +31,11 @@ impl SourceAnalysis {
     fn process_local(&mut self, local: &Local, ctx: &Context) -> SubResult {
         let mut result = SubResult::Ok;
         if let Some((eq, expr)) = &local.init {
+            // Process if the local wasn't ignored with an attribute
             let check_cover = self.check_attr_list(&local.attrs, ctx);
+            let analysis = self.get_line_analysis(ctx.file.to_path_buf());
+            
             if check_cover {
-                let analysis = self.get_line_analysis(ctx.file.to_path_buf());
                 for a in &local.attrs {
                     analysis.ignore_tokens(a);
                 }
@@ -54,11 +56,9 @@ impl SourceAnalysis {
                             .logical_lines
                             .insert(expr.span().start().line, base_line);
                     }
-                    std::mem::drop(analysis);
-                    result += self.process_expr(&expr, ctx);
+                    result += self.process_expr(expr, ctx);
                 }
             } else {
-                let analysis = self.get_line_analysis(ctx.file.to_path_buf());
                 analysis.ignore_tokens(local);
             }
         }

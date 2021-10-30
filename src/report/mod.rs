@@ -98,7 +98,7 @@ fn generate_requested_reports(config: &Config, result: &TraceMap) -> Result<(), 
 
 fn print_missing_lines(config: &Config, result: &TraceMap) {
     println!("|| Uncovered Lines:");
-    for (ref key, ref value) in result.iter() {
+    for (key, value) in result.iter() {
         let path = config.strip_base_dir(key);
         let mut uncovered_lines = vec![];
         for v in value.iter() {
@@ -109,7 +109,7 @@ fn print_missing_lines(config: &Config, result: &TraceMap) {
                 _ => (),
             }
         }
-        uncovered_lines.sort();
+        uncovered_lines.sort_unstable();
         let (groups, last_group) = uncovered_lines
             .into_iter()
             .fold((vec![], vec![]), accumulate_lines);
@@ -145,27 +145,27 @@ fn print_summary(config: &Config, result: &TraceMap) {
     };
     println!("|| Tested/Total Lines:");
     for file in result.files() {
-        if result.coverable_in_path(&file) == 0 {
+        if result.coverable_in_path(file) == 0 {
             continue;
         }
         let path = config.strip_base_dir(file);
-        if last.contains_file(file) && last.coverable_in_path(&file) > 0 {
+        if last.contains_file(file) && last.coverable_in_path(file) > 0 {
             let last_percent = coverage_percentage(&last.get_child_traces(file));
             let current_percent = coverage_percentage(&result.get_child_traces(file));
             let delta = 100.0f64 * (current_percent - last_percent);
             println!(
                 "|| {}: {}/{} {:+.2}%",
                 path.display(),
-                result.covered_in_path(&file),
-                result.coverable_in_path(&file),
+                result.covered_in_path(file),
+                result.coverable_in_path(file),
                 delta
             );
         } else {
             println!(
                 "|| {}: {}/{}",
                 path.display(),
-                result.covered_in_path(&file),
-                result.coverable_in_path(&file)
+                result.covered_in_path(file),
+                result.coverable_in_path(file)
             );
         }
     }

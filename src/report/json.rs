@@ -68,9 +68,9 @@ impl From<&TraceMap> for CoverageReport {
 
 type JsonStringResult = Result<String, serde_json::error::Error>;
 
-impl Into<JsonStringResult> for &TraceMap {
-    fn into(self) -> JsonStringResult {
-        serde_json::to_string(&CoverageReport::from(self))
+impl From<&TraceMap> for JsonStringResult {
+    fn from(val: &TraceMap) -> Self {
+        serde_json::to_string(&CoverageReport::from(val))
     }
 }
 

@@ -152,7 +152,7 @@ pub fn amount_covered(traces: &[&Trace]) -> usize {
     for t in traces {
         result += match t.stats {
             CoverageStat::Branch(ref x) => (x.been_true as usize) + (x.been_false as usize),
-            CoverageStat::Condition(ref x) => x.iter().fold(0, |acc, ref x| {
+            CoverageStat::Condition(ref x) => x.iter().fold(0, |acc, x| {
                 acc + (x.been_true as usize) + (x.been_false as usize)
             }),
             CoverageStat::Line(ref x) => (*x > 0) as usize,
@@ -200,11 +200,11 @@ impl TraceMap {
                 self.traces.insert(k.to_path_buf(), values.to_vec());
             } else {
                 let existing = self.traces.get_mut(k).unwrap();
-                for ref v in values.iter() {
+                for v in values.iter() {
                     let mut added = false;
                     if let Some(ref mut t) = existing
                         .iter_mut()
-                        .find(|ref x| x.line == v.line && x.address == v.address)
+                        .find(|x| x.line == v.line && x.address == v.address)
                     {
                         t.stats = t.stats.clone() + v.stats.clone();
                         added = true;
@@ -252,7 +252,7 @@ impl TraceMap {
                         res
                     }
                 });
-                if let Some(new_stat) = lines.remove(&d) {
+                if let Some(new_stat) = lines.remove(d) {
                     if let Some(ref mut t) = values.iter_mut().find(|x| x.line == *d) {
                         t.stats = new_stat;
                     }
@@ -345,8 +345,8 @@ impl TraceMap {
     pub fn get_child_traces(&self, root: &Path) -> Vec<&Trace> {
         self.traces
             .iter()
-            .filter(|&(ref k, _)| k.starts_with(root))
-            .flat_map(|(_, ref v)| v.iter())
+            .filter(|&(k, _)| k.starts_with(root))
+            .flat_map(|(_, v)| v.iter())
             .collect()
     }
 
@@ -358,15 +358,15 @@ impl TraceMap {
         } else {
             self.traces
                 .iter()
-                .filter(|&(ref k, _)| k.parent() == Some(root))
-                .flat_map(|(_, ref v)| v.iter())
+                .filter(|&(k, _)| k.parent() == Some(root))
+                .flat_map(|(_, v)| v.iter())
                 .collect()
         }
     }
 
     /// Gets all traces
     pub fn all_traces(&self) -> Vec<&Trace> {
-        self.traces.values().flat_map(|ref x| x.iter()).collect()
+        self.traces.values().flat_map(|x| x.iter()).collect()
     }
 
     /// Gets a vector of all the traces to mutate
@@ -414,6 +414,7 @@ mod tests {
     use std::path::Path;
 
     #[test]
+    #[allow(clippy::many_single_char_names)]
     fn stat_addition() {
         let x = CoverageStat::Line(0);
         let y = CoverageStat::Line(5);
