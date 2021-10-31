@@ -34,7 +34,7 @@ impl SourceAnalysis {
             // Process if the local wasn't ignored with an attribute
             let check_cover = self.check_attr_list(&local.attrs, ctx);
             let analysis = self.get_line_analysis(ctx.file.to_path_buf());
-            
+
             if check_cover {
                 for a in &local.attrs {
                     analysis.ignore_tokens(a);
