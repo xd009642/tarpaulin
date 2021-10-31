@@ -185,10 +185,7 @@ pub fn get_tests(config: &Config) -> Result<Vec<TestBinary>, RunError> {
             }
         }
     }
-    let manifest = match config.manifest.as_path().to_str() {
-        Some(s) => s,
-        None => "Cargo.toml",
-    };
+    let manifest = config.manifest.as_path().to_str().unwrap_or("Cargo.toml");
     let metadata = MetadataCommand::new()
         .manifest_path(manifest)
         .features(CargoOpt::AllFeatures)
@@ -600,7 +597,7 @@ fn look_for_rustflags_in_table(value: &Value) -> String {
             let vec_of_flags: Vec<String> = rustflags
                 .as_array()
                 .unwrap()
-                .into_iter()
+                .iter()
                 .filter_map(|x| x.as_str())
                 .map(|x| x.to_string())
                 .collect();

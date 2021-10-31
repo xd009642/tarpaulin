@@ -86,7 +86,7 @@ impl<'a> StateData for LlvmInstrumentedData<'a> {
                         self.config.strip_base_dir(&parent.path).display()
                     );
                     for prof in &profraws {
-                        info!("Generated: {}", self.config.strip_base_dir(&prof).display());
+                        info!("Generated: {}", self.config.strip_base_dir(prof).display());
                     }
                     self.process = None;
                     let code = exit.code().unwrap_or(1);

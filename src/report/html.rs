@@ -74,7 +74,7 @@ pub fn export(coverage_data: &TraceMap, config: &Config) -> Result<(), RunError>
     };
 
     let report_json = get_json(coverage_data, Context::CurrentResults)?;
-    let previous_report_json = match get_previous_result(&config) {
+    let previous_report_json = match get_previous_result(config) {
         Some(result) => get_json(&result, Context::PreviousResults)?,
         None => String::from("null"),
     };

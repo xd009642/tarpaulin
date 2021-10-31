@@ -216,7 +216,7 @@ impl<'a> StateData for LinuxData<'a> {
                 } else {
                     0
                 };
-                let event = TraceEvent::new_from_wait(&status, offset, self.traces);
+                let event = TraceEvent::new_from_wait(status, offset, self.traces);
                 log.push_trace(event);
             }
             let state = match status {
@@ -245,7 +245,7 @@ impl<'a> StateData for LinuxData<'a> {
                     "A segfault occurred while executing tests".to_string(),
                 )),
                 WaitStatus::Stopped(child, Signal::SIGILL) => {
-                    let pc = current_instruction_pointer(*child).unwrap_or_else(|_| 1) - 1;
+                    let pc = current_instruction_pointer(*child).unwrap_or(1) - 1;
                     trace!("SIGILL raised. Child program counter is: 0x{:x}", pc);
                     Err(RunError::TestRuntime(format!(
                         "Error running test - SIGILL raised in {}",
@@ -330,7 +330,7 @@ impl<'a> StateData for LinuxData<'a> {
             }
             trace!("Action: {:?}", a);
             if let Some(log) = self.event_log.as_ref() {
-                let event = TraceEvent::new_from_action(&a);
+                let event = TraceEvent::new_from_action(a);
                 log.push_trace(event);
             }
             match a {
@@ -395,7 +395,7 @@ impl<'a> LinuxData<'a> {
                     if let Ok(tasks) = proc.tasks() {
                         for task in tasks.filter_map(|x| x.ok()) {
                             if task.tid == pid.as_raw() {
-                                parent_pid = Some(k.clone());
+                                parent_pid = Some(*k);
                                 break 'outer;
                             }
                         }

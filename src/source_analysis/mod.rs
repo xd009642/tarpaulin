@@ -102,11 +102,7 @@ impl std::ops::Add for SubResult {
 
 impl SubResult {
     pub fn is_reachable(&self) -> bool {
-        if *self == Self::Unreachable {
-            false
-        } else {
-            true
-        }
+        *self != Self::Unreachable
     }
 
     pub fn is_unreachable(&self) -> bool {
@@ -183,7 +179,7 @@ impl LineAnalysis {
         // Not checking for Lines::All because I trust we've called cover_span
         // for a reason.
         let mut useful_lines: HashSet<usize> = HashSet::new();
-        if let Some(ref c) = contents {
+        if let Some(c) = contents {
             lazy_static! {
                 static ref SINGLE_LINE: Regex = Regex::new(r"\s*//").unwrap();
             }
@@ -268,7 +264,7 @@ impl SourceAnalysis {
 
         for e in get_source_walker(config) {
             if !ignored_files.contains(e.path()) {
-                result.analyse_package(e.path(), &root, &config, &mut ignored_files);
+                result.analyse_package(e.path(), &root, config, &mut ignored_files);
             } else {
                 let mut analysis = LineAnalysis::new();
                 analysis.ignore_all();
@@ -392,7 +388,7 @@ impl SourceAnalysis {
             .file_contents
             .lines()
             .enumerate()
-            .filter(|&(_, x)| IGNORABLE.is_match(&x))
+            .filter(|&(_, x)| IGNORABLE.is_match(x))
             .map(|(i, _)| i + 1)
             .collect::<Vec<usize>>();
         analysis.add_to_ignore(&lines);
@@ -422,7 +418,7 @@ impl SourceAnalysis {
     /// is enabled
     pub fn debug_printout(&self, config: &Config) {
         if config.debug {
-            for (ref path, ref analysis) in &self.lines {
+            for (path, analysis) in &self.lines {
                 trace!(
                     "Source analysis for {}",
                     config.strip_base_dir(path).display()

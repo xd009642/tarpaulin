@@ -330,7 +330,7 @@ fn get_line_addresses(
         }
     }
 
-    for (file, ref line_analysis) in analysis.iter() {
+    for (file, line_analysis) in analysis.iter() {
         if config.exclude_path(file) {
             continue;
         }
@@ -389,7 +389,7 @@ pub fn generate_tracemap(
         } else {
             RunTimeEndian::Big
         };
-        if let Ok(result) = get_line_addresses(endian, &obj, &analysis, config) {
+        if let Ok(result) = get_line_addresses(endian, &obj, analysis, config) {
             Ok(result)
         } else {
             Err(io::Error::new(

@@ -33,7 +33,7 @@ pub fn check_percentage_with_cli_args(minimum_coverage: f64, has_lines: bool, ar
     let mut res = TraceMap::new();
     for config in configs.iter_mut() {
         config.force_clean = false;
-        let (t, _) = launch_tarpaulin(&config, &None).unwrap();
+        let (t, _) = launch_tarpaulin(config, &None).unwrap();
         res.merge(&t);
     }
     res.dedup();

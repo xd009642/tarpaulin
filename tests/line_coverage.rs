@@ -54,7 +54,7 @@ fn debug_info_0() {
     let restore_dir = env::current_dir().unwrap();
     let test_dir = get_test_path("simple_project");
     env::set_current_dir(&test_dir).unwrap();
-    config.manifest = test_dir.clone();
+    config.manifest = test_dir;
     config.manifest.push("Cargo.toml");
     let backup_flag = env::var("RUSTFLAGS").ok();
     env::set_var("RUSTFLAGS", "-Cdebuginfo=0");

@@ -490,7 +490,7 @@ impl Config {
     }
 
     pub fn parse_config_toml(buffer: &[u8]) -> std::io::Result<Vec<Self>> {
-        let mut map: IndexMap<String, Self> = toml::from_slice(&buffer).map_err(|e| {
+        let mut map: IndexMap<String, Self> = toml::from_slice(buffer).map_err(|e| {
             error!("Invalid config file {}", e);
             Error::new(ErrorKind::InvalidData, format!("{}", e))
         })?;
@@ -913,7 +913,7 @@ mod tests {
         assert_eq!(configs.len(), 2);
         for c in &configs {
             if c.name == "global" {
-                assert_eq!(c.run_ignored, true);
+                assert!(c.run_ignored);
                 assert_eq!(c.coveralls, Some("hello".to_string()));
             } else if c.name == "other" {
                 assert_eq!(c.run_types, vec![RunType::Doctests, RunType::Tests]);
@@ -970,11 +970,11 @@ mod tests {
         let mut a: Config = toml::from_slice(toml_a.as_bytes()).unwrap();
         let b: Config = toml::from_slice(toml_b.as_bytes()).unwrap();
 
-        assert_eq!(a.all, false);
-        assert_eq!(b.all, true);
+        assert!(!a.all);
+        assert!(b.all);
 
         a.merge(&b);
-        assert_eq!(a.all, true);
+        assert!(a.all);
     }
 
     #[test]
@@ -1115,7 +1115,7 @@ mod tests {
         no_yes.merge(&flag2);
         assert_eq!(no_yes.rustflags, Some("bar".to_string()));
 
-        let mut f1_2 = flag1.clone();
+        let mut f1_2 = flag1;
         f1_2.merge(&flag2);
         let flags = f1_2.rustflags.unwrap();
         let split = flags.split_ascii_whitespace().collect::<Vec<_>>();
