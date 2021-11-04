@@ -122,10 +122,10 @@ mod tests {
         let hidden_file = Path::new(".cargo/src/hello.rs");
         let visible_file = Path::new("src/hello.rs");
 
-        assert!(is_hidden(&hidden_root.join(hidden_file), &hidden_root));
-        assert!(is_hidden(&visible_root.join(hidden_file), &visible_root));
+        assert!(is_hidden(&hidden_root.join(hidden_file), hidden_root));
+        assert!(is_hidden(&visible_root.join(hidden_file), visible_root));
 
-        assert!(!is_hidden(&hidden_root.join(visible_file), &hidden_root));
-        assert!(!is_hidden(&visible_root.join(visible_file), &visible_root));
+        assert!(!is_hidden(&hidden_root.join(visible_file), hidden_root));
+        assert!(!is_hidden(&visible_root.join(visible_file), visible_root));
     }
 }

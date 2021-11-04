@@ -26,7 +26,7 @@ pub(super) fn get_branch_cov(args: &ArgMatches) -> bool {
     let cover_lines = args.is_present("line");
     let cover_branches = args.is_present("branch");
 
-    cover_branches || !(cover_lines || cover_branches)
+    cover_branches || !cover_lines
 }
 
 pub(super) fn get_manifest(args: &ArgMatches) -> PathBuf {

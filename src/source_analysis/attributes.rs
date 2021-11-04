@@ -35,7 +35,10 @@ impl SourceAnalysis {
 pub(crate) fn check_cfg_attr(attr: &Meta) -> bool {
     let mut ignore_span = false;
     let id = attr.path();
-    if id.is_ident("cfg") {
+
+    if id.is_ident("no_coverage") {
+        ignore_span = true;
+    } else if id.is_ident("cfg") {
         if let Meta::List(ml) = attr {
             'outer: for p in ml.nested.iter() {
                 if let NestedMeta::Meta(Meta::List(ref i)) = p {

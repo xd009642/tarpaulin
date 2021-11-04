@@ -3,7 +3,16 @@
 From 2019 onwards, all notable changes to tarpaulin will be documented in this
 file.
 
-## [Unreleased]
+## [0.18.4] 2021-11-04
+### Added
+- Support for `#[no_coverage]` to exclude expressions from coverage results
+
+### Changed
+- Add division by zero check for cobertura package line-rate
+
+### Removed
+
+## [0.18.3] 2021-10-24
 ### Added
 - Added support for doctest `no_run` attribute
 - Add support for source filter via inner attributes

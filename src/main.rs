@@ -152,7 +152,7 @@ fn main() -> Result<(), String> {
             let rustflags = rust_flags(config);
             seen_rustflags
                 .entry(rustflags)
-                .or_insert(vec![])
+                .or_insert_with(Vec::new)
                 .push(config.name.clone());
         }
         let default = Config::default();
@@ -165,7 +165,7 @@ fn main() -> Result<(), String> {
             let rustflags = rustdoc_flags(config);
             seen_rustflags
                 .entry(rustflags)
-                .or_insert(vec![])
+                .or_insert_with(Vec::new)
                 .push(config.name.clone());
         }
         let default = Config::default();

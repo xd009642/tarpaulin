@@ -6,37 +6,37 @@ impl SourceAnalysis {
     pub(crate) fn process_items(&mut self, items: &[Item], ctx: &Context) -> SubResult {
         let mut res = SubResult::Ok;
         for item in items.iter() {
-            match *item {
-                Item::ExternCrate(ref i) => {
+            match item {
+                Item::ExternCrate(i) => {
                     let analysis = self.get_line_analysis(ctx.file.to_path_buf());
                     analysis.ignore_tokens(i);
                 }
-                Item::Use(ref i) => {
+                Item::Use(i) => {
                     let analysis = self.get_line_analysis(ctx.file.to_path_buf());
                     analysis.ignore_tokens(i);
                 }
-                Item::Mod(ref i) => self.visit_mod(&i, ctx),
-                Item::Fn(ref i) => self.visit_fn(&i, ctx, false),
-                Item::Struct(ref i) => {
+                Item::Mod(i) => self.visit_mod(i, ctx),
+                Item::Fn(i) => self.visit_fn(i, ctx, false),
+                Item::Struct(i) => {
                     let analysis = self.get_line_analysis(ctx.file.to_path_buf());
                     analysis.ignore_tokens(i);
                 }
-                Item::Enum(ref i) => {
+                Item::Enum(i) => {
                     let analysis = self.get_line_analysis(ctx.file.to_path_buf());
                     analysis.ignore_tokens(i);
                 }
-                Item::Union(ref i) => {
+                Item::Union(i) => {
                     let analysis = self.get_line_analysis(ctx.file.to_path_buf());
                     analysis.ignore_tokens(i);
                 }
-                Item::Trait(ref i) => self.visit_trait(&i, ctx),
-                Item::Impl(ref i) => self.visit_impl(&i, ctx),
+                Item::Trait(i) => self.visit_trait(i, ctx),
+                Item::Impl(i) => self.visit_impl(i, ctx),
                 Item::Macro(ref i) => {
                     if self.visit_macro_call(&i.mac, ctx).is_unreachable() {
                         res = SubResult::Unreachable;
                     }
                 }
-                Item::Const(ref c) => {
+                Item::Const(c) => {
                     let analysis = self.get_line_analysis(ctx.file.to_path_buf());
                     analysis.ignore_tokens(c);
                 }
