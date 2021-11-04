@@ -3,7 +3,7 @@
 From 2019 onwards, all notable changes to tarpaulin will be documented in this
 file.
 
-## [Unreleased]
+## [0.18.4] 2021-11-04
 ### Added
 - Support for `#[no_coverage]` to exclude expressions from coverage results
 
