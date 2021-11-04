@@ -101,9 +101,8 @@ impl Report {
         let mut branch_rate = 0.0;
 
         if !packages.is_empty() {
-            line_rate = packages.iter().map(|x| x.line_rate).sum::<f64>() / packages.len() as f64;
-            branch_rate =
-                packages.iter().map(|x| x.branch_rate).sum::<f64>() / packages.len() as f64;
+            line_rate = traces.coverage_percentage();
+            branch_rate = 0.0;
         }
 
         Ok(Report {
