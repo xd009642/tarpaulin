@@ -311,7 +311,12 @@ fn render_package(config: &Config, traces: &TraceMap, pkg: &Path) -> Package {
     let name = config.strip_base_dir(pkg).to_str().unwrap().to_string();
 
     let line_cover = traces.covered_in_path(pkg) as f64;
-    let line_rate = line_cover / (traces.coverable_in_path(pkg) as f64);
+    let coverable = traces.coverable_in_path(pkg);
+    let line_rate = if coverable > 0 {
+        line_cover / (coverable as f64)
+    } else {
+        0.0
+    };
 
     Package {
         name,

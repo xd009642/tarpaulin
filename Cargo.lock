@@ -90,7 +90,7 @@ dependencies = [
 
 [[package]]
 name = "cargo-tarpaulin"
-version = "0.18.3"
+version = "0.18.4"
 dependencies = [
  "cargo_metadata",
  "cfg-if 1.0.0",
