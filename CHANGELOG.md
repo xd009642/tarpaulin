@@ -8,6 +8,7 @@ file.
 - Support for `#[no_coverage]` to exclude expressions from coverage results
 
 ### Changed
+- Add division by zero check for cobertura package line-rate
 
 ### Removed
 
