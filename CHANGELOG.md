@@ -3,6 +3,14 @@
 From 2019 onwards, all notable changes to tarpaulin will be documented in this
 file.
 
+## [0.18.5] 2021-11-05
+### Added
+
+### Changed
+- Correct report line-rate in cobertura to use coverage percentage of `TraceMap` instead of averaging package line-rate
+
+### Removed
+
 ## [0.18.4] 2021-11-04
 ### Added
 - Support for `#[no_coverage]` to exclude expressions from coverage results
