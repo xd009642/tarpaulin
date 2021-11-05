@@ -443,3 +443,46 @@ struct Condition {
 enum ConditionType {
     Jump,
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::traces::*;
+    use std::collections::HashSet;
+    use std::path::PathBuf;
+
+    #[test]
+    fn package_coverage() {
+        let mut config = Config::default();
+        config.manifest = PathBuf::from("fake/Cargo.toml");
+        let mut map = TraceMap::new();
+
+        map.add_file(&PathBuf::from("fake/examples/foo.rs"));
+
+        let empty_trace = Trace::new_stub(2);
+        let mut address = HashSet::new();
+        address.insert(2);
+        let hit_trace = Trace::new(3, address, 1, None);
+
+        let source_file = PathBuf::from("fake/src/lib.rs");
+
+        map.add_trace(&source_file, empty_trace);
+        map.add_trace(&source_file, hit_trace);
+
+        let report = Report::render(&config, &map).unwrap();
+        assert_eq!(report.lines_covered, 0);
+        assert_eq!(report.lines_valid, 2);
+        assert_eq!(report.line_rate, 0.0);
+        assert_eq!(report.packages.len(), 2);
+        assert_eq!(report.sources.len(), 1);
+
+        map.increment_hit(2);
+
+        let report = Report::render(&config, &map).unwrap();
+        assert_eq!(report.lines_covered, 1);
+        assert_eq!(report.lines_valid, 2);
+        assert_eq!(report.line_rate, 0.5);
+        assert_eq!(report.packages.len(), 2);
+        assert_eq!(report.sources.len(), 1);
+    }
+}
