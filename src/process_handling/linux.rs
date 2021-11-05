@@ -13,7 +13,12 @@ use std::ffi::{CStr, CString};
 use std::path::Path;
 use tracing::{info, warn};
 
-#[cfg(any(target_arch = "x86", target_arch = "x86_64", target_arch = "arm"))]
+#[cfg(any(
+    target_arch = "x86",
+    target_arch = "x86_64",
+    target_arch = "arm",
+    target_arch = "aarch64"
+))]
 type Persona = c_long;
 
 const ADDR_NO_RANDOMIZE: Persona = 0x004_0000;

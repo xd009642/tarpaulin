@@ -4,7 +4,7 @@ use nix::unistd::Pid;
 use nix::{Error, Result};
 use std::collections::HashMap;
 
-#[cfg(any(target_arch = "x86", target_arch = "x86_64"))]
+#[cfg(any(target_arch = "x86", target_arch = "x86_64", target_arch = "aarch64"))]
 const INT: u64 = 0xCC;
 
 /// Breakpoint construct used to monitor program execution. As tarpaulin is an
