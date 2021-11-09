@@ -5,6 +5,7 @@ use crate::process_handling::RunningProcessHandle;
 use crate::source_analysis::LineAnalysis;
 use crate::statemachine::*;
 use crate::TestHandle;
+use llvm_profparser::*;
 use std::collections::HashMap;
 use std::ffi::OsStr;
 use std::fs;
@@ -92,6 +93,13 @@ impl<'a> StateData for LlvmInstrumentedData<'a> {
                     for prof in &profraws {
                         info!("Generated: {}", self.config.strip_base_dir(prof).display());
                     }
+
+                    let binary_path = parent.path.clone();
+
+                    let instrumentation = merge_profiles(&profraws)?;
+                    // Panics due to a todo!();
+                    let _mapping = CoverageMapping::new(&[binary_path], &instrumentation);
+
                     self.process = None;
                     let code = exit.code().unwrap_or(1);
                     Ok(Some(TestState::End(code)))
