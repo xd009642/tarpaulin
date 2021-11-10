@@ -1,5 +1,6 @@
 use crate::config::Color;
 use crate::generate_tracemap;
+use crate::path_utils::get_profile_walker;
 use crate::statemachine::{create_state_machine, TestState};
 use crate::traces::*;
 use crate::{Config, EventLog, LineAnalysis, RunError, TestBinary, TraceEngine};
@@ -30,11 +31,8 @@ pub struct RunningProcessHandle {
 impl RunningProcessHandle {
     pub fn new(path: PathBuf, cmd: &mut Command, config: &Config) -> Result<Self, RunError> {
         let child = cmd.spawn()?;
-        let existing_profraws = fs::read_dir(config.root())?
-            .into_iter()
-            .filter_map(Result::ok)
-            .filter(|x| x.path().is_file() && x.path().extension() == Some(OsStr::new("profraw")))
-            .map(|x| x.path())
+        let existing_profraws = get_profile_walker(config)
+            .map(|x| x.path().to_path_buf())
             .collect();
 
         Ok(Self {
@@ -240,6 +238,7 @@ fn execute_test(
 
     match config.engine() {
         TraceEngine::Llvm => {
+            info!("Setting LLVM_PROFILE_FILE");
             // Used for llvm coverage to avoid report naming clashes TODO could have clashes
             // between runs
             envars.push((

@@ -5,6 +5,12 @@ use std::path::Path;
 use walkdir::{DirEntry, WalkDir};
 
 /// Returns true if the file is a rust source file
+pub fn is_profraw_file(entry: &DirEntry) -> bool {
+    let p = entry.path();
+    p.is_file() && p.extension() == Some(OsStr::new("profraw"))
+}
+
+/// Returns true if the file is a rust source file
 pub fn is_source_file(entry: &DirEntry) -> bool {
     let p = entry.path();
     p.is_file() && p.extension() == Some(OsStr::new("rs"))
@@ -74,6 +80,17 @@ pub fn get_source_walker(config: &Config) -> impl Iterator<Item = DirEntry> + '_
         .filter_map(Result::ok)
         .filter(move |e| !(config.exclude_path(e.path())))
         .filter(is_source_file)
+}
+
+pub fn get_profile_walker(config: &Config) -> impl Iterator<Item = DirEntry> {
+    let root = config.root();
+    let target = config.target_dir();
+
+    let walker = WalkDir::new(&root).into_iter();
+    walker
+        .filter_entry(move |e| is_coverable_file_path(e.path(), &root, &target))
+        .filter_map(|e| e.ok())
+        .filter(|e| is_profraw_file(e))
 }
 
 #[cfg(test)]

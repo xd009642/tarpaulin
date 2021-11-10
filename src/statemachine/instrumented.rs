@@ -1,6 +1,7 @@
 #![allow(dead_code)]
 use crate::config::Config;
 use crate::errors::RunError;
+use crate::path_utils::get_profile_walker;
 use crate::process_handling::RunningProcessHandle;
 use crate::source_analysis::LineAnalysis;
 use crate::statemachine::*;
@@ -75,15 +76,8 @@ impl<'a> StateData for LlvmInstrumentedData<'a> {
         if let Some(parent) = self.process.as_mut() {
             match parent.child.wait() {
                 Ok(exit) => {
-                    let profraws = fs::read_dir(self.config.root())?
-                        .into_iter()
-                        .filter_map(Result::ok)
-                        .filter(|x| {
-                            x.path().is_file()
-                                && x.path().extension() == Some(OsStr::new("profraw"))
-                                && !parent.existing_profraws.contains(&x.path())
-                        })
-                        .map(|x| x.path())
+                    let profraws = get_profile_walker(self.config)
+                        .map(|x| x.path().to_path_buf())
                         .collect::<Vec<_>>();
 
                     info!(
