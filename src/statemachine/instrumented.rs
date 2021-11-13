@@ -78,6 +78,7 @@ impl<'a> StateData for LlvmInstrumentedData<'a> {
                 Ok(exit) => {
                     let profraws = get_profile_walker(self.config)
                         .map(|x| x.path().to_path_buf())
+                        .filter(|x| !parent.existing_profraws.contains(&x))
                         .collect::<Vec<_>>();
 
                     info!(
