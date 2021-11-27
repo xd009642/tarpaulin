@@ -64,7 +64,7 @@ pub fn is_coverable_file_path(
     ignorable_paths && is_part_of_project(e, root.as_ref())
 }
 
-pub fn get_source_walker(config: &Config) -> impl Iterator<Item = DirEntry> {
+pub fn get_source_walker(config: &Config) -> impl Iterator<Item = DirEntry> + '_ {
     let root = config.root();
     let target = config.target_dir();
 
@@ -72,6 +72,7 @@ pub fn get_source_walker(config: &Config) -> impl Iterator<Item = DirEntry> {
     walker
         .filter_entry(move |e| is_coverable_file_path(e.path(), &root, &target))
         .filter_map(|e| e.ok())
+        .filter(move |e| !(config.exclude_path(e.path())))
         .filter(|e| is_source_file(e))
 }
 
