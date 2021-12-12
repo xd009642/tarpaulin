@@ -8,6 +8,7 @@ file.
 
 ### Changed
 - Correct report line-rate in cobertura to use coverage percentage of `TraceMap` instead of averaging package line-rate
+- Parse RUSTFLAGS and RUSTDOCFLAGS to remove duplicate entries #891
 
 ### Removed
 
