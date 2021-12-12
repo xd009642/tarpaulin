@@ -7,7 +7,6 @@ use crate::TestBinary;
 use crate::TestHandle;
 use nix::errno::Errno;
 use nix::libc::{c_int, c_long};
-use nix::sched::*;
 use nix::unistd::*;
 use std::ffi::{CStr, CString};
 use std::path::Path;
@@ -36,9 +35,6 @@ pub fn get_test_coverage(
     if !test.path().exists() {
         warn!("Test at {} doesn't exist", test.path().display());
         return Ok(None);
-    }
-    if let Err(e) = limit_affinity() {
-        warn!("Failed to set processor affinity {}", e);
     }
     unsafe {
         match fork() {
@@ -80,23 +76,6 @@ fn disable_aslr() -> nix::Result<i32> {
         },
         err @ Err(..) => err,
     }
-}
-
-pub fn limit_affinity() -> nix::Result<()> {
-    let this = Pid::this();
-    // Get current affinity to be able to limit the cores to one of
-    // those already in the affinity mask.
-    let affinity = sched_getaffinity(this)?;
-    let mut selected_cpu = 0;
-    for i in 0..CpuSet::count() {
-        if affinity.is_set(i)? {
-            selected_cpu = i;
-            break;
-        }
-    }
-    let mut cpu_set = CpuSet::new();
-    cpu_set.set(selected_cpu)?;
-    sched_setaffinity(this, &cpu_set)
 }
 
 pub fn execute(
