@@ -565,18 +565,18 @@ fn clean_doctest_folder<P: AsRef<Path>>(doctest_dir: P) {
 
 fn handle_llvm_flags(value: &mut String, config: &Config) {
     if config.engine() == TraceEngine::Llvm {
-        value.push_str("-Z instrument-coverage ");
+        value.push_str("-Zinstrument-coverage ");
     }
     if cfg!(not(windows)) {
-        value.push_str(" -C link-dead-code ");
+        value.push_str(" -Clink-dead-code ");
     }
 }
 
 pub fn rustdoc_flags(config: &Config) -> String {
     const RUSTDOC: &str = "RUSTDOCFLAGS";
-    let common_opts = " -C link-dead-code -C debuginfo=2 --cfg=tarpaulin ";
+    let common_opts = " -Clink-dead-code -Cdebuginfo=2 --cfg=tarpaulin ";
     let mut value = format!(
-        "{} --persist-doctests {} -Z unstable-options ",
+        "{} --persist-doctests {} -Zunstable-options ",
         common_opts,
         config.doctest_dir().display()
     );
@@ -586,7 +586,7 @@ pub fn rustdoc_flags(config: &Config) -> String {
         }
     }
     handle_llvm_flags(&mut value, config);
-    value
+    deduplicate_flags(&value)
 }
 
 fn look_for_rustflags_in_table(value: &Value) -> String {
@@ -679,12 +679,12 @@ fn gather_config_rust_flags(config: &Config) -> String {
 pub fn rust_flags(config: &Config) -> String {
     const RUSTFLAGS: &str = "RUSTFLAGS";
     let mut value = config.rustflags.clone().unwrap_or_default();
-    value.push_str(" -C debuginfo=2 ");
+    value.push_str(" -Cdebuginfo=2 ");
     if !config.avoid_cfg_tarpaulin {
         value.push_str("--cfg=tarpaulin ");
     }
     if config.release {
-        value.push_str("-C debug-assertions=off ");
+        value.push_str("-Cdebug-assertions=off ");
     }
     handle_llvm_flags(&mut value, config);
     lazy_static! {
@@ -696,7 +696,38 @@ pub fn rust_flags(config: &Config) -> String {
         let vtemp = gather_config_rust_flags(config);
         value.push_str(&DEBUG_INFO.replace_all(&vtemp, " "));
     }
-    value
+    deduplicate_flags(&value)
+}
+
+fn deduplicate_flags(flags: &str) -> String {
+    lazy_static! {
+        static ref CFG_FLAG: Regex = Regex::new(r#"\--cfg\s+"#).unwrap();
+        static ref C_FLAG: Regex = Regex::new(r#"\-C\s+"#).unwrap();
+        static ref Z_FLAG: Regex = Regex::new(r#"\-Z\s+"#).unwrap();
+    }
+
+    // Gonna remove the excess spaces to make it easier to filter things
+    let res = CFG_FLAG.replace_all(&flags, "--cfg=");
+    let res = C_FLAG.replace_all(&res, "-C");
+    let res = Z_FLAG.replace_all(&res, "-Z");
+
+    let mut flag_set = HashSet::new();
+    let mut result = vec![];
+    for val in res.split_whitespace() {
+        if val.starts_with("--cfg") {
+            if !flag_set.contains(&val) {
+                result.push(val);
+                flag_set.insert(val);
+            }
+        } else {
+            let id = val.split("=").next().unwrap();
+            if !flag_set.contains(id) {
+                flag_set.insert(id);
+                result.push(val);
+            }
+        }
+    }
+    result.join(" ")
 }
 
 fn setup_environment(cmd: &mut Command, config: &Config) {
@@ -776,5 +807,30 @@ mod tests {
         version.minor = 58;
         version.channel = Channel::Stable;
         assert!(!version.supports_llvm_cov());
+    }
+
+    #[test]
+    fn no_duplicate_flags() {
+        assert_eq!(
+            deduplicate_flags("--cfg=tarpaulin --cfg tarpaulin"),
+            "--cfg=tarpaulin"
+        );
+        assert_eq!(
+            deduplicate_flags("-Clink-dead-code -Zinstrument-coverage -C link-dead-code"),
+            "-Clink-dead-code -Zinstrument-coverage"
+        );
+        assert_eq!(
+            deduplicate_flags("-Clink-dead-code -Zinstrument-coverage -Zinstrument-coverage"),
+            "-Clink-dead-code -Zinstrument-coverage"
+        );
+        assert_eq!(
+            deduplicate_flags("-Clink-dead-code -Zinstrument-coverage -Cinstrument-coverage"),
+            "-Clink-dead-code -Zinstrument-coverage -Cinstrument-coverage"
+        );
+
+        assert_eq!(
+            deduplicate_flags("--cfg=tarpaulin --cfg tarpauline --cfg=tarp"),
+            "--cfg=tarpaulin --cfg=tarpauline --cfg=tarp"
+        );
     }
 }
