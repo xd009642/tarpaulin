@@ -161,7 +161,12 @@ pub(crate) fn collect_coverage(
 }
 
 /// Launches the test executable
-fn execute_test(test: &TestBinary, ignored: bool, config: &Config, num_threads: Option<usize>) -> Result<TestHandle, RunError> {
+fn execute_test(
+    test: &TestBinary,
+    ignored: bool,
+    config: &Config,
+    num_threads: Option<usize>,
+) -> Result<TestHandle, RunError> {
     info!("running {}", test.path().display());
     let _ = match test.manifest_dir() {
         Some(md) => env::set_current_dir(&md),
