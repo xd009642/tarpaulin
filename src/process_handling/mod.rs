@@ -105,7 +105,7 @@ fn launch_test(
             }
         }
         TraceEngine::Llvm => {
-            let res = execute_test(test, ignored, config)?;
+            let res = execute_test(test, ignored, config, None)?;
             Ok(Some(res))
         }
         e => {
@@ -161,7 +161,12 @@ pub(crate) fn collect_coverage(
 }
 
 /// Launches the test executable
-fn execute_test(test: &TestBinary, ignored: bool, config: &Config) -> Result<TestHandle, RunError> {
+fn execute_test(
+    test: &TestBinary,
+    ignored: bool,
+    config: &Config,
+    num_threads: Option<usize>,
+) -> Result<TestHandle, RunError> {
     info!("running {}", test.path().display());
     let _ = match test.manifest_dir() {
         Some(md) => env::set_current_dir(&md),
@@ -184,6 +189,12 @@ fn execute_test(test: &TestBinary, ignored: bool, config: &Config) -> Result<Tes
     if config.color != Color::Auto {
         argv.push("--color".to_string());
         argv.push(config.color.to_string().to_ascii_lowercase());
+    }
+    if !config.varargs.iter().any(|x| x.contains("--test-threads")) {
+        if let Some(threads) = num_threads {
+            argv.push("--test-threads".to_string());
+            argv.push(threads.to_string());
+        }
     }
 
     if let Some(s) = test.pkg_name() {
