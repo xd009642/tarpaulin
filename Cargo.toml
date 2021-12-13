@@ -49,7 +49,7 @@ cfg-if = "1.0.0"
 [target.'cfg(target_os = "linux")'.dependencies]
 libc = "0.2.94"
 nix = "0.23.0"
-procfs = "0.11"
+procfs = "0.12"
 
 [features]
 default = []
