@@ -5,6 +5,7 @@ use crate::ptrace_control::*;
 use crate::Config;
 use crate::TestBinary;
 use crate::TestHandle;
+use lazy_static::lazy_static;
 use nix::errno::Errno;
 use nix::libc::{c_int, c_long};
 use nix::sched::*;
@@ -15,6 +16,10 @@ use tracing::{info, warn};
 
 #[cfg(any(target_arch = "x86", target_arch = "x86_64", target_arch = "arm"))]
 type Persona = c_long;
+
+lazy_static! {
+    static ref NUM_CPUS: usize = num_cpus::get();
+}
 
 const ADDR_NO_RANDOMIZE: Persona = 0x004_0000;
 const GET_PERSONA: Persona = 0xFFFF_FFFF;
@@ -37,14 +42,15 @@ pub fn get_test_coverage(
         warn!("Test at {} doesn't exist", test.path().display());
         return Ok(None);
     }
-    let cpus = Some(num_cpus::get());
+    let cpus = Some(*NUM_CPUS);
+    if let Err(e) = limit_affinity() {
+        warn!("Failed to set processor affinity {}", e);
+    }
+
     unsafe {
         match fork() {
             Ok(ForkResult::Parent { child }) => Ok(Some(TestHandle::Id(child))),
             Ok(ForkResult::Child) => {
-                if let Err(e) = limit_affinity() {
-                    warn!("Failed to set processor affinity {}", e);
-                }
                 let bin_type = match config.command {
                     Mode::Test => "test",
                     Mode::Build => "binary",
