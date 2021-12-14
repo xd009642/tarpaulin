@@ -38,13 +38,13 @@ pub fn get_test_coverage(
         return Ok(None);
     }
     let cpus = Some(num_cpus::get());
-    if let Err(e) = limit_affinity() {
-        warn!("Failed to set processor affinity {}", e);
-    }
     unsafe {
         match fork() {
             Ok(ForkResult::Parent { child }) => Ok(Some(TestHandle::Id(child))),
             Ok(ForkResult::Child) => {
+                if let Err(e) = limit_affinity() {
+                    warn!("Failed to set processor affinity {}", e);
+                }
                 let bin_type = match config.command {
                     Mode::Test => "test",
                     Mode::Build => "binary",
