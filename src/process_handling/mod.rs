@@ -10,7 +10,7 @@ use std::fmt;
 use std::fs;
 use std::path::{Path, PathBuf};
 use std::process::{Child, Command};
-use tracing::{error, info, trace_span};
+use tracing::{debug, error, info, trace_span};
 
 /// Handle to a test currently either PID or a `std::process::Child`
 pub enum TestHandle {
@@ -209,6 +209,8 @@ fn execute_test(
     if let Some(s) = test.manifest_dir() {
         envars.push(("CARGO_MANIFEST_DIR".to_string(), s.display().to_string()));
     }
+    debug!("Env vars: {:?}", envars);
+    debug!("Args: {:?}", argv);
     match config.engine() {
         TraceEngine::Llvm => {
             // Used for llvm coverage to avoid report naming clashes TODO could have clashes
