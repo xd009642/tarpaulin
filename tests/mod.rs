@@ -120,6 +120,13 @@ fn lets_coverage() {
 }
 
 #[test]
+fn picking_up_shared_objects() {
+    // Need a project which downloads a shared object to target folder and uses build script to set
+    // the linker path.
+    check_percentage("torch_test", 1.0f64, true);
+}
+
+#[test]
 fn struct_expr_coverage() {
     check_percentage("structs", 1.0f64, true);
 }
