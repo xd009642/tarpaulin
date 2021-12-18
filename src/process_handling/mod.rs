@@ -209,6 +209,9 @@ fn execute_test(
     if let Some(s) = test.manifest_dir() {
         envars.push(("CARGO_MANIFEST_DIR".to_string(), s.display().to_string()));
     }
+    if test.has_linker_paths() {
+        envars.push(("LD_LIBRARY_PATH".to_string(), test.ld_library_path())); 
+    }
     debug!("Env vars: {:?}", envars);
     debug!("Args: {:?}", argv);
     match config.engine() {
