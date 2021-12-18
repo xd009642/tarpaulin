@@ -102,7 +102,12 @@ impl TestBinary {
     /// Convert linker paths to an LD_LIBRARY_PATH.
     /// TODO this won't work for windows when it's implemented
     pub fn ld_library_path(&self) -> String {
-        let mut new_vals = self.linker_paths.iter().map(|x| x.display().to_string()).collect::<Vec<String>>().join(":");
+        let mut new_vals = self
+            .linker_paths
+            .iter()
+            .map(|x| x.display().to_string())
+            .collect::<Vec<String>>()
+            .join(":");
         if let Ok(ld) = env::var("LD_LIBRARY_PATH") {
             new_vals.push(':');
             new_vals.push_str(ld.as_str());
@@ -267,18 +272,23 @@ fn run_cargo(
                     }
                     _ => {}
                 },
-                Ok(Message::BuildScriptExecuted(bs)) if !(bs.linked_libs.is_empty() || bs.linked_paths.is_empty()) => {
-                    let mut temp_paths = bs.linked_paths.iter().filter_map(|x| {
-                        if x.as_std_path().exists() {
-                           
-                            Some(x.as_std_path().to_path_buf())
-                        } else if let Some(index) = x.as_str().find("=") {
-                            Some(PathBuf::from(&x.as_str()[(index+1)..]))
-                        } else {
-                            warn!("Couldn't resolve linker path: {}", x.as_str());
-                            None
-                        }
-                    }).collect::<Vec<PathBuf>>();
+                Ok(Message::BuildScriptExecuted(bs))
+                    if !(bs.linked_libs.is_empty() || bs.linked_paths.is_empty()) =>
+                {
+                    let mut temp_paths = bs
+                        .linked_paths
+                        .iter()
+                        .filter_map(|x| {
+                            if x.as_std_path().exists() {
+                                Some(x.as_std_path().to_path_buf())
+                            } else if let Some(index) = x.as_str().find("=") {
+                                Some(PathBuf::from(&x.as_str()[(index + 1)..]))
+                            } else {
+                                warn!("Couldn't resolve linker path: {}", x.as_str());
+                                None
+                            }
+                        })
+                        .collect::<Vec<PathBuf>>();
                     for p in temp_paths.drain(..) {
                         if !paths.contains(&p) {
                             paths.push(p);
