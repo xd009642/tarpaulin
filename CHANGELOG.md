@@ -5,6 +5,7 @@ file.
 
 ## [Unreleased]
 ### Added
+- Check build script output from cargo build and use it to set `LD_LIBRARY_PATH` to match cargo test behaviour
 
 ### Changed
 - Parse RUSTFLAGS and RUSTDOCFLAGS to remove duplicate entries #891

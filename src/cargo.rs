@@ -13,7 +13,7 @@ use std::io::{BufRead, BufReader};
 use std::path::{Component, Path, PathBuf};
 use std::process::{Command, Stdio};
 use toml::Value;
-use tracing::{error, info, trace, warn};
+use tracing::{debug, error, info, trace, warn};
 use walkdir::{DirEntry, WalkDir};
 
 #[derive(Copy, Clone, Debug, Eq, PartialEq, Hash, Ord, PartialOrd)]
@@ -48,6 +48,7 @@ pub struct TestBinary {
     pkg_version: Option<String>,
     pkg_authors: Option<Vec<String>>,
     should_panic: bool,
+    linker_paths: Vec<PathBuf>,
 }
 
 #[derive(Clone, Debug)]
@@ -66,6 +67,7 @@ impl TestBinary {
             pkg_authors: None,
             cargo_dir: None,
             should_panic: false,
+            linker_paths: vec![],
         }
     }
 
@@ -91,6 +93,26 @@ impl TestBinary {
 
     pub fn pkg_authors(&self) -> &Option<Vec<String>> {
         &self.pkg_authors
+    }
+
+    pub fn has_linker_paths(&self) -> bool {
+        !self.linker_paths.is_empty()
+    }
+
+    /// Convert linker paths to an LD_LIBRARY_PATH.
+    /// TODO this won't work for windows when it's implemented
+    pub fn ld_library_path(&self) -> String {
+        let mut new_vals = self
+            .linker_paths
+            .iter()
+            .map(|x| x.display().to_string())
+            .collect::<Vec<String>>()
+            .join(":");
+        if let Ok(ld) = env::var("LD_LIBRARY_PATH") {
+            new_vals.push(':');
+            new_vals.push_str(ld.as_str());
+        }
+        new_vals
     }
 
     /// Should be `false` for normal tests and for doctests either `true` or
@@ -224,6 +246,8 @@ fn run_cargo(
     }
     trace!("Running command {:?}", cmd);
     let mut child = cmd.spawn().map_err(|e| RunError::Cargo(e.to_string()))?;
+    let update_from = result.len();
+    let mut paths = vec![];
 
     if ty != Some(RunType::Doctests) {
         let mut package_ids = vec![];
@@ -248,11 +272,38 @@ fn run_cargo(
                     }
                     _ => {}
                 },
+                Ok(Message::BuildScriptExecuted(bs))
+                    if !(bs.linked_libs.is_empty() || bs.linked_paths.is_empty()) =>
+                {
+                    let mut temp_paths = bs
+                        .linked_paths
+                        .iter()
+                        .filter_map(|x| {
+                            if x.as_std_path().exists() {
+                                Some(x.as_std_path().to_path_buf())
+                            } else if let Some(index) = x.as_str().find("=") {
+                                Some(PathBuf::from(&x.as_str()[(index + 1)..]))
+                            } else {
+                                warn!("Couldn't resolve linker path: {}", x.as_str());
+                                None
+                            }
+                        })
+                        .collect::<Vec<PathBuf>>();
+                    for p in temp_paths.drain(..) {
+                        if !paths.contains(&p) {
+                            paths.push(p);
+                        }
+                    }
+                }
                 Err(e) => {
                     error!("Error parsing cargo messages {}", e);
                 }
                 _ => {}
             }
+        }
+        debug!("Linker paths: {:?}", paths);
+        for bin in result.iter_mut().skip(update_from) {
+            bin.linker_paths = paths.clone();
         }
         let status = child.wait().unwrap();
         if let Some(error) = error {
