@@ -166,6 +166,9 @@ pub struct Config {
     pub follow_exec: bool,
     /// Number of jobs used for building the tests
     pub jobs: Option<usize>,
+    /// Allow test to use an implicit test threads
+    #[serde(rename = "implicit-test-threads")]
+    pub implicit_test_threads: bool,
     /// Engine to use to collect coverage
     engine: RefCell<TraceEngine>,
     /// Specifying per-config rust flags
@@ -218,6 +221,7 @@ impl Default for Config {
             no_run: false,
             locked: false,
             frozen: false,
+            implicit_test_threads: false,
             target: None,
             target_dir: None,
             offline: false,
@@ -321,6 +325,7 @@ impl<'a> From<&'a ArgMatches<'a>> for ConfigWrapper {
             profile: get_profile(args),
             metadata: RefCell::new(None),
             avoid_cfg_tarpaulin: args.is_present("avoid-cfg-tarpaulin"),
+            implicit_test_threads: args.is_present("implicit-test-threads"),
             rustflags: get_rustflags(args),
         };
         if args.is_present("ignore-config") {
@@ -524,6 +529,7 @@ impl Config {
         self.release |= other.release;
         self.count |= other.count;
         self.all_features |= other.all_features;
+        self.implicit_test_threads |= other.implicit_test_threads;
         self.all_targets |= other.all_targets;
         self.line_coverage |= other.line_coverage;
         self.branch_coverage |= other.branch_coverage;

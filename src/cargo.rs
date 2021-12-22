@@ -99,6 +99,10 @@ impl TestBinary {
         !self.linker_paths.is_empty()
     }
 
+    pub fn is_test_type(&self) -> bool {
+        matches!(self.ty, None | Some(RunType::Tests))
+    }
+
     /// Convert linker paths to an LD_LIBRARY_PATH.
     /// TODO this won't work for windows when it's implemented
     pub fn ld_library_path(&self) -> String {
