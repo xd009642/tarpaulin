@@ -6,6 +6,7 @@ file.
 ## [Unreleased]
 ### Added
 - Check build script output from cargo build and use it to set `LD_LIBRARY_PATH` to match cargo test behaviour
+- `--implicit-test-flags` argument so that `--test-threads` isn't passed into the test binary
 
 ### Changed
 - Parse RUSTFLAGS and RUSTDOCFLAGS to remove duplicate entries #891
