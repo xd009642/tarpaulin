@@ -190,7 +190,10 @@ fn execute_test(
         argv.push("--color".to_string());
         argv.push(config.color.to_string().to_ascii_lowercase());
     }
-    if !config.varargs.iter().any(|x| x.contains("--test-threads")) {
+    if test.is_test_type()
+        && !config.implicit_test_threads
+        && !config.varargs.iter().any(|x| x.contains("--test-threads"))
+    {
         if let Some(threads) = num_threads {
             argv.push("--test-threads".to_string());
             argv.push(threads.to_string());
