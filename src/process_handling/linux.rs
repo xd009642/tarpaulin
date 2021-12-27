@@ -14,7 +14,7 @@ use std::ffi::{CStr, CString};
 use std::path::Path;
 use tracing::{info, warn};
 
-#[cfg(any(target_arch = "x86", target_arch = "x86_64", target_arch = "arm"))]
+#[cfg(any(target_arch = "x86", target_arch = "x86_64", target_arch = "arm", target_arch = "riscv64"))]
 type Persona = c_long;
 
 lazy_static! {
