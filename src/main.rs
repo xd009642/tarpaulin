@@ -89,6 +89,7 @@ fn main() -> Result<(), String> {
                  --follow-exec 'Follow executed processes capturing coverage information if they're part of your project.'
                  --release   'Build in release mode.'
                  --no-run 'Compile tests but don't run coverage'
+                 --implicit-test-threads 'Don't supply an explicit `--test-threads` argument to test executable. By default tarpaulin will infer the default rustc would pick if not ran via tarpaulin and set it'
                  --locked 'Do not update Cargo.lock'
                  --frozen 'Do not update Cargo.lock or any caches'
                  --target [TRIPLE] 'Compilation target triple'

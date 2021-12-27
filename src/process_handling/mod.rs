@@ -10,7 +10,7 @@ use std::fmt;
 use std::fs;
 use std::path::{Path, PathBuf};
 use std::process::{Child, Command};
-use tracing::{error, info, trace_span};
+use tracing::{debug, error, info, trace_span};
 
 /// Handle to a test currently either PID or a `std::process::Child`
 pub enum TestHandle {
@@ -105,7 +105,7 @@ fn launch_test(
             }
         }
         TraceEngine::Llvm => {
-            let res = execute_test(test, ignored, config)?;
+            let res = execute_test(test, ignored, config, None)?;
             Ok(Some(res))
         }
         e => {
@@ -161,7 +161,12 @@ pub(crate) fn collect_coverage(
 }
 
 /// Launches the test executable
-fn execute_test(test: &TestBinary, ignored: bool, config: &Config) -> Result<TestHandle, RunError> {
+fn execute_test(
+    test: &TestBinary,
+    ignored: bool,
+    config: &Config,
+    num_threads: Option<usize>,
+) -> Result<TestHandle, RunError> {
     info!("running {}", test.path().display());
     let _ = match test.manifest_dir() {
         Some(md) => env::set_current_dir(&md),
@@ -185,6 +190,15 @@ fn execute_test(test: &TestBinary, ignored: bool, config: &Config) -> Result<Tes
         argv.push("--color".to_string());
         argv.push(config.color.to_string().to_ascii_lowercase());
     }
+    if test.is_test_type()
+        && !config.implicit_test_threads
+        && !config.varargs.iter().any(|x| x.contains("--test-threads"))
+    {
+        if let Some(threads) = num_threads {
+            argv.push("--test-threads".to_string());
+            argv.push(threads.to_string());
+        }
+    }
 
     if let Some(s) = test.pkg_name() {
         envars.push(("CARGO_PKG_NAME".to_string(), s.to_string()));
@@ -198,6 +212,11 @@ fn execute_test(test: &TestBinary, ignored: bool, config: &Config) -> Result<Tes
     if let Some(s) = test.manifest_dir() {
         envars.push(("CARGO_MANIFEST_DIR".to_string(), s.display().to_string()));
     }
+    if test.has_linker_paths() {
+        envars.push(("LD_LIBRARY_PATH".to_string(), test.ld_library_path()));
+    }
+    debug!("Env vars: {:?}", envars);
+    debug!("Args: {:?}", argv);
     match config.engine() {
         TraceEngine::Llvm => {
             // Used for llvm coverage to avoid report naming clashes TODO could have clashes

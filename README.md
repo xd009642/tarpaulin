@@ -27,50 +27,53 @@ Below is the help-text for a thorough explanation of the flags and features
 available:
 
 ```
-cargo-tarpaulin version: 0.18.5
+cargo-tarpaulin version: 0.19.0
 Tool to analyse test coverage of cargo projects
 
 USAGE:
     cargo tarpaulin [FLAGS] [OPTIONS] [-- <args>...]
 
 FLAGS:
-        --all                    Alias for --workspace (deprecated)
-        --all-features           Build all available features
-        --all-targets            Test all targets
-        --avoid-cfg-tarpaulin    Remove --cfg=tarpaulin from the RUSTFLAG
-        --benches                Test all benches
-        --bins                   Test all binaries
-    -b, --branch                 Branch coverage: NOT IMPLEMENTED
-        --count                  Counts the number of hits during coverage
-        --debug                  Show debug output - this is used for diagnosing issues with tarpaulin
-        --doc                    Test only this library's documentation
-        --dump-traces            Log tracing events and save to a json file. Also, enabled when --debug is used
-        --examples               Test all examples
-        --follow-exec            Follow executed processes capturing coverage information if they're part of your
-                                 project.
-        --force-clean            Adds a clean stage to work around cargo bugs that may affect coverage results
-    -f, --forward                Forwards unexpected signals to test. Tarpaulin will still take signals it is expecting.
-        --frozen                 Do not update Cargo.lock or any caches
-    -h, --help                   Prints help information
-        --ignore-config          Ignore any project config files
-        --ignore-panics          Ignore panic macros in tests
-        --ignore-tests           Ignore lines of test functions when collecting coverage
-    -i, --ignored                Run ignored tests as well
-        --lib                    Test only this package's library unit tests
-    -l, --line                   Line coverage
-        --locked                 Do not update Cargo.lock
-        --no-default-features    Do not include default features
-        --no-fail-fast           Run all tests regardless of failure
-        --no-run                 Compile tests but don't run coverage
-        --offline                Run without accessing the network
-        --print-rust-flags       Print the RUSTFLAGS options that tarpaulin will compile your program with and exit
-        --print-rustdoc-flags    Print the RUSTDOCFLAGS options that tarpaulin will compile any doctests with and exit
-        --release                Build in release mode.
-        --skip-clean             The opposite of --force-clean
-        --tests                  Test all tests
-    -V, --version                Prints version information
-    -v, --verbose                Show extra output
-        --workspace              Test all packages in the workspace
+        --all                      Alias for --workspace (deprecated)
+        --all-features             Build all available features
+        --all-targets              Test all targets
+        --avoid-cfg-tarpaulin      Remove --cfg=tarpaulin from the RUSTFLAG
+        --benches                  Test all benches
+        --bins                     Test all binaries
+    -b, --branch                   Branch coverage: NOT IMPLEMENTED
+        --count                    Counts the number of hits during coverage
+        --debug                    Show debug output - this is used for diagnosing issues with tarpaulin
+        --doc                      Test only this library's documentation
+        --dump-traces              Log tracing events and save to a json file. Also, enabled when --debug is used
+        --examples                 Test all examples
+        --follow-exec              Follow executed processes capturing coverage information if they're part of your
+                                   project.
+        --force-clean              Adds a clean stage to work around cargo bugs that may affect coverage results
+    -f, --forward                  Forwards unexpected signals to test. Tarpaulin will still take signals it is
+                                   expecting.
+        --frozen                   Do not update Cargo.lock or any caches
+    -h, --help                     Prints help information
+        --ignore-config            Ignore any project config files
+        --ignore-panics            Ignore panic macros in tests
+        --ignore-tests             Ignore lines of test functions when collecting coverage
+    -i, --ignored                  Run ignored tests as well
+        --implicit-test-threads    Don't supply an explicit `--test-threads` argument to test executable. By default
+                                   tarpaulin will infer the default rustc would pick if not ran via tarpaulin and set it
+        --lib                      Test only this package's library unit tests
+    -l, --line                     Line coverage
+        --locked                   Do not update Cargo.lock
+        --no-default-features      Do not include default features
+        --no-fail-fast             Run all tests regardless of failure
+        --no-run                   Compile tests but don't run coverage
+        --offline                  Run without accessing the network
+        --print-rust-flags         Print the RUSTFLAGS options that tarpaulin will compile your program with and exit
+        --print-rustdoc-flags      Print the RUSTDOCFLAGS options that tarpaulin will compile any doctests with and exit
+        --release                  Build in release mode.
+        --skip-clean               The opposite of --force-clean
+        --tests                    Test all tests
+    -V, --version                  Prints version information
+    -v, --verbose                  Show extra output
+        --workspace                Test all packages in the workspace
 
 OPTIONS:
     -Z <FEATURES>...                 List of unstable nightly only flags

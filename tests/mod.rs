@@ -26,7 +26,8 @@ pub fn check_percentage_with_cli_args(minimum_coverage: f64, has_lines: bool, ar
              --ignore-config 'Ignore any project config files'
              --debug 'Show debug output - this is used for diagnosing issues with tarpaulin'
              --verbose -v 'Show extra output'
-             --root -r [DIR] 'directory'"
+             --root -r [DIR] 'directory'
+             --implicit-test-threads 'Don't supply an explicit `--test-threads` argument to tarpaulin. By default tarpaulin will infer the default rustc would pick if not ran via tarpaulin and set it'"
         ).get_matches_from(args);
 
     let mut configs = ConfigWrapper::from(&matches).0;
@@ -117,6 +118,13 @@ fn array_coverage() {
 #[test]
 fn lets_coverage() {
     check_percentage("lets", 1.0f64, true);
+}
+
+#[test]
+fn picking_up_shared_objects() {
+    // Need a project which downloads a shared object to target folder and uses build script to set
+    // the linker path.
+    check_percentage("torch_test", 1.0f64, true);
 }
 
 #[test]
@@ -336,6 +344,18 @@ fn handle_module_level_exclude_attrs() {
 fn handle_forks() {
     // Some false negatives on more recent compilers so lets just aim for >90% and 0 return code
     check_percentage("fork-test", 0.9f64, true);
+}
+
+#[test]
+fn no_test_args() {
+    let test_dir = get_test_path("no_test_args");
+    let args = vec![
+        "tarpaulin".to_string(),
+        "--root".to_string(),
+        test_dir.display().to_string(),
+        "--implicit-test-threads".to_string(),
+    ];
+    check_percentage_with_cli_args(1.0, true, &args);
 }
 
 #[test]

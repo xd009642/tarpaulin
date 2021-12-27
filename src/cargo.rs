@@ -13,7 +13,7 @@ use std::io::{BufRead, BufReader};
 use std::path::{Component, Path, PathBuf};
 use std::process::{Command, Stdio};
 use toml::Value;
-use tracing::{error, info, trace, warn};
+use tracing::{debug, error, info, trace, warn};
 use walkdir::{DirEntry, WalkDir};
 
 #[derive(Copy, Clone, Debug, Eq, PartialEq, Hash, Ord, PartialOrd)]
@@ -48,6 +48,7 @@ pub struct TestBinary {
     pkg_version: Option<String>,
     pkg_authors: Option<Vec<String>>,
     should_panic: bool,
+    linker_paths: Vec<PathBuf>,
 }
 
 #[derive(Clone, Debug)]
@@ -66,6 +67,7 @@ impl TestBinary {
             pkg_authors: None,
             cargo_dir: None,
             should_panic: false,
+            linker_paths: vec![],
         }
     }
 
@@ -91,6 +93,30 @@ impl TestBinary {
 
     pub fn pkg_authors(&self) -> &Option<Vec<String>> {
         &self.pkg_authors
+    }
+
+    pub fn has_linker_paths(&self) -> bool {
+        !self.linker_paths.is_empty()
+    }
+
+    pub fn is_test_type(&self) -> bool {
+        matches!(self.ty, None | Some(RunType::Tests))
+    }
+
+    /// Convert linker paths to an LD_LIBRARY_PATH.
+    /// TODO this won't work for windows when it's implemented
+    pub fn ld_library_path(&self) -> String {
+        let mut new_vals = self
+            .linker_paths
+            .iter()
+            .map(|x| x.display().to_string())
+            .collect::<Vec<String>>()
+            .join(":");
+        if let Ok(ld) = env::var("LD_LIBRARY_PATH") {
+            new_vals.push(':');
+            new_vals.push_str(ld.as_str());
+        }
+        new_vals
     }
 
     /// Should be `false` for normal tests and for doctests either `true` or
@@ -224,6 +250,8 @@ fn run_cargo(
     }
     trace!("Running command {:?}", cmd);
     let mut child = cmd.spawn().map_err(|e| RunError::Cargo(e.to_string()))?;
+    let update_from = result.len();
+    let mut paths = vec![];
 
     if ty != Some(RunType::Doctests) {
         let mut package_ids = vec![];
@@ -248,11 +276,38 @@ fn run_cargo(
                     }
                     _ => {}
                 },
+                Ok(Message::BuildScriptExecuted(bs))
+                    if !(bs.linked_libs.is_empty() || bs.linked_paths.is_empty()) =>
+                {
+                    let mut temp_paths = bs
+                        .linked_paths
+                        .iter()
+                        .filter_map(|x| {
+                            if x.as_std_path().exists() {
+                                Some(x.as_std_path().to_path_buf())
+                            } else if let Some(index) = x.as_str().find("=") {
+                                Some(PathBuf::from(&x.as_str()[(index + 1)..]))
+                            } else {
+                                warn!("Couldn't resolve linker path: {}", x.as_str());
+                                None
+                            }
+                        })
+                        .collect::<Vec<PathBuf>>();
+                    for p in temp_paths.drain(..) {
+                        if !paths.contains(&p) {
+                            paths.push(p);
+                        }
+                    }
+                }
                 Err(e) => {
                     error!("Error parsing cargo messages {}", e);
                 }
                 _ => {}
             }
+        }
+        debug!("Linker paths: {:?}", paths);
+        for bin in result.iter_mut().skip(update_from) {
+            bin.linker_paths = paths.clone();
         }
         let status = child.wait().unwrap();
         if let Some(error) = error {
@@ -565,18 +620,18 @@ fn clean_doctest_folder<P: AsRef<Path>>(doctest_dir: P) {
 
 fn handle_llvm_flags(value: &mut String, config: &Config) {
     if config.engine() == TraceEngine::Llvm {
-        value.push_str("-Z instrument-coverage ");
+        value.push_str("-Zinstrument-coverage ");
     }
     if cfg!(not(windows)) {
-        value.push_str(" -C link-dead-code ");
+        value.push_str(" -Clink-dead-code ");
     }
 }
 
 pub fn rustdoc_flags(config: &Config) -> String {
     const RUSTDOC: &str = "RUSTDOCFLAGS";
-    let common_opts = " -C link-dead-code -C debuginfo=2 --cfg=tarpaulin ";
+    let common_opts = " -Clink-dead-code -Cdebuginfo=2 --cfg=tarpaulin ";
     let mut value = format!(
-        "{} --persist-doctests {} -Z unstable-options ",
+        "{} --persist-doctests {} -Zunstable-options ",
         common_opts,
         config.doctest_dir().display()
     );
@@ -586,7 +641,7 @@ pub fn rustdoc_flags(config: &Config) -> String {
         }
     }
     handle_llvm_flags(&mut value, config);
-    value
+    deduplicate_flags(&value)
 }
 
 fn look_for_rustflags_in_table(value: &Value) -> String {
@@ -679,12 +734,12 @@ fn gather_config_rust_flags(config: &Config) -> String {
 pub fn rust_flags(config: &Config) -> String {
     const RUSTFLAGS: &str = "RUSTFLAGS";
     let mut value = config.rustflags.clone().unwrap_or_default();
-    value.push_str(" -C debuginfo=2 ");
+    value.push_str(" -Cdebuginfo=2 ");
     if !config.avoid_cfg_tarpaulin {
         value.push_str("--cfg=tarpaulin ");
     }
     if config.release {
-        value.push_str("-C debug-assertions=off ");
+        value.push_str("-Cdebug-assertions=off ");
     }
     handle_llvm_flags(&mut value, config);
     lazy_static! {
@@ -696,7 +751,38 @@ pub fn rust_flags(config: &Config) -> String {
         let vtemp = gather_config_rust_flags(config);
         value.push_str(&DEBUG_INFO.replace_all(&vtemp, " "));
     }
-    value
+    deduplicate_flags(&value)
+}
+
+fn deduplicate_flags(flags: &str) -> String {
+    lazy_static! {
+        static ref CFG_FLAG: Regex = Regex::new(r#"\--cfg\s+"#).unwrap();
+        static ref C_FLAG: Regex = Regex::new(r#"\-C\s+"#).unwrap();
+        static ref Z_FLAG: Regex = Regex::new(r#"\-Z\s+"#).unwrap();
+    }
+
+    // Gonna remove the excess spaces to make it easier to filter things
+    let res = CFG_FLAG.replace_all(&flags, "--cfg=");
+    let res = C_FLAG.replace_all(&res, "-C");
+    let res = Z_FLAG.replace_all(&res, "-Z");
+
+    let mut flag_set = HashSet::new();
+    let mut result = vec![];
+    for val in res.split_whitespace() {
+        if val.starts_with("--cfg") {
+            if !flag_set.contains(&val) {
+                result.push(val);
+                flag_set.insert(val);
+            }
+        } else {
+            let id = val.split("=").next().unwrap();
+            if !flag_set.contains(id) {
+                flag_set.insert(id);
+                result.push(val);
+            }
+        }
+    }
+    result.join(" ")
 }
 
 fn setup_environment(cmd: &mut Command, config: &Config) {
@@ -776,5 +862,30 @@ mod tests {
         version.minor = 58;
         version.channel = Channel::Stable;
         assert!(!version.supports_llvm_cov());
+    }
+
+    #[test]
+    fn no_duplicate_flags() {
+        assert_eq!(
+            deduplicate_flags("--cfg=tarpaulin --cfg tarpaulin"),
+            "--cfg=tarpaulin"
+        );
+        assert_eq!(
+            deduplicate_flags("-Clink-dead-code -Zinstrument-coverage -C link-dead-code"),
+            "-Clink-dead-code -Zinstrument-coverage"
+        );
+        assert_eq!(
+            deduplicate_flags("-Clink-dead-code -Zinstrument-coverage -Zinstrument-coverage"),
+            "-Clink-dead-code -Zinstrument-coverage"
+        );
+        assert_eq!(
+            deduplicate_flags("-Clink-dead-code -Zinstrument-coverage -Cinstrument-coverage"),
+            "-Clink-dead-code -Zinstrument-coverage -Cinstrument-coverage"
+        );
+
+        assert_eq!(
+            deduplicate_flags("--cfg=tarpaulin --cfg tarpauline --cfg=tarp"),
+            "--cfg=tarpaulin --cfg=tarpauline --cfg=tarp"
+        );
     }
 }
