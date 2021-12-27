@@ -3,7 +3,7 @@
 From 2019 onwards, all notable changes to tarpaulin will be documented in this
 file.
 
-## [Unreleased]
+## [0.19.0] 2021-12-27
 ### Added
 - Check build script output from cargo build and use it to set `LD_LIBRARY_PATH` to match cargo test behaviour
 - `--implicit-test-flags` argument so that `--test-threads` isn't passed into the test binary
