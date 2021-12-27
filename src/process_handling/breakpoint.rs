@@ -4,6 +4,10 @@ use nix::unistd::Pid;
 use nix::{Error, Result};
 use std::collections::HashMap;
 
+/// INT refers to the software interrupt instruction. For x64/x86 we use INT3 which is a
+/// one byte instruction defined for use by debuggers. For implementing support for other
+/// architectures the equivalent instructions will have to be found and also the architectures
+/// added to the CI.
 #[cfg(any(target_arch = "x86", target_arch = "x86_64"))]
 const INT: u64 = 0xCC;
 
