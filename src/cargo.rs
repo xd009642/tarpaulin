@@ -566,9 +566,6 @@ fn clean_doctest_folder<P: AsRef<Path>>(doctest_dir: P) {
 fn handle_llvm_flags(value: &mut String, config: &Config) {
     if config.engine() == TraceEngine::Llvm {
         value.push_str("-Z instrument-coverage ");
-        if cfg!(windows) {
-            value.push_str("-C codegen-units=1 ");
-        }
     }
     if cfg!(not(windows)) {
         value.push_str(" -C link-dead-code ");
