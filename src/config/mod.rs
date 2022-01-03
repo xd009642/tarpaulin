@@ -46,7 +46,10 @@ pub struct Config {
     pub ignore_panics: bool,
     /// Flag to add a clean step when preparing the target project
     #[serde(rename = "force-clean")]
-    pub force_clean: bool,
+    force_clean: bool,
+    /// The opposite of --force-clean
+    #[serde(rename = "skip-clean")]
+    skip_clean: bool,
     #[serde(rename = "all-targets")]
     pub all_targets: bool,
     /// Verbose flag for printing information to the user
@@ -193,6 +196,7 @@ impl Default for Config {
             ignore_tests: false,
             ignore_panics: false,
             force_clean: true,
+            skip_clean: false,
             verbose: false,
             debug: false,
             follow_exec: false,
@@ -283,6 +287,7 @@ impl<'a> From<&'a ArgMatches<'a>> for ConfigWrapper {
             ignore_tests: args.is_present("ignore-tests"),
             ignore_panics: args.is_present("ignore-panics"),
             force_clean,
+            skip_clean: !force_clean,
             no_fail_fast: args.is_present("no-fail-fast"),
             all_targets: args.is_present("all-targets"),
             follow_exec: args.is_present("follow-exec"),
@@ -365,6 +370,12 @@ impl Config {
                 TraceEngine::Ptrace
             }
         }
+    }
+
+    pub fn force_clean(&self) -> bool {
+        // default is force clean true skip clean false. So if one isn't default we pick that one
+        // as precedence.
+        self.force_clean && !self.skip_clean
     }
 
     pub fn target_dir(&self) -> PathBuf {
@@ -550,8 +561,20 @@ impl Config {
         self.frozen |= other.frozen;
         self.locked |= other.locked;
         self.force_clean |= other.force_clean;
+        self.skip_clean |= other.skip_clean;
         self.ignore_tests |= other.ignore_tests;
         self.no_fail_fast |= other.no_fail_fast;
+
+        // The two flags now don't agree, if one is set to non-default then prioritise that
+        match (self.force_clean, self.skip_clean) {
+            (true, false) | (false, true) => {}
+            (false, _) => {
+                self.skip_clean = true;
+            }
+            (_, true) => {
+                self.force_clean = false;
+            }
+        }
 
         let new_flags = match (self.rustflags.as_ref(), other.rustflags.as_ref()) {
             (Some(a), Some(b)) => Some(format!("{} {}", a, b)),
