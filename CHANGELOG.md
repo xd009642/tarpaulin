@@ -7,6 +7,9 @@ file.
 ### Added
 - Added support for `RUST_TEST_THREADS` to specify test threads instead of --test-threads
 
+### Changed
+- Support skip-clean in config files and implement prioritisation in merges
+
 ## [0.19.0] 2021-12-27
 ### Added
 - Check build script output from cargo build and use it to set `LD_LIBRARY_PATH` to match cargo test behaviour
