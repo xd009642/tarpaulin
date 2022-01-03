@@ -372,6 +372,11 @@ impl Config {
         }
     }
 
+    pub fn set_clean(&mut self, clean: bool) {
+        self.force_clean = clean;
+        self.skip_clean = !clean;
+    }
+
     pub fn force_clean(&self) -> bool {
         // default is force clean true skip clean false. So if one isn't default we pick that one
         // as precedence.
