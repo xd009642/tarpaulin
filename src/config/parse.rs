@@ -1,5 +1,5 @@
 use crate::config::types::*;
-use clap::{value_t, values_t, ArgMatches};
+use clap::ArgMatches;
 use coveralls_api::CiService;
 use regex::Regex;
 use serde::de::{self, Deserializer};
@@ -95,7 +95,7 @@ pub(super) fn get_root(args: &ArgMatches) -> Option<PathBuf> {
 }
 
 pub(super) fn get_ci(args: &ArgMatches) -> Option<CiService> {
-    value_t!(args, "ciserver", Ci).map(|x| x.0).ok()
+    args.value_of_t::<Ci>("ciserver").map(|x| x.0).ok()
 }
 
 pub(super) fn get_coveralls(args: &ArgMatches) -> Option<String> {
@@ -111,7 +111,8 @@ pub(super) fn get_profile(args: &ArgMatches) -> Option<String> {
 }
 
 pub(super) fn get_outputs(args: &ArgMatches) -> Vec<OutputFile> {
-    values_t!(args.values_of("out"), OutputFile).unwrap_or_else(|_| vec![])
+    args.values_of_t::<OutputFile>("out")
+        .unwrap_or_else(|_| vec![])
 }
 
 pub(super) fn get_output_directory(args: &ArgMatches) -> Option<PathBuf> {
@@ -119,7 +120,9 @@ pub(super) fn get_output_directory(args: &ArgMatches) -> Option<PathBuf> {
 }
 
 pub(super) fn get_run_types(args: &ArgMatches) -> Vec<RunType> {
-    let mut res = values_t!(args.values_of("run-types"), RunType).unwrap_or_else(|_| vec![]);
+    let mut res = args
+        .values_of_t::<RunType>("run-types")
+        .unwrap_or_else(|_| vec![]);
     if args.is_present("lib") && !res.contains(&RunType::Lib) {
         res.push(RunType::Lib);
     }
@@ -164,7 +167,7 @@ pub(super) fn regexes_from_excluded(strs: &[String]) -> Vec<Regex> {
 
 pub(super) fn get_timeout(args: &ArgMatches) -> Duration {
     if args.is_present("timeout") {
-        let duration = value_t!(args.value_of("timeout"), u64).unwrap_or(60);
+        let duration = args.value_of_t("timeout").unwrap_or(60u64);
         Duration::from_secs(duration)
     } else {
         Duration::from_secs(60)

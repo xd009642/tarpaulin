@@ -242,8 +242,8 @@ impl Default for Config {
     }
 }
 
-impl<'a> From<&'a ArgMatches<'a>> for ConfigWrapper {
-    fn from(args: &'a ArgMatches<'a>) -> Self {
+impl<'a> From<&'a ArgMatches> for ConfigWrapper {
+    fn from(args: &'a ArgMatches) -> Self {
         info!("Creating config");
         let debug = args.is_present("debug");
         let dump_traces = debug || args.is_present("dump-traces");
