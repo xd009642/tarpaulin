@@ -285,7 +285,7 @@ fn run_cargo(
                         .filter_map(|x| {
                             if x.as_std_path().exists() {
                                 Some(x.as_std_path().to_path_buf())
-                            } else if let Some(index) = x.as_str().find("=") {
+                            } else if let Some(index) = x.as_str().find('=') {
                                 Some(PathBuf::from(&x.as_str()[(index + 1)..]))
                             } else {
                                 warn!("Couldn't resolve linker path: {}", x.as_str());
@@ -781,7 +781,7 @@ fn deduplicate_flags(flags: &str) -> String {
                 flag_set.insert(val);
             }
         } else {
-            let id = val.split("=").next().unwrap();
+            let id = val.split('=').next().unwrap();
             if !flag_set.contains(id) {
                 flag_set.insert(id);
                 result.push(val);
