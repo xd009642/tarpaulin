@@ -173,6 +173,8 @@ fn execute_test(
         None => env::set_current_dir(&config.root()),
     };
 
+    debug!("Current working dir: {:?}", env::current_dir());
+
     let mut envars: Vec<(String, String)> = Vec::new();
 
     for (key, value) in env::vars() {
@@ -222,8 +224,6 @@ fn execute_test(
     if test.has_linker_paths() {
         envars.push(("LD_LIBRARY_PATH".to_string(), test.ld_library_path()));
     }
-    debug!("Env vars: {:?}", envars);
-    debug!("Args: {:?}", argv);
     match config.engine() {
         TraceEngine::Llvm => {
             // Used for llvm coverage to avoid report naming clashes TODO could have clashes
@@ -232,6 +232,8 @@ fn execute_test(
                 "LLVM_PROFILE_FILE".to_string(),
                 format!("{}_%p.profraw", test.file_name()),
             ));
+            debug!("Env vars: {:?}", envars);
+            debug!("Args: {:?}", argv);
             let mut child = Command::new(test.path());
             child.envs(envars).args(&argv);
 
@@ -241,6 +243,8 @@ fn execute_test(
         #[cfg(target_os = "linux")]
         TraceEngine::Ptrace => {
             argv.insert(0, test.path().display().to_string());
+            debug!("Env vars: {:?}", envars);
+            debug!("Args: {:?}", argv);
             execute(test.path(), &argv, envars.as_slice())
         }
         e => Err(RunError::Engine(format!(
