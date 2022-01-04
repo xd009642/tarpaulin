@@ -197,7 +197,7 @@ impl TraceMap {
     pub fn merge(&mut self, other: &TraceMap) {
         for (k, values) in other.iter() {
             if !self.traces.contains_key(k) {
-                self.traces.insert(k.to_path_buf(), values.to_vec());
+                self.traces.insert(k.clone(), values.clone());
             } else {
                 let existing = self.traces.get_mut(k).unwrap();
                 for v in values.iter() {
@@ -319,7 +319,7 @@ impl TraceMap {
                 .find(|x| x.address.iter().any(|x| (*x & !0x7u64) == address))
             {
                 return Some(Location {
-                    file: k.to_path_buf(),
+                    file: k.clone(),
                     line: s.line,
                 });
             }

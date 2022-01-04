@@ -40,7 +40,7 @@ fn get_json(coverage_data: &TraceMap, context: Context) -> Result<String, RunErr
 
                 return Err(RunError::Html(format!(
                     "Unable to read source file to string: {}",
-                    e.to_string()
+                    e
                 )));
             }
         };
@@ -65,12 +65,7 @@ pub fn export(coverage_data: &TraceMap, config: &Config) -> Result<(), RunError>
     let file_path = config.output_dir().join("tarpaulin-report.html");
     let mut file = match File::create(file_path) {
         Ok(k) => k,
-        Err(e) => {
-            return Err(RunError::Html(format!(
-                "File is not writeable: {}",
-                e.to_string()
-            )))
-        }
+        Err(e) => return Err(RunError::Html(format!("File is not writeable: {}", e))),
     };
 
     let report_json = get_json(coverage_data, Context::CurrentResults)?;

@@ -392,7 +392,7 @@ impl Config {
                 _ => self
                     .manifest
                     .parent()
-                    .map(|x| x.to_path_buf())
+                    .map(Path::to_path_buf)
                     .unwrap_or_default()
                     .join("target"),
             }
@@ -422,7 +422,7 @@ impl Config {
             _ => self
                 .manifest
                 .parent()
-                .map(|x| x.to_path_buf())
+                .map(Path::to_path_buf)
                 .unwrap_or_default(),
         }
     }
@@ -444,7 +444,7 @@ impl Config {
 
     pub fn get_config_vec(file_configs: std::io::Result<Vec<Self>>, backup: Self) -> ConfigWrapper {
         if let Ok(mut confs) = file_configs {
-            for c in confs.iter_mut() {
+            for c in &mut confs {
                 c.merge(&backup);
             }
             if confs.is_empty() {
@@ -850,7 +850,7 @@ mod tests {
             .unwrap();
         let conf = ConfigWrapper::from(&matches).0;
         assert_eq!(conf.len(), 1);
-        assert_eq!(conf[0].features, Some("a b".to_string()))
+        assert_eq!(conf[0].features, Some("a b".to_string()));
     }
 
     #[test]

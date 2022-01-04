@@ -7,6 +7,7 @@ use quote::ToTokens;
 use regex::Regex;
 use std::cell::RefCell;
 use std::collections::{HashMap, HashSet};
+use std::ffi::OsStr;
 use std::fs::File;
 use std::io::{BufRead, BufReader, Read};
 use std::path::{Path, PathBuf};
@@ -275,7 +276,7 @@ impl SourceAnalysis {
         for e in &ignored_files {
             let mut analysis = LineAnalysis::new();
             analysis.ignore_all();
-            result.lines.insert(e.to_path_buf(), analysis);
+            result.lines.insert(e.clone(), analysis);
         }
 
         result.debug_printout(config);
@@ -329,8 +330,9 @@ impl SourceAnalysis {
                                     filtered_files.insert(f);
                                 } else {
                                     let walker = WalkDir::new(f).into_iter();
-                                    for e in
-                                        walker.filter_map(|e| e.ok()).filter(|e| is_source_file(e))
+                                    for e in walker
+                                        .filter_map(std::result::Result::ok)
+                                        .filter(is_source_file)
                                     {
                                         filtered_files.insert(e.path().to_path_buf());
                                     }
@@ -340,24 +342,23 @@ impl SourceAnalysis {
                         } else {
                             // Now we need to ignore not only this file but if it is a lib.rs or
                             // mod.rs we need to get the others
-                            let bad_module = match (
-                                path.parent(),
-                                path.file_name().map(|x| x.to_string_lossy()),
-                            ) {
-                                (Some(p), Some(n)) => {
-                                    if n == "lib.rs" || n == "mod.rs" {
-                                        Some(p.to_path_buf())
-                                    } else {
-                                        let ignore = p.join(n.trim_end_matches(".rs"));
-                                        if ignore.exists() && ignore.is_dir() {
-                                            Some(ignore)
+                            let bad_module =
+                                match (path.parent(), path.file_name().map(OsStr::to_string_lossy))
+                                {
+                                    (Some(p), Some(n)) => {
+                                        if n == "lib.rs" || n == "mod.rs" {
+                                            Some(p.to_path_buf())
                                         } else {
-                                            None
+                                            let ignore = p.join(n.trim_end_matches(".rs"));
+                                            if ignore.exists() && ignore.is_dir() {
+                                                Some(ignore)
+                                            } else {
+                                                None
+                                            }
                                         }
                                     }
-                                }
-                                _ => None,
-                            };
+                                    _ => None,
+                                };
                             // Kill it with fire!`
                             if let Some(module) = bad_module {
                                 self.lines
@@ -439,7 +440,7 @@ impl SourceAnalysis {
                 if !lines.is_empty() {
                     lines.sort();
                     trace!("Ignorable lines: {:?}", lines);
-                    lines.clear()
+                    lines.clear();
                 }
                 for c in &analysis.cover {
                     lines.push(c);

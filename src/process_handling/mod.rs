@@ -32,7 +32,7 @@ impl RunningProcessHandle {
         let child = cmd.spawn()?;
         let existing_profraws = fs::read_dir(config.root())?
             .into_iter()
-            .filter_map(|x| x.ok())
+            .filter_map(Result::ok)
             .filter(|x| x.path().is_file() && x.path().extension() == Some(OsStr::new("profraw")))
             .map(|x| x.path())
             .collect();
@@ -193,7 +193,7 @@ fn execute_test(
         argv.push(config.color.to_string().to_ascii_lowercase());
     }
     let no_test_env = if let Ok(threads) = env::var("RUST_TEST_THREADS") {
-        envars.push(("RUST_TEST_THREADS".to_string(), threads.to_string()));
+        envars.push(("RUST_TEST_THREADS".to_string(), threads));
         false
     } else {
         true

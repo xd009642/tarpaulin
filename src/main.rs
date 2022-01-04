@@ -25,7 +25,7 @@ fn print_env(seen_rustflags: HashMap<String, Vec<String>>, prefix: &str, default
         let flags = seen_rustflags.keys().next().unwrap();
         println!(r#"{}="{}""#, prefix, flags);
     } else {
-        for (k, v) in seen_rustflags.iter() {
+        for (k, v) in &seen_rustflags {
             info!("RUSTFLAGS for configs {:?}", v);
             println!(r#"{}="{}""#, prefix, k);
         }

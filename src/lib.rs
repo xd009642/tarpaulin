@@ -8,6 +8,7 @@ use crate::report::report_coverage;
 use crate::source_analysis::{LineAnalysis, SourceAnalysis};
 use crate::test_loader::*;
 use crate::traces::*;
+use std::ffi::OsString;
 use std::fs::create_dir_all;
 use tracing::{debug, error, info, warn};
 use tracing_subscriber::{filter::LevelFilter, EnvFilter};
@@ -45,10 +46,10 @@ pub fn setup_logging(color: Color, debug: bool, verbose: bool) {
     // e.g. `RUST_LOG="trace" cargo-tarpaulin` will end up printing TRACE for everything
     // `cargo-tarpaulin -v` will print DEBUG for tarpaulin and INFO for everything else.
     // `RUST_LOG="error" cargo-tarpaulin -v` will print ERROR for everything.
-    let filter = match std::env::var_os(RUST_LOG_ENV).map(|s| s.into_string()) {
+    let filter = match std::env::var_os(RUST_LOG_ENV).map(OsString::into_string) {
         Some(Ok(env)) => {
             let mut filter = base_exceptions(EnvFilter::new(""));
-            for s in env.split(',').into_iter() {
+            for s in env.split(',') {
                 match s.parse() {
                     Ok(d) => filter = filter.add_directive(d),
                     Err(err) => println!("WARN ignoring log directive: `{}`: {}", s, err),
