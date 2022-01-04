@@ -345,7 +345,7 @@ fn run_cargo(
         }
         let walker = WalkDir::new(&config.doctest_dir()).into_iter();
         let dir_entries = walker
-            .filter_map(|e| e.ok())
+            .filter_map(Result::ok)
             .filter(|e| matches!(e.metadata(), Ok(ref m) if m.is_file() && m.len() != 0))
             .collect::<Vec<_>>();
         let should_panics = get_attribute_candidates(&dir_entries, config, "should_panic");
@@ -608,7 +608,7 @@ fn init_args(test_cmd: &mut Command, config: &Config) {
 /// avoid confusing the results
 fn clean_doctest_folder<P: AsRef<Path>>(doctest_dir: P) {
     if let Ok(rd) = read_dir(doctest_dir.as_ref()) {
-        rd.flat_map(|e| e.ok())
+        rd.flat_map(Result::ok)
             .filter(|e| {
                 e.path()
                     .components()
@@ -659,8 +659,8 @@ fn look_for_rustflags_in_table(value: &Value) -> String {
                 .as_array()
                 .unwrap()
                 .iter()
-                .filter_map(|x| x.as_str())
-                .map(|x| x.to_string())
+                .filter_map(Value::as_str)
+                .map(ToString::to_string)
                 .collect();
 
             vec_of_flags.join(" ")

@@ -2,6 +2,7 @@ use crate::config::*;
 use crate::errors::*;
 use crate::test_loader::TracerData;
 use crate::traces::*;
+use cargo_metadata::Metadata;
 use serde::Serialize;
 use std::fs::{create_dir_all, File};
 use std::io::BufReader;
@@ -24,7 +25,7 @@ fn coverage_report_name(config: &Config) -> String {
     config
         .get_metadata()
         .as_ref()
-        .and_then(|x| x.root_package())
+        .and_then(Metadata::root_package)
         .map(|x| format!("{}-coverage.json", x.name))
         .unwrap_or_else(|| "coverage.json".to_string())
 }

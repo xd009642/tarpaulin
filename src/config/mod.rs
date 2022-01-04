@@ -392,7 +392,7 @@ impl Config {
                 _ => self
                     .manifest
                     .parent()
-                    .map(|x| x.to_path_buf())
+                    .map(Path::to_path_buf)
                     .unwrap_or_default()
                     .join("target"),
             }
@@ -422,7 +422,7 @@ impl Config {
             _ => self
                 .manifest
                 .parent()
-                .map(|x| x.to_path_buf())
+                .map(Path::to_path_buf)
                 .unwrap_or_default(),
         }
     }

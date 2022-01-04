@@ -32,7 +32,7 @@ impl RunningProcessHandle {
         let child = cmd.spawn()?;
         let existing_profraws = fs::read_dir(config.root())?
             .into_iter()
-            .filter_map(|x| x.ok())
+            .filter_map(Result::ok)
             .filter(|x| x.path().is_file() && x.path().extension() == Some(OsStr::new("profraw")))
             .map(|x| x.path())
             .collect();

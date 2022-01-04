@@ -393,7 +393,7 @@ impl<'a> LinuxData<'a> {
                 'outer: for k in self.processes.keys() {
                     let proc = Process::new(k.as_raw()).ok()?;
                     if let Ok(tasks) = proc.tasks() {
-                        for task in tasks.filter_map(|x| x.ok()) {
+                        for task in tasks.filter_map(Result::ok) {
                             if task.tid == pid.as_raw() {
                                 parent_pid = Some(*k);
                                 break 'outer;

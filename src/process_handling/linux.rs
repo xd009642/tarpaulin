@@ -126,8 +126,8 @@ pub fn execute(
         .map(|x| CString::new(x.as_str()).unwrap_or_default())
         .collect::<Vec<CString>>();
 
-    let arg_ref = argv.iter().map(|x| x.as_ref()).collect::<Vec<&CStr>>();
-    let env_ref = envar.iter().map(|x| x.as_ref()).collect::<Vec<&CStr>>();
+    let arg_ref = argv.iter().map(AsRef::as_ref).collect::<Vec<&CStr>>();
+    let env_ref = envar.iter().map(AsRef::as_ref).collect::<Vec<&CStr>>();
     execve(&program, &arg_ref, &env_ref).map_err(|_| RunError::Internal)?;
 
     unreachable!();
