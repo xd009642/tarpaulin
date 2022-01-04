@@ -193,7 +193,7 @@ fn execute_test(
         argv.push(config.color.to_string().to_ascii_lowercase());
     }
     let no_test_env = if let Ok(threads) = env::var("RUST_TEST_THREADS") {
-        envars.push(("RUST_TEST_THREADS".to_string(), threads.to_string()));
+        envars.push(("RUST_TEST_THREADS".to_string(), threads));
         false
     } else {
         true
