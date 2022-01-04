@@ -222,7 +222,7 @@ pub fn get_tests(config: &Config) -> Result<Vec<TestBinary>, RunError> {
         run_cargo(&metadata, manifest, config, Some(*ty), &mut result)?;
     }
     if config.has_named_tests() {
-        run_cargo(&metadata, manifest, config, None, &mut result)?
+        run_cargo(&metadata, manifest, config, None, &mut result)?;
     } else if config.run_types.is_empty() {
         let ty = if config.command == Mode::Test {
             Some(RunType::Tests)

@@ -440,7 +440,7 @@ impl SourceAnalysis {
                 if !lines.is_empty() {
                     lines.sort();
                     trace!("Ignorable lines: {:?}", lines);
-                    lines.clear()
+                    lines.clear();
                 }
                 for c in &analysis.cover {
                     lines.push(c);

@@ -39,7 +39,7 @@ pub fn export(coverage_data: &TraceMap, config: &Config) -> Result<(), RunError>
             }
 
             if let CoverageStat::Line(hits) = trace.stats {
-                da.push((trace.line, hits))
+                da.push((trace.line, hits));
             }
         }
 

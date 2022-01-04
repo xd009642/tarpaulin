@@ -191,7 +191,7 @@ impl<'a> StateData for LinuxData<'a> {
                     result = Err(RunError::TestRuntime(format!(
                         "An error occurred while waiting for response from test: {}",
                         e
-                    )))
+                    )));
                 }
             }
         }

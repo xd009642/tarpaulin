@@ -850,7 +850,7 @@ mod tests {
             .unwrap();
         let conf = ConfigWrapper::from(&matches).0;
         assert_eq!(conf.len(), 1);
-        assert_eq!(conf[0].features, Some("a b".to_string()))
+        assert_eq!(conf[0].features, Some("a b".to_string()));
     }
 
     #[test]

@@ -186,7 +186,7 @@ mod tests {
             for stmt in &func.block.stmts {
                 match stmt {
                     Stmt::Semi(Expr::If(i), _) | Stmt::Expr(Expr::If(i)) => {
-                        branches = Some(Branches::from(i))
+                        branches = Some(Branches::from(i));
                     }
                     _ => {}
                 }
@@ -211,7 +211,7 @@ mod tests {
             for stmt in &func.block.stmts {
                 match stmt {
                     Stmt::Semi(Expr::If(i), _) | Stmt::Expr(Expr::If(i)) => {
-                        branches = Some(Branches::from(i))
+                        branches = Some(Branches::from(i));
                     }
                     _ => {}
                 }
@@ -244,7 +244,7 @@ mod tests {
             for stmt in &func.block.stmts {
                 match stmt {
                     Stmt::Semi(Expr::Match(m), _) | Stmt::Expr(Expr::Match(m)) => {
-                        branches = Some(Branches::from(m))
+                        branches = Some(Branches::from(m));
                     }
                     _ => {}
                 }
@@ -272,7 +272,7 @@ mod tests {
             for stmt in &func.block.stmts {
                 match stmt {
                     Stmt::Semi(Expr::ForLoop(f), _) | Stmt::Expr(Expr::ForLoop(f)) => {
-                        branches = Some(Branches::from(f))
+                        branches = Some(Branches::from(f));
                     }
                     _ => {}
                 }
@@ -299,7 +299,7 @@ mod tests {
             for stmt in &func.block.stmts {
                 match stmt {
                     Stmt::Semi(Expr::While(w), _) | Stmt::Expr(Expr::While(w)) => {
-                        branches = Some(Branches::from(w))
+                        branches = Some(Branches::from(w));
                     }
                     _ => {}
                 }
