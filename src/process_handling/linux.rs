@@ -62,7 +62,7 @@ pub fn get_test_coverage(
             Err(err) => Err(RunError::TestCoverage(format!(
                 "Failed to run test {}, Error: {}",
                 test.path().display(),
-                err.to_string()
+                err
             ))),
         }
     }
