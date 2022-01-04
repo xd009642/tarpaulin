@@ -17,9 +17,9 @@ fn package_exclude() {
     let result = launch_tarpaulin(&config, &None);
     let result = result.expect("Test failed").0;
     let files = result.files();
-    files.iter().for_each(|f| {
+    for f in &files {
         println!("File: {}", f.display());
-    });
+    }
     assert!(files.iter().any(|f| f.ends_with("foo/src/lib.rs")));
     assert!(files.iter().any(|f| f.ends_with("bar/src/lib.rs")));
 
