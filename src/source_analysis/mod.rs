@@ -276,7 +276,7 @@ impl SourceAnalysis {
         for e in &ignored_files {
             let mut analysis = LineAnalysis::new();
             analysis.ignore_all();
-            result.lines.insert(e.to_path_buf(), analysis);
+            result.lines.insert(e.clone(), analysis);
         }
 
         result.debug_printout(config);
