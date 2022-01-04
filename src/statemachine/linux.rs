@@ -386,24 +386,21 @@ impl<'a> LinuxData<'a> {
     }
 
     fn get_parent(&self, pid: Pid) -> Option<Pid> {
-        match self.pid_map.get(&pid) {
-            Some(p) => Some(*p),
-            None => {
-                let mut parent_pid = None;
-                'outer: for k in self.processes.keys() {
-                    let proc = Process::new(k.as_raw()).ok()?;
-                    if let Ok(tasks) = proc.tasks() {
-                        for task in tasks.filter_map(Result::ok) {
-                            if task.tid == pid.as_raw() {
-                                parent_pid = Some(*k);
-                                break 'outer;
-                            }
+        self.pid_map.get(&pid).copied().or_else(|| {
+            let mut parent_pid = None;
+            'outer: for k in self.processes.keys() {
+                let proc = Process::new(k.as_raw()).ok()?;
+                if let Ok(tasks) = proc.tasks() {
+                    for task in tasks.filter_map(Result::ok) {
+                        if task.tid == pid.as_raw() {
+                            parent_pid = Some(*k);
+                            break 'outer;
                         }
                     }
                 }
-                parent_pid
             }
-        }
+            parent_pid
+        })
     }
 
     fn get_traced_process_mut(&mut self, pid: Pid) -> Option<&mut TracedProcess> {
