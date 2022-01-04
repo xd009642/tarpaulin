@@ -254,18 +254,18 @@ fn run_cargo(
     let mut paths = vec![];
 
     if ty != Some(RunType::Doctests) {
-        let mut package_ids = vec![];
+        let mut package_ids = vec![None; result.len()];
         let reader = std::io::BufReader::new(child.stdout.take().unwrap());
         let mut error = None;
         for msg in Message::parse_stream(reader) {
             match msg {
                 Ok(Message::CompilerArtifact(art)) => {
-                    if let Some(path) = art.executable {
+                    if let Some(path) = art.executable.as_ref() {
                         if !art.profile.test && config.command == Mode::Test {
                             continue;
                         }
                         result.push(TestBinary::new(PathBuf::from(path), ty));
-                        package_ids.push(art.package_id.clone());
+                        package_ids.push(Some(art.package_id.clone()));
                     }
                 }
                 Ok(Message::CompilerMessage(m)) => match m.message.level {
@@ -316,15 +316,21 @@ fn run_cargo(
         if !status.success() {
             return Err(RunError::Cargo("cargo run failed".to_string()));
         };
-        for (res, package) in result.iter_mut().zip(package_ids.iter()) {
-            let package = &metadata[package];
-            res.cargo_dir = package
-                .manifest_path
-                .parent()
-                .map(|x| PathBuf::from(x.to_path_buf()));
-            res.pkg_name = Some(package.name.clone());
-            res.pkg_version = Some(package.version.to_string());
-            res.pkg_authors = Some(package.authors.clone());
+        for (res, package) in result
+            .iter_mut()
+            .zip(package_ids.iter())
+            .filter(|(_, b)| b.is_some())
+        {
+            if let Some(package) = package {
+                let package = &metadata[package];
+                res.cargo_dir = package
+                    .manifest_path
+                    .parent()
+                    .map(|x| PathBuf::from(x.to_path_buf()));
+                res.pkg_name = Some(package.name.clone());
+                res.pkg_version = Some(package.version.to_string());
+                res.pkg_authors = Some(package.authors.clone());
+            }
         }
         child.wait().map_err(|e| RunError::Cargo(e.to_string()))?;
     } else {
