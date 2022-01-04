@@ -444,7 +444,7 @@ impl Config {
 
     pub fn get_config_vec(file_configs: std::io::Result<Vec<Self>>, backup: Self) -> ConfigWrapper {
         if let Ok(mut confs) = file_configs {
-            for c in confs.iter_mut() {
+            for c in &mut confs {
                 c.merge(&backup);
             }
             if confs.is_empty() {

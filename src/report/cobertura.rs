@@ -174,7 +174,7 @@ impl Report {
             sources_tag,
             sources_tag.len(),
         )))?;
-        for source in self.sources.iter() {
+        for source in &self.sources {
             if let Some(path) = source.to_str() {
                 writer.write_event(Event::Start(BytesStart::borrowed(
                     source_tag,

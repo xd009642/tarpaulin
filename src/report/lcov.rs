@@ -43,7 +43,7 @@ pub fn export(coverage_data: &TraceMap, config: &Config) -> Result<(), RunError>
             }
         }
 
-        for fn_line in fns.iter() {
+        for fn_line in &fns {
             writeln!(file, "{}", fn_line)?;
         }
 
@@ -53,7 +53,7 @@ pub fn export(coverage_data: &TraceMap, config: &Config) -> Result<(), RunError>
             writeln!(file, "{}", fnda_line)?;
         }
 
-        for (line, hits) in da.iter() {
+        for (line, hits) in &da {
             writeln!(file, "DA:{},{}", line, hits)?;
         }
 
