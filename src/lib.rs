@@ -202,7 +202,7 @@ pub fn launch_tarpaulin(
             if let Some(res) = coverage {
                 result.merge(&res.0);
                 return_code |= if exe.should_panic() {
-                    (res.1 == 0) as i32
+                    (res.1 == 0).into()
                 } else {
                     res.1
                 };

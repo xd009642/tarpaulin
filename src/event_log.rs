@@ -93,7 +93,7 @@ impl TraceEvent {
         match wait {
             WaitStatus::Exited(_, i) => {
                 event.description = "Exited".to_string();
-                event.return_val = Some(*i as _);
+                event.return_val = Some((*i).into());
             }
             WaitStatus::Signaled(_, sig, _) => {
                 event.signal = Some(sig.to_string());
