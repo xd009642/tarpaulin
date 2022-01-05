@@ -220,12 +220,12 @@ impl LineAnalysis {
     }
 
     /// Adds a line to the list of lines to ignore
-    fn add_to_ignore(&mut self, lines: &[usize]) {
+    fn add_to_ignore(&mut self, lines: impl IntoIterator<Item = usize>) {
         if !self.ignore.contains(&Lines::All) {
             for l in lines {
-                self.ignore.insert(Lines::Line(*l));
-                if self.cover.contains(l) {
-                    self.cover.remove(l);
+                self.ignore.insert(Lines::Line(l));
+                if self.cover.contains(&l) {
+                    self.cover.remove(&l);
                 }
             }
         }
@@ -390,9 +390,8 @@ impl SourceAnalysis {
             .lines()
             .enumerate()
             .filter(|&(_, x)| IGNORABLE.is_match(x))
-            .map(|(i, _)| i + 1)
-            .collect::<Vec<usize>>();
-        analysis.add_to_ignore(&lines);
+            .map(|(i, _)| i + 1);
+        analysis.add_to_ignore(lines);
 
         let lines = ctx
             .file_contents
@@ -403,9 +402,8 @@ impl SourceAnalysis {
                 x.retain(|c| !c.is_whitespace());
                 x == "}else{"
             })
-            .map(|(i, _)| i + 1)
-            .collect::<Vec<usize>>();
-        analysis.add_to_ignore(&lines);
+            .map(|(i, _)| i + 1);
+        analysis.add_to_ignore(lines);
     }
 
     pub(crate) fn visit_generics(&mut self, generics: &Generics, ctx: &Context) {
@@ -469,7 +467,7 @@ fn maybe_ignore_first_line(file: &Path, result: &mut HashMap<PathBuf, LineAnalys
             if !(first.starts_with("pub") || first.starts_with("fn")) {
                 let file = file.to_path_buf();
                 let line_analysis = result.entry(file).or_default();
-                line_analysis.add_to_ignore(&[1]);
+                line_analysis.add_to_ignore([1]);
             }
         }
     }

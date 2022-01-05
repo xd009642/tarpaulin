@@ -35,10 +35,8 @@ impl SourceAnalysis {
             let start = mac.span().start().line + 1;
             let range = get_line_range(mac);
             let lines = process_mac_args(&mac.tokens);
-            let lines = (start..range.end)
-                .filter(|x| !lines.contains(x))
-                .collect::<Vec<_>>();
-            analysis.add_to_ignore(&lines);
+            let lines = (start..range.end).filter(|x| !lines.contains(x));
+            analysis.add_to_ignore(lines);
         }
         SubResult::Ok
     }
