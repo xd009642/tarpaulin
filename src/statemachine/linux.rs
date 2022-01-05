@@ -635,7 +635,7 @@ impl<'a> LinuxData<'a> {
                 let rip = (rip - 1) as u64;
                 trace!("Hit address 0x{:x}", rip);
                 if process.breakpoints.contains_key(&rip) {
-                    let bp = &mut process.breakpoints.get_mut(&rip).unwrap();
+                    let bp = process.breakpoints.get_mut(&rip).unwrap();
                     let updated = if visited.contains(&rip) {
                         let _ = bp.jump_to(current);
                         (true, TracerAction::Continue(current.into()))
