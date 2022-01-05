@@ -151,11 +151,11 @@ pub fn amount_covered(traces: &[&Trace]) -> usize {
     let mut result = 0usize;
     for t in traces {
         result += match t.stats {
-            CoverageStat::Branch(ref x) => (x.been_true as usize) + (x.been_false as usize),
+            CoverageStat::Branch(ref x) => usize::from(x.been_true) + usize::from(x.been_false),
             CoverageStat::Condition(ref x) => x.iter().fold(0, |acc, x| {
-                acc + (x.been_true as usize) + (x.been_false as usize)
+                acc + usize::from(x.been_true) + usize::from(x.been_false)
             }),
-            CoverageStat::Line(ref x) => (*x > 0) as usize,
+            CoverageStat::Line(ref x) => (*x > 0).into(),
         };
     }
     result
