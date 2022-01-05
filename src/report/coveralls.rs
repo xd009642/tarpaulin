@@ -88,7 +88,7 @@ pub fn export(coverage_data: &TraceMap, config: &Config) -> Result<(), RunError>
             let mut lines: HashMap<usize, usize> = HashMap::new();
             let fcov = coverage_data.get_child_traces(file);
 
-            for c in &fcov {
+            for c in fcov {
                 match c.stats {
                     CoverageStat::Line(hits) => {
                         lines.insert(c.line as usize, hits as usize);

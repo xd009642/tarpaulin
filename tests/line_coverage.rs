@@ -26,7 +26,6 @@ fn simple_project_coverage() {
     assert_eq!(unused_lines, 3);
     let unused_hits = res
         .get_child_traces(&unused_file)
-        .iter()
         .map(|x| x.line)
         .collect::<Vec<_>>();
 
@@ -37,7 +36,7 @@ fn simple_project_coverage() {
 
     let lib_file = test_dir.join("src/lib.rs");
     let lib_traces = res.get_child_traces(&lib_file);
-    for l in &lib_traces {
+    for l in lib_traces {
         if l.line == 6 {
             assert_eq!(CoverageStat::Line(0), l.stats);
         } else if l.line == 8 {
@@ -87,7 +86,7 @@ fn test_threads_1() {
 
     let lib_file = test_dir.join("src/lib.rs");
     let lib_traces = res.get_child_traces(&lib_file);
-    for l in &lib_traces {
+    for l in lib_traces {
         if l.line == 6 {
             assert_eq!(CoverageStat::Line(0), l.stats);
         } else if l.line == 8 {

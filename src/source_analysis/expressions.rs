@@ -241,11 +241,9 @@ impl SourceAnalysis {
         if self.check_attr_list(&call.attrs, ctx) {
             if !call.args.is_empty() && call.span().start().line != call.span().end().line {
                 let lines = get_coverable_args(&call.args);
-                let lines = get_line_range(call)
-                    .filter(|x| !lines.contains(x))
-                    .collect::<Vec<_>>();
+                let lines = get_line_range(call).filter(|x| !lines.contains(x));
                 let analysis = self.get_line_analysis(ctx.file.to_path_buf());
-                analysis.add_to_ignore(&lines);
+                analysis.add_to_ignore(lines);
             }
             self.process_expr(&call.func, ctx);
         } else {
@@ -262,11 +260,9 @@ impl SourceAnalysis {
             let start = meth.receiver.span().end().line + 1;
             let range = get_line_range(meth);
             let lines = get_coverable_args(&meth.args);
-            let lines = (start..range.end)
-                .filter(|x| !lines.contains(x))
-                .collect::<Vec<_>>();
+            let lines = (start..range.end).filter(|x| !lines.contains(x));
             let analysis = self.get_line_analysis(ctx.file.to_path_buf());
-            analysis.add_to_ignore(&lines);
+            analysis.add_to_ignore(lines);
         } else {
             let analysis = self.get_line_analysis(ctx.file.to_path_buf());
             analysis.ignore_tokens(meth);
@@ -326,11 +322,9 @@ impl SourceAnalysis {
                 }
             }
         }
-        let x = get_line_range(structure)
-            .filter(|x| !cover.contains(x))
-            .collect::<Vec<usize>>();
+        let x = get_line_range(structure).filter(|x| !cover.contains(x));
         let analysis = self.get_line_analysis(ctx.file.to_path_buf());
-        analysis.add_to_ignore(&x);
+        analysis.add_to_ignore(x);
         // struct expressions are never unreachable by themselves
         SubResult::Ok
     }
