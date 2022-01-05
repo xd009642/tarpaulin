@@ -159,7 +159,7 @@ impl LineAnalysis {
     pub fn ignore_span(&mut self, span: Span) {
         // If we're already ignoring everything no need to ignore this span
         if !self.ignore.contains(&Lines::All) {
-            for i in span.start().line..(span.end().line + 1) {
+            for i in span.start().line..=span.end().line {
                 self.ignore.insert(Lines::Line(i));
                 if self.cover.contains(&i) {
                     self.cover.remove(&i);
@@ -207,7 +207,7 @@ impl LineAnalysis {
                 }
             }
         }
-        for i in span.start().line..(span.end().line + 1) {
+        for i in span.start().line..=span.end().line {
             if !self.ignore.contains(&Lines::Line(i)) && useful_lines.contains(&i) {
                 self.cover.insert(i);
             }
