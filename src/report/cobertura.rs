@@ -370,7 +370,6 @@ fn render_class(config: &Config, traces: &TraceMap, file: &Path) -> Option<Class
         let line_rate = covered / coverable as f64;
         let lines = traces
             .get_child_traces(file)
-            .iter()
             .map(|x| render_line(x))
             .collect();
 
