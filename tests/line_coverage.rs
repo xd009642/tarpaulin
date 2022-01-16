@@ -8,7 +8,7 @@ use std::time::Duration;
 #[test]
 fn simple_project_coverage() {
     let mut config = Config::default();
-    config.force_clean = false;
+    config.set_clean(false);
     config.test_timeout = Duration::from_secs(60);
     let restore_dir = env::current_dir().unwrap();
     let test_dir = get_test_path("simple_project");
@@ -26,7 +26,6 @@ fn simple_project_coverage() {
     assert_eq!(unused_lines, 3);
     let unused_hits = res
         .get_child_traces(&unused_file)
-        .iter()
         .map(|x| x.line)
         .collect::<Vec<_>>();
 
@@ -37,7 +36,7 @@ fn simple_project_coverage() {
 
     let lib_file = test_dir.join("src/lib.rs");
     let lib_traces = res.get_child_traces(&lib_file);
-    for l in &lib_traces {
+    for l in lib_traces {
         if l.line == 6 {
             assert_eq!(CoverageStat::Line(0), l.stats);
         } else if l.line == 8 {
@@ -50,7 +49,7 @@ fn simple_project_coverage() {
 fn debug_info_0() {
     // From issue #601
     let mut config = Config::default();
-    config.force_clean = false;
+    config.set_clean(false);
     let restore_dir = env::current_dir().unwrap();
     let test_dir = get_test_path("simple_project");
     env::set_current_dir(&test_dir).unwrap();
@@ -71,7 +70,7 @@ fn debug_info_0() {
 #[test]
 fn test_threads_1() {
     let mut config = Config::default();
-    config.force_clean = false;
+    config.set_clean(false);
     let restore_dir = env::current_dir().unwrap();
     let test_dir = get_test_path("simple_project");
     env::set_current_dir(&test_dir).unwrap();
@@ -87,7 +86,7 @@ fn test_threads_1() {
 
     let lib_file = test_dir.join("src/lib.rs");
     let lib_traces = res.get_child_traces(&lib_file);
-    for l in &lib_traces {
+    for l in lib_traces {
         if l.line == 6 {
             assert_eq!(CoverageStat::Line(0), l.stats);
         } else if l.line == 8 {

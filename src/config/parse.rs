@@ -12,7 +12,7 @@ use std::time::Duration;
 use tracing::error;
 
 pub(super) fn get_list(args: &ArgMatches, key: &str) -> Vec<String> {
-    args.values_of_lossy(key).unwrap_or_else(Vec::new)
+    args.values_of_lossy(key).unwrap_or_default()
 }
 
 pub(super) fn get_line_cov(args: &ArgMatches) -> bool {
@@ -151,7 +151,7 @@ pub(super) fn get_excluded(args: &ArgMatches) -> Vec<Regex> {
 pub(super) fn regexes_from_excluded(strs: &[String]) -> Vec<Regex> {
     let mut files = vec![];
     for temp_str in strs {
-        let s = &temp_str.replace(".", r"\.").replace("*", ".*");
+        let s = &temp_str.replace('.', r"\.").replace('*', ".*");
 
         if let Ok(re) = Regex::new(s) {
             files.push(re);

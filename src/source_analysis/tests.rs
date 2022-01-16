@@ -91,7 +91,7 @@ fn line_analysis_works() {
     assert!(!la.should_ignore(0));
     assert!(!la.should_ignore(10));
 
-    la.add_to_ignore(&[3, 4, 10]);
+    la.add_to_ignore([3, 4, 10]);
     assert!(la.should_ignore(3));
     assert!(la.should_ignore(4));
     assert!(la.should_ignore(10));

@@ -194,7 +194,7 @@ where
                         let (desc, fn_name) = entries
                             .iter()
                             .filter(|&&(addr, _, _)| addr == address)
-                            .map(|&(_, t, fn_name)| (t, fn_name.to_owned()))
+                            .map(|&(_, t, fn_name)| (t, fn_name.clone()))
                             .next()
                             .unwrap_or((LineType::Unknown, None));
                         let loc = SourceLocation {

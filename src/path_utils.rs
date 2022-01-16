@@ -71,9 +71,9 @@ pub fn get_source_walker(config: &Config) -> impl Iterator<Item = DirEntry> + '_
     let walker = WalkDir::new(&root).into_iter();
     walker
         .filter_entry(move |e| is_coverable_file_path(e.path(), &root, &target))
-        .filter_map(|e| e.ok())
+        .filter_map(Result::ok)
         .filter(move |e| !(config.exclude_path(e.path())))
-        .filter(|e| is_source_file(e))
+        .filter(is_source_file)
 }
 
 #[cfg(test)]

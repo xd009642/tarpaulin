@@ -11,15 +11,15 @@ fn package_exclude() {
     env::set_current_dir(&test_dir).unwrap();
     config.manifest = test_dir;
     config.manifest.push("Cargo.toml");
-    config.force_clean = false;
+    config.set_clean(false);
 
     config.all = true;
     let result = launch_tarpaulin(&config, &None);
     let result = result.expect("Test failed").0;
     let files = result.files();
-    files.iter().for_each(|f| {
+    for f in &files {
         println!("File: {}", f.display());
-    });
+    }
     assert!(files.iter().any(|f| f.ends_with("foo/src/lib.rs")));
     assert!(files.iter().any(|f| f.ends_with("bar/src/lib.rs")));
 
@@ -41,7 +41,8 @@ fn package_exclude() {
 #[test]
 fn specify_package() {
     let mut config = Config::default();
-    config.force_clean = false;
+    config.set_clean(false);
+
     let test_dir = get_test_path("workspace");
     env::set_current_dir(&test_dir).unwrap();
     config.manifest = test_dir;

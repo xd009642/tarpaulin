@@ -174,7 +174,7 @@ impl Report {
             sources_tag,
             sources_tag.len(),
         )))?;
-        for source in self.sources.iter() {
+        for source in &self.sources {
             if let Some(path) = source.to_str() {
                 writer.write_event(Event::Start(BytesStart::borrowed(
                     source_tag,
@@ -370,7 +370,6 @@ fn render_class(config: &Config, traces: &TraceMap, file: &Path) -> Option<Class
         let line_rate = covered / coverable as f64;
         let lines = traces
             .get_child_traces(file)
-            .iter()
             .map(|x| render_line(x))
             .collect();
 

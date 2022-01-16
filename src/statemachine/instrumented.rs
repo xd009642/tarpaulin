@@ -72,7 +72,7 @@ impl<'a> StateData for LlvmInstrumentedData<'a> {
                 Ok(exit) => {
                     let profraws = fs::read_dir(self.config.root())?
                         .into_iter()
-                        .filter_map(|x| x.ok())
+                        .filter_map(Result::ok)
                         .filter(|x| {
                             x.path().is_file()
                                 && x.path().extension() == Some(OsStr::new("profraw"))

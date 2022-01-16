@@ -32,7 +32,7 @@ impl RunningProcessHandle {
         let child = cmd.spawn()?;
         let existing_profraws = fs::read_dir(config.root())?
             .into_iter()
-            .filter_map(|x| x.ok())
+            .filter_map(Result::ok)
             .filter(|x| x.path().is_file() && x.path().extension() == Some(OsStr::new("profraw")))
             .map(|x| x.path())
             .collect();
@@ -173,6 +173,8 @@ fn execute_test(
         None => env::set_current_dir(&config.root()),
     };
 
+    debug!("Current working dir: {:?}", env::current_dir());
+
     let mut envars: Vec<(String, String)> = Vec::new();
 
     for (key, value) in env::vars() {
@@ -190,7 +192,14 @@ fn execute_test(
         argv.push("--color".to_string());
         argv.push(config.color.to_string().to_ascii_lowercase());
     }
-    if test.is_test_type()
+    let no_test_env = if let Ok(threads) = env::var("RUST_TEST_THREADS") {
+        envars.push(("RUST_TEST_THREADS".to_string(), threads));
+        false
+    } else {
+        true
+    };
+    if no_test_env
+        && test.is_test_type()
         && !config.implicit_test_threads
         && !config.varargs.iter().any(|x| x.contains("--test-threads"))
     {
@@ -215,8 +224,6 @@ fn execute_test(
     if test.has_linker_paths() {
         envars.push(("LD_LIBRARY_PATH".to_string(), test.ld_library_path()));
     }
-    debug!("Env vars: {:?}", envars);
-    debug!("Args: {:?}", argv);
     match config.engine() {
         TraceEngine::Llvm => {
             // Used for llvm coverage to avoid report naming clashes TODO could have clashes
@@ -225,6 +232,8 @@ fn execute_test(
                 "LLVM_PROFILE_FILE".to_string(),
                 format!("{}_%p.profraw", test.file_name()),
             ));
+            debug!("Env vars: {:?}", envars);
+            debug!("Args: {:?}", argv);
             let mut child = Command::new(test.path());
             child.envs(envars).args(&argv);
 
@@ -234,6 +243,8 @@ fn execute_test(
         #[cfg(target_os = "linux")]
         TraceEngine::Ptrace => {
             argv.insert(0, test.path().display().to_string());
+            debug!("Env vars: {:?}", envars);
+            debug!("Args: {:?}", argv);
             execute(test.path(), &argv, envars.as_slice())
         }
         e => Err(RunError::Engine(format!(

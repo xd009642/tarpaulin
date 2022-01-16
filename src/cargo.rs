@@ -198,7 +198,7 @@ lazy_static! {
 
 pub fn get_tests(config: &Config) -> Result<Vec<TestBinary>, RunError> {
     let mut result = vec![];
-    if config.force_clean {
+    if config.force_clean() {
         let cleanup_dir = if config.release {
             config.target_dir().join("release")
         } else {
@@ -222,7 +222,7 @@ pub fn get_tests(config: &Config) -> Result<Vec<TestBinary>, RunError> {
         run_cargo(&metadata, manifest, config, Some(*ty), &mut result)?;
     }
     if config.has_named_tests() {
-        run_cargo(&metadata, manifest, config, None, &mut result)?
+        run_cargo(&metadata, manifest, config, None, &mut result)?;
     } else if config.run_types.is_empty() {
         let ty = if config.command == Mode::Test {
             Some(RunType::Tests)
@@ -254,18 +254,18 @@ fn run_cargo(
     let mut paths = vec![];
 
     if ty != Some(RunType::Doctests) {
-        let mut package_ids = vec![];
+        let mut package_ids = vec![None; result.len()];
         let reader = std::io::BufReader::new(child.stdout.take().unwrap());
         let mut error = None;
         for msg in Message::parse_stream(reader) {
             match msg {
                 Ok(Message::CompilerArtifact(art)) => {
-                    if let Some(path) = art.executable {
+                    if let Some(path) = art.executable.as_ref() {
                         if !art.profile.test && config.command == Mode::Test {
                             continue;
                         }
                         result.push(TestBinary::new(PathBuf::from(path), ty));
-                        package_ids.push(art.package_id.clone());
+                        package_ids.push(Some(art.package_id.clone()));
                     }
                 }
                 Ok(Message::CompilerMessage(m)) => match m.message.level {
@@ -279,21 +279,17 @@ fn run_cargo(
                 Ok(Message::BuildScriptExecuted(bs))
                     if !(bs.linked_libs.is_empty() || bs.linked_paths.is_empty()) =>
                 {
-                    let mut temp_paths = bs
-                        .linked_paths
-                        .iter()
-                        .filter_map(|x| {
-                            if x.as_std_path().exists() {
-                                Some(x.as_std_path().to_path_buf())
-                            } else if let Some(index) = x.as_str().find("=") {
-                                Some(PathBuf::from(&x.as_str()[(index + 1)..]))
-                            } else {
-                                warn!("Couldn't resolve linker path: {}", x.as_str());
-                                None
-                            }
-                        })
-                        .collect::<Vec<PathBuf>>();
-                    for p in temp_paths.drain(..) {
+                    let temp_paths = bs.linked_paths.iter().filter_map(|x| {
+                        if x.as_std_path().exists() {
+                            Some(x.as_std_path().to_path_buf())
+                        } else if let Some(index) = x.as_str().find('=') {
+                            Some(PathBuf::from(&x.as_str()[(index + 1)..]))
+                        } else {
+                            warn!("Couldn't resolve linker path: {}", x.as_str());
+                            None
+                        }
+                    });
+                    for p in temp_paths {
                         if !paths.contains(&p) {
                             paths.push(p);
                         }
@@ -316,15 +312,21 @@ fn run_cargo(
         if !status.success() {
             return Err(RunError::Cargo("cargo run failed".to_string()));
         };
-        for (res, package) in result.iter_mut().zip(package_ids.iter()) {
-            let package = &metadata[package];
-            res.cargo_dir = package
-                .manifest_path
-                .parent()
-                .map(|x| PathBuf::from(x.to_path_buf()));
-            res.pkg_name = Some(package.name.clone());
-            res.pkg_version = Some(package.version.to_string());
-            res.pkg_authors = Some(package.authors.clone());
+        for (res, package) in result
+            .iter_mut()
+            .zip(package_ids.iter())
+            .filter(|(_, b)| b.is_some())
+        {
+            if let Some(package) = package {
+                let package = &metadata[package];
+                res.cargo_dir = package
+                    .manifest_path
+                    .parent()
+                    .map(|x| PathBuf::from(x.to_path_buf()));
+                res.pkg_name = Some(package.name.clone());
+                res.pkg_version = Some(package.version.to_string());
+                res.pkg_authors = Some(package.authors.clone());
+            }
         }
         child.wait().map_err(|e| RunError::Cargo(e.to_string()))?;
     } else {
@@ -339,7 +341,7 @@ fn run_cargo(
         }
         let walker = WalkDir::new(&config.doctest_dir()).into_iter();
         let dir_entries = walker
-            .filter_map(|e| e.ok())
+            .filter_map(Result::ok)
             .filter(|e| matches!(e.metadata(), Ok(ref m) if m.is_file() && m.len() != 0))
             .collect::<Vec<_>>();
         let should_panics = get_attribute_candidates(&dir_entries, config, "should_panic");
@@ -602,7 +604,7 @@ fn init_args(test_cmd: &mut Command, config: &Config) {
 /// avoid confusing the results
 fn clean_doctest_folder<P: AsRef<Path>>(doctest_dir: P) {
     if let Ok(rd) = read_dir(doctest_dir.as_ref()) {
-        rd.flat_map(|e| e.ok())
+        rd.flat_map(Result::ok)
             .filter(|e| {
                 e.path()
                     .components()
@@ -653,8 +655,8 @@ fn look_for_rustflags_in_table(value: &Value) -> String {
                 .as_array()
                 .unwrap()
                 .iter()
-                .filter_map(|x| x.as_str())
-                .map(|x| x.to_string())
+                .filter_map(Value::as_str)
+                .map(ToString::to_string)
                 .collect();
 
             vec_of_flags.join(" ")
@@ -762,7 +764,7 @@ fn deduplicate_flags(flags: &str) -> String {
     }
 
     // Gonna remove the excess spaces to make it easier to filter things
-    let res = CFG_FLAG.replace_all(&flags, "--cfg=");
+    let res = CFG_FLAG.replace_all(flags, "--cfg=");
     let res = C_FLAG.replace_all(&res, "-C");
     let res = Z_FLAG.replace_all(&res, "-Z");
 
@@ -775,7 +777,7 @@ fn deduplicate_flags(flags: &str) -> String {
                 flag_set.insert(val);
             }
         } else {
-            let id = val.split("=").next().unwrap();
+            let id = val.split('=').next().unwrap();
             if !flag_set.contains(id) {
                 flag_set.insert(id);
                 result.push(val);

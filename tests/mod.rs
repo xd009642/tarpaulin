@@ -32,8 +32,8 @@ pub fn check_percentage_with_cli_args(minimum_coverage: f64, has_lines: bool, ar
 
     let mut configs = ConfigWrapper::from(&matches).0;
     let mut res = TraceMap::new();
-    for config in configs.iter_mut() {
-        config.force_clean = false;
+    for config in &mut configs {
+        config.set_clean(false);
         let (t, _) = launch_tarpaulin(config, &None).unwrap();
         res.merge(&t);
     }
@@ -62,7 +62,7 @@ pub fn check_percentage_with_config(
     env::set_current_dir(&test_dir).unwrap();
     config.manifest = test_dir;
     config.manifest.push("Cargo.toml");
-    config.force_clean = false;
+    config.set_clean(false);
 
     // Note to contributors. If an integration test fails, uncomment this to be able to see the
     // tarpaulin logs
@@ -87,7 +87,7 @@ pub fn check_percentage_with_config(
 
 pub fn check_percentage(project_name: &str, minimum_coverage: f64, has_lines: bool) {
     let mut config = Config::default();
-    config.force_clean = false;
+    config.set_clean(false);
     check_percentage_with_config(project_name, minimum_coverage, has_lines, config);
 }
 
@@ -95,7 +95,7 @@ pub fn check_percentage(project_name: &str, minimum_coverage: f64, has_lines: bo
 fn incorrect_manifest_path() {
     let mut config = Config::default();
     config.manifest.push("__invalid_dir__");
-    config.force_clean = false;
+    config.set_clean(false);
     let launch = launch_tarpaulin(&config, &None);
     assert!(launch.is_err());
 }
@@ -104,7 +104,7 @@ fn incorrect_manifest_path() {
 fn proc_macro_link() {
     let mut config = Config::default();
     config.test_timeout = Duration::from_secs(60);
-    config.force_clean = false;
+    config.set_clean(false);
     let test_dir = get_test_path("proc_macro");
     config.manifest = test_dir.join("Cargo.toml");
     assert!(launch_tarpaulin(&config, &None).is_ok());
@@ -221,7 +221,7 @@ fn benchmark_coverage() {
     check_percentage(test, 0.0f64, true);
 
     let mut config = Config::default();
-    config.force_clean = false;
+    config.set_clean(false);
     config.run_types = vec![RunType::Benchmarks];
     check_percentage_with_config(test, 1.0f64, true, config);
 }
@@ -230,7 +230,7 @@ fn benchmark_coverage() {
 fn cargo_run_coverage() {
     let mut config = Config::default();
     config.command = Mode::Build;
-    config.force_clean = false;
+    config.set_clean(false);
     check_percentage_with_config("run_coverage", 1.0f64, true, config);
 }
 
@@ -241,7 +241,7 @@ fn examples_coverage() {
 
     let mut config = Config::default();
     config.run_types = vec![RunType::Examples];
-    config.force_clean = false;
+    config.set_clean(false);
     check_percentage_with_config(test, 1.0f64, true, config.clone());
 
     config.run_types.clear();
@@ -282,7 +282,7 @@ fn cargo_home_filtering() {
 
     let mut config = Config::default();
     config.test_timeout = Duration::from_secs(60);
-    config.force_clean = false;
+    config.set_clean(false);
     let restore_dir = env::current_dir().unwrap();
     let test_dir = get_test_path("HttptestAndReqwest");
     env::set_current_dir(&test_dir).unwrap();
@@ -309,7 +309,7 @@ fn rustflags_handling() {
     check_percentage("rustflags", 1.0f64, true);
     env::set_var("RUSTFLAGS", "--cfg=foo");
     let mut config = Config::default();
-    config.force_clean = false;
+    config.set_clean(false);
 
     let restore_dir = env::current_dir().unwrap();
     let test_dir = get_test_path("rustflags");
@@ -331,7 +331,7 @@ fn rustflags_handling() {
 fn follow_exes_down() {
     let mut config = Config::default();
     config.follow_exec = true;
-    config.force_clean = false;
+    config.set_clean(false);
     check_percentage_with_config("follow_exe", 1.0f64, true, config);
 }
 
@@ -362,7 +362,7 @@ fn no_test_args() {
 fn dot_rs_in_dir_name() {
     // issue #857
     let mut config = Config::default();
-    config.force_clean = false;
+    config.set_clean(false);
 
     let restore_dir = env::current_dir().unwrap();
     let test_dir = get_test_path("not_a_file.rs");

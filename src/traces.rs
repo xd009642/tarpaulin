@@ -134,7 +134,7 @@ impl Ord for Trace {
 }
 
 /// Amount of data coverable in the provided slice traces
-pub fn amount_coverable(traces: &[&Trace]) -> usize {
+pub fn amount_coverable<'a>(traces: impl Iterator<Item = &'a Trace>) -> usize {
     let mut result = 0usize;
     for t in traces {
         result += match t.stats {
@@ -147,22 +147,23 @@ pub fn amount_coverable(traces: &[&Trace]) -> usize {
 }
 
 /// Amount of data covered in the provided trace slice
-pub fn amount_covered(traces: &[&Trace]) -> usize {
+pub fn amount_covered<'a>(traces: impl Iterator<Item = &'a Trace>) -> usize {
     let mut result = 0usize;
     for t in traces {
         result += match t.stats {
-            CoverageStat::Branch(ref x) => (x.been_true as usize) + (x.been_false as usize),
+            CoverageStat::Branch(ref x) => usize::from(x.been_true) + usize::from(x.been_false),
             CoverageStat::Condition(ref x) => x.iter().fold(0, |acc, x| {
-                acc + (x.been_true as usize) + (x.been_false as usize)
+                acc + usize::from(x.been_true) + usize::from(x.been_false)
             }),
-            CoverageStat::Line(ref x) => (*x > 0) as usize,
+            CoverageStat::Line(ref x) => (*x > 0).into(),
         };
     }
     result
 }
 
-pub fn coverage_percentage(traces: &[&Trace]) -> f64 {
-    (amount_covered(traces) as f64) / (amount_coverable(traces) as f64)
+pub fn coverage_percentage<'a>(traces: impl Iterator<Item = &'a Trace>) -> f64 {
+    let t: Vec<_> = traces.collect();
+    (amount_covered(t.iter().copied()) as f64) / (amount_coverable(t.iter().copied()) as f64)
 }
 
 /// Stores all the program traces mapped to files and provides an interface to
@@ -197,7 +198,7 @@ impl TraceMap {
     pub fn merge(&mut self, other: &TraceMap) {
         for (k, values) in other.iter() {
             if !self.traces.contains_key(k) {
-                self.traces.insert(k.to_path_buf(), values.to_vec());
+                self.traces.insert(k.clone(), values.clone());
             } else {
                 let existing = self.traces.get_mut(k).unwrap();
                 for v in values.iter() {
@@ -282,16 +283,12 @@ impl TraceMap {
     /// Gets an immutable reference to a trace from an address. Returns None if
     /// there is no trace at that address
     pub fn get_trace(&self, address: u64) -> Option<&Trace> {
-        self.all_traces()
-            .iter()
-            .find(|x| x.address.contains(&address))
-            .copied()
+        self.all_traces().find(|x| x.address.contains(&address))
     }
 
     pub fn increment_hit(&mut self, address: u64) {
         for trace in self
             .all_traces_mut()
-            .iter_mut()
             .filter(|x| x.address.contains(&address))
         {
             if let CoverageStat::Line(ref mut x) = trace.stats {
@@ -319,7 +316,7 @@ impl TraceMap {
                 .find(|x| x.address.iter().any(|x| (*x & !0x7u64) == address))
             {
                 return Some(Location {
-                    file: k.to_path_buf(),
+                    file: k.clone(),
                     line: s.line,
                 });
             }
@@ -342,39 +339,38 @@ impl TraceMap {
     }
 
     /// Gets all traces below a certain path
-    pub fn get_child_traces(&self, root: &Path) -> Vec<&Trace> {
+    pub fn get_child_traces<'a>(&'a self, root: &'a Path) -> impl Iterator<Item = &'a Trace> + 'a {
         self.traces
             .iter()
-            .filter(|&(k, _)| k.starts_with(root))
+            .filter(move |&(k, _)| k.starts_with(root))
             .flat_map(|(_, v)| v.iter())
-            .collect()
     }
 
     /// Gets all traces in folder, doesn't go into other folders for that you
     /// want get_child_traces
-    pub fn get_traces(&self, root: &Path) -> Vec<&Trace> {
-        if root.is_file() {
-            self.get_child_traces(root)
+    pub fn get_traces<'a>(&'a self, root: &'a Path) -> impl Iterator<Item = &'a Trace> + 'a {
+        let i: Box<dyn Iterator<Item = &'a Trace> + 'a> = if root.is_file() {
+            Box::new(self.get_child_traces(root))
         } else {
-            self.traces
-                .iter()
-                .filter(|&(k, _)| k.parent() == Some(root))
-                .flat_map(|(_, v)| v.iter())
-                .collect()
-        }
+            Box::new(
+                self.traces
+                    .iter()
+                    .filter(move |&(k, _)| k.parent() == Some(root))
+                    .flat_map(|(_, v)| v.iter()),
+            )
+        };
+
+        i
     }
 
     /// Gets all traces
-    pub fn all_traces(&self) -> Vec<&Trace> {
-        self.traces.values().flat_map(|x| x.iter()).collect()
+    pub fn all_traces(&self) -> impl Iterator<Item = &Trace> {
+        self.traces.values().flat_map(|x| x.iter())
     }
 
     /// Gets a vector of all the traces to mutate
-    fn all_traces_mut(&mut self) -> Vec<&mut Trace> {
-        self.traces
-            .values_mut()
-            .flat_map(|x| x.iter_mut())
-            .collect()
+    fn all_traces_mut(&mut self) -> impl Iterator<Item = &mut Trace> {
+        self.traces.values_mut().flat_map(|x| x.iter_mut())
     }
 
     pub fn files(&self) -> Vec<&PathBuf> {
@@ -382,11 +378,11 @@ impl TraceMap {
     }
 
     pub fn coverable_in_path(&self, path: &Path) -> usize {
-        amount_coverable(self.get_child_traces(path).as_slice())
+        amount_coverable(self.get_child_traces(path))
     }
 
     pub fn covered_in_path(&self, path: &Path) -> usize {
-        amount_covered(self.get_child_traces(path).as_slice())
+        amount_covered(self.get_child_traces(path))
     }
 
     /// Give the total amount of coverable points in the code. This will vary
@@ -394,17 +390,17 @@ impl TraceMap {
     /// lines whereas for condition or decision it will count the number of
     /// conditions available
     pub fn total_coverable(&self) -> usize {
-        amount_coverable(self.all_traces().as_slice())
+        amount_coverable(self.all_traces())
     }
 
     /// From all the coverable data return the amount covered
     pub fn total_covered(&self) -> usize {
-        amount_covered(self.all_traces().as_slice())
+        amount_covered(self.all_traces())
     }
 
     /// Returns coverage percentage ranging from 0.0-1.0
     pub fn coverage_percentage(&self) -> f64 {
-        coverage_percentage(self.all_traces().as_slice())
+        coverage_percentage(self.all_traces())
     }
 }
 
@@ -502,10 +498,10 @@ mod tests {
         );
 
         t1.merge(&t2);
-        assert_eq!(t1.all_traces().len(), 2);
+        assert_eq!(t1.all_traces().count(), 2);
         assert_eq!(t1.get_trace(5), Some(&a_trace));
         t1.dedup();
-        let all = t1.all_traces();
+        let all = t1.all_traces().collect::<Vec<_>>();
         assert_eq!(all.len(), 1);
         assert_eq!(all[0].stats, CoverageStat::Line(3));
     }
@@ -537,11 +533,11 @@ mod tests {
         );
 
         t1.merge(&t2);
-        assert_eq!(t1.all_traces().len(), 2);
+        assert_eq!(t1.all_traces().count(), 2);
         assert_eq!(t1.get_trace(5), Some(&a_trace));
         t1.dedup();
         let all = t1.all_traces();
-        assert_eq!(all.len(), 2);
+        assert_eq!(all.count(), 2);
     }
 
     #[test]
@@ -572,7 +568,7 @@ mod tests {
             },
         );
         t1.merge(&t2);
-        assert_eq!(t1.all_traces().len(), 1);
+        assert_eq!(t1.all_traces().count(), 1);
         assert_eq!(
             t1.get_trace(1),
             Some(&Trace {
@@ -585,7 +581,7 @@ mod tests {
         );
         // Deduplicating should have no effect.
         t1.dedup();
-        assert_eq!(t1.all_traces().len(), 1);
+        assert_eq!(t1.all_traces().count(), 1);
         assert_eq!(
             t1.get_trace(1),
             Some(&Trace {

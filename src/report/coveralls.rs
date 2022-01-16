@@ -88,7 +88,7 @@ pub fn export(coverage_data: &TraceMap, config: &Config) -> Result<(), RunError>
             let mut lines: HashMap<usize, usize> = HashMap::new();
             let fcov = coverage_data.get_child_traces(file);
 
-            for c in &fcov {
+            for c in fcov {
                 match c.stats {
                     CoverageStat::Line(hits) => {
                         lines.insert(c.line as usize, hits as usize);
@@ -113,15 +113,12 @@ pub fn export(coverage_data: &TraceMap, config: &Config) -> Result<(), RunError>
             Err(err) => warn!("Failed to collect git info: {}", err),
         }
 
-        let res = match config.report_uri {
-            Some(ref uri) => {
-                info!("Sending report to endpoint: {}", uri);
-                report.send_to_endpoint(uri)
-            }
-            None => {
-                info!("Sending coverage data to coveralls.io");
-                report.send_to_coveralls()
-            }
+        let res = if let Some(uri) = &config.report_uri {
+            info!("Sending report to endpoint: {}", uri);
+            report.send_to_endpoint(uri)
+        } else {
+            info!("Sending coverage data to coveralls.io");
+            report.send_to_coveralls()
         };
         if config.debug {
             if let Ok(text) = serde_json::to_string(&report) {

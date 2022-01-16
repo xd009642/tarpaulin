@@ -191,7 +191,7 @@ impl<'a> StateData for LinuxData<'a> {
                     result = Err(RunError::TestRuntime(format!(
                         "An error occurred while waiting for response from test: {}",
                         e
-                    )))
+                    )));
                 }
             }
         }
@@ -386,24 +386,21 @@ impl<'a> LinuxData<'a> {
     }
 
     fn get_parent(&self, pid: Pid) -> Option<Pid> {
-        match self.pid_map.get(&pid) {
-            Some(p) => Some(*p),
-            None => {
-                let mut parent_pid = None;
-                'outer: for k in self.processes.keys() {
-                    let proc = Process::new(k.as_raw()).ok()?;
-                    if let Ok(tasks) = proc.tasks() {
-                        for task in tasks.filter_map(|x| x.ok()) {
-                            if task.tid == pid.as_raw() {
-                                parent_pid = Some(*k);
-                                break 'outer;
-                            }
+        self.pid_map.get(&pid).copied().or_else(|| {
+            let mut parent_pid = None;
+            'outer: for k in self.processes.keys() {
+                let proc = Process::new(k.as_raw()).ok()?;
+                if let Ok(tasks) = proc.tasks() {
+                    for task in tasks.filter_map(Result::ok) {
+                        if task.tid == pid.as_raw() {
+                            parent_pid = Some(*k);
+                            break 'outer;
                         }
                     }
                 }
-                parent_pid
             }
-        }
+            parent_pid
+        })
     }
 
     fn get_traced_process_mut(&mut self, pid: Pid) -> Option<&mut TracedProcess> {
@@ -638,7 +635,7 @@ impl<'a> LinuxData<'a> {
                 let rip = (rip - 1) as u64;
                 trace!("Hit address 0x{:x}", rip);
                 if process.breakpoints.contains_key(&rip) {
-                    let bp = &mut process.breakpoints.get_mut(&rip).unwrap();
+                    let bp = process.breakpoints.get_mut(&rip).unwrap();
                     let updated = if visited.contains(&rip) {
                         let _ = bp.jump_to(current);
                         (true, TracerAction::Continue(current.into()))

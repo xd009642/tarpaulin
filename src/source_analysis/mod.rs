@@ -7,6 +7,7 @@ use quote::ToTokens;
 use regex::Regex;
 use std::cell::RefCell;
 use std::collections::{HashMap, HashSet};
+use std::ffi::OsStr;
 use std::fs::File;
 use std::io::{BufRead, BufReader, Read};
 use std::path::{Path, PathBuf};
@@ -158,7 +159,7 @@ impl LineAnalysis {
     pub fn ignore_span(&mut self, span: Span) {
         // If we're already ignoring everything no need to ignore this span
         if !self.ignore.contains(&Lines::All) {
-            for i in span.start().line..(span.end().line + 1) {
+            for i in span.start().line..=span.end().line {
                 self.ignore.insert(Lines::Line(i));
                 if self.cover.contains(&i) {
                     self.cover.remove(&i);
@@ -206,7 +207,7 @@ impl LineAnalysis {
                 }
             }
         }
-        for i in span.start().line..(span.end().line + 1) {
+        for i in span.start().line..=span.end().line {
             if !self.ignore.contains(&Lines::Line(i)) && useful_lines.contains(&i) {
                 self.cover.insert(i);
             }
@@ -219,12 +220,12 @@ impl LineAnalysis {
     }
 
     /// Adds a line to the list of lines to ignore
-    fn add_to_ignore(&mut self, lines: &[usize]) {
+    fn add_to_ignore(&mut self, lines: impl IntoIterator<Item = usize>) {
         if !self.ignore.contains(&Lines::All) {
             for l in lines {
-                self.ignore.insert(Lines::Line(*l));
-                if self.cover.contains(l) {
-                    self.cover.remove(l);
+                self.ignore.insert(Lines::Line(l));
+                if self.cover.contains(&l) {
+                    self.cover.remove(&l);
                 }
             }
         }
@@ -275,7 +276,7 @@ impl SourceAnalysis {
         for e in &ignored_files {
             let mut analysis = LineAnalysis::new();
             analysis.ignore_all();
-            result.lines.insert(e.to_path_buf(), analysis);
+            result.lines.insert(e.clone(), analysis);
         }
 
         result.debug_printout(config);
@@ -329,8 +330,9 @@ impl SourceAnalysis {
                                     filtered_files.insert(f);
                                 } else {
                                     let walker = WalkDir::new(f).into_iter();
-                                    for e in
-                                        walker.filter_map(|e| e.ok()).filter(|e| is_source_file(e))
+                                    for e in walker
+                                        .filter_map(std::result::Result::ok)
+                                        .filter(is_source_file)
                                     {
                                         filtered_files.insert(e.path().to_path_buf());
                                     }
@@ -340,24 +342,23 @@ impl SourceAnalysis {
                         } else {
                             // Now we need to ignore not only this file but if it is a lib.rs or
                             // mod.rs we need to get the others
-                            let bad_module = match (
-                                path.parent(),
-                                path.file_name().map(|x| x.to_string_lossy()),
-                            ) {
-                                (Some(p), Some(n)) => {
-                                    if n == "lib.rs" || n == "mod.rs" {
-                                        Some(p.to_path_buf())
-                                    } else {
-                                        let ignore = p.join(n.trim_end_matches(".rs"));
-                                        if ignore.exists() && ignore.is_dir() {
-                                            Some(ignore)
+                            let bad_module =
+                                match (path.parent(), path.file_name().map(OsStr::to_string_lossy))
+                                {
+                                    (Some(p), Some(n)) => {
+                                        if n == "lib.rs" || n == "mod.rs" {
+                                            Some(p.to_path_buf())
                                         } else {
-                                            None
+                                            let ignore = p.join(n.trim_end_matches(".rs"));
+                                            if ignore.exists() && ignore.is_dir() {
+                                                Some(ignore)
+                                            } else {
+                                                None
+                                            }
                                         }
                                     }
-                                }
-                                _ => None,
-                            };
+                                    _ => None,
+                                };
                             // Kill it with fire!`
                             if let Some(module) = bad_module {
                                 self.lines
@@ -389,9 +390,8 @@ impl SourceAnalysis {
             .lines()
             .enumerate()
             .filter(|&(_, x)| IGNORABLE.is_match(x))
-            .map(|(i, _)| i + 1)
-            .collect::<Vec<usize>>();
-        analysis.add_to_ignore(&lines);
+            .map(|(i, _)| i + 1);
+        analysis.add_to_ignore(lines);
 
         let lines = ctx
             .file_contents
@@ -402,9 +402,8 @@ impl SourceAnalysis {
                 x.retain(|c| !c.is_whitespace());
                 x == "}else{"
             })
-            .map(|(i, _)| i + 1)
-            .collect::<Vec<usize>>();
-        analysis.add_to_ignore(&lines);
+            .map(|(i, _)| i + 1);
+        analysis.add_to_ignore(lines);
     }
 
     pub(crate) fn visit_generics(&mut self, generics: &Generics, ctx: &Context) {
@@ -439,7 +438,7 @@ impl SourceAnalysis {
                 if !lines.is_empty() {
                     lines.sort();
                     trace!("Ignorable lines: {:?}", lines);
-                    lines.clear()
+                    lines.clear();
                 }
                 for c in &analysis.cover {
                     lines.push(c);
@@ -468,7 +467,7 @@ fn maybe_ignore_first_line(file: &Path, result: &mut HashMap<PathBuf, LineAnalys
             if !(first.starts_with("pub") || first.starts_with("fn")) {
                 let file = file.to_path_buf();
                 let line_analysis = result.entry(file).or_default();
-                line_analysis.add_to_ignore(&[1]);
+                line_analysis.add_to_ignore([1]);
             }
         }
     }

@@ -3,6 +3,19 @@
 From 2019 onwards, all notable changes to tarpaulin will be documented in this
 file.
 
+## [Unreleased]
+### Added
+
+### Changed
+
+## [0.19.1] 2022-01-16
+### Added
+- Added support for `RUST_TEST_THREADS` to specify test threads instead of --test-threads
+
+### Changed
+- Support skip-clean in config files and implement prioritisation in merges
+- Fix issue where in a workspace wih different run types the package IDs can become misaligned with test binaries
+
 ## [0.19.0] 2021-12-27
 ### Added
 - Check build script output from cargo build and use it to set `LD_LIBRARY_PATH` to match cargo test behaviour

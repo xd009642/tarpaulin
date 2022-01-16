@@ -147,8 +147,8 @@ impl SourceAnalysis {
             // Ignore multiple lines of fn decl
             let decl_start = func.sig.fn_token.span().start().line + 1;
             let stmts_start = func.block.span().start().line;
-            let lines = (decl_start..(stmts_start + 1)).collect::<Vec<_>>();
-            analysis.add_to_ignore(&lines);
+            let lines = decl_start..=stmts_start;
+            analysis.add_to_ignore(lines);
         }
     }
 

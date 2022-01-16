@@ -72,8 +72,7 @@ jobs:
         version:
           - nightly
         target:
-          - x86_64-pc-windows-gnu
-          - x86_64-pc-windows-msvc
+          - x86_64-apple-darwin	
       fail-fast: false
     steps:
       - uses: actions/checkout@v2
