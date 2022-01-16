@@ -5,6 +5,11 @@ file.
 
 ## [Unreleased]
 ### Added
+
+### Changed
+
+## [0.19.1] 2022-01-16
+### Added
 - Added support for `RUST_TEST_THREADS` to specify test threads instead of --test-threads
 
 ### Changed
