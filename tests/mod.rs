@@ -5,6 +5,7 @@ use cargo_tarpaulin::path_utils::*;
 use cargo_tarpaulin::traces::TraceMap;
 use clap::App;
 use std::env;
+use std::fs;
 use std::path::Path;
 use std::process::Command;
 use std::time::Duration;
@@ -291,10 +292,11 @@ fn cargo_home_filtering() {
 
     env::set_var("CARGO_HOME", new_home.display().to_string());
     let run = launch_tarpaulin(&config, &None);
+    let _ = fs::remove_dir_all(&new_home);
     match previous {
         Ok(s) => env::set_var("CARGO_HOME", s),
         Err(_) => {
-            let _ = Command::new("unset").args(&["CARGO_HOME"]).output();
+            let _ = env::remove_var("CARGO_HOME");
         }
     }
     let (res, _) = run.unwrap();
