@@ -1,7 +1,10 @@
 use crate::utils::get_test_path;
 use cargo_tarpaulin::run;
 use cargo_tarpaulin::{config::Config, errors::RunError};
+use rusty_fork::rusty_fork_test;
 use std::env;
+
+rusty_fork_test! {
 
 #[test]
 fn coverage_below_threshold() {
@@ -64,4 +67,6 @@ fn report_coverage_fail() {
     } else {
         panic!("Wrong error type {}", result.unwrap_err());
     }
+}
+
 }

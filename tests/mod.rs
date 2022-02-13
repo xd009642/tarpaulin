@@ -4,6 +4,7 @@ use cargo_tarpaulin::launch_tarpaulin;
 use cargo_tarpaulin::path_utils::*;
 use cargo_tarpaulin::traces::TraceMap;
 use clap::App;
+use rusty_fork::rusty_fork_test;
 use std::env;
 use std::fs;
 use std::path::Path;
@@ -91,6 +92,8 @@ pub fn check_percentage(project_name: &str, minimum_coverage: f64, has_lines: bo
     config.set_clean(false);
     check_percentage_with_config(project_name, minimum_coverage, has_lines, config);
 }
+
+rusty_fork_test! {
 
 #[test]
 fn incorrect_manifest_path() {
@@ -380,4 +383,6 @@ fn dot_rs_in_dir_name() {
     for dir in get_source_walker(&config) {
         assert!(dir.path().is_file());
     }
+}
+
 }

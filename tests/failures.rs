@@ -4,7 +4,10 @@ use cargo_tarpaulin::{
     errors::RunError,
 };
 use cargo_tarpaulin::{launch_tarpaulin, run};
+use rusty_fork::rusty_fork_test;
 use std::env;
+
+rusty_fork_test! {
 
 #[test]
 fn error_if_build_script_fails() {
@@ -80,4 +83,6 @@ fn issue_610() {
     config.command = Mode::Build;
     let result = run(&[config]);
     assert!(result.is_err());
+}
+
 }

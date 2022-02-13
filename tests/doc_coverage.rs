@@ -1,9 +1,11 @@
 use crate::utils::get_test_path;
 use cargo_tarpaulin::config::{Config, RunType};
 use cargo_tarpaulin::launch_tarpaulin;
+use rusty_fork::rusty_fork_test;
 use std::env;
 use std::time::Duration;
 
+rusty_fork_test! {
 #[test]
 fn doc_test_env() {
     let mut config = Config::default();
@@ -135,4 +137,5 @@ fn doc_test_no_run() {
 
     let (_, ret) = launch_tarpaulin(&config, &None).unwrap();
     assert_eq!(ret, 0);
+}
 }
