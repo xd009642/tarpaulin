@@ -7,6 +7,8 @@ file.
 ### Added
 
 ### Changed
+- Stop adding `LD_LIBRARY_PATHS` to process env twice
+- [Internal] can now run `cargo test` on tarpaulin without need of `--test-threads 1`
 
 ## [0.19.1] 2022-01-16
 ### Added
