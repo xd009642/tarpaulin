@@ -1,8 +1,11 @@
 use crate::utils::get_test_path;
 use cargo_tarpaulin::config::{types::RunType, Config};
 use cargo_tarpaulin::launch_tarpaulin;
+use rusty_fork::rusty_fork_test;
 use std::env;
 use std::time::Duration;
+
+rusty_fork_test! {
 
 #[test]
 fn mix_test_types() {
@@ -136,4 +139,6 @@ fn only_doctest_coverage() {
             assert_eq!(res.covered_in_path(f), 0);
         }
     }
+}
+
 }

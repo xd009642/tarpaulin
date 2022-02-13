@@ -1,8 +1,11 @@
 use crate::utils::get_test_path;
 use cargo_tarpaulin::config::Config;
 use cargo_tarpaulin::launch_tarpaulin;
+use rusty_fork::rusty_fork_test;
 use std::env;
 use std::path::PathBuf;
+
+rusty_fork_test! {
 
 #[test]
 fn package_exclude() {
@@ -84,4 +87,6 @@ fn config_relative_pathing() {
     assert_eq!(configs[0].manifest, base_path.join("lib/Cargo.toml"));
     assert_eq!(configs[1].manifest, base_path.join("bin/Cargo.toml"));
     assert_eq!(configs[1].target_dir(), base_path.join("targ"));
+}
+
 }

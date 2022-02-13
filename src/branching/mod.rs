@@ -78,7 +78,6 @@ impl From<&ExprIf> for Branches {
             if let Expr::If(ref i) = *el {
                 then = LineRange::from(&i.then_branch);
                 then.end -= 1;
-                ranges.push(then);
                 else_block = i.else_branch.as_ref().map(|x| x.1.clone());
                 implicit_default = else_block.is_none();
                 if let Some(s) = &else_block {
@@ -87,6 +86,8 @@ impl From<&ExprIf> for Branches {
                         lr.end = lr2.start - 1;
                     }
                     ranges.push(lr);
+                } else {
+                    ranges.push(then);
                 }
             } else {
                 else_block = None;
@@ -200,7 +201,9 @@ mod tests {
         let source = "fn foo(x: i32) {
             if x > 0 {
                 println!(\"BOO\");
-            } else {
+            } 
+            else 
+            {
                 todo!()
             }
         }";
@@ -221,7 +224,42 @@ mod tests {
         assert!(!branches.implicit_default);
         assert_eq!(branches.ranges.len(), 2);
         assert_eq!(branches.ranges[0], LineRange::new(2, 4));
+        assert_eq!(branches.ranges[1], LineRange::new(6, 9));
+    }
+
+    #[test]
+    fn if_elif_else() {
+        let source = "fn foo(x: i32) {
+            if x > 0 {
+                println!(\"BOO\");
+            } else if x < 0 {
+                todo!()
+            } 
+            else 
+            {   
+                todo!()
+            }
+        }";
+        let parser = parse_file(source).unwrap();
+        let func = &parser.items[0];
+        let mut branches = None;
+        if let Item::Fn(func) = func {
+            for stmt in &func.block.stmts {
+                match stmt {
+                    Stmt::Semi(Expr::If(i), _) | Stmt::Expr(Expr::If(i)) => {
+                        branches = Some(Branches::from(i));
+                    }
+                    _ => {}
+                }
+            }
+        }
+        let branches = branches.unwrap();
+        println!("Branches: {:?}", branches);
+        assert!(!branches.implicit_default);
+        assert_eq!(branches.ranges.len(), 3);
+        assert_eq!(branches.ranges[0], LineRange::new(2, 4));
         assert_eq!(branches.ranges[1], LineRange::new(4, 7));
+        assert_eq!(branches.ranges[2], LineRange::new(8, 11));
     }
 
     #[test]
@@ -309,5 +347,57 @@ mod tests {
         assert!(branches.implicit_default);
         assert_eq!(branches.ranges.len(), 1);
         assert_eq!(branches.ranges[0], LineRange::new(4, 6));
+    }
+
+    #[test]
+    fn branch_analysis_context() {
+        let mut analysis = BranchAnalysis::new();
+        let source = "fn foo(x: i32) {
+            if x > 0 {
+                println!(\"BOO\");
+            } else if x < 0 {
+                todo!()
+            }
+            println!(\"hello\");
+            match x {
+                0..5 => println!(\"less than 6\"),
+                _ => println!(\"greater than 5\"),
+            }
+            for i in 0..5 {
+                let _x = i*2;
+            }
+            while false {
+                unreachable!();
+            }
+        }";
+        let parser = parse_file(source).unwrap();
+        let func = &parser.items[0];
+        if let Item::Fn(func) = func {
+            for stmt in &func.block.stmts {
+                match stmt {
+                    Stmt::Semi(e, _) | Stmt::Expr(e) => {
+                        analysis.register_expr(e);
+                    }
+                    _ => {}
+                }
+            }
+        }
+
+        assert!(!analysis.is_branch(0));
+        assert!(analysis.is_branch(2));
+        assert!(analysis.is_branch(3));
+        assert!(analysis.is_branch(4));
+        assert!(!analysis.is_branch(7));
+        assert!(analysis.is_branch(9));
+        assert!(analysis.is_branch(10));
+        assert!(analysis.is_branch(13));
+        assert!(analysis.is_branch(16));
+
+        // Quick sanity check
+        let mut context = BranchContext::default();
+        context.files.insert(PathBuf::from("foo.rs"), analysis);
+        assert!(!context.is_branch("foo.rs", 1));
+        assert!(context.is_branch("foo.rs", 2));
+        assert!(!context.is_branch("bar.rs", 2));
     }
 }
