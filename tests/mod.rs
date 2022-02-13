@@ -8,7 +8,6 @@ use rusty_fork::rusty_fork_test;
 use std::env;
 use std::fs;
 use std::path::Path;
-use std::process::Command;
 use std::time::Duration;
 
 #[cfg(nightly)]

@@ -48,7 +48,10 @@ pub struct TestBinary {
     pkg_version: Option<String>,
     pkg_authors: Option<Vec<String>>,
     should_panic: bool,
-    linker_paths: Vec<PathBuf>,
+    /// Linker paths used when linking the binary, this should be accessed via
+    /// `Self::has_linker_paths` and `Self::ld_library_path` as there may be interaction with
+    /// current environment. It's only made pub(crate) for the purpose of testing.
+    pub(crate) linker_paths: Vec<PathBuf>,
 }
 
 #[derive(Clone, Debug)]
