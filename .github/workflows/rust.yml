@@ -33,11 +33,11 @@ jobs:
         env:
           RUST_BACKTRACE: 1
       - name: test
-        run: cargo test -- --test-threads 1
+        run: cargo test
         env:
           RUST_BACKTRACE: 1
       - name: ignored test
-        run: cargo test -- --test-threads 1 --ignored || true
+        run: cargo test -- --ignored || true
         env:
           RUST_BACKTRACE: 1
         if: matrix.version == 'nightly'
@@ -62,7 +62,7 @@ jobs:
       - name: build
         run: cargo build
       - name: test
-        run: cargo test -- --test-threads 1 || true
+        run: cargo test -- || true
         env:
           RUST_BACKTRACE: 1
   mac:
@@ -83,6 +83,6 @@ jobs:
       - name: build
         run: cargo build
       - name: test
-        run: cargo test -- --test-threads 1 || true
+        run: cargo test -- || true
         env:
           RUST_BACKTRACE: 1
