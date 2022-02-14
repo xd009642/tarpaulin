@@ -165,7 +165,7 @@ This ensures that tarpaulin will be built with the same rust version as the rest
 You can also use [cargo-binstall](https://github.com/ryankurte/cargo-binstall):
 
 ```text
-cargo binstall cargo-tarpaulin
+cargo install cargo-tarpaulin
 ```
 
 ### Environment Variables
