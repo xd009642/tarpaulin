@@ -12,8 +12,9 @@ use nix::libc::*;
 use nix::sys::{signal::Signal, wait::WaitStatus};
 use serde::{Deserialize, Serialize};
 use std::cell::RefCell;
+use std::collections::HashSet;
 use std::fs::File;
-use std::path::Path;
+use std::path::{Path, PathBuf};
 use std::time::Instant;
 use tracing::{info, warn};
 
@@ -151,24 +152,20 @@ impl TraceEvent {
     }
 }
 
-#[derive(Clone, PartialEq, PartialOrd, Serialize, Deserialize)]
+#[derive(Clone, PartialEq, Serialize, Deserialize)]
 pub struct EventLog {
     events: RefCell<Vec<EventWrapper>>,
     #[serde(skip)]
     start: Option<Instant>,
-}
-
-impl Default for EventLog {
-    fn default() -> Self {
-        Self::new()
-    }
+    manifest_paths: HashSet<PathBuf>,
 }
 
 impl EventLog {
-    pub fn new() -> Self {
+    pub fn new(manifest_paths: HashSet<PathBuf>) -> Self {
         Self {
             events: RefCell::new(vec![]),
             start: Some(Instant::now()),
+            manifest_paths,
         }
     }
 
