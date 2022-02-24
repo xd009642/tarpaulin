@@ -567,7 +567,9 @@ impl Config {
         self.all |= other.all;
         self.frozen |= other.frozen;
         self.locked |= other.locked;
-        self.force_clean |= other.force_clean;
+        // This is &= because force_clean true is the default. If one is false then that is
+        // non-default
+        self.force_clean &= other.force_clean;
         self.skip_clean |= other.skip_clean;
         self.ignore_tests |= other.ignore_tests;
         self.no_fail_fast |= other.no_fail_fast;
