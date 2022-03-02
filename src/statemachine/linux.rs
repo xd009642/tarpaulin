@@ -566,7 +566,7 @@ impl<'a> LinuxData<'a> {
                         ))
                     }
                 },
-                PTRACE_EVENT_FORK | PTRACE_EVENT_VFORK => {
+                PTRACE_EVENT_FORK => {
                     if let Ok(fork_child) = get_event_data(child) {
                         trace!("Caught fork event. Child {}", fork_child);
                         let parent = if let Some(process) = self.get_traced_process_mut(child) {
@@ -586,6 +586,25 @@ impl<'a> LinuxData<'a> {
                         TestState::wait_state(),
                         TracerAction::Continue(child.into()),
                     ))
+                }
+                PTRACE_EVENT_VFORK => {
+                    // So VFORK used to be handled the same place as FORK however, from the man
+                    // page for posix_spawn:
+                    //
+                    // > [The] posix_spawn() function commences by calling clone with CLONE_VM and CLONE_VFORK flags.
+                    //
+                    // This suggests that Command::new().spawn() will result in a
+                    // `PTRACE_EVENT_VFORK` not `PTRACE_EVENT_EXEC`
+                    if let Ok(fork_child) = get_event_data(child) {
+                        // So I've seen some recursive bin calls with vforks... Maybe just assume
+                        // every vfork is an exec :thinking:
+                        self.handle_exec(Pid::from_raw(fork_child as _))
+                    } else {
+                        Ok((
+                            TestState::wait_state(),
+                            TracerAction::Continue(child.into()),
+                        ))
+                    }
                 }
                 PTRACE_EVENT_EXEC => {
                     if self.config.follow_exec {
