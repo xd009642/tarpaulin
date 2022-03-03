@@ -166,6 +166,7 @@ pub struct Config {
     /// Colouring of logging
     pub color: Color,
     /// Follow traced executables down
+    #[serde(rename = "follow-exec")]
     pub follow_exec: bool,
     /// Number of jobs used for building the tests
     pub jobs: Option<usize>,
