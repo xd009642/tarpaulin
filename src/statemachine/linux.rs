@@ -596,9 +596,17 @@ impl<'a> LinuxData<'a> {
                     // This suggests that Command::new().spawn() will result in a
                     // `PTRACE_EVENT_VFORK` not `PTRACE_EVENT_EXEC`
                     if let Ok(fork_child) = get_event_data(child) {
-                        // So I've seen some recursive bin calls with vforks... Maybe just assume
-                        // every vfork is an exec :thinking:
-                        self.handle_exec(Pid::from_raw(fork_child as _))
+                        let fork_child = Pid::from_raw(fork_child as _);
+                        if self.config.follow_exec {
+                            // So I've seen some recursive bin calls with vforks... Maybe just assume
+                            // every vfork is an exec :thinking:
+                            self.handle_exec(fork_child)
+                        } else {
+                            Ok((
+                                TestState::wait_state(),
+                                TracerAction::Continue(child.into()),
+                            ))
+                        }
                     } else {
                         Ok((
                             TestState::wait_state(),
