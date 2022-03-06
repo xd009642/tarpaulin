@@ -317,7 +317,21 @@ impl<'a> StateData for LinuxData<'a> {
         }
         let mut continued = false;
         let mut actioned_pids = HashSet::new();
-        for a in &actions {
+        let mut flat_actions = vec![];
+
+        for a in actions.drain(..) {
+            if let Some(log) = self.event_log.as_ref() {
+                let event = TraceEvent::new_from_action(&a);
+                log.push_traces(event);
+            }
+            if let TracerAction::Compound(mut actions) = a {
+                flat_actions.append(&mut actions);
+            } else {
+                flat_actions.push(a);
+            }
+        }
+
+        for a in &flat_actions {
             if let Some(d) = a.get_data() {
                 if actioned_pids.contains(&d.pid) {
                     trace!("Skipping action '{:?}', pid already sent command", a);
@@ -329,10 +343,6 @@ impl<'a> StateData for LinuxData<'a> {
                 trace!("No process info for action");
             }
             trace!("Action: {:?}", a);
-            if let Some(log) = self.event_log.as_ref() {
-                let event = TraceEvent::new_from_action(a);
-                log.push_trace(event);
-            }
             match a {
                 TracerAction::TryContinue(t) => {
                     continued = true;
@@ -354,7 +364,10 @@ impl<'a> StateData for LinuxData<'a> {
                     actioned_pids.insert(t.pid);
                     detach_child(t.pid)?;
                 }
-                _ => {}
+                TracerAction::Compound(_) => {
+                    error!("Nested compound actions detected! Run may fail");
+                }
+                TracerAction::Nothing => {}
             }
         }
         if !continued {
@@ -600,7 +613,15 @@ impl<'a> LinuxData<'a> {
                         if self.config.follow_exec {
                             // So I've seen some recursive bin calls with vforks... Maybe just assume
                             // every vfork is an exec :thinking:
-                            self.handle_exec(fork_child)
+                            let (state, action) = self.handle_exec(fork_child)?;
+                            debug_assert!(!matches!(action, TracerAction::Compound(_)));
+                            Ok((
+                                state,
+                                TracerAction::Compound(vec![
+                                    action,
+                                    TracerAction::Continue(child.into()),
+                                ]),
+                            ))
                         } else {
                             Ok((
                                 TestState::wait_state(),
@@ -702,14 +723,20 @@ impl<'a> LinuxData<'a> {
         sig: &Signal,
         flag: bool,
     ) -> Result<UpdateContext, RunError> {
+        tracing::info!("{}:{:?}:{}", pid, sig, flag);
         let parent = self.get_parent(*pid);
         if let Some(p) = parent {
             if let Some(proc) = self.processes.get(&p) {
                 if !proc.is_test_proc {
+                    tracing::info!("Is not test proc");
                     let info = ProcessInfo::new(*pid, Some(*sig));
                     return Ok((TestState::wait_state(), TracerAction::TryContinue(info)));
                 }
+            } else {
+                tracing::info!("No process");
             }
+        } else {
+            tracing::info!("No parent");
         }
         match (sig, flag) {
             (Signal::SIGKILL, _) => Ok((TestState::wait_state(), TracerAction::Detach(pid.into()))),
@@ -719,7 +746,13 @@ impl<'a> LinuxData<'a> {
             (Signal::SIGCHLD, _) => {
                 Ok((TestState::wait_state(), TracerAction::Continue(pid.into())))
             }
-            _ => Err(RunError::StateMachine("Unexpected stop".to_string())),
+            _ => {
+                warn!("Attempting to continue from signal {}", sig);
+                Ok((
+                    TestState::wait_state(),
+                    TracerAction::TryContinue(pid.into()),
+                ))
+            }
         }
     }
 }

@@ -69,7 +69,7 @@ pub enum TestState {
 /// This enum represents a generic action for the process tracing API to take
 /// along with any form of ID or handle to the underlying thread or process
 /// i.e. a PID in Unix.
-#[derive(Debug, Copy, Clone, Eq, PartialEq)]
+#[derive(Debug, Clone, Eq, PartialEq)]
 pub enum TracerAction<T> {
     /// Try continue is for times when you don't know if there is something
     /// paused but if there is you want it to move on.
@@ -77,6 +77,7 @@ pub enum TracerAction<T> {
     Continue(T),
     Step(T),
     Detach(T),
+    Compound(Vec<TracerAction<T>>),
     Nothing,
 }
 
