@@ -291,6 +291,11 @@ impl<'a> StateData for LinuxData<'a> {
                     }
                     trace!("Exited {:?} parent {:?}", child, self.parent);
                     if child == &self.parent {
+                        for (_, process) in self.processes.iter().filter(|(k, _)| *k != child) {
+                            if let Some(tm) = process.traces.as_ref() {
+                                self.traces.merge(tm);
+                            }
+                        }
                         Ok((TestState::End(*ec), TracerAction::Nothing))
                     } else {
                         // Process may have already been destroyed. This is just incase
@@ -496,7 +501,12 @@ impl<'a> LinuxData<'a> {
             }
         }
         // a processes pid is it's own parent
-        self.pid_map.insert(pid, pid);
+        match self.pid_map.insert(pid, pid) {
+            Some(old) if old != pid => {
+                debug!("{} being promoted to parent. Old parent {}", pid, old)
+            }
+            _ => {}
+        }
         Ok(TracedProcess {
             parent: pid,
             breakpoints,
@@ -724,20 +734,14 @@ impl<'a> LinuxData<'a> {
         sig: &Signal,
         flag: bool,
     ) -> Result<UpdateContext, RunError> {
-        tracing::info!("{}:{:?}:{}", pid, sig, flag);
         let parent = self.get_parent(*pid);
         if let Some(p) = parent {
             if let Some(proc) = self.processes.get(&p) {
                 if !proc.is_test_proc {
-                    tracing::info!("Is not test proc");
                     let info = ProcessInfo::new(*pid, Some(*sig));
                     return Ok((TestState::wait_state(), TracerAction::TryContinue(info)));
                 }
-            } else {
-                tracing::info!("No process");
             }
-        } else {
-            tracing::info!("No parent");
         }
         match (sig, flag) {
             (Signal::SIGKILL, _) => Ok((TestState::wait_state(), TracerAction::Detach(pid.into()))),
@@ -747,13 +751,14 @@ impl<'a> LinuxData<'a> {
             (Signal::SIGCHLD, _) => {
                 Ok((TestState::wait_state(), TracerAction::Continue(pid.into())))
             }
-            _ => {
-                warn!("Attempting to continue from signal {}", sig);
-                Ok((
-                    TestState::wait_state(),
-                    TracerAction::TryContinue(pid.into()),
-                ))
+            (Signal::SIGTERM, _) => {
+                let info = ProcessInfo {
+                    pid: *pid,
+                    signal: Some(Signal::SIGTERM),
+                };
+                Ok((TestState::wait_state(), TracerAction::TryContinue(info)))
             }
+            _ => Err(RunError::StateMachine("Unexpected stop".to_string())),
         }
     }
 }
