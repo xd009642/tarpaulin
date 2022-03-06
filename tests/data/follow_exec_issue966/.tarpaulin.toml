@@ -1,0 +1,7 @@
+[examples]
+command = "Build"
+run-types = ["Examples"]
+follow-exec = true
+
+#[tests]
+#run-types = ["Tests"]

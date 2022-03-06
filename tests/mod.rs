@@ -200,6 +200,17 @@ fn config_file_coverage() {
 }
 
 #[test]
+fn issue_966_follow_exec() {
+    let test_dir = get_test_path("follow_exec_issue966");
+    let args = vec![
+        "tarpaulin".to_string(),
+        "--root".to_string(),
+        test_dir.display().to_string(),
+    ];
+    check_percentage_with_cli_args(1.0f64, true, &args);
+}
+
+#[test]
 fn rustflags_config_coverage() {
     let test_dir = get_test_path("multiple_rustflags");
     let mut args = vec![
