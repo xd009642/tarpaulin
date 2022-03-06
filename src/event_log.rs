@@ -53,41 +53,34 @@ pub struct TraceEvent {
 
 impl TraceEvent {
     #[cfg(target_os = "linux")]
-    pub(crate) fn new_from_action(action: &TracerAction<ProcessInfo>) -> Vec<Self> {
+    pub(crate) fn new_from_action(action: &TracerAction<ProcessInfo>) -> Self {
         match action {
-            TracerAction::TryContinue(t) => vec![TraceEvent {
+            TracerAction::TryContinue(t) => TraceEvent {
                 pid: Some(t.pid.as_raw().into()),
                 signal: t.signal.map(|x| x.to_string()),
                 description: "Try continue child".to_string(),
                 ..Default::default()
-            }],
-            TracerAction::Continue(t) => vec![TraceEvent {
+            },
+            TracerAction::Continue(t) => TraceEvent {
                 pid: Some(t.pid.as_raw().into()),
                 signal: t.signal.map(|x| x.to_string()),
                 description: "Continue child".to_string(),
                 ..Default::default()
-            }],
-            TracerAction::Step(t) => vec![TraceEvent {
+            },
+            TracerAction::Step(t) => TraceEvent {
                 pid: Some(t.pid.as_raw().into()),
                 description: "Step child".to_string(),
                 ..Default::default()
-            }],
-            TracerAction::Detach(t) => vec![TraceEvent {
+            },
+            TracerAction::Detach(t) => TraceEvent {
                 pid: Some(t.pid.as_raw().into()),
                 description: "Detach child".to_string(),
                 ..Default::default()
-            }],
-            TracerAction::Compound(v) => {
-                let mut result = vec![];
-                for action in v {
-                    result.append(&mut Self::new_from_action(action));
-                }
-                result
-            }
-            TracerAction::Nothing => vec![TraceEvent {
+            },
+            TracerAction::Nothing => TraceEvent {
                 description: "Do nothing".to_string(),
                 ..Default::default()
-            }],
+            },
         }
     }
 
@@ -187,13 +180,6 @@ impl EventLog {
         self.events
             .borrow_mut()
             .push(EventWrapper::new(Event::Trace(event), self.start.unwrap()));
-    }
-
-    pub fn push_traces(&self, mut event: Vec<TraceEvent>) {
-        let mut events = self.events.borrow_mut();
-        for e in event.drain(..) {
-            events.push(EventWrapper::new(Event::Trace(e), self.start.unwrap()));
-        }
     }
 
     pub fn push_config(&self, name: String) {

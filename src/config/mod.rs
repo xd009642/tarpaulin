@@ -210,7 +210,7 @@ impl Default for Config {
             coveralls: None,
             ci_tool: None,
             report_uri: None,
-            forward_signals: false,
+            forward_signals: true,
             no_default_features: false,
             features: None,
             unstable_features: vec![],

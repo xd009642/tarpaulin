@@ -15,12 +15,15 @@ use nix::Error as NixErr;
 use procfs::process::{MMapPath, Process};
 use std::collections::{HashMap, HashSet};
 use std::path::PathBuf;
-use tracing::{debug, trace, trace_span, warn};
+use tracing::{debug, info, trace, trace_span, warn};
 
 /// Handle to linux process state
 pub struct LinuxData<'a> {
     /// Recent results from waitpid to be handled by statemachine
     wait_queue: Vec<WaitStatus>,
+    /// Pending action queue, this is for actions where we need to wait one cycle before we can
+    /// apply them :sobs:
+    pending_actions: Vec<TracerAction<ProcessInfo>>,
     /// Parent pid of the test
     parent: Pid,
     /// Current Pid to process
@@ -37,6 +40,8 @@ pub struct LinuxData<'a> {
     processes: HashMap<Pid, TracedProcess>,
     /// Map from pids to their parent
     pid_map: HashMap<Pid, Pid>,
+    /// So if we have the exit code but we're also waiting for all the spawned processes to end
+    exit_code: Option<i32>,
 }
 
 #[derive(Debug)]
@@ -160,6 +165,20 @@ impl<'a> StateData for LinuxData<'a> {
         }
     }
 
+    fn last_wait_attempt(&mut self) -> Result<Option<TestState>, RunError> {
+        if let Some(ec) = self.exit_code {
+            let parent = self.parent;
+            for (_, process) in self.processes.iter().filter(|(k, _)| **k != parent) {
+                if let Some(tm) = process.traces.as_ref() {
+                    self.traces.merge(tm);
+                }
+            }
+            Ok(Some(TestState::End(ec)))
+        } else {
+            Ok(None)
+        }
+    }
+
     fn wait(&mut self) -> Result<Option<TestState>, RunError> {
         let mut result = Ok(None);
         let mut running = true;
@@ -186,6 +205,10 @@ impl<'a> StateData for LinuxData<'a> {
                     self.wait_queue.push(s);
                     result = Ok(Some(TestState::Stopped));
                 }
+                Err(_) if self.exit_code.is_some() => {
+                    running = false;
+                    result = self.last_wait_attempt();
+                }
                 Err(e) => {
                     running = false;
                     result = Err(RunError::TestRuntime(format!(
@@ -206,6 +229,7 @@ impl<'a> StateData for LinuxData<'a> {
         let mut pcs = HashMap::new();
         let mut result = Ok(TestState::wait_state());
         let pending = self.wait_queue.clone();
+        let pending_action_len = self.pending_actions.len();
         self.wait_queue.clear();
         for status in &pending {
             let span = trace_span!("pending", event=?status.pid());
@@ -291,18 +315,30 @@ impl<'a> StateData for LinuxData<'a> {
                     }
                     trace!("Exited {:?} parent {:?}", child, self.parent);
                     if child == &self.parent {
+                        /*
                         for (_, process) in self.processes.iter().filter(|(k, _)| *k != child) {
                             if let Some(tm) = process.traces.as_ref() {
                                 self.traces.merge(tm);
                             }
+                        }*/
+                        if self.processes.is_empty() || !self.config.follow_exec {
+                            Ok((TestState::End(*ec), TracerAction::Nothing))
+                        } else {
+                            self.exit_code = Some(*ec);
+                            info!("Test process exited, but spawned processes still running. Continuing tracing");
+                            Ok((TestState::wait_state(), TracerAction::Nothing))
                         }
-                        Ok((TestState::End(*ec), TracerAction::Nothing))
                     } else {
-                        // Process may have already been destroyed. This is just incase
-                        Ok((
-                            TestState::wait_state(),
-                            TracerAction::TryContinue(self.parent.into()),
-                        ))
+                        match self.exit_code {
+                            Some(ec) if self.processes.is_empty() => return Ok(TestState::End(ec)),
+                            _ => {
+                                // Process may have already been destroyed. This is just incase
+                                Ok((
+                                    TestState::wait_state(),
+                                    TracerAction::TryContinue(self.parent.into()),
+                                ))
+                            }
+                        }
                     }
                 }
                 _ => Err(RunError::TestRuntime(
@@ -322,21 +358,8 @@ impl<'a> StateData for LinuxData<'a> {
         }
         let mut continued = false;
         let mut actioned_pids = HashSet::new();
-        let mut flat_actions = vec![];
 
-        for a in actions.drain(..) {
-            if let Some(log) = self.event_log.as_ref() {
-                let event = TraceEvent::new_from_action(&a);
-                log.push_traces(event);
-            }
-            if let TracerAction::Compound(mut actions) = a {
-                flat_actions.append(&mut actions);
-            } else {
-                flat_actions.push(a);
-            }
-        }
-
-        for a in &flat_actions {
+        for a in &actions {
             if let Some(d) = a.get_data() {
                 if actioned_pids.contains(&d.pid) {
                     trace!("Skipping action '{:?}', pid already sent command", a);
@@ -348,6 +371,10 @@ impl<'a> StateData for LinuxData<'a> {
                 trace!("No process info for action");
             }
             trace!("Action: {:?}", a);
+            if let Some(log) = self.event_log.as_ref() {
+                let event = TraceEvent::new_from_action(&a);
+                log.push_trace(event);
+            }
             match a {
                 TracerAction::TryContinue(t) => {
                     continued = true;
@@ -367,15 +394,27 @@ impl<'a> StateData for LinuxData<'a> {
                 TracerAction::Detach(t) => {
                     continued = true;
                     actioned_pids.insert(t.pid);
-                    detach_child(t.pid)?;
-                }
-                TracerAction::Compound(_) => {
-                    error!("Nested compound actions detected! Run may fail");
+                    let _ = detach_child(t.pid);
                 }
                 TracerAction::Nothing => {}
             }
         }
-        if !continued {
+        for a in self.pending_actions.drain(..pending_action_len) {
+            if let Some(log) = self.event_log.as_ref() {
+                let event = TraceEvent::new_from_action(&a);
+                log.push_trace(event);
+            }
+            match a {
+                TracerAction::Continue(t) | TracerAction::TryContinue(t) => {
+                    let _ = continue_exec(t.pid, t.signal);
+                }
+                e => {
+                    error!("Pending actions should only be continues: {:?}", e);
+                }
+            }
+        }
+
+        if !continued && self.exit_code.is_none() {
             trace!("No action suggested to continue tracee. Attempting a continue");
             let _ = continue_exec(self.parent, None);
         }
@@ -392,6 +431,7 @@ impl<'a> LinuxData<'a> {
     ) -> LinuxData<'a> {
         LinuxData {
             wait_queue: Vec::new(),
+            pending_actions: Vec::new(),
             processes: HashMap::new(),
             current: Pid::from_raw(0),
             parent: Pid::from_raw(0),
@@ -400,6 +440,7 @@ impl<'a> LinuxData<'a> {
             config,
             event_log,
             pid_map: HashMap::new(),
+            exit_code: None,
         }
     }
 
@@ -624,15 +665,11 @@ impl<'a> LinuxData<'a> {
                             // So I've seen some recursive bin calls with vforks... Maybe just assume
                             // every vfork is an exec :thinking:
                             let (state, action) = self.handle_exec(fork_child)?;
-                            let actions = if self.config.forward_signals {
-                                TracerAction::Compound(vec![
-                                    action,
-                                    TracerAction::Continue(child.into()),
-                                ])
-                            } else {
-                                action
-                            };
-                            Ok((state, actions))
+                            if self.config.forward_signals {
+                                self.pending_actions
+                                    .push(TracerAction::Continue(child.into()));
+                            }
+                            Ok((state, action))
                         } else {
                             Ok((
                                 TestState::wait_state(),
