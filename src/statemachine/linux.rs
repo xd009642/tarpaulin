@@ -614,14 +614,15 @@ impl<'a> LinuxData<'a> {
                             // So I've seen some recursive bin calls with vforks... Maybe just assume
                             // every vfork is an exec :thinking:
                             let (state, action) = self.handle_exec(fork_child)?;
-                            debug_assert!(!matches!(action, TracerAction::Compound(_)));
-                            Ok((
-                                state,
+                            let actions = if self.config.forward_signals {
                                 TracerAction::Compound(vec![
                                     action,
                                     TracerAction::Continue(child.into()),
-                                ]),
-                            ))
+                                ])
+                            } else {
+                                action
+                            };
+                            Ok((state, actions))
                         } else {
                             Ok((
                                 TestState::wait_state(),
