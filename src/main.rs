@@ -74,7 +74,7 @@ fn main() -> Result<(), String> {
                  --force-clean 'Adds a clean stage to work around cargo bugs that may affect coverage results'
                  --fail-under [PERCENTAGE] 'Sets a percentage threshold for failure ranging from 0-100, if coverage is below exit with a non-zero code'
                  --branch -b  'Branch coverage: NOT IMPLEMENTED'
-                 --forward -f 'Forwards unexpected signals to test. Tarpaulin will still take signals it is expecting.'
+                 --forward -f 'Forwards unexpected signals to test. This is now the default behaviour'
                  --coveralls [KEY]  'Coveralls key, either the repo token, or if you're using travis use $TRAVIS_JOB_ID and specify travis-{ci|pro} in --ciserver'
                  --report-uri [URI] 'URI to send report to, only used if the option --coveralls is used'
                  --no-default-features 'Do not include default features'

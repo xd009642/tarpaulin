@@ -303,7 +303,7 @@ impl<'a> From<&'a ArgMatches<'a>> for ConfigWrapper {
             coveralls: get_coveralls(args),
             ci_tool: get_ci(args),
             report_uri: get_report_uri(args),
-            forward_signals: args.is_present("forward"),
+            forward_signals: true, // No longer an option
             all_features: args.is_present("all-features"),
             no_default_features: args.is_present("no-default-features"),
             features,
@@ -541,6 +541,7 @@ impl Config {
         self.no_run |= other.no_run;
         self.no_default_features |= other.no_default_features;
         self.ignore_panics |= other.ignore_panics;
+        // Since true is the default
         self.forward_signals |= other.forward_signals;
         self.run_ignored |= other.run_ignored;
         self.release |= other.release;

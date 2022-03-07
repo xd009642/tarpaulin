@@ -240,7 +240,11 @@ impl<'a> StateData for LinuxData<'a> {
                 } else {
                     0
                 };
-                let event = TraceEvent::new_from_wait(status, offset, self.traces);
+                let traces = match self.get_active_trace_map(self.current) {
+                    Some(tm) => tm,
+                    None => &self.traces,
+                };
+                let event = TraceEvent::new_from_wait(status, offset, traces);
                 log.push_trace(event);
             }
             let state = match status {
@@ -467,7 +471,7 @@ impl<'a> LinuxData<'a> {
         self.processes.get_mut(&parent)
     }
 
-    fn get_active_trace_map(&mut self, pid: Pid) -> Option<&mut TraceMap> {
+    fn get_active_trace_map_mut(&mut self, pid: Pid) -> Option<&mut TraceMap> {
         let parent = self.get_parent(pid)?;
         let process = self.processes.get_mut(&parent)?;
         if process.traces.is_some() {
@@ -475,6 +479,12 @@ impl<'a> LinuxData<'a> {
         } else {
             Some(self.traces)
         }
+    }
+
+    fn get_active_trace_map(&mut self, pid: Pid) -> Option<&TraceMap> {
+        let parent = self.get_parent(pid)?;
+        let process = self.processes.get(&parent)?;
+        Some(process.traces.as_ref().unwrap_or(&self.traces))
     }
 
     fn init_process(
@@ -754,7 +764,7 @@ impl<'a> LinuxData<'a> {
         } else {
             warn!("Failed to find process for pid: {}", current);
         }
-        if let Some(traces) = self.get_active_trace_map(current) {
+        if let Some(traces) = self.get_active_trace_map_mut(current) {
             for addr in &hits_to_increment {
                 traces.increment_hit(*addr);
             }
