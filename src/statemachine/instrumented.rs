@@ -67,7 +67,7 @@ impl<'a> StateData for LlvmInstrumentedData<'a> {
     }
 
     fn last_wait_attempt(&mut self) -> Result<Option<TestState>, RunError> {
-        self.wait()
+        unreachable!();
     }
 
     fn wait(&mut self) -> Result<Option<TestState>, RunError> {
