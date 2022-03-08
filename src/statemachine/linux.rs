@@ -319,12 +319,6 @@ impl<'a> StateData for LinuxData<'a> {
                     }
                     trace!("Exited {:?} parent {:?}", child, self.parent);
                     if child == &self.parent {
-                        /*
-                        for (_, process) in self.processes.iter().filter(|(k, _)| *k != child) {
-                            if let Some(tm) = process.traces.as_ref() {
-                                self.traces.merge(tm);
-                            }
-                        }*/
                         if self.processes.is_empty() || !self.config.follow_exec {
                             Ok((TestState::End(*ec), TracerAction::Nothing))
                         } else {
