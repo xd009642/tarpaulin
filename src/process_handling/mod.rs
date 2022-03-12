@@ -154,6 +154,8 @@ pub(crate) fn collect_coverage(
                     ret_code = i;
                 }
                 break;
+            } else if let Some(event_logger) = logger {
+                event_logger.push_marker();
             }
         }
     }

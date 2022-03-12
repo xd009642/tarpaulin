@@ -23,6 +23,7 @@ pub enum Event {
     ConfigLaunch(String),
     BinaryLaunch(TestBinary),
     Trace(TraceEvent),
+    Marker(Option<()>),
 }
 
 #[derive(Clone, PartialEq, PartialOrd, Serialize, Deserialize)]
@@ -187,6 +188,12 @@ impl EventLog {
             Event::ConfigLaunch(name),
             self.start.unwrap(),
         ));
+    }
+
+    pub fn push_marker(&self) {
+        self.events
+            .borrow_mut()
+            .push(EventWrapper::new(Event::Marker(None), self.start.unwrap()));
     }
 }
 
