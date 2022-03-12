@@ -33,7 +33,7 @@ jobs:
         env:
           RUST_BACKTRACE: 1
       - name: test
-        run: cargo test -- --test-threads 1
+        run: cargo test 
         env:
           RUST_BACKTRACE: 1
       - name: ignored test
