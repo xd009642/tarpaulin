@@ -191,9 +191,18 @@ impl EventLog {
     }
 
     pub fn push_marker(&self) {
-        self.events
-            .borrow_mut()
-            .push(EventWrapper::new(Event::Marker(None), self.start.unwrap()));
+        // Prevent back to back markers when we spend a lot of time waiting on events
+        if self
+            .events
+            .borrow()
+            .last()
+            .filter(|x| matches!(x.event, Event::Marker(_)))
+            .is_none()
+        {
+            self.events
+                .borrow_mut()
+                .push(EventWrapper::new(Event::Marker(None), self.start.unwrap()));
+        }
     }
 }
 
