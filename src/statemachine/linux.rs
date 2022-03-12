@@ -220,6 +220,22 @@ impl<'a> StateData for LinuxData<'a> {
         }
         if !self.wait_queue.is_empty() {
             trace!("Result queue is {:?}", self.wait_queue);
+        } else {
+            // Maybe lets try to flush the pending action queue now...
+            for a in self.pending_actions.drain(..) {
+                if let Some(log) = self.event_log.as_ref() {
+                    let event = TraceEvent::new_from_action(&a);
+                    log.push_trace(event);
+                }
+                match a {
+                    TracerAction::Continue(t) | TracerAction::TryContinue(t) => {
+                        let _ = continue_exec(t.pid, t.signal);
+                    }
+                    e => {
+                        error!("Pending actions should only be continues: {:?}", e);
+                    }
+                }
+            }
         }
         result
     }

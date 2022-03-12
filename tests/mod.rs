@@ -1,10 +1,12 @@
 use crate::utils::get_test_path;
 use cargo_tarpaulin::config::{Config, ConfigWrapper, Mode, RunType};
+use cargo_tarpaulin::event_log::EventLog;
 use cargo_tarpaulin::launch_tarpaulin;
 use cargo_tarpaulin::path_utils::*;
 use cargo_tarpaulin::traces::TraceMap;
 use clap::App;
 use rusty_fork::rusty_fork_test;
+use std::collections::HashSet;
 use std::env;
 use std::fs;
 use std::path::Path;
@@ -68,8 +70,15 @@ pub fn check_percentage_with_config(
     // Note to contributors. If an integration test fails, uncomment this to be able to see the
     // tarpaulin logs
     //cargo_tarpaulin::setup_logging(true, true);
+    let event_log = if config.dump_traces {
+        let mut paths = HashSet::new();
+        paths.insert(config.manifest.clone());
+        Some(EventLog::new(paths))
+    } else {
+        None
+    };
 
-    let (res, ret) = launch_tarpaulin(&config, &None).unwrap();
+    let (res, ret) = launch_tarpaulin(&config, &event_log).unwrap();
     assert_eq!(ret, 0);
 
     env::set_current_dir(restore_dir).unwrap();
@@ -346,6 +355,7 @@ fn rustflags_handling() {
 fn follow_exes_down() {
     let mut config = Config::default();
     config.follow_exec = true;
+    config.dump_traces = true;
     config.set_clean(false);
     check_percentage_with_config("follow_exe", 1.0f64, true, config);
 }
