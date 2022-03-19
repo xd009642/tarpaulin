@@ -14,6 +14,7 @@ use nix::unistd::Pid;
 use nix::Error as NixErr;
 use procfs::process::{MMapPath, Process};
 use std::collections::{HashMap, HashSet};
+use std::ops::RangeBounds;
 use std::path::PathBuf;
 use tracing::{debug, info, trace, trace_span, warn};
 
@@ -221,21 +222,7 @@ impl<'a> StateData for LinuxData<'a> {
         if !self.wait_queue.is_empty() {
             trace!("Result queue is {:?}", self.wait_queue);
         } else {
-            // Maybe lets try to flush the pending action queue now...
-            for a in self.pending_actions.drain(..) {
-                if let Some(log) = self.event_log.as_ref() {
-                    let event = TraceEvent::new_from_action(&a);
-                    log.push_trace(event);
-                }
-                match a {
-                    TracerAction::Continue(t) | TracerAction::TryContinue(t) => {
-                        let _ = continue_exec(t.pid, t.signal);
-                    }
-                    e => {
-                        error!("Pending actions should only be continues: {:?}", e);
-                    }
-                }
-            }
+            self.apply_pending_actions(..);
         }
         result
     }
@@ -413,20 +400,7 @@ impl<'a> StateData for LinuxData<'a> {
                 TracerAction::Nothing => {}
             }
         }
-        for a in self.pending_actions.drain(..pending_action_len) {
-            if let Some(log) = self.event_log.as_ref() {
-                let event = TraceEvent::new_from_action(&a);
-                log.push_trace(event);
-            }
-            match a {
-                TracerAction::Continue(t) | TracerAction::TryContinue(t) => {
-                    let _ = continue_exec(t.pid, t.signal);
-                }
-                e => {
-                    error!("Pending actions should only be continues: {:?}", e);
-                }
-            }
-        }
+        self.apply_pending_actions(..pending_action_len);
 
         if !continued && self.exit_code.is_none() {
             trace!("No action suggested to continue tracee. Attempting a continue");
@@ -816,6 +790,23 @@ impl<'a> LinuxData<'a> {
                 Ok((TestState::wait_state(), TracerAction::TryContinue(info)))
             }
             _ => Err(RunError::StateMachine("Unexpected stop".to_string())),
+        }
+    }
+
+    fn apply_pending_actions(&mut self, range: impl RangeBounds<usize>) {
+        for a in self.pending_actions.drain(range) {
+            if let Some(log) = self.event_log.as_ref() {
+                let event = TraceEvent::new_from_action(&a);
+                log.push_trace(event);
+            }
+            match a {
+                TracerAction::Continue(t) | TracerAction::TryContinue(t) => {
+                    let _ = continue_exec(t.pid, t.signal);
+                }
+                e => {
+                    error!("Pending actions should only be continues: {:?}", e);
+                }
+            }
         }
     }
 }
