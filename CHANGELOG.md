@@ -9,6 +9,12 @@ file.
 ### Changed
 - Stop adding `LD_LIBRARY_PATHS` to process env twice
 - [Internal] can now run `cargo test` on tarpaulin without need of `--test-threads 1`
+- Force --test-threads 1 for --follow-exec unless there's `--implicit-test-threads`
+- Add markers to event log to show where state machine iterations start and end, fix fork parent tracing
+- Handle exec following in vfork children
+- Continue vfork parents so test execution isn't stalled when tracing children
+- Make `--forward` default signal behaviour
+- Fix follow-exec aliasing for config file
 
 ## [0.19.1] 2022-01-16
 ### Added

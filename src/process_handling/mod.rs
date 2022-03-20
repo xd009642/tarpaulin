@@ -154,6 +154,8 @@ pub(crate) fn collect_coverage(
                     ret_code = i;
                 }
                 break;
+            } else if let Some(event_logger) = logger {
+                event_logger.push_marker();
             }
         }
     }
@@ -224,6 +226,7 @@ fn execute_test(
     } else {
         true
     };
+
     if no_test_env
         && test.is_test_type()
         && !config.implicit_test_threads

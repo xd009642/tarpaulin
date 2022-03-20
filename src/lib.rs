@@ -76,7 +76,7 @@ pub fn trace(configs: &[Config]) -> Result<TraceMap, RunError> {
     let mut tarpaulin_result = Ok(());
     let mut ret = 0i32;
     let logger = if configs.iter().any(|c| c.dump_traces) {
-        Some(EventLog::new())
+        Some(EventLog::new(configs.iter().map(|x| x.root()).collect()))
     } else {
         None
     };
