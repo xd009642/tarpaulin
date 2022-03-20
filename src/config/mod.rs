@@ -166,6 +166,7 @@ pub struct Config {
     /// Colouring of logging
     pub color: Color,
     /// Follow traced executables down
+    #[serde(rename = "follow-exec")]
     pub follow_exec: bool,
     /// Number of jobs used for building the tests
     pub jobs: Option<usize>,
@@ -209,7 +210,7 @@ impl Default for Config {
             coveralls: None,
             ci_tool: None,
             report_uri: None,
-            forward_signals: false,
+            forward_signals: true,
             no_default_features: false,
             features: None,
             unstable_features: vec![],
@@ -302,7 +303,7 @@ impl<'a> From<&'a ArgMatches<'a>> for ConfigWrapper {
             coveralls: get_coveralls(args),
             ci_tool: get_ci(args),
             report_uri: get_report_uri(args),
-            forward_signals: args.is_present("forward"),
+            forward_signals: true, // No longer an option
             all_features: args.is_present("all-features"),
             no_default_features: args.is_present("no-default-features"),
             features,
@@ -540,6 +541,7 @@ impl Config {
         self.no_run |= other.no_run;
         self.no_default_features |= other.no_default_features;
         self.ignore_panics |= other.ignore_panics;
+        // Since true is the default
         self.forward_signals |= other.forward_signals;
         self.run_ignored |= other.run_ignored;
         self.release |= other.release;
@@ -565,7 +567,9 @@ impl Config {
         self.all |= other.all;
         self.frozen |= other.frozen;
         self.locked |= other.locked;
-        self.force_clean |= other.force_clean;
+        // This is &= because force_clean true is the default. If one is false then that is
+        // non-default
+        self.force_clean &= other.force_clean;
         self.skip_clean |= other.skip_clean;
         self.ignore_tests |= other.ignore_tests;
         self.no_fail_fast |= other.no_fail_fast;

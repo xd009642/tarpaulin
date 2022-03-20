@@ -1,12 +1,15 @@
 use crate::utils::get_test_path;
 use cargo_tarpaulin::config::{Config, ConfigWrapper, Mode, RunType};
+use cargo_tarpaulin::event_log::EventLog;
 use cargo_tarpaulin::launch_tarpaulin;
 use cargo_tarpaulin::path_utils::*;
 use cargo_tarpaulin::traces::TraceMap;
 use clap::App;
+use rusty_fork::rusty_fork_test;
+use std::collections::HashSet;
 use std::env;
+use std::fs;
 use std::path::Path;
-use std::process::Command;
 use std::time::Duration;
 
 #[cfg(nightly)]
@@ -67,8 +70,15 @@ pub fn check_percentage_with_config(
     // Note to contributors. If an integration test fails, uncomment this to be able to see the
     // tarpaulin logs
     //cargo_tarpaulin::setup_logging(true, true);
+    let event_log = if config.dump_traces {
+        let mut paths = HashSet::new();
+        paths.insert(config.manifest.clone());
+        Some(EventLog::new(paths))
+    } else {
+        None
+    };
 
-    let (res, ret) = launch_tarpaulin(&config, &None).unwrap();
+    let (res, ret) = launch_tarpaulin(&config, &event_log).unwrap();
     assert_eq!(ret, 0);
 
     env::set_current_dir(restore_dir).unwrap();
@@ -90,6 +100,8 @@ pub fn check_percentage(project_name: &str, minimum_coverage: f64, has_lines: bo
     config.set_clean(false);
     check_percentage_with_config(project_name, minimum_coverage, has_lines, config);
 }
+
+rusty_fork_test! {
 
 #[test]
 fn incorrect_manifest_path() {
@@ -197,6 +209,17 @@ fn config_file_coverage() {
 }
 
 #[test]
+fn issue_966_follow_exec() {
+    let test_dir = get_test_path("follow_exec_issue966");
+    let args = vec![
+        "tarpaulin".to_string(),
+        "--root".to_string(),
+        test_dir.display().to_string(),
+    ];
+    check_percentage_with_cli_args(1.0f64, true, &args);
+}
+
+#[test]
 fn rustflags_config_coverage() {
     let test_dir = get_test_path("multiple_rustflags");
     let mut args = vec![
@@ -291,10 +314,11 @@ fn cargo_home_filtering() {
 
     env::set_var("CARGO_HOME", new_home.display().to_string());
     let run = launch_tarpaulin(&config, &None);
+    let _ = fs::remove_dir_all(&new_home);
     match previous {
         Ok(s) => env::set_var("CARGO_HOME", s),
         Err(_) => {
-            let _ = Command::new("unset").args(&["CARGO_HOME"]).output();
+            let _ = env::remove_var("CARGO_HOME");
         }
     }
     let (res, _) = run.unwrap();
@@ -331,6 +355,7 @@ fn rustflags_handling() {
 fn follow_exes_down() {
     let mut config = Config::default();
     config.follow_exec = true;
+    config.dump_traces = true;
     config.set_clean(false);
     check_percentage_with_config("follow_exe", 1.0f64, true, config);
 }
@@ -378,4 +403,16 @@ fn dot_rs_in_dir_name() {
     for dir in get_source_walker(&config) {
         assert!(dir.path().is_file());
     }
+}
+
+#[test]
+fn kill_used_in_test() {
+    let mut config = Config::default();
+    config.follow_exec = true;
+    config.set_clean(false);
+    // Currently 2 false negatives, but if it was only covering the integration test max coverage
+    // is 75% so this is high enough to prove it works
+    check_percentage_with_config("kill_proc", 0.9f64, true, config);
+}
+
 }

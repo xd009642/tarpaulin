@@ -2,8 +2,11 @@ use crate::utils::get_test_path;
 use cargo_tarpaulin::config::Config;
 use cargo_tarpaulin::launch_tarpaulin;
 use cargo_tarpaulin::traces::CoverageStat;
+use rusty_fork::rusty_fork_test;
 use std::env;
 use std::time::Duration;
+
+rusty_fork_test! {
 
 #[test]
 fn simple_project_coverage() {
@@ -93,4 +96,6 @@ fn test_threads_1() {
             assert_eq!(CoverageStat::Line(1), l.stats);
         }
     }
+}
+
 }

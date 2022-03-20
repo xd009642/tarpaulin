@@ -69,7 +69,7 @@ pub enum TestState {
 /// This enum represents a generic action for the process tracing API to take
 /// along with any form of ID or handle to the underlying thread or process
 /// i.e. a PID in Unix.
-#[derive(Debug, Copy, Clone, Eq, PartialEq)]
+#[derive(Debug, Clone, Eq, PartialEq)]
 pub enum TracerAction<T> {
     /// Try continue is for times when you don't know if there is something
     /// paused but if there is you want it to move on.
@@ -106,6 +106,10 @@ pub trait StateData {
     /// something to do. Selects the next appropriate state if there's
     /// something to do otherwise None
     fn wait(&mut self) -> Result<Option<TestState>, RunError>;
+    /// This is here for the times when we're about to mark the attempted coverage collection as a
+    /// failure i.e. timeout, but there's an alternative to that which can see if we're actually in
+    /// a "finished" state but are still waiting on resource cleanup so we don't lose the results.
+    fn last_wait_attempt(&mut self) -> Result<Option<TestState>, RunError>;
     /// Handle a stop in the test executable. Coverage data will
     /// be collected here as well as other OS specific functions
     fn stop(&mut self) -> Result<TestState, RunError>;
@@ -123,6 +127,11 @@ impl StateData for () {
         ))
     }
     fn wait(&mut self) -> Result<Option<TestState>, RunError> {
+        Err(RunError::StateMachine(
+            "No valid coverage collector".to_string(),
+        ))
+    }
+    fn last_wait_attempt(&mut self) -> Result<Option<TestState>, RunError> {
         Err(RunError::StateMachine(
             "No valid coverage collector".to_string(),
         ))
@@ -145,6 +154,10 @@ impl<'a> StateData for Box<dyn StateData + 'a> {
 
     fn wait(&mut self) -> Result<Option<TestState>, RunError> {
         self.as_mut().wait()
+    }
+
+    fn last_wait_attempt(&mut self) -> Result<Option<TestState>, RunError> {
+        self.as_mut().last_wait_attempt()
     }
 
     fn stop(&mut self) -> Result<TestState, RunError> {
@@ -191,9 +204,13 @@ impl TestState {
                 if let Some(s) = data.wait()? {
                     Ok(s)
                 } else if start_time.elapsed() >= config.test_timeout {
-                    Err(RunError::TestRuntime(
-                        "Error: Timed out waiting for test response".to_string(),
-                    ))
+                    if let Some(s) = data.last_wait_attempt()? {
+                        Ok(s)
+                    } else {
+                        Err(RunError::TestRuntime(
+                            "Error: Timed out waiting for test response".to_string(),
+                        ))
+                    }
                 } else {
                     Ok(TestState::Waiting { start_time })
                 }

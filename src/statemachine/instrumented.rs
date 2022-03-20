@@ -66,6 +66,10 @@ impl<'a> StateData for LlvmInstrumentedData<'a> {
         unreachable!();
     }
 
+    fn last_wait_attempt(&mut self) -> Result<Option<TestState>, RunError> {
+        unreachable!();
+    }
+
     fn wait(&mut self) -> Result<Option<TestState>, RunError> {
         if let Some(parent) = self.process.as_mut() {
             match parent.child.wait() {

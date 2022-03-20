@@ -154,10 +154,44 @@ pub(crate) fn collect_coverage(
                     ret_code = i;
                 }
                 break;
+            } else if let Some(event_logger) = logger {
+                event_logger.push_marker();
             }
         }
     }
     Ok((traces, ret_code))
+}
+
+fn get_env_vars(test: &TestBinary, config: &Config) -> Vec<(String, String)> {
+    let mut envars: Vec<(String, String)> = Vec::new();
+
+    for (key, value) in env::vars() {
+        // Avoid adding it twice
+        if key == "LD_LIBRARY_PATH" && test.has_linker_paths() {
+            continue;
+        }
+        envars.push((key.to_string(), value.to_string()));
+    }
+    if config.verbose {
+        envars.push(("RUST_BACKTRACE".to_string(), "1".to_string()));
+    }
+    if let Some(s) = test.pkg_name() {
+        envars.push(("CARGO_PKG_NAME".to_string(), s.to_string()));
+    }
+    if let Some(s) = test.pkg_version() {
+        envars.push(("CARGO_PKG_VERSION".to_string(), s.to_string()));
+    }
+    if let Some(s) = test.pkg_authors() {
+        envars.push(("CARGO_PKG_AUTHORS".to_string(), s.join(":")));
+    }
+    if let Some(s) = test.manifest_dir() {
+        envars.push(("CARGO_MANIFEST_DIR".to_string(), s.display().to_string()));
+    }
+    if test.has_linker_paths() {
+        envars.push(("LD_LIBRARY_PATH".to_string(), test.ld_library_path()));
+    }
+
+    envars
 }
 
 /// Launches the test executable
@@ -175,17 +209,11 @@ fn execute_test(
 
     debug!("Current working dir: {:?}", env::current_dir());
 
-    let mut envars: Vec<(String, String)> = Vec::new();
+    let mut envars = get_env_vars(test, config);
 
-    for (key, value) in env::vars() {
-        envars.push((key.to_string(), value.to_string()));
-    }
     let mut argv = vec![];
     if ignored {
         argv.push("--ignored".to_string());
-    }
-    if config.verbose {
-        envars.push(("RUST_BACKTRACE".to_string(), "1".to_string()));
     }
     argv.extend_from_slice(&config.varargs);
     if config.color != Color::Auto {
@@ -198,6 +226,7 @@ fn execute_test(
     } else {
         true
     };
+
     if no_test_env
         && test.is_test_type()
         && !config.implicit_test_threads
@@ -209,21 +238,6 @@ fn execute_test(
         }
     }
 
-    if let Some(s) = test.pkg_name() {
-        envars.push(("CARGO_PKG_NAME".to_string(), s.to_string()));
-    }
-    if let Some(s) = test.pkg_version() {
-        envars.push(("CARGO_PKG_VERSION".to_string(), s.to_string()));
-    }
-    if let Some(s) = test.pkg_authors() {
-        envars.push(("CARGO_PKG_AUTHORS".to_string(), s.join(":")));
-    }
-    if let Some(s) = test.manifest_dir() {
-        envars.push(("CARGO_MANIFEST_DIR".to_string(), s.display().to_string()));
-    }
-    if test.has_linker_paths() {
-        envars.push(("LD_LIBRARY_PATH".to_string(), test.ld_library_path()));
-    }
     match config.engine() {
         TraceEngine::Llvm => {
             // Used for llvm coverage to avoid report naming clashes TODO could have clashes
@@ -251,5 +265,42 @@ fn execute_test(
             "invalid execution engine {:?}",
             e
         ))),
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use std::path::PathBuf;
+
+    #[test]
+    fn check_ld_library_path_correct() {
+        let mut binary = TestBinary::new(PathBuf::from("dummy"), None);
+        let default_config = Config::default();
+
+        let vars = get_env_vars(&binary, &default_config);
+
+        if let Some(ld) = vars
+            .iter()
+            .find(|(key, _)| key == "LD_LIBRARY_PATH")
+            .map(|(_, val)| val)
+        {
+            let sys = env::var("LD_LIBRARY_PATH").unwrap();
+            assert_eq!(ld, &sys);
+        }
+
+        binary
+            .linker_paths
+            .push(PathBuf::from("/usr/local/lib/foo"));
+
+        let vars = get_env_vars(&binary, &default_config);
+        let res = vars
+            .iter()
+            .find(|(key, _)| key == "LD_LIBRARY_PATH")
+            .map(|(_, val)| val);
+
+        assert!(res.is_some());
+        let res = res.unwrap();
+        assert!(res.contains("/usr/local/lib/foo"));
     }
 }

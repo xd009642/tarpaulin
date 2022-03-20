@@ -5,15 +5,16 @@ use crate::ptrace_control::*;
 use crate::statemachine::ProcessInfo;
 use crate::statemachine::TracerAction;
 use crate::traces::{Location, TraceMap};
-use chrono::offset::Local;
+use chrono::{offset::Local, SecondsFormat};
 #[cfg(target_os = "linux")]
 use nix::libc::*;
 #[cfg(target_os = "linux")]
 use nix::sys::{signal::Signal, wait::WaitStatus};
 use serde::{Deserialize, Serialize};
 use std::cell::RefCell;
+use std::collections::HashSet;
 use std::fs::File;
-use std::path::Path;
+use std::path::{Path, PathBuf};
 use std::time::Instant;
 use tracing::{info, warn};
 
@@ -22,6 +23,7 @@ pub enum Event {
     ConfigLaunch(String),
     BinaryLaunch(TestBinary),
     Trace(TraceEvent),
+    Marker(Option<()>),
 }
 
 #[derive(Clone, PartialEq, PartialOrd, Serialize, Deserialize)]
@@ -53,7 +55,7 @@ pub struct TraceEvent {
 impl TraceEvent {
     #[cfg(target_os = "linux")]
     pub(crate) fn new_from_action(action: &TracerAction<ProcessInfo>) -> Self {
-        match *action {
+        match action {
             TracerAction::TryContinue(t) => TraceEvent {
                 pid: Some(t.pid.as_raw().into()),
                 signal: t.signal.map(|x| x.to_string()),
@@ -122,9 +124,15 @@ impl TraceEvent {
                     }
                     PTRACE_EVENT_FORK => {
                         event.description = "Ptrace fork".to_string();
+                        if *sig == Signal::SIGTRAP {
+                            event.child = get_event_data(*pid).ok();
+                        }
                     }
                     PTRACE_EVENT_VFORK => {
                         event.description = "Ptrace vfork".to_string();
+                        if *sig == Signal::SIGTRAP {
+                            event.child = get_event_data(*pid).ok();
+                        }
                     }
                     PTRACE_EVENT_EXEC => {
                         event.description = "Ptrace exec".to_string();
@@ -151,24 +159,20 @@ impl TraceEvent {
     }
 }
 
-#[derive(Clone, PartialEq, PartialOrd, Serialize, Deserialize)]
+#[derive(Clone, PartialEq, Serialize, Deserialize)]
 pub struct EventLog {
     events: RefCell<Vec<EventWrapper>>,
     #[serde(skip)]
     start: Option<Instant>,
-}
-
-impl Default for EventLog {
-    fn default() -> Self {
-        Self::new()
-    }
+    manifest_paths: HashSet<PathBuf>,
 }
 
 impl EventLog {
-    pub fn new() -> Self {
+    pub fn new(manifest_paths: HashSet<PathBuf>) -> Self {
         Self {
             events: RefCell::new(vec![]),
             start: Some(Instant::now()),
+            manifest_paths,
         }
     }
 
@@ -191,11 +195,29 @@ impl EventLog {
             self.start.unwrap(),
         ));
     }
+
+    pub fn push_marker(&self) {
+        // Prevent back to back markers when we spend a lot of time waiting on events
+        if self
+            .events
+            .borrow()
+            .last()
+            .filter(|x| matches!(x.event, Event::Marker(_)))
+            .is_none()
+        {
+            self.events
+                .borrow_mut()
+                .push(EventWrapper::new(Event::Marker(None), self.start.unwrap()));
+        }
+    }
 }
 
 impl Drop for EventLog {
     fn drop(&mut self) {
-        let fname = format!("tarpaulin-run-{}.json", Local::now().to_rfc3339());
+        let fname = format!(
+            "tarpaulin_{}.json",
+            Local::now().to_rfc3339_opts(SecondsFormat::Secs, false)
+        );
         let path = Path::new(&fname);
         info!("Serializing tarpaulin debug log to {}", path.display());
         if let Ok(output) = File::create(path) {
