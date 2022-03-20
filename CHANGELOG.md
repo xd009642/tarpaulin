@@ -15,6 +15,7 @@ file.
 - Continue vfork parents so test execution isn't stalled when tracing children
 - Make `--forward` default signal behaviour
 - Fix follow-exec aliasing for config file
+- Fix `force_clean` merging to take into account the default being true
 
 ## [0.19.1] 2022-01-16
 ### Added
