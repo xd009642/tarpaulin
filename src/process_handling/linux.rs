@@ -42,7 +42,9 @@ pub fn get_test_coverage(
         warn!("Test at {} doesn't exist", test.path().display());
         return Ok(None);
     }
-    let cpus = Some(*NUM_CPUS);
+
+    let threads = if config.follow_exec { 1 } else { *NUM_CPUS };
+
     if let Err(e) = limit_affinity() {
         warn!("Failed to set processor affinity {}", e);
     }
@@ -56,7 +58,7 @@ pub fn get_test_coverage(
                     Mode::Build => "binary",
                 };
                 info!("Launching {}", bin_type);
-                execute_test(test, ignored, config, cpus)?;
+                execute_test(test, ignored, config, Some(threads))?;
                 Ok(None)
             }
             Err(err) => Err(RunError::TestCoverage(format!(

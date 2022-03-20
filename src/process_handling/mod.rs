@@ -226,6 +226,7 @@ fn execute_test(
     } else {
         true
     };
+
     if no_test_env
         && test.is_test_type()
         && !config.implicit_test_threads
