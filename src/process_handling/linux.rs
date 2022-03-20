@@ -43,6 +43,7 @@ pub fn get_test_coverage(
         return Ok(None);
     }
 
+    // Solves CI issue when fixing #953 and #966 in PR #962
     let threads = if config.follow_exec { 1 } else { *NUM_CPUS };
 
     if let Err(e) = limit_affinity() {

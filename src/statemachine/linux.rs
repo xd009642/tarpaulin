@@ -400,6 +400,11 @@ impl<'a> StateData for LinuxData<'a> {
                 TracerAction::Nothing => {}
             }
         }
+        // Here we assume that no pending actions will exist for things that have currently
+        // signaled as stopped in this iteration. Currently, the pending actions are just fork
+        // parents that ptrace will stall until child returns so this will hold true. But if that
+        // behaviour changes in future the pending action list may need to be pruned more
+        // thoroughly
         self.apply_pending_actions(..pending_action_len);
 
         if !continued && self.exit_code.is_none() {
