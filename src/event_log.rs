@@ -124,9 +124,15 @@ impl TraceEvent {
                     }
                     PTRACE_EVENT_FORK => {
                         event.description = "Ptrace fork".to_string();
+                        if *sig == Signal::SIGTRAP {
+                            event.child = get_event_data(*pid).ok();
+                        }
                     }
                     PTRACE_EVENT_VFORK => {
                         event.description = "Ptrace vfork".to_string();
+                        if *sig == Signal::SIGTRAP {
+                            event.child = get_event_data(*pid).ok();
+                        }
                     }
                     PTRACE_EVENT_EXEC => {
                         event.description = "Ptrace exec".to_string();
