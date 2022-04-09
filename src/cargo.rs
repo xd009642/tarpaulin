@@ -35,7 +35,7 @@ struct CargoVersionInfo {
 
 impl CargoVersionInfo {
     fn supports_llvm_cov(&self) -> bool {
-        self.minor >= 50 && self.channel == Channel::Nightly
+        (self.minor >= 50 && self.channel == Channel::Nightly) || self.minor >= 60
     }
 }
 
@@ -854,6 +854,15 @@ mod tests {
             year: 2020,
             month: 12,
             day: 22,
+        };
+        assert!(version.supports_llvm_cov());
+        let version = CargoVersionInfo {
+            major: 1,
+            minor: 60,
+            channel: Channel::Stable,
+            year: 2022,
+            month: 04,
+            day: 7,
         };
         assert!(version.supports_llvm_cov());
     }
