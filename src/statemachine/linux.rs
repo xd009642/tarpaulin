@@ -245,7 +245,7 @@ impl<'a> StateData for LinuxData<'a> {
                 };
                 let traces = match self.get_active_trace_map(self.current) {
                     Some(tm) => tm,
-                    None => &self.traces,
+                    None => self.traces,
                 };
                 let event = TraceEvent::new_from_wait(status, offset, traces);
                 log.push_trace(event);
@@ -373,7 +373,7 @@ impl<'a> StateData for LinuxData<'a> {
             }
             trace!("Action: {:?}", a);
             if let Some(log) = self.event_log.as_ref() {
-                let event = TraceEvent::new_from_action(&a);
+                let event = TraceEvent::new_from_action(a);
                 log.push_trace(event);
             }
             match a {
@@ -473,7 +473,7 @@ impl<'a> LinuxData<'a> {
     fn get_active_trace_map(&mut self, pid: Pid) -> Option<&TraceMap> {
         let parent = self.get_parent(pid)?;
         let process = self.processes.get(&parent)?;
-        Some(process.traces.as_ref().unwrap_or(&self.traces))
+        Some(process.traces.as_ref().unwrap_or(self.traces))
     }
 
     fn init_process(
