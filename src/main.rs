@@ -3,7 +3,7 @@ use cargo_tarpaulin::config::{
     Color, Config, ConfigWrapper, Mode, OutputFile, RunType, TraceEngine,
 };
 use cargo_tarpaulin::{run, setup_logging};
-use clap::{crate_version, value_t, App, Arg, ArgSettings, SubCommand};
+use clap::{crate_version, value_t, App, Arg, ArgMatches, ArgSettings, SubCommand};
 use std::collections::HashMap;
 use std::path::Path;
 use tracing::{info, trace};
@@ -38,6 +38,36 @@ If you are interfacing with coveralls.io or another site you can \
 also specify a name that they will recognise. Refer to their documentation for this.";
 
 fn main() -> Result<(), String> {
+    let args = from_args();
+
+    setup_logging(
+        value_t!(args.value_of("color"), Color).unwrap_or(Color::Auto),
+        args.is_present("debug"),
+        args.is_present("verbose"),
+    );
+
+    let config = ConfigWrapper::from(&args);
+
+    trace!("Config vector: {:#?}", config);
+
+    if args.is_present("print-rust-flags") {
+        print_flags(&config, rust_flags, "RUSTFLAGS");
+        return Ok(());
+    }
+
+    if args.is_present("print-rustdoc-flags") {
+        print_flags(&config, rustdoc_flags, "RUSTDOCFLAGS");
+        return Ok(());
+    }
+
+    trace!("Debug mode activated");
+
+    // Since this is the last function we run and don't do any error mitigations (other than
+    // printing the error to the user it's fine to unwrap here
+    run(&config.0).map_err(|e| e.to_string())
+}
+
+fn from_args() -> ArgMatches<'static> {
     let args = App::new("cargo-tarpaulin")
         .author("Daniel McKenna, <danielmckenna93@gmail.com>")
         .about("Tool to analyse test coverage of cargo projects")
@@ -136,48 +166,22 @@ fn main() -> Result<(), String> {
 
     let args = args.subcommand_matches("tarpaulin").unwrap_or(&args);
 
-    setup_logging(
-        value_t!(args.value_of("color"), Color).unwrap_or(Color::Auto),
-        args.is_present("debug"),
-        args.is_present("verbose"),
-    );
-    let config = ConfigWrapper::from(args);
+    args.clone()
+}
 
-    trace!("Config vector: {:#?}", config);
+fn print_flags<F>(config: &ConfigWrapper, flags_fn: F, prefix: &str)
+where
+    F: Fn(&Config) -> String,
+{
+    let mut seen_flags = HashMap::new();
+    for config in &config.0 {
+        let flags = flags_fn(config);
+        seen_flags
+            .entry(flags)
+            .or_insert_with(Vec::new)
+            .push(config.name.clone());
+    }
 
-    let mut run_coverage = true;
-    if args.is_present("print-rust-flags") {
-        run_coverage = false;
-        let mut seen_rustflags = HashMap::new();
-        for config in &config.0 {
-            let rustflags = rust_flags(config);
-            seen_rustflags
-                .entry(rustflags)
-                .or_insert_with(Vec::new)
-                .push(config.name.clone());
-        }
-        let default = Config::default();
-        print_env(seen_rustflags, "RUSTFLAGS", &rust_flags(&default));
-    }
-    if args.is_present("print-rustdoc-flags") {
-        run_coverage = false;
-        let mut seen_rustflags = HashMap::new();
-        for config in &config.0 {
-            let rustflags = rustdoc_flags(config);
-            seen_rustflags
-                .entry(rustflags)
-                .or_insert_with(Vec::new)
-                .push(config.name.clone());
-        }
-        let default = Config::default();
-        print_env(seen_rustflags, "RUSTDOCFLAGS", &rustdoc_flags(&default));
-    }
-    if run_coverage {
-        trace!("Debug mode activated");
-        // Since this is the last function we run and don't do any error mitigations (other than
-        // printing the error to the user it's fine to unwrap here
-        run(&config.0).map_err(|e| e.to_string())
-    } else {
-        Ok(())
-    }
+    let default = Config::default();
+    print_env(seen_flags, prefix, &flags_fn(&default));
 }
