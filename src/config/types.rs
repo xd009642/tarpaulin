@@ -44,6 +44,7 @@ arg_enum! {
 
 arg_enum! {
     #[derive(Debug, Copy, Clone, Eq, PartialEq, Ord, PartialOrd, Hash, Deserialize, Serialize)]
+    #[non_exhaustive]
     pub enum OutputFile {
         Json,
         Stdout,

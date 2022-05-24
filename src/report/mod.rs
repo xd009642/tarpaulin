@@ -1,3 +1,4 @@
+#![allow(unreachable_patterns)] // We may want to add more warnings and keep error logs stable
 use crate::config::*;
 use crate::errors::*;
 use crate::test_loader::TracerData;
@@ -34,11 +35,6 @@ fn coverage_report_name(config: &Config) -> String {
 /// or help text for details.
 pub fn report_coverage(config: &Config, result: &TraceMap) -> Result<(), RunError> {
     if !result.is_empty() {
-        info!("Coverage Results:");
-        if config.verbose {
-            print_missing_lines(config, result);
-        }
-        print_summary(config, result);
         generate_requested_reports(config, result)?;
         let mut report_dir = config.target_dir();
         report_dir.push("tarpaulin");
@@ -65,6 +61,7 @@ fn generate_requested_reports(config: &Config, result: &TraceMap) -> Result<(), 
         coveralls::export(result, config)?;
         info!("Coverage data sent");
     }
+    info!("Coverage Results:");
 
     if !config.is_default_output_dir() && create_dir_all(&config.output_dir()).is_err() {
         return Err(RunError::OutFormat(format!(
@@ -73,6 +70,9 @@ fn generate_requested_reports(config: &Config, result: &TraceMap) -> Result<(), 
         )));
     }
 
+    if config.verbose || config.generate.is_empty() {
+        print_missing_lines(config, result);
+    }
     for g in &config.generate {
         match *g {
             OutputFile::Xml => {
@@ -87,6 +87,12 @@ fn generate_requested_reports(config: &Config, result: &TraceMap) -> Result<(), 
             OutputFile::Json => {
                 json::export(result, config)?;
             }
+            OutputFile::Stdout => {
+                // Already reported the missing lines
+                if !config.verbose {
+                    print_missing_lines(config, result);
+                }
+            }
             _ => {
                 return Err(RunError::OutFormat(
                     "Output format is currently not supported!".to_string(),
@@ -94,6 +100,8 @@ fn generate_requested_reports(config: &Config, result: &TraceMap) -> Result<(), 
             }
         }
     }
+    // We always want to report the short summary
+    print_summary(config, result);
     Ok(())
 }
 

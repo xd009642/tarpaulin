@@ -5,6 +5,7 @@ file.
 
 ## [Unreleased]
 ### Added
+- Added support for `--out stdout` to print uncovered lines without enabling `--verbose` logging
 
 ### Changed
 - Add max line for each file into source analysis and filter out lines beyond this range #1016
