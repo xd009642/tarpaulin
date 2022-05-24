@@ -5,6 +5,11 @@ file.
 
 ## [Unreleased]
 ### Added
+
+### Changed
+
+## [0.20.1] 2022-05-24
+### Added
 - Added support for `--out stdout` to print uncovered lines without enabling `--verbose` logging
 
 ### Changed

@@ -27,7 +27,7 @@ Below is the help-text for a thorough explanation of the flags and features
 available:
 
 ```
-cargo-tarpaulin version: 0.19.1
+cargo-tarpaulin version: 0.20.1
 Tool to analyse test coverage of cargo projects
 
 USAGE:
@@ -49,8 +49,7 @@ FLAGS:
         --follow-exec              Follow executed processes capturing coverage information if they're part of your
                                    project.
         --force-clean              Adds a clean stage to work around cargo bugs that may affect coverage results
-    -f, --forward                  Forwards unexpected signals to test. Tarpaulin will still take signals it is
-                                   expecting.
+    -f, --forward                  Forwards unexpected signals to test. This is now the default behaviour
         --frozen                   Do not update Cargo.lock or any caches
     -h, --help                     Prints help information
         --ignore-config            Ignore any project config files
