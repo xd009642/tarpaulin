@@ -128,21 +128,12 @@ fn test_breaks_label_no_value() {
 
 #[test]
 fn test_breaks_label_and_value() {
-    let x = 'loop1: loop {
-        break 'loop1 123;
-    };
-
-    let y = 'loop2: loop {
-        break ('loop3: loop {
-            break 'loop3 321;
-        })
-    };
 
     let z = 'loop4: loop {
         'loop5: loop {
-            break 'loop4 x;
+            break 'loop4 123;
         }
     };
 
-    assert_eq!(x, z);
+    assert_eq!(123, z);
 }
