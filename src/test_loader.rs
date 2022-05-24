@@ -293,7 +293,7 @@ fn get_line_addresses(
                     .collect::<HashMap<SourceLocation, Vec<TracerData>>>();
 
                 let mut tracemap = TraceMap::new();
-                for (k, val) in &temp_map {
+                for (k, val) in temp_map.iter().filter(|(k, _)| k.line != 0) {
                     let rpath = config.strip_base_dir(&k.path);
                     let mut address = HashSet::new();
                     let mut fn_name = None;

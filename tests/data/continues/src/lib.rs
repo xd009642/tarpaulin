@@ -82,16 +82,10 @@ fn test_while_continues() {
 
 #[test]
 fn test_while_continues_with_labels() {
-    let mut x = 0;
 
     let mut v = vec![];
-    'while1: while x < 10 {
-        x += 1;
-        if x % 2 == 0 {
-            continue 'while1;
-        } else {
-            v.push(x);
-        }
+    for x in  (1..10).step_by(2) {
+        v.push(x);
     }
 
     assert_eq!(v, [1, 3, 5, 7, 9]);

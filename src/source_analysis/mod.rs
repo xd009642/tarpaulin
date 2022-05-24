@@ -9,7 +9,7 @@ use std::cell::RefCell;
 use std::collections::{HashMap, HashSet};
 use std::ffi::OsStr;
 use std::fs::File;
-use std::io::{BufRead, BufReader, Read};
+use std::io::{self, BufRead, BufReader, Read};
 use std::path::{Path, PathBuf};
 use syn::spanned::Spanned;
 use syn::*;
@@ -54,6 +54,8 @@ pub struct LineAnalysis {
     /// mapping from physical line to logical line to prevent false positives
     /// from expressions split across physical lines
     pub logical_lines: HashMap<usize, usize>,
+    /// Shows the line length of the provided file
+    max_line: usize,
 }
 
 /// When the `LineAnalysis` results are mapped to their files there needs to be
@@ -134,8 +136,16 @@ impl SourceAnalysisQuery for HashMap<PathBuf, LineAnalysis> {
 
 impl LineAnalysis {
     /// Creates a new LineAnalysis object
-    fn new() -> LineAnalysis {
+    fn new() -> Self {
         Default::default()
+    }
+
+    fn new_from_file(path: &Path) -> io::Result<Self> {
+        let file = BufReader::new(File::open(path)?);
+        Ok(Self {
+            max_line: file.lines().count(),
+            ..Default::default()
+        })
     }
 
     /// Ignore all lines in the file
@@ -216,7 +226,9 @@ impl LineAnalysis {
 
     /// Shows whether the line should be ignored by tarpaulin
     pub fn should_ignore(&self, line: usize) -> bool {
-        self.ignore.contains(&Lines::Line(line)) || self.ignore.contains(&Lines::All)
+        self.ignore.contains(&Lines::Line(line))
+            || self.ignore.contains(&Lines::All)
+            || (self.max_line > 0 && self.max_line < line)
     }
 
     /// Adds a line to the list of lines to ignore
@@ -245,7 +257,9 @@ impl SourceAnalysis {
     }
 
     pub fn get_line_analysis(&mut self, path: PathBuf) -> &mut LineAnalysis {
-        self.lines.entry(path).or_insert_with(LineAnalysis::new)
+        self.lines
+            .entry(path.clone())
+            .or_insert_with(|| LineAnalysis::new_from_file(&path).unwrap_or_default())
     }
 
     pub fn get_branch_analysis(&mut self, path: PathBuf) -> &mut BranchAnalysis {
