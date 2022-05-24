@@ -7,6 +7,8 @@ file.
 ### Added
 
 ### Changed
+- Add max line for each file into source analysis and filter out lines beyond this range #1016
+- Reject traces with a line of 0
 
 ## [0.20.0] 2022-03-20
 ### Added
