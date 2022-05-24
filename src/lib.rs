@@ -72,34 +72,23 @@ pub fn setup_logging(color: Color, debug: bool, verbose: bool) {
 }
 
 pub fn trace(configs: &[Config]) -> Result<TraceMap, RunError> {
+    let logger = create_logger(configs);
     let mut tracemap = TraceMap::new();
+    let mut ret = 0;
     let mut tarpaulin_result = Ok(());
-    let mut ret = 0i32;
-    let logger = if configs.iter().any(|c| c.dump_traces) {
-        Some(EventLog::new(configs.iter().map(|x| x.root()).collect()))
-    } else {
-        None
-    };
-    let mut bad_threshold = None;
+    let mut bad_threshold = Ok(());
     for config in configs.iter() {
         if config.name == "report" {
             continue;
         }
+
         if let Some(log) = logger.as_ref() {
-            let name = if config.name.is_empty() {
-                "<anonymous>".to_string()
-            } else {
-                config.name.clone()
-            };
+            let name = config_name(config);
             log.push_config(name);
         }
-        let tgt = config.target_dir();
-        if !tgt.exists() {
-            let create_dir_result = create_dir_all(&tgt);
-            if let Err(e) = create_dir_result {
-                warn!("Failed to create target-dir {}", e);
-            }
-        }
+
+        create_target_dir(config);
+
         match launch_tarpaulin(config, &logger) {
             Ok((t, r)) => {
                 ret |= r;
@@ -115,8 +104,11 @@ pub fn trace(configs: &[Config]) -> Result<TraceMap, RunError> {
             }
         }
     }
+
     tracemap.dedup();
-    if let Some(bad_limit) = bad_threshold {
+
+    // It's OK that bad_threshold, tarpaulin_result may be overwritten in a loop
+    if let Err(bad_limit) = bad_threshold {
         // Failure threshold probably more important than reporting failing
         let _ = report_coverage(&configs[0], &tracemap);
         Err(bad_limit)
@@ -127,19 +119,49 @@ pub fn trace(configs: &[Config]) -> Result<TraceMap, RunError> {
     }
 }
 
-fn check_fail_threshold(traces: &TraceMap, config: &Config) -> Option<RunError> {
+fn create_logger(configs: &[Config]) -> Option<EventLog> {
+    if configs.iter().any(|c| c.dump_traces) {
+        Some(EventLog::new(configs.iter().map(|x| x.root()).collect()))
+    } else {
+        None
+    }
+}
+
+fn create_target_dir(config: &Config) {
+    let path = config.target_dir();
+    if !path.exists() {
+        if let Err(e) = create_dir_all(&path) {
+            warn!("Failed to create target-dir {}", e);
+        }
+    }
+}
+
+fn config_name(config: &Config) -> String {
+    if config.name.is_empty() {
+        "<anonymous>".to_string()
+    } else {
+        config.name.clone()
+    }
+}
+
+fn check_fail_threshold(traces: &TraceMap, config: &Config) -> Result<(), RunError> {
     let percent = traces.coverage_percentage() * 100.0;
     match config.fail_under.as_ref() {
         Some(limit) if percent < *limit => {
             let error = RunError::BelowThreshold(percent, *limit);
             error!("{}", error);
-            Some(error)
+            Err(error)
         }
-        _ => None,
+        _ => Ok(()),
     }
 }
 
 pub fn run(configs: &[Config]) -> Result<(), RunError> {
+    let tracemap = collect_tracemap(configs)?;
+    report_tracemap(configs, tracemap)
+}
+
+fn collect_tracemap(configs: &[Config]) -> Result<TraceMap, RunError> {
     let mut tracemap = trace(configs)?;
     if !configs.is_empty() {
         // Assumption: all configs are for the same project
@@ -147,33 +169,31 @@ pub fn run(configs: &[Config]) -> Result<(), RunError> {
             tracemap.add_file(dir.path());
         }
     }
-    if configs.len() == 1 {
-        if !configs[0].no_run {
-            report_coverage(&configs[0], &tracemap)?;
-            if let Some(e) = check_fail_threshold(&tracemap, &configs[0]) {
-                return Err(e);
-            }
+
+    Ok(tracemap)
+}
+
+fn report_tracemap(configs: &[Config], tracemap: TraceMap) -> Result<(), RunError> {
+    let mut reported = false;
+    for c in configs.iter() {
+        if c.no_run || c.name != "report" {
+            continue;
         }
-    } else if !configs.is_empty() {
-        let mut reported = false;
-        for c in configs.iter() {
-            if !c.no_run && c.name == "report" {
-                reported = true;
-                report_coverage(c, &tracemap)?;
-                if let Some(e) = check_fail_threshold(&tracemap, c) {
-                    return Err(e);
-                }
-            }
-        }
-        if !configs[0].no_run && !reported {
-            report_coverage(&configs[0], &tracemap)?;
-            if let Some(e) = check_fail_threshold(&tracemap, &configs[0]) {
-                return Err(e);
-            }
-        }
+
+        report_coverage_with_check(c, &tracemap)?;
+        reported = true;
+    }
+
+    if !reported && !configs.is_empty() && !configs[0].no_run {
+        report_coverage_with_check(&configs[0], &tracemap)?;
     }
 
     Ok(())
+}
+
+fn report_coverage_with_check(c: &Config, tracemap: &TraceMap) -> Result<(), RunError> {
+    report_coverage(c, tracemap)?;
+    check_fail_threshold(tracemap, c)
 }
 
 /// Launches tarpaulin with the given configuration.

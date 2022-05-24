@@ -8,6 +8,14 @@ file.
 
 ### Changed
 
+## [0.20.1] 2022-05-24
+### Added
+- Added support for `--out stdout` to print uncovered lines without enabling `--verbose` logging
+
+### Changed
+- Add max line for each file into source analysis and filter out lines beyond this range #1016
+- Reject traces with a line of 0
+
 ## [0.20.0] 2022-03-20
 ### Added
 

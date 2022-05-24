@@ -368,10 +368,7 @@ fn render_class(config: &Config, traces: &TraceMap, file: &Path) -> Option<Class
     } else {
         let covered = traces.covered_in_path(file) as f64;
         let line_rate = covered / coverable as f64;
-        let lines = traces
-            .get_child_traces(file)
-            .map(|x| render_line(x))
-            .collect();
+        let lines = traces.get_child_traces(file).map(render_line).collect();
 
         Some(Class {
             name,
