@@ -631,7 +631,7 @@ fn clean_doctest_folder<P: AsRef<Path>>(doctest_dir: P) {
 
 fn handle_llvm_flags(value: &mut String, config: &Config) {
     if config.engine() == TraceEngine::Llvm {
-        value.push_str("-Zinstrument-coverage ");
+        value.push_str(llvm_coverage_rustflag());
     }
     if cfg!(not(windows)) {
         value.push_str(" -Clink-dead-code ");
@@ -816,6 +816,13 @@ pub fn supports_llvm_coverage() -> bool {
         version.supports_llvm_cov()
     } else {
         false
+    }
+}
+
+pub fn llvm_coverage_rustflag() -> &'static str {
+    match CARGO_VERSION_INFO.as_ref() {
+        Some(v) if v.minor >= 60 => "-Cinstrument-coverage ",
+        _ => "-Zinstrument-coverage ",
     }
 }
 
