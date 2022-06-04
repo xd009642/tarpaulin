@@ -7,6 +7,7 @@ file.
 ### Added
 
 ### Changed
+- Fix issue in parsing output from `cargo --version` with some beta versions (support beta.n)
 
 ## [0.20.1] 2022-05-24
 ### Added

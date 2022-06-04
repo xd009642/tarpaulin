@@ -162,7 +162,7 @@ impl DocTestBinaryMeta {
 lazy_static! {
     static ref CARGO_VERSION_INFO: Option<CargoVersionInfo> = {
         let version_info = Regex::new(
-            r"cargo (\d)\.(\d+)\.\d+([\-betanightly]*) \([[:alnum:]]+ (\d{4})-(\d{2})-(\d{2})\)",
+            r"cargo (\d)\.(\d+)\.\d+([\-betanightly]*)(\.[[:alnum:]]+)? \([[:alnum:]]+ (\d{4})-(\d{2})-(\d{2})\)",
         )
         .unwrap();
         Command::new("cargo")
@@ -180,9 +180,9 @@ lazy_static! {
                         "-beta" => Channel::Beta,
                         _ => Channel::Stable,
                     };
-                    let year = cap[4].parse().unwrap();
-                    let month = cap[5].parse().unwrap();
-                    let day = cap[6].parse().unwrap();
+                    let year = cap[5].parse().unwrap();
+                    let month = cap[6].parse().unwrap();
+                    let day = cap[7].parse().unwrap();
                     Some(CargoVersionInfo {
                         major,
                         minor,
