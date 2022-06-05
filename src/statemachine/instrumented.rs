@@ -91,7 +91,32 @@ impl<'a> StateData for LlvmInstrumentedData<'a> {
 
                     let instrumentation = merge_profiles(&profraws)?;
                     // Panics due to a todo!();
-                    let _mapping = CoverageMapping::new(&[binary_path], &instrumentation);
+                    let mapping =
+                        CoverageMapping::new(&[binary_path], &instrumentation).map_err(|e| {
+                            error!("Failed to get coverage: {}", e);
+                            RunError::TestCoverage(e.to_string())
+                        })?;
+                    let report = mapping.generate_report();
+
+                    self.traces.dedup();
+
+                    for (file, result) in report.files.iter() {
+                        if let Some(traces) = self.traces.file_traces_mut(&file) {
+                            for trace in traces.iter_mut() {
+                                if let Some(hits) = result.hits_for_line(trace.line as usize) {
+                                    if let CoverageStat::Line(ref mut x) = trace.stats {
+                                        *x = hits as _;
+                                    }
+                                }
+                            }
+                        } else {
+                            println!(
+                                "Couldn't find {} in {:?}",
+                                file.display(),
+                                self.traces.files()
+                            );
+                        }
+                    }
 
                     self.process = None;
                     let code = exit.code().unwrap_or(1);
