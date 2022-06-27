@@ -108,10 +108,10 @@ impl<'a> StateData for LlvmInstrumentedData<'a> {
                         {
                             let analysis = self.analysis.get(file);
                             for (loc, hits) in result.hits.iter() {
-                                for line in loc.line_start..(loc.line_end+1) {
+                                for line in loc.line_start..(loc.line_end + 1) {
                                     let include = match analysis.as_ref() {
                                         Some(analysis) => !analysis.should_ignore(line),
-                                        None => true
+                                        None => true,
                                     };
                                     if include {
                                         let mut trace = Trace::new_stub(line as u64);
