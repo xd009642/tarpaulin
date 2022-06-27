@@ -188,11 +188,6 @@ fn default_test_timeout() -> Duration {
 
 impl Default for Config {
     fn default() -> Config {
-        #[cfg(target_os = "linux")]
-        let engine = TraceEngine::Ptrace;
-        #[cfg(not(target_os = "linux"))]
-        let engine = TraceEngine::Llvm;
-
         Config {
             name: String::new(),
             command: Mode::Test,
@@ -250,7 +245,7 @@ impl Default for Config {
             avoid_cfg_tarpaulin: false,
             jobs: None,
             color: Color::Auto,
-            engine: RefCell::new(engine),
+            engine: RefCell::default(),
             rustflags: None,
         }
     }
@@ -282,7 +277,7 @@ impl<'a> From<&'a ArgMatches<'a>> for ConfigWrapper {
             }
         };
 
-        let engine = value_t!(args.value_of("engine"), TraceEngine).unwrap_or(TraceEngine::Ptrace);
+        let engine = value_t!(args.value_of("engine"), TraceEngine).unwrap_or_default();
 
         let args_config = Config {
             name: String::new(),
