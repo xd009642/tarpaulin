@@ -821,8 +821,8 @@ pub fn supports_llvm_coverage() -> bool {
 
 pub fn llvm_coverage_rustflag() -> &'static str {
     match CARGO_VERSION_INFO.as_ref() {
-        Some(v) if v.minor >= 60 => "-Cinstrument-coverage ",
-        _ => "-Zinstrument-coverage ",
+        Some(v) if v.minor >= 60 => " -Cinstrument-coverage ",
+        _ => " -Zinstrument-coverage ",
     }
 }
 
