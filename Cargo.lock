@@ -535,7 +535,7 @@ checksum = "d4d2456c373231a208ad294c33dc5bff30051eafd954cd4caae83a712b12854d"
 [[package]]
 name = "llvm_profparser"
 version = "0.1.1"
-source = "git+https://github.com/xd009642/llvm-profparser#1927aaa9cc4f93413b479ebc967727f97cd640ad"
+source = "git+https://github.com/xd009642/llvm-profparser#251e8cf3fa73511ee47d575b5180ed0ae05dce1c"
 dependencies = [
  "flate2",
  "indexmap",
