@@ -140,8 +140,7 @@ fn from_args() -> ArgMatches<'static> {
                 Arg::from_usage("--engine [ENGINE] 'Coverage tracing backend to use'")
                     .possible_values(&TraceEngine::variants())
                     .case_insensitive(true)
-                    .multiple(false)
-                    .hidden(true),
+                    .multiple(false),
                 Arg::from_usage("--output-dir [PATH] 'Specify a custom directory to write report files'"),
                 Arg::from_usage("--run-types [TYPE]... 'Type of the coverage run'")
                     .possible_values(&RunType::variants())
