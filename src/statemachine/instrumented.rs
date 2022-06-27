@@ -1,7 +1,7 @@
 #![allow(dead_code)]
 use crate::config::Config;
 use crate::errors::RunError;
-use crate::path_utils::get_profile_walker;
+use crate::path_utils::{get_profile_walker, is_coverable_file_path};
 use crate::process_handling::RunningProcessHandle;
 use crate::source_analysis::LineAnalysis;
 use crate::statemachine::*;
@@ -98,23 +98,39 @@ impl<'a> StateData for LlvmInstrumentedData<'a> {
                         })?;
                     let report = mapping.generate_report();
 
-                    self.traces.dedup();
+                    if self.traces.is_empty() {
+                        let target = self.config.target_dir();
+                        let root = self.config.root();
+                        for (file, result) in report
+                            .files
+                            .iter()
+                            .filter(|(k, _)| is_coverable_file_path(k, &root, &target))
+                        {
+                            for (loc, hits) in result.hits.iter() {
+                                let mut trace = Trace::new_stub(loc.line_start as u64);
+                                trace.stats = CoverageStat::Line(*hits as u64);
+                                self.traces.add_trace(file, trace);
+                            }
+                        }
+                    } else {
+                        self.traces.dedup();
 
-                    for (file, result) in report.files.iter() {
-                        if let Some(traces) = self.traces.file_traces_mut(&file) {
-                            for trace in traces.iter_mut() {
-                                if let Some(hits) = result.hits_for_line(trace.line as usize) {
-                                    if let CoverageStat::Line(ref mut x) = trace.stats {
-                                        *x = hits as _;
+                        for (file, result) in report.files.iter() {
+                            if let Some(traces) = self.traces.file_traces_mut(&file) {
+                                for trace in traces.iter_mut() {
+                                    if let Some(hits) = result.hits_for_line(trace.line as usize) {
+                                        if let CoverageStat::Line(ref mut x) = trace.stats {
+                                            *x = hits as _;
+                                        }
                                     }
                                 }
+                            } else {
+                                println!(
+                                    "Couldn't find {} in {:?}",
+                                    file.display(),
+                                    self.traces.files()
+                                );
                             }
-                        } else {
-                            println!(
-                                "Couldn't find {} in {:?}",
-                                file.display(),
-                                self.traces.files()
-                            );
                         }
                     }
 
