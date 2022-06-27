@@ -106,10 +106,19 @@ impl<'a> StateData for LlvmInstrumentedData<'a> {
                             .iter()
                             .filter(|(k, _)| is_coverable_file_path(k, &root, &target))
                         {
+                            let analysis = self.analysis.get(file);
                             for (loc, hits) in result.hits.iter() {
-                                let mut trace = Trace::new_stub(loc.line_start as u64);
-                                trace.stats = CoverageStat::Line(*hits as u64);
-                                self.traces.add_trace(file, trace);
+                                for line in loc.line_start..(loc.line_end+1) {
+                                    let include = match analysis.as_ref() {
+                                        Some(analysis) => !analysis.should_ignore(line),
+                                        None => true
+                                    };
+                                    if include {
+                                        let mut trace = Trace::new_stub(line as u64);
+                                        trace.stats = CoverageStat::Line(*hits as u64);
+                                        self.traces.add_trace(file, trace);
+                                    }
+                                }
                             }
                         }
                     } else {
