@@ -1,6 +1,7 @@
 use self::parse::*;
 pub use self::types::*;
 use crate::cargo::supports_llvm_coverage;
+use crate::path_utils::fix_unc_path;
 use cargo_metadata::{Metadata, MetadataCommand, Package};
 use clap::{value_t, ArgMatches};
 use coveralls_api::CiService;
@@ -407,7 +408,7 @@ impl Config {
                 _ => self
                     .manifest
                     .parent()
-                    .map(Path::to_path_buf)
+                    .map(fix_unc_path)
                     .unwrap_or_default()
                     .join("target"),
             }
@@ -434,11 +435,7 @@ impl Config {
     pub fn root(&self) -> PathBuf {
         match *self.get_metadata() {
             Some(ref meta) => PathBuf::from(meta.workspace_root.clone()),
-            _ => self
-                .manifest
-                .parent()
-                .map(Path::to_path_buf)
-                .unwrap_or_default(),
+            _ => self.manifest.parent().map(fix_unc_path).unwrap_or_default(),
         }
     }
 

@@ -1,8 +1,22 @@
 use crate::config::Config;
 use std::env::var;
 use std::ffi::OsStr;
-use std::path::Path;
+use std::path::{Path, PathBuf};
 use walkdir::{DirEntry, WalkDir};
+
+/// On windows removes the `\\?\\` prefix to UNC paths. For other operation systems just turns the
+/// `Path` into a `PathBuf`
+pub fn fix_unc_path(res: &Path) -> PathBuf {
+    if cfg!(windows) {
+        if res.starts_with("\\?\\") {
+            res.components().skip(2).collect::<PathBuf>()
+        } else {
+            res.to_path_buf()
+        }
+    } else {
+        res.to_path_buf()
+    }
+}
 
 /// Returns true if the file is a rust source file
 pub fn is_profraw_file(entry: &DirEntry) -> bool {
