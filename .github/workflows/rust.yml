@@ -62,7 +62,7 @@ jobs:
       - name: build
         run: cargo build
       - name: test
-        run: cargo test -- || true
+        run: cargo test
         env:
           RUST_BACKTRACE: 1
   mac:
@@ -83,6 +83,6 @@ jobs:
       - name: build
         run: cargo build
       - name: test
-        run: cargo test -- || true
+        run: cargo test
         env:
           RUST_BACKTRACE: 1
