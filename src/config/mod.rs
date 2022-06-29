@@ -408,7 +408,7 @@ impl Config {
                 _ => self
                     .manifest
                     .parent()
-                    .map(fix_unc_path)
+                    .map(Path::to_path_buf)
                     .unwrap_or_default()
                     .join("target"),
             }
@@ -416,7 +416,8 @@ impl Config {
     }
 
     pub fn doctest_dir(&self) -> PathBuf {
-        let mut result = self.target_dir();
+        // https://github.com/rust-lang/rust/issues/98690
+        let mut result = fix_unc_path(&self.target_dir());
         result.push("doctests");
         result
     }

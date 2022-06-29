@@ -8,8 +8,9 @@ use walkdir::{DirEntry, WalkDir};
 /// `Path` into a `PathBuf`
 pub fn fix_unc_path(res: &Path) -> PathBuf {
     if cfg!(windows) {
-        if res.starts_with("\\?\\") {
-            res.components().skip(2).collect::<PathBuf>()
+        let res_str = res.display().to_string();
+        if res_str.starts_with(r#"\\?"#) {
+            PathBuf::from(res_str.replace(r#"\\?\"#, ""))
         } else {
             res.to_path_buf()
         }

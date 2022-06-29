@@ -350,6 +350,7 @@ fn run_cargo(
         let dir_entries = walker
             .filter_map(Result::ok)
             .filter(|e| matches!(e.metadata(), Ok(ref m) if m.is_file() && m.len() != 0))
+            .filter(|e| !e.path().ends_with(".pdb")) // TODO better way?
             .collect::<Vec<_>>();
         let should_panics = get_attribute_candidates(&dir_entries, config, "should_panic");
         let no_runs = get_attribute_candidates(&dir_entries, config, "no_run");
