@@ -640,7 +640,7 @@ fn handle_llvm_flags(value: &mut String, config: &Config) {
 
 pub fn rustdoc_flags(config: &Config) -> String {
     const RUSTDOC: &str = "RUSTDOCFLAGS";
-    let common_opts = " -Clink-dead-code -Cdebuginfo=2 --cfg=tarpaulin ";
+    let common_opts = " -Cdebuginfo=2 --cfg=tarpaulin ";
     let mut value = format!(
         "{} --persist-doctests {} -Zunstable-options ",
         common_opts,
