@@ -1,7 +1,7 @@
 #![allow(dead_code)]
 use crate::config::Config;
 use crate::errors::RunError;
-use crate::path_utils::{get_profile_walker, is_coverable_file_path};
+use crate::path_utils::{get_profile_walker, get_source_walker};
 use crate::process_handling::RunningProcessHandle;
 use crate::source_analysis::LineAnalysis;
 use crate::statemachine::*;
@@ -99,23 +99,29 @@ impl<'a> StateData for LlvmInstrumentedData<'a> {
                     let report = mapping.generate_report();
 
                     if self.traces.is_empty() {
-                        let target = self.config.target_dir();
-                        let root = self.config.root();
-                        for (file, result) in report
-                            .files
-                            .iter()
-                            .filter(|(k, _)| is_coverable_file_path(k, &root, &target))
-                        {
+                        for source_file in get_source_walker(self.config) {
+                            let file = source_file.path();
                             let analysis = self.analysis.get(file);
-                            for (loc, hits) in result.hits.iter() {
-                                for line in loc.line_start..(loc.line_end + 1) {
-                                    let include = match analysis.as_ref() {
-                                        Some(analysis) => !analysis.should_ignore(line),
-                                        None => true,
-                                    };
-                                    if include {
-                                        let mut trace = Trace::new_stub(line as u64);
-                                        trace.stats = CoverageStat::Line(*hits as u64);
+                            if let Some(result) = report.files.get(file) {
+                                for (loc, hits) in result.hits.iter() {
+                                    for line in loc.line_start..(loc.line_end + 1) {
+                                        let include = match analysis.as_ref() {
+                                            Some(analysis) => !analysis.should_ignore(line),
+                                            None => true,
+                                        };
+                                        if include {
+                                            let mut trace = Trace::new_stub(line as u64);
+                                            trace.stats = CoverageStat::Line(*hits as u64);
+                                            self.traces.add_trace(file, trace);
+                                        }
+                                    }
+                                }
+                            }
+                            if let Some(analysis) = analysis {
+                                for line in analysis.cover.iter() {
+                                    if !self.traces.contains_location(file, *line as u64) {
+                                        let mut trace = Trace::new_stub(*line as u64);
+                                        trace.stats = CoverageStat::Line(0);
                                         self.traces.add_trace(file, trace);
                                     }
                                 }
