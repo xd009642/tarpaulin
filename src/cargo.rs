@@ -7,6 +7,7 @@ use regex::Regex;
 use serde::{Deserialize, Serialize};
 use std::collections::{HashMap, HashSet};
 use std::env;
+use std::ffi::OsStr;
 use std::fs::{read_dir, read_to_string, remove_dir_all, File};
 use std::io;
 use std::io::{BufRead, BufReader};
@@ -350,8 +351,9 @@ fn run_cargo(
         let dir_entries = walker
             .filter_map(Result::ok)
             .filter(|e| matches!(e.metadata(), Ok(ref m) if m.is_file() && m.len() != 0))
-            .filter(|e| !e.path().ends_with(".pdb")) // TODO better way?
+            .filter(|e| e.path().extension() != Some(OsStr::new("pdb")))
             .collect::<Vec<_>>();
+
         let should_panics = get_attribute_candidates(&dir_entries, config, "should_panic");
         let no_runs = get_attribute_candidates(&dir_entries, config, "no_run");
         for dt in &dir_entries {
