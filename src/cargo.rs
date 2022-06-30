@@ -352,6 +352,11 @@ fn run_cargo(
             .filter_map(Result::ok)
             .filter(|e| matches!(e.metadata(), Ok(ref m) if m.is_file() && m.len() != 0))
             .filter(|e| e.path().extension() != Some(OsStr::new("pdb")))
+            .filter(|e| {
+                e.path()
+                    .components()
+                    .any(|x| x.as_os_str().to_string_lossy().contains("dSYM"))
+            })
             .collect::<Vec<_>>();
 
         let should_panics = get_attribute_candidates(&dir_entries, config, "should_panic");
