@@ -74,6 +74,9 @@ impl<'a> StateData for LlvmInstrumentedData<'a> {
         if let Some(parent) = self.process.as_mut() {
             match parent.child.wait() {
                 Ok(exit) => {
+                    if !exit.success() {
+                        return Err(RunError::TestRuntime("Test failed during run".to_string()));
+                    }
                     let profraws = get_profile_walker(self.config)
                         .map(|x| x.path().to_path_buf())
                         .filter(|x| !parent.existing_profraws.contains(&x))
