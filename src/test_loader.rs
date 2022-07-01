@@ -356,13 +356,16 @@ fn open_symbols_file(test: &Path) -> io::Result<File> {
     File::open(test)
 }
 
+/*
 #[cfg(target_os = "macos")]
 fn open_symbols_file(test: &Path) -> io::Result<File> {
     let d_sym = test.with_extension("dSYM");
     File::open(&d_sym)
 }
+*/
 
-#[cfg(target_os = "windows")]
+//#[cfg(target_os = "windows")]
+#[cfg(not(target_os = "linux"))]
 fn open_symbols_file(_test: &Path) -> io::Result<File> {
     Err(io::Error::new(
         io::ErrorKind::Other,
