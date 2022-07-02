@@ -24,19 +24,22 @@ pub struct RunningProcessHandle {
     pub(crate) child: Child,
     /// maintain a list of existing profraws in the project root to avoid picking up old results
     pub(crate) existing_profraws: Vec<PathBuf>,
+    /// The flag showing if it should panic
+    pub(crate) should_panic: bool,
 }
 
 impl RunningProcessHandle {
-    pub fn new(path: PathBuf, cmd: &mut Command, config: &Config) -> Result<Self, RunError> {
+    pub fn new(test: &TestBinary, cmd: &mut Command, config: &Config) -> Result<Self, RunError> {
         let child = cmd.spawn()?;
         let existing_profraws = get_profile_walker(config)
             .map(|x| x.path().to_path_buf())
             .collect();
 
         Ok(Self {
-            path,
+            path: test.path().to_path_buf(),
             child,
             existing_profraws,
+            should_panic: test.should_panic(),
         })
     }
 }
@@ -250,7 +253,7 @@ fn execute_test(
             let mut child = Command::new(test.path());
             child.envs(envars).args(&argv);
 
-            let hnd = RunningProcessHandle::new(test.path().to_path_buf(), &mut child, config)?;
+            let hnd = RunningProcessHandle::new(test, &mut child, config)?;
             Ok(hnd.into())
         }
         #[cfg(target_os = "linux")]

@@ -55,6 +55,15 @@ pub struct LlvmInstrumentedData<'a> {
     analysis: &'a HashMap<PathBuf, LineAnalysis>,
 }
 
+impl<'a> LlvmInstrumentedData<'a> {
+    fn should_panic(&self) -> bool {
+        match &self.process {
+            Some(hnd) => hnd.should_panic,
+            None => false,
+        }
+    }
+}
+
 impl<'a> StateData for LlvmInstrumentedData<'a> {
     fn start(&mut self) -> Result<Option<TestState>, RunError> {
         // Nothing needs to be done at startup as this runs like a normal process
@@ -71,10 +80,11 @@ impl<'a> StateData for LlvmInstrumentedData<'a> {
     }
 
     fn wait(&mut self) -> Result<Option<TestState>, RunError> {
+        let should_panic = self.should_panic();
         if let Some(parent) = self.process.as_mut() {
             match parent.child.wait() {
                 Ok(exit) => {
-                    if !exit.success() {
+                    if !exit.success() && !should_panic {
                         return Err(RunError::TestFailed);
                     }
                     let profraws = get_profile_walker(self.config)
