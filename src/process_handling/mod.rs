@@ -71,10 +71,8 @@ pub fn get_test_coverage(
 ) -> Result<Option<(TraceMap, i32)>, RunError> {
     let handle = launch_test(test, config, ignored, logger)?;
     if let Some(handle) = handle {
-        match collect_coverage(test.path(), handle, analysis, config, logger) {
-            Ok(t) => Ok(Some(t)),
-            Err(e) => Err(RunError::TestCoverage(e.to_string())),
-        }
+        let t = collect_coverage(test.path(), handle, analysis, config, logger)?;
+        Ok(Some(t))
     } else {
         Ok(None)
     }
@@ -137,7 +135,11 @@ pub(crate) fn collect_coverage(
     logger: &Option<EventLog>,
 ) -> Result<(TraceMap, i32), RunError> {
     let mut ret_code = 0;
-    let mut traces = generate_tracemap(test_path, analysis, config)?;
+    let mut traces = if config.engine() == TraceEngine::Llvm {
+        TraceMap::new()
+    } else {
+        generate_tracemap(test_path, analysis, config)?
+    };
     {
         let span = trace_span!("Collect coverage", pid=%test);
         let _enter = span.enter();

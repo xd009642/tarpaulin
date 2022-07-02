@@ -75,7 +75,7 @@ impl<'a> StateData for LlvmInstrumentedData<'a> {
             match parent.child.wait() {
                 Ok(exit) => {
                     if !exit.success() {
-                        return Err(RunError::TestRuntime("Test failed during run".to_string()));
+                        return Err(RunError::TestFailed);
                     }
                     let profraws = get_profile_walker(self.config)
                         .map(|x| x.path().to_path_buf())
