@@ -25,7 +25,7 @@ chrono = "0.4"
 clap = "2.34.0"
 coveralls-api = "0.5.0"
 fallible-iterator = "0.2.0"
-gimli = "0.26.1"
+gimli = "0.26.2"
 git2 = "0.14"
 humantime-serde = "1"
 indexmap = { version = "1.9.1", features = ["serde-1"] }
