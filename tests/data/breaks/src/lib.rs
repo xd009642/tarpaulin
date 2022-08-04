@@ -6,7 +6,9 @@ fn test_loop_breaks_no_label_no_value() {
         break;
     }
 
-    loop { break }
+    loop {
+        break;
+    }
 
     loop {
         loop {
@@ -15,7 +17,6 @@ fn test_loop_breaks_no_label_no_value() {
         break;
     }
 }
-
 
 #[test]
 fn test_loop_breaks_no_label_but_has_value() {
@@ -35,10 +36,10 @@ fn test_loop_breaks_no_label_but_has_value() {
             break loop {
                 loop {
                     break x; // does nothing really
-                };
+                }
                 break x;
-            }
-        }
+            };
+        };
     };
 }
 
@@ -55,7 +56,6 @@ fn test_for_breaks() {
     }
 }
 
-
 #[test]
 fn test_for_breaks_with_labels() {
     'for1: for _i in 0..10 {
@@ -68,7 +68,6 @@ fn test_for_breaks_with_labels() {
         }
     }
 }
-
 
 #[test]
 fn test_while_breaks() {
@@ -104,31 +103,8 @@ fn test_while_breaks_with_labels() {
     }
 }
 
-
-#[test]
-fn test_breaks_label_no_value() {
-    'loop1: loop {
-        break 'loop1;
-    }
-
-    'loop2: loop {
-        'loop3: loop {
-            break 'loop3;
-        }
-        break;
-    }
-
-    'loop4: loop {
-        'loop5: loop {
-            break 'loop4;
-        }
-    }
-}
-
-
 #[test]
 fn test_breaks_label_and_value() {
-
     let z = 'loop4: loop {
         'loop5: loop {
             break 'loop4 123;
