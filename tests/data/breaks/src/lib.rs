@@ -31,15 +31,15 @@ fn test_loop_breaks_no_label_but_has_value() {
         break x;
     };
 
-    let _x = loop {
+    let _x: u32 = loop {
         break loop {
             break loop {
                 loop {
                     break x; // does nothing really
-                }
+                };
                 break x;
-            };
-        };
+            }
+        }
     };
 }
 
