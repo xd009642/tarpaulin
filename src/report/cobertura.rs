@@ -51,8 +51,6 @@ use quick_xml::{
     Writer,
 };
 
-use chrono::offset::Utc;
-
 use crate::config::Config;
 use crate::traces::{CoverageStat, Trace, TraceMap};
 
@@ -81,7 +79,7 @@ impl fmt::Display for Error {
 
 #[derive(Debug)]
 pub struct Report {
-    timestamp: i64,
+    timestamp: u64,
     lines_covered: usize,
     lines_valid: usize,
     line_rate: f64,
@@ -94,7 +92,10 @@ pub struct Report {
 
 impl Report {
     pub fn render(config: &Config, traces: &TraceMap) -> Result<Self, Error> {
-        let timestamp = Utc::now().timestamp();
+        let timestamp = SystemTime::now()
+            .duration_since(UNIX_EPOCH)
+            .expect("1970-01-01 is in the past")
+            .as_secs();
         let sources = render_sources(config);
         let packages = render_packages(config, traces);
         let mut line_rate = 0.0;

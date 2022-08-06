@@ -1,4 +1,4 @@
-use crate::config::Config;
+use crate::config::{coveralls::CoverallsConfig, Config};
 use crate::errors::RunError;
 use crate::traces::{CoverageStat, TraceMap};
 use coveralls_api::*;
@@ -53,14 +53,14 @@ fn get_git_info(manifest_path: &Path) -> Result<GitInfo, String> {
     })
 }
 
-fn get_identity(ci_tool: &Option<CiService>, key: &str) -> Identity {
-    match ci_tool {
-        Some(ref service) => {
+fn get_identity(config: &CoverallsConfig) -> Identity {
+    match &config.ci_tool {
+        Some(service) => {
             let service_object = match Service::from_ci(service.clone()) {
                 Some(s) => s,
                 None => Service {
                     name: service.clone(),
-                    job_id: Some(key.to_string()),
+                    job_id: Some(config.key.clone()),
                     number: None,
                     build_url: None,
                     branch: None,
@@ -70,17 +70,17 @@ fn get_identity(ci_tool: &Option<CiService>, key: &str) -> Identity {
             let key = if service == &CiService::Travis {
                 String::new()
             } else {
-                key.to_string()
+                config.key.clone()
             };
             Identity::ServiceToken(key, service_object)
         }
-        _ => Identity::best_match_with_token(key.to_string()),
+        _ => Identity::best_match_with_token(config.key.clone()),
     }
 }
 
 pub fn export(coverage_data: &TraceMap, config: &Config) -> Result<(), RunError> {
-    if let Some(ref key) = config.coveralls {
-        let id = get_identity(&config.ci_tool, key);
+    if let Some(coveralls) = &config.coveralls {
+        let id = get_identity(coveralls);
 
         let mut report = CoverallsReport::new(id);
         for file in &coverage_data.files() {
@@ -113,13 +113,6 @@ pub fn export(coverage_data: &TraceMap, config: &Config) -> Result<(), RunError>
             Err(err) => warn!("Failed to collect git info: {}", err),
         }
 
-        let res = if let Some(uri) = &config.report_uri {
-            info!("Sending report to endpoint: {}", uri);
-            report.send_to_endpoint(uri)
-        } else {
-            info!("Sending coverage data to coveralls.io");
-            report.send_to_coveralls()
-        };
         if config.debug {
             if let Ok(text) = serde_json::to_string(&report) {
                 info!("Attempting to write coveralls report to coveralls.json");
@@ -129,6 +122,13 @@ pub fn export(coverage_data: &TraceMap, config: &Config) -> Result<(), RunError>
                 warn!("Failed to serialise coverage report");
             }
         }
+        let res = if let Some(uri) = &coveralls.report_uri {
+            info!("Sending report to endpoint: {}", uri);
+            report.send_to_endpoint(uri)
+        } else {
+            info!("Sending coverage data to coveralls.io");
+            report.send_to_coveralls()
+        };
         match res {
             Ok(s) => {
                 trace!("Coveralls response {:?}", s);

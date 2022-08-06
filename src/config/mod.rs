@@ -3,7 +3,6 @@ pub use self::types::*;
 use crate::cargo::supports_llvm_coverage;
 use cargo_metadata::{Metadata, MetadataCommand, Package};
 use clap::{value_t, ArgMatches};
-use coveralls_api::CiService;
 use humantime_serde::deserialize as humantime_serde;
 use indexmap::IndexMap;
 use regex::Regex;
@@ -17,6 +16,8 @@ use std::path::{Path, PathBuf};
 use std::time::Duration;
 use tracing::{error, info, warn};
 
+#[cfg(feature = "coveralls")]
+pub(crate) mod coveralls;
 mod parse;
 pub mod types;
 
@@ -70,16 +71,9 @@ pub struct Config {
     /// Directory to write output files
     #[serde(rename = "output-dir")]
     pub output_directory: Option<PathBuf>,
-    /// Key relating to coveralls service or repo
-    pub coveralls: Option<String>,
-    /// Enum representing CI tool used.
-    #[serde(rename = "ciserver", deserialize_with = "deserialize_ci_server")]
-    pub ci_tool: Option<CiService>,
-    /// Only valid if coveralls option is set. If coveralls option is set,
-    /// as well as report_uri, then the report will be sent to this endpoint
-    /// instead.
-    #[serde(rename = "report-uri")]
-    pub report_uri: Option<String>,
+    #[cfg(feature = "coveralls")]
+    #[serde(flatten)]
+    pub coveralls: Option<coveralls::CoverallsConfig>,
     /// Forward unexpected signals back to the tracee. Used for tests which
     /// rely on signals to work.
     #[serde(rename = "forward")]
@@ -98,7 +92,7 @@ pub struct Config {
     pub test_timeout: Duration,
     /// Build in release mode
     pub release: bool,
-    /// Build the tests only don't run coverage
+    /// Build the tests only, don't run coverage
     #[serde(rename = "no-run")]
     pub no_run: bool,
     /// Don't update `Cargo.lock`.
@@ -207,9 +201,8 @@ impl Default for Config {
             branch_coverage: false,
             generate: vec![],
             output_directory: Default::default(),
+            #[cfg(feature = "coveralls")]
             coveralls: None,
-            ci_tool: None,
-            report_uri: None,
             forward_signals: true,
             no_default_features: false,
             features: None,
@@ -300,9 +293,8 @@ impl<'a> From<&'a ArgMatches<'a>> for ConfigWrapper {
             branch_coverage: get_branch_cov(args),
             generate: get_outputs(args),
             output_directory: get_output_directory(args),
-            coveralls: get_coveralls(args),
-            ci_tool: get_ci(args),
-            report_uri: get_report_uri(args),
+            #[cfg(feature = "coveralls")]
+            coveralls: coveralls::get_coveralls(args),
             forward_signals: true, // No longer an option
             all_features: args.is_present("all-features"),
             no_default_features: args.is_present("no-default-features"),
@@ -557,9 +549,13 @@ impl Config {
             self.manifest = other.manifest.clone();
         }
         self.root = Config::pick_optional_config(&self.root, &other.root);
-        self.coveralls = Config::pick_optional_config(&self.coveralls, &other.coveralls);
-        self.ci_tool = Config::pick_optional_config(&self.ci_tool, &other.ci_tool);
-        self.report_uri = Config::pick_optional_config(&self.report_uri, &other.report_uri);
+        // NOTE: Workaround for attributes being unsupported for expressions.
+        #[allow(unreachable_patterns)]
+        match () {
+            #[cfg(feature = "coveralls")]
+            () => self.coveralls = Config::pick_optional_config(&self.coveralls, &other.coveralls),
+            _ => (),
+        }
         self.target = Config::pick_optional_config(&self.target, &other.target);
         self.target_dir = Config::pick_optional_config(&self.target_dir, &other.target_dir);
         self.output_directory =
@@ -713,12 +709,11 @@ impl Config {
             && self.bench_names.is_empty())
     }
 
-    #[inline]
+    #[cfg(feature = "coveralls")]
     pub fn is_coveralls(&self) -> bool {
         self.coveralls.is_some()
     }
 
-    #[inline]
     pub fn exclude_path(&self, path: &Path) -> bool {
         if self.excluded_files.borrow().len() != self.excluded_files_raw.len() {
             let mut excluded_files = self.excluded_files.borrow_mut();
@@ -736,7 +731,6 @@ impl Config {
 
     /// returns the relative path from the base_dir
     /// uses root if set, else env::current_dir()
-    #[inline]
     pub fn get_base_dir(&self) -> PathBuf {
         if let Some(root) = &self.root {
             if Path::new(root).is_absolute() {

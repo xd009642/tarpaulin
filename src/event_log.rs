@@ -5,7 +5,6 @@ use crate::ptrace_control::*;
 use crate::statemachine::ProcessInfo;
 use crate::statemachine::TracerAction;
 use crate::traces::{Location, TraceMap};
-use chrono::{offset::Local, SecondsFormat};
 #[cfg(target_os = "linux")]
 use nix::libc::*;
 #[cfg(target_os = "linux")]
@@ -15,7 +14,7 @@ use std::cell::RefCell;
 use std::collections::HashSet;
 use std::fs::File;
 use std::path::{Path, PathBuf};
-use std::time::Instant;
+use std::time::{Instant, SystemTime};
 use tracing::{info, warn};
 
 #[derive(Clone, Eq, PartialEq, PartialOrd, Ord, Hash, Serialize, Deserialize)]
@@ -216,7 +215,9 @@ impl Drop for EventLog {
     fn drop(&mut self) {
         let fname = format!(
             "tarpaulin_{}.json",
-            Local::now().to_rfc3339_opts(SecondsFormat::Secs, false)
+            SystemTime::now().duration_since(SystemTime::UNIX_EPOCH)
+                .expect("1970-01-01 is in the past")
+                .as_secs()
         );
         let path = Path::new(&fname);
         info!("Serializing tarpaulin debug log to {}", path.display());

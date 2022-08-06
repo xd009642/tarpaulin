@@ -10,6 +10,7 @@ use std::io::BufReader;
 use tracing::{error, info};
 
 pub mod cobertura;
+#[cfg(feature = "coveralls")]
 pub mod coveralls;
 pub mod html;
 pub mod json;
@@ -57,6 +58,7 @@ pub fn report_coverage(config: &Config, result: &TraceMap) -> Result<(), RunErro
 }
 
 fn generate_requested_reports(config: &Config, result: &TraceMap) -> Result<(), RunError> {
+    #[cfg(feature = "coveralls")]
     if config.is_coveralls() {
         coveralls::export(result, config)?;
         info!("Coverage data sent");

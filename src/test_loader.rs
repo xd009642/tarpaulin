@@ -4,8 +4,7 @@ use crate::source_analysis::*;
 use crate::traces::*;
 use gimli::read::Error;
 use gimli::*;
-use memmap::MmapOptions;
-use object::{read::ObjectSection, File as OFile, Object};
+use object::{read::ObjectSection, Object};
 use rustc_demangle::demangle;
 use std::collections::{HashMap, HashSet};
 use std::fs::File;
@@ -219,15 +218,15 @@ where
     Ok(())
 }
 
-fn get_line_addresses(
+fn get_line_addresses<'data: 'file, 'file>(
     endian: RunTimeEndian,
-    obj: &OFile,
+    obj: &'file impl object::read::Object<'data, 'file>,
     analysis: &HashMap<PathBuf, LineAnalysis>,
     config: &Config,
 ) -> Result<TraceMap> {
     let project = config.root();
     let io_err = |e| {
-        error!("Io error parsing section: {}", e);
+        error!("IO error parsing section: {}", e);
         Error::Io
     };
     let mut result = TraceMap::new();
@@ -376,31 +375,25 @@ pub fn generate_tracemap(
     config: &Config,
 ) -> io::Result<TraceMap> {
     let file = match open_symbols_file(test) {
-        Ok(s) => Ok(s),
-        Err(e) if config.engine() != TraceEngine::Llvm => Err(e),
-        _ => {
-            return Ok(TraceMap::new());
-        }
-    }?;
-    let file = unsafe { MmapOptions::new().map(&file)? };
-    if let Ok(obj) = OFile::parse(&*file) {
-        let endian = if obj.is_little_endian() {
-            RunTimeEndian::Little
-        } else {
-            RunTimeEndian::Big
-        };
-        if let Ok(result) = get_line_addresses(endian, &obj, analysis, config) {
-            Ok(result)
-        } else {
-            Err(io::Error::new(
-                io::ErrorKind::InvalidData,
-                "Error while parsing",
-            ))
-        }
-    } else {
-        Err(io::Error::new(
+        Ok(s) => object::read::ReadCache::new(s),
+        Err(err) if config.engine() != TraceEngine::Llvm => return Err(err),
+        _ => return Ok(TraceMap::new()),
+    };
+
+    let obj = object::File::parse(&file)
+        .map_err(|_| io::Error::new(
             io::ErrorKind::InvalidData,
-            "Unable to parse binary.",
+            "unable to parse binary"
+        ))?;
+
+    let endian = if obj.is_little_endian() {
+        RunTimeEndian::Little
+    } else {
+        RunTimeEndian::Big
+    };
+    get_line_addresses(endian, &obj, analysis, config)
+        .map_err(|_| io::Error::new(
+            io::ErrorKind::InvalidData,
+            "error while parsing"
         ))
-    }
 }

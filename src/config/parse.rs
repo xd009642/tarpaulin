@@ -1,13 +1,9 @@
 use crate::config::types::*;
 use clap::{value_t, values_t, ArgMatches};
-use coveralls_api::CiService;
 use regex::Regex;
-use serde::de::{self, Deserializer};
 use std::env;
-use std::fmt;
 use std::fs::create_dir_all;
 use std::path::PathBuf;
-use std::str::FromStr;
 use std::time::Duration;
 use tracing::error;
 
@@ -94,18 +90,6 @@ pub(super) fn get_root(args: &ArgMatches) -> Option<PathBuf> {
     args.value_of("root").map(PathBuf::from)
 }
 
-pub(super) fn get_ci(args: &ArgMatches) -> Option<CiService> {
-    value_t!(args, "ciserver", Ci).map(|x| x.0).ok()
-}
-
-pub(super) fn get_coveralls(args: &ArgMatches) -> Option<String> {
-    args.value_of("coveralls").map(ToString::to_string)
-}
-
-pub(super) fn get_report_uri(args: &ArgMatches) -> Option<String> {
-    args.value_of("report-uri").map(ToString::to_string)
-}
-
 pub(super) fn get_profile(args: &ArgMatches) -> Option<String> {
     args.value_of("profile").map(ToString::to_string)
 }
@@ -169,32 +153,4 @@ pub(super) fn get_timeout(args: &ArgMatches) -> Duration {
     } else {
         Duration::from_secs(60)
     }
-}
-
-pub fn deserialize_ci_server<'de, D>(d: D) -> Result<Option<CiService>, D::Error>
-where
-    D: Deserializer<'de>,
-{
-    struct CiServerVisitor;
-
-    impl<'de> de::Visitor<'de> for CiServerVisitor {
-        type Value = Option<CiService>;
-
-        fn expecting(&self, formatter: &mut fmt::Formatter) -> fmt::Result {
-            formatter.write_str("A string containing the ci-service name")
-        }
-
-        fn visit_str<E>(self, v: &str) -> Result<Self::Value, E>
-        where
-            E: de::Error,
-        {
-            if v.is_empty() {
-                Ok(None)
-            } else {
-                Ok(Some(Ci::from_str(v).unwrap().0))
-            }
-        }
-    }
-
-    d.deserialize_any(CiServerVisitor)
 }
