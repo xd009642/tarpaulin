@@ -8,6 +8,7 @@ use std::env;
 use std::ffi::OsStr;
 use std::fmt;
 use std::fs;
+use std::os::unix::process::CommandExt;
 use std::path::{Path, PathBuf};
 use std::process::{Child, Command};
 use tracing::{debug, error, info, trace_span};
@@ -94,20 +95,12 @@ fn launch_test(
         log.push_binary(test.clone());
     }
     match config.engine() {
-        TraceEngine::Ptrace => {
-            cfg_if::cfg_if! {
-                if #[cfg(target_os="linux")] {
-                    linux::get_test_coverage(test, config, ignored)
-                } else {
-                    error!("Ptrace is not supported on this platform");
-                    Err(RunError::TestCoverage("Unsupported OS".to_string()))
-                }
-            }
-        }
         TraceEngine::Llvm => {
             let res = execute_test(test, ignored, config, None)?;
             Ok(Some(res))
         }
+        #[cfg(target_os = "linux")]
+        TraceEngine::Ptrace => linux::get_test_coverage(test, config, ignored),
         e => {
             error!(
                 "Tarpaulin cannot execute tests with {:?} on this platform",
@@ -121,7 +114,6 @@ fn launch_test(
 cfg_if::cfg_if! {
     if #[cfg(target_os= "linux")] {
         pub mod linux;
-        pub use linux::*;
 
         pub mod breakpoint;
         pub mod ptrace_control;
@@ -256,10 +248,30 @@ fn execute_test(
         }
         #[cfg(target_os = "linux")]
         TraceEngine::Ptrace => {
-            argv.insert(0, test.path().display().to_string());
             debug!("Env vars: {:?}", envars);
             debug!("Args: {:?}", argv);
-            execute(test.path(), &argv, envars.as_slice())
+            let mut child = Command::new(test.path());
+            child.envs(envars).args(&argv);
+
+            unsafe {
+                // NOTE: Idea from https://github.com/luser/spawn-ptrace.
+                child.pre_exec(|| {
+                    linux::disable_aslr().map_err(|e| std::io::Error::new(
+                        std::io::ErrorKind::Other,
+                        format!("ASLR disable failed: {}", e)
+                    ))?;
+
+                    ptrace_control::request_trace().map_err(|e| std::io::Error::new(
+                        std::io::ErrorKind::Other,
+                        format!("traceme() failed: {}", e)
+                    ))?;
+
+                    Ok(())
+                });
+            }
+
+            let hnd = RunningProcessHandle::new(test.path().to_path_buf(), &mut child, config)?;
+            Ok(hnd.into())
         }
         e => Err(RunError::Engine(format!(
             "invalid execution engine {:?}",

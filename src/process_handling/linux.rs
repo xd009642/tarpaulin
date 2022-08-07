@@ -1,13 +1,9 @@
 use crate::config::types::Mode;
 use crate::errors::RunError;
 use crate::process_handling::execute_test;
-use crate::ptrace_control::*;
 use crate::{Config, TestBinary, TestHandle};
 use nix::sys::personality;
 use nix::{sched, unistd};
-use std::ffi::{CStr, CString};
-use std::os::unix::ffi::OsStrExt;
-use std::path::Path;
 
 /// Returns the coverage statistics for a test executable in the given workspace
 pub fn get_test_coverage(
@@ -48,7 +44,7 @@ pub fn get_test_coverage(
     }
 }
 
-fn disable_aslr() -> nix::Result<personality::Persona> {
+pub fn disable_aslr() -> nix::Result<personality::Persona> {
     let this = personality::get()?;
     nix::sys::personality::set(this | personality::Persona::ADDR_NO_RANDOMIZE)
 }
@@ -68,31 +64,4 @@ pub fn limit_affinity() -> nix::Result<()> {
     let mut cpu_set = sched::CpuSet::new();
     cpu_set.set(selected_cpu)?;
     sched::sched_setaffinity(this, &cpu_set)
-}
-
-pub fn execute(
-    test: &Path,
-    argv: &[String],
-    envar: &[(String, String)],
-) -> Result<TestHandle, RunError> {
-    let program = CString::new(&*test.as_os_str().as_bytes()).unwrap_or_default();
-    disable_aslr().map_err(|e| RunError::TestRuntime(format!("ASLR disable failed: {}", e)))?;
-
-    request_trace().map_err(|e| RunError::Trace(e.to_string()))?;
-
-    let envar = envar
-        .iter()
-        .map(|(k, v)| CString::new(format!("{}={}", k, v).as_str()).unwrap_or_default())
-        .collect::<Vec<_>>();
-
-    let argv = argv
-        .iter()
-        .map(|x| CString::new(x.as_str()).unwrap_or_default())
-        .collect::<Vec<_>>();
-
-    let arg_ref = argv.iter().map(AsRef::as_ref).collect::<Vec<&CStr>>();
-    let env_ref = envar.iter().map(AsRef::as_ref).collect::<Vec<&CStr>>();
-    unistd::execve(&program, &arg_ref, &env_ref).map_err(|_| RunError::Internal)?;
-
-    unreachable!();
 }
