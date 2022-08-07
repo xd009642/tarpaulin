@@ -6,6 +6,11 @@ use nix::unistd::Pid;
 use nix::Result;
 use std::ptr;
 
+#[cfg(target_arch = "x86_64")]
+const PC_INDEX: usize = libc::RIP as usize;
+#[cfg(target_arch = "x86")]
+const PC_INDEX: usize = libc::EIP as usize;
+
 pub fn trace_children(pid: Pid) -> Result<()> {
     // TODO need to check support.
     let options: Options = Options::PTRACE_O_TRACESYSGOOD
@@ -43,7 +48,7 @@ pub fn current_instruction_pointer(pid: Pid) -> Result<c_long> {
         libc::ptrace(
             Request::PTRACE_PEEKUSER as RequestType,
             pid.as_raw(),
-            (libc::RIP as usize * std::mem::size_of::<usize>()) as *mut c_void,
+            (PC_INDEX * std::mem::size_of::<usize>()) as *mut c_void,
             ptr::null_mut::<c_void>(),
         )
     };
@@ -57,7 +62,7 @@ pub fn set_instruction_pointer(pid: Pid, pc: u64) -> Result<()> {
         libc::ptrace(
             Request::PTRACE_POKEUSER as _,
             pid.as_raw(),
-            (libc::RIP as usize * std::mem::size_of::<usize>()) as *mut c_void,
+            (PC_INDEX * std::mem::size_of::<usize>()) as *mut c_void,
             pc as *mut c_void,
         )
     };
