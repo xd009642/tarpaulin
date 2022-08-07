@@ -6,8 +6,6 @@ use nix::unistd::Pid;
 use nix::Result;
 use std::ptr;
 
-const RIP: u8 = 128;
-
 pub fn trace_children(pid: Pid) -> Result<()> {
     // TODO need to check support.
     let options: Options = Options::PTRACE_O_TRACESYSGOOD
@@ -39,34 +37,31 @@ pub fn write_to_address(pid: Pid, address: u64, data: i64) -> Result<()> {
     unsafe { ptrace::write(pid, address as AddressType, data as *mut c_void) }
 }
 
-#[allow(deprecated)]
 pub fn current_instruction_pointer(pid: Pid) -> Result<c_long> {
     let ret = unsafe {
         Errno::clear();
         libc::ptrace(
             Request::PTRACE_PEEKUSER as RequestType,
-            libc::pid_t::from(pid),
-            RIP as *mut c_void,
-            ptr::null_mut() as *mut c_void,
+            pid.as_raw(),
+            (libc::RIP as usize * std::mem::size_of::<usize>()) as *mut c_void,
+            ptr::null_mut::<c_void>(),
         )
     };
-    match Errno::result(ret) {
-        Ok(..) | Err(Errno::UnknownErrno) => Ok(ret),
-        err @ Err(..) => err,
-    }
+    // NOTE: Considering Errno::UnknownErrno as an error for now, might be
+    // incorrect.
+    Errno::result(ret)
 }
 
-#[allow(deprecated)]
-pub fn set_instruction_pointer(pid: Pid, pc: u64) -> Result<c_long> {
+pub fn set_instruction_pointer(pid: Pid, pc: u64) -> Result<()> {
     let ret = unsafe {
         libc::ptrace(
             Request::PTRACE_POKEUSER as _,
-            libc::pid_t::from(pid),
-            RIP as *mut c_void,
+            pid.as_raw(),
+            (libc::RIP as usize * std::mem::size_of::<usize>()) as *mut c_void,
             pc as *mut c_void,
         )
     };
-    Errno::result(ret).map(|_| 0)
+    Errno::result(ret).map(|_| ())
 }
 
 pub fn request_trace() -> Result<()> {

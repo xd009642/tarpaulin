@@ -218,21 +218,17 @@ pub fn launch_tarpaulin(
             if exe.should_panic() {
                 info!("Running a test executable that is expected to panic");
             }
-            let coverage = get_test_coverage(exe, &project_analysis, config, false, logger)?;
-            if let Some(res) = coverage {
-                result.merge(&res.0);
-                return_code |= if exe.should_panic() {
-                    (res.1 == 0).into()
-                } else {
-                    res.1
-                };
-            }
+            let (trace_map, run_result) = get_test_coverage(exe, &project_analysis, config, false, logger)?;
+            result.merge(&trace_map);
+            return_code |= if exe.should_panic() {
+                (run_result == 0).into()
+            } else {
+                run_result
+            };
             if config.run_ignored {
-                let coverage = get_test_coverage(exe, &project_analysis, config, true, logger)?;
-                if let Some(res) = coverage {
-                    result.merge(&res.0);
-                    return_code |= res.1;
-                }
+                let (trace_map, run_result) = get_test_coverage(exe, &project_analysis, config, true, logger)?;
+                result.merge(&trace_map);
+                return_code |= run_result;
             }
         }
         result.dedup();

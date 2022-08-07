@@ -82,20 +82,20 @@ impl TestBinary {
         self.ty
     }
 
-    pub fn manifest_dir(&self) -> &Option<PathBuf> {
-        &self.cargo_dir
+    pub fn manifest_dir(&self) -> Option<&PathBuf> {
+        self.cargo_dir.as_ref()
     }
 
-    pub fn pkg_name(&self) -> &Option<String> {
-        &self.pkg_name
+    pub fn pkg_name(&self) -> Option<&str> {
+        self.pkg_name.as_deref()
     }
 
-    pub fn pkg_version(&self) -> &Option<String> {
-        &self.pkg_version
+    pub fn pkg_version(&self) -> Option<&str> {
+        self.pkg_version.as_deref()
     }
 
-    pub fn pkg_authors(&self) -> &Option<Vec<String>> {
-        &self.pkg_authors
+    pub fn pkg_authors(&self) -> Option<&[String]> {
+        self.pkg_authors.as_deref()
     }
 
     pub fn has_linker_paths(&self) -> bool {

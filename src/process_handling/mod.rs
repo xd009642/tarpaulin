@@ -13,13 +13,8 @@ use std::path::{Path, PathBuf};
 use std::process::{Child, Command};
 use tracing::{debug, error, info, trace_span};
 
-/// Handle to a test currently either PID or a `std::process::Child`
-pub enum TestHandle {
-    Id(ProcessHandle),
-    Process(RunningProcessHandle),
-}
-
-pub struct RunningProcessHandle {
+#[derive(Debug)]
+pub struct TestHandle {
     /// Used to map coverage counters to line numbers
     pub(crate) path: PathBuf,
     /// Get the exit status to work out if tests have passed
@@ -28,14 +23,20 @@ pub struct RunningProcessHandle {
     pub(crate) existing_profraws: Vec<PathBuf>,
 }
 
-impl RunningProcessHandle {
+impl TestHandle {
     pub fn new(path: PathBuf, cmd: &mut Command, config: &Config) -> Result<Self, RunError> {
         let child = cmd.spawn()?;
         let existing_profraws = fs::read_dir(config.root())?
             .into_iter()
-            .filter_map(Result::ok)
-            .filter(|x| x.path().is_file() && x.path().extension() == Some(OsStr::new("profraw")))
-            .map(|x| x.path())
+            .filter_map(|entry| {
+                let path = entry.ok()?.path();
+                // NOTE: If MSRV >= 1.62, replace with bool::then_some.
+                if path.is_file() && path.extension()? == AsRef::<OsStr>::as_ref("profraw") {
+                    Some(path)
+                } else {
+                    None
+                }
+            })
             .collect();
 
         Ok(Self {
@@ -48,22 +49,7 @@ impl RunningProcessHandle {
 
 impl fmt::Display for TestHandle {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        match self {
-            TestHandle::Id(id) => write!(f, "{}", id),
-            TestHandle::Process(c) => write!(f, "{}", c.child.id()),
-        }
-    }
-}
-
-impl From<ProcessHandle> for TestHandle {
-    fn from(handle: ProcessHandle) -> Self {
-        Self::Id(handle)
-    }
-}
-
-impl From<RunningProcessHandle> for TestHandle {
-    fn from(handle: RunningProcessHandle) -> Self {
-        Self::Process(handle)
+        write!(f, "{}", self.child.id())
     }
 }
 
@@ -73,16 +59,10 @@ pub fn get_test_coverage(
     config: &Config,
     ignored: bool,
     logger: &Option<EventLog>,
-) -> Result<Option<(TraceMap, i32)>, RunError> {
+) -> Result<(TraceMap, i32), RunError> {
     let handle = launch_test(test, config, ignored, logger)?;
-    if let Some(handle) = handle {
-        match collect_coverage(test.path(), handle, analysis, config, logger) {
-            Ok(t) => Ok(Some(t)),
-            Err(e) => Err(RunError::TestCoverage(e.to_string())),
-        }
-    } else {
-        Ok(None)
-    }
+    collect_coverage(test.path(), handle, analysis, config, logger)
+        .map_err(|e| RunError::TestCoverage(e.to_string()))
 }
 
 fn launch_test(
@@ -90,17 +70,22 @@ fn launch_test(
     config: &Config,
     ignored: bool,
     logger: &Option<EventLog>,
-) -> Result<Option<TestHandle>, RunError> {
+) -> Result<TestHandle, RunError> {
     if let Some(log) = logger.as_ref() {
         log.push_binary(test.clone());
     }
     match config.engine() {
         TraceEngine::Llvm => {
             let res = execute_test(test, ignored, config, None)?;
-            Ok(Some(res))
+            Ok(res)
         }
         #[cfg(target_os = "linux")]
-        TraceEngine::Ptrace => linux::get_test_coverage(test, config, ignored),
+        TraceEngine::Ptrace => {
+            // Solves CI issue when fixing #953 and #966 in PR #962
+            let threads = if config.follow_exec { 1 } else { nix::sched::CpuSet::count() };
+            let res = execute_test(test, ignored, config, Some(threads))?;
+            Ok(res)
+        },
         e => {
             error!(
                 "Tarpaulin cannot execute tests with {:?} on this platform",
@@ -112,15 +97,11 @@ fn launch_test(
 }
 
 cfg_if::cfg_if! {
-    if #[cfg(target_os= "linux")] {
+    if #[cfg(target_os = "linux")] {
         pub mod linux;
 
         pub mod breakpoint;
         pub mod ptrace_control;
-
-        pub type ProcessHandle = nix::unistd::Pid;
-    } else {
-        pub type ProcessHandle = u64;
     }
 }
 
@@ -194,10 +175,7 @@ fn execute_test(
     num_threads: Option<usize>,
 ) -> Result<TestHandle, RunError> {
     info!("running {}", test.path().display());
-    let _ = match test.manifest_dir() {
-        Some(md) => env::set_current_dir(&md),
-        None => env::set_current_dir(&config.root()),
-    };
+    let _ = env::set_current_dir(test.manifest_dir().cloned().unwrap_or_else(|| config.root()));
 
     debug!("Current working dir: {:?}", env::current_dir());
 
@@ -243,8 +221,7 @@ fn execute_test(
             let mut child = Command::new(test.path());
             child.envs(envars).args(&argv);
 
-            let hnd = RunningProcessHandle::new(test.path().to_path_buf(), &mut child, config)?;
-            Ok(hnd.into())
+            TestHandle::new(test.path().to_path_buf(), &mut child, config)
         }
         #[cfg(target_os = "linux")]
         TraceEngine::Ptrace => {
@@ -256,6 +233,11 @@ fn execute_test(
             unsafe {
                 // NOTE: Idea from https://github.com/luser/spawn-ptrace.
                 child.pre_exec(|| {
+                    linux::limit_affinity().map_err(|e| std::io::Error::new(
+                        std::io::ErrorKind::Other,
+                        format!("failed to limit process affinity: {}", e)
+                    ))?;
+
                     linux::disable_aslr().map_err(|e| std::io::Error::new(
                         std::io::ErrorKind::Other,
                         format!("ASLR disable failed: {}", e)
@@ -270,8 +252,7 @@ fn execute_test(
                 });
             }
 
-            let hnd = RunningProcessHandle::new(test.path().to_path_buf(), &mut child, config)?;
-            Ok(hnd.into())
+            TestHandle::new(test.path().to_path_buf(), &mut child, config)
         }
         e => Err(RunError::Engine(format!(
             "invalid execution engine {:?}",

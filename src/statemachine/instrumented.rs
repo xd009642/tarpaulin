@@ -1,7 +1,6 @@
 #![allow(dead_code)]
 use crate::config::Config;
 use crate::errors::RunError;
-use crate::process_handling::RunningProcessHandle;
 use crate::source_analysis::LineAnalysis;
 use crate::statemachine::*;
 use crate::TestHandle;
@@ -19,32 +18,20 @@ pub fn create_state_machine<'a>(
     event_log: &'a Option<EventLog>,
 ) -> (TestState, LlvmInstrumentedData<'a>) {
     let handle = test.into();
-    if let TestHandle::Process(process) = handle {
-        let llvm = LlvmInstrumentedData {
-            process: Some(process),
-            event_log,
-            config,
-            traces,
-            analysis,
-        };
-        (TestState::start_state(), llvm)
-    } else {
-        error!("The llvm cov statemachine requires a process::Child");
-        let invalid = LlvmInstrumentedData {
-            process: None,
-            config,
-            event_log,
-            traces,
-            analysis,
-        };
-        (TestState::End(1), invalid)
-    }
+    let llvm = LlvmInstrumentedData {
+        process: Some(handle),
+        event_log,
+        config,
+        traces,
+        analysis,
+    };
+    (TestState::start_state(), llvm)
 }
 
 /// Handle to the process for an instrumented binary. This will simply
 pub struct LlvmInstrumentedData<'a> {
     /// Parent pid of the test
-    process: Option<RunningProcessHandle>,
+    process: Option<TestHandle>,
     /// Program config
     config: &'a Config,
     /// Optional event log to update as the test progresses

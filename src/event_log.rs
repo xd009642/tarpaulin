@@ -52,8 +52,8 @@ pub struct TraceEvent {
     description: String,
 }
 
+#[cfg(target_os = "linux")]
 impl TraceEvent {
-    #[cfg(target_os = "linux")]
     pub(crate) fn new_from_action(action: &TracerAction<ProcessInfo>) -> Self {
         match action {
             TracerAction::TryContinue(t) => TraceEvent {
@@ -85,8 +85,7 @@ impl TraceEvent {
         }
     }
 
-    #[cfg(target_os = "linux")]
-    pub(crate) fn new_from_wait(wait: &WaitStatus, offset: u64, traces: &TraceMap) -> Self {
+    pub(crate) fn new_from_wait(wait: WaitStatus, offset: u64, traces: &TraceMap) -> Self {
         let pid = wait.pid().map(|p| p.as_raw().into());
         let mut event = TraceEvent {
             pid,
@@ -95,7 +94,7 @@ impl TraceEvent {
         match wait {
             WaitStatus::Exited(_, i) => {
                 event.description = "Exited".to_string();
-                event.return_val = Some((*i).into());
+                event.return_val = Some((i).into());
             }
             WaitStatus::Signaled(_, sig, _) => {
                 event.signal = Some(sig.to_string());
@@ -103,9 +102,9 @@ impl TraceEvent {
             }
             WaitStatus::Stopped(c, sig) => {
                 event.signal = Some(sig.to_string());
-                if *sig == Signal::SIGTRAP {
+                if sig == Signal::SIGTRAP {
                     event.description = "Stopped".to_string();
-                    event.addr = current_instruction_pointer(*c).ok().map(|x| (x - 1) as u64);
+                    event.addr = current_instruction_pointer(c).ok().map(|x| (x - 1) as u64);
                     if let Some(addr) = event.addr {
                         event.location = traces.get_location(addr - offset);
                     }
@@ -115,23 +114,23 @@ impl TraceEvent {
             }
             WaitStatus::PtraceEvent(pid, sig, val) => {
                 event.signal = Some(sig.to_string());
-                match *val {
+                match val {
                     PTRACE_EVENT_CLONE => {
                         event.description = "Ptrace Clone".to_string();
-                        if *sig == Signal::SIGTRAP {
-                            event.child = get_event_data(*pid).ok();
+                        if sig == Signal::SIGTRAP {
+                            event.child = get_event_data(pid).ok();
                         }
                     }
                     PTRACE_EVENT_FORK => {
                         event.description = "Ptrace fork".to_string();
-                        if *sig == Signal::SIGTRAP {
-                            event.child = get_event_data(*pid).ok();
+                        if sig == Signal::SIGTRAP {
+                            event.child = get_event_data(pid).ok();
                         }
                     }
                     PTRACE_EVENT_VFORK => {
                         event.description = "Ptrace vfork".to_string();
-                        if *sig == Signal::SIGTRAP {
-                            event.child = get_event_data(*pid).ok();
+                        if sig == Signal::SIGTRAP {
+                            event.child = get_event_data(pid).ok();
                         }
                     }
                     PTRACE_EVENT_EXEC => {

@@ -17,7 +17,7 @@ cfg_if::cfg_if! {
     }
 }
 pub fn create_state_machine<'a>(
-    test: impl Into<TestHandle>,
+    test: TestHandle,
     traces: &'a mut TraceMap,
     source_analysis: &'a HashMap<PathBuf, LineAnalysis>,
     config: &'a Config,
