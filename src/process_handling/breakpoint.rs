@@ -79,10 +79,7 @@ impl Breakpoint {
         pid: Pid,
         reenable: bool,
     ) -> Result<(bool, TracerAction<ProcessInfo>)> {
-        let is_running = match self.is_running.get(&pid) {
-            Some(r) => *r,
-            None => true,
-        };
+        let is_running = self.is_running.get(&pid).copied().unwrap_or(true);
         if is_running {
             let _ = self.enable(pid);
             self.step(pid)?;

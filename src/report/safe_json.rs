@@ -19,7 +19,8 @@ impl serde_json::ser::Formatter for SafeFormatter {
         let mut start = 0;
         for (index, match_str) in fragment.match_indices(&['<', '>', '&']) {
             debug_assert_eq!(match_str.as_bytes().len(), 1);
-            self.0.write_string_fragment(writer, &fragment[start..index])?;
+            self.0
+                .write_string_fragment(writer, &fragment[start..index])?;
             self.write_char_escape(writer, CharEscape::AsciiControl(fragment.as_bytes()[index]))?;
             start = index + 1;
         }

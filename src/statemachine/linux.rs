@@ -507,18 +507,17 @@ impl<'a> LinuxData<'a> {
                         // at this address.
                         let aligned = align_address(*addr);
                         clashes.insert(aligned);
-                        let removed_keys = breakpoints
-                            .keys()
-                            .filter(|x| align_address(*x - offset) == aligned)
-                            .copied()
-                            .collect::<Vec<_>>();
-                        for key in &removed_keys {
-                            let breakpoint = breakpoints.remove(key).unwrap();
-                            trace!("Disabling clashing breakpoint");
-                            if let Err(e) = breakpoint.disable(pid) {
-                                error!("Unable to disable breakpoint: {}", e);
+                        breakpoints.retain(|address, breakpoint| {
+                            if align_address(*address - offset) == aligned {
+                                trace!("Disabling clashing breakpoint");
+                                if let Err(e) = breakpoint.disable(pid) {
+                                    error!("Unable to disable breakpoint: {}", e);
+                                }
+                                false
+                            } else {
+                                true
                             }
-                        }
+                        });
                     }
                     Err(_) => {
                         return Err(RunError::TestRuntime(
