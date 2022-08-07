@@ -17,27 +17,13 @@ impl serde_json::ser::Formatter for SafeFormatter {
         W: io::Write,
     {
         let mut start = 0;
-        let mut code_length = 0;
-        for ch in fragment.chars() {
-            code_length += ch.len_utf8();
-            let escape = match ch {
-                '<' | '>' | '&' => CharEscape::AsciiControl(ch as u8),
-                _ => continue,
-            };
-            if start < code_length - 1 {
-                self.0
-                    .write_string_fragment(writer, &fragment[start..code_length - 1])?;
-            }
-
-            self.write_char_escape(writer, escape)?;
-
-            start = code_length;
+        for (index, match_str) in fragment.match_indices(&['<', '>', '&']) {
+            debug_assert_eq!(match_str.as_bytes().len(), 1);
+            self.0.write_string_fragment(writer, &fragment[start..index])?;
+            self.write_char_escape(writer, CharEscape::AsciiControl(fragment.as_bytes()[index]))?;
+            start = index + 1;
         }
-
-        if start < code_length {
-            self.0.write_string_fragment(writer, &fragment[start..])?;
-        }
-        Ok(())
+        self.0.write_string_fragment(writer, &fragment[start..])
     }
 }
 
