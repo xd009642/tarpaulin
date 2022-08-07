@@ -1,36 +1,13 @@
 use crate::config::types::Mode;
-use crate::errors::*;
+use crate::errors::RunError;
 use crate::process_handling::execute_test;
 use crate::ptrace_control::*;
-use crate::Config;
-use crate::TestBinary;
-use crate::TestHandle;
-use lazy_static::lazy_static;
-use nix::errno::Errno;
-use nix::libc::{c_int, c_long};
-use nix::sched::*;
-use nix::unistd::*;
+use crate::{Config, TestBinary, TestHandle};
+use nix::sys::personality;
+use nix::{sched, unistd};
 use std::ffi::{CStr, CString};
+use std::os::unix::ffi::OsStrExt;
 use std::path::Path;
-use tracing::{info, warn};
-
-#[cfg(any(target_arch = "x86", target_arch = "x86_64", target_arch = "arm"))]
-type Persona = c_long;
-
-lazy_static! {
-    static ref NUM_CPUS: usize = num_cpus::get();
-}
-
-const ADDR_NO_RANDOMIZE: Persona = 0x004_0000;
-const GET_PERSONA: Persona = 0xFFFF_FFFF;
-
-mod ffi {
-    use nix::libc::{c_int, c_long};
-
-    extern "C" {
-        pub fn personality(persona: c_long) -> c_int;
-    }
-}
 
 /// Returns the coverage statistics for a test executable in the given workspace
 pub fn get_test_coverage(
@@ -39,26 +16,26 @@ pub fn get_test_coverage(
     ignored: bool,
 ) -> Result<Option<TestHandle>, RunError> {
     if !test.path().exists() {
-        warn!("Test at {} doesn't exist", test.path().display());
+        tracing::warn!("Test at {} doesn't exist", test.path().display());
         return Ok(None);
     }
 
     // Solves CI issue when fixing #953 and #966 in PR #962
-    let threads = if config.follow_exec { 1 } else { *NUM_CPUS };
+    let threads = if config.follow_exec { 1 } else { sched::CpuSet::count() };
 
     if let Err(e) = limit_affinity() {
-        warn!("Failed to set processor affinity {}", e);
+        tracing::warn!("Failed to set processor affinity {}", e);
     }
 
     unsafe {
-        match fork() {
-            Ok(ForkResult::Parent { child }) => Ok(Some(TestHandle::Id(child))),
-            Ok(ForkResult::Child) => {
+        match unistd::fork() {
+            Ok(unistd::ForkResult::Parent { child }) => Ok(Some(TestHandle::Id(child))),
+            Ok(unistd::ForkResult::Child) => {
                 let bin_type = match config.command {
                     Mode::Test => "test",
                     Mode::Build => "binary",
                 };
-                info!("Launching {}", bin_type);
+                tracing::info!("Launching {}", bin_type);
                 execute_test(test, ignored, config, Some(threads))?;
                 Ok(None)
             }
@@ -71,42 +48,26 @@ pub fn get_test_coverage(
     }
 }
 
-fn personality(persona: Persona) -> nix::Result<c_int> {
-    let ret = unsafe {
-        Errno::clear();
-        ffi::personality(persona)
-    };
-    match Errno::result(ret) {
-        Ok(..) | Err(Errno::UnknownErrno) => Ok(ret),
-        err @ Err(..) => err,
-    }
-}
-
-fn disable_aslr() -> nix::Result<i32> {
-    match personality(GET_PERSONA) {
-        Ok(p) => match personality(i64::from(p) | ADDR_NO_RANDOMIZE) {
-            ok @ Ok(_) => ok,
-            err @ Err(..) => err,
-        },
-        err @ Err(..) => err,
-    }
+fn disable_aslr() -> nix::Result<personality::Persona> {
+    let this = personality::get()?;
+    nix::sys::personality::set(this | personality::Persona::ADDR_NO_RANDOMIZE)
 }
 
 pub fn limit_affinity() -> nix::Result<()> {
-    let this = Pid::this();
+    let this = unistd::Pid::this();
     // Get current affinity to be able to limit the cores to one of
     // those already in the affinity mask.
-    let affinity = sched_getaffinity(this)?;
+    let affinity = sched::sched_getaffinity(this)?;
     let mut selected_cpu = 0;
-    for i in 0..CpuSet::count() {
+    for i in 0..sched::CpuSet::count() {
         if affinity.is_set(i)? {
             selected_cpu = i;
             break;
         }
     }
-    let mut cpu_set = CpuSet::new();
+    let mut cpu_set = sched::CpuSet::new();
     cpu_set.set(selected_cpu)?;
-    sched_setaffinity(this, &cpu_set)
+    sched::sched_setaffinity(this, &cpu_set)
 }
 
 pub fn execute(
@@ -114,7 +75,7 @@ pub fn execute(
     argv: &[String],
     envar: &[(String, String)],
 ) -> Result<TestHandle, RunError> {
-    let program = CString::new(test.display().to_string()).unwrap_or_default();
+    let program = CString::new(&*test.as_os_str().as_bytes()).unwrap_or_default();
     disable_aslr().map_err(|e| RunError::TestRuntime(format!("ASLR disable failed: {}", e)))?;
 
     request_trace().map_err(|e| RunError::Trace(e.to_string()))?;
@@ -122,16 +83,16 @@ pub fn execute(
     let envar = envar
         .iter()
         .map(|(k, v)| CString::new(format!("{}={}", k, v).as_str()).unwrap_or_default())
-        .collect::<Vec<CString>>();
+        .collect::<Vec<_>>();
 
     let argv = argv
         .iter()
         .map(|x| CString::new(x.as_str()).unwrap_or_default())
-        .collect::<Vec<CString>>();
+        .collect::<Vec<_>>();
 
     let arg_ref = argv.iter().map(AsRef::as_ref).collect::<Vec<&CStr>>();
     let env_ref = envar.iter().map(AsRef::as_ref).collect::<Vec<&CStr>>();
-    execve(&program, &arg_ref, &env_ref).map_err(|_| RunError::Internal)?;
+    unistd::execve(&program, &arg_ref, &env_ref).map_err(|_| RunError::Internal)?;
 
     unreachable!();
 }
