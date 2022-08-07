@@ -946,6 +946,7 @@ mod tests {
         for c in &configs {
             if c.name == "global" {
                 assert!(c.run_ignored);
+                #[cfg(feature = "coveralls")]
                 assert_eq!(c.coveralls, Some("hello".to_string()));
             } else if c.name == "other" {
                 assert_eq!(c.run_types, vec![RunType::Doctests, RunType::Tests]);
@@ -1056,6 +1057,7 @@ mod tests {
         assert_eq!(b.exclude, vec![String::from("b"), String::from("c")]);
     }
 
+    #[cfg(feature = "coveralls")]
     #[test]
     fn coveralls_merge() {
         let toml = r#"[a]
@@ -1213,8 +1215,6 @@ mod tests {
         assert!(config.force_clean);
         assert!(config.branch_coverage);
         assert!(config.forward_signals);
-        assert_eq!(config.coveralls, Some("hello".to_string()));
-        assert_eq!(config.report_uri, Some("http://hello.com".to_string()));
         assert!(config.no_default_features);
         assert!(config.all_features);
         assert!(config.all);
@@ -1241,7 +1241,6 @@ mod tests {
         assert_eq!(config.generate[0], OutputFile::Html);
         assert_eq!(config.run_types.len(), 1);
         assert_eq!(config.run_types[0], RunType::Doctests);
-        assert_eq!(config.ci_tool, Some(CiService::Travis));
         assert_eq!(config.root, Some("/home/rust".into()));
         assert_eq!(config.manifest, PathBuf::from("/home/rust/foo/Cargo.toml"));
         assert_eq!(config.profile, Some("Release".to_string()));
@@ -1251,5 +1250,15 @@ mod tests {
         assert!(config.bin_names.contains("bin"));
         assert!(config.example_names.contains("example"));
         assert!(config.bench_names.contains("bench"));
+
+        #[cfg(feature = "coveralls")]
+        assert_eq!(
+            config.coveralls,
+            Some(coveralls::CoverallsConfig {
+                key: "hello".to_string(),
+                ci_tool: Some(coveralls::CiService::Travis),
+                report_uri: Some("http://hello.com".to_string())
+            })
+        )
     }
 }
