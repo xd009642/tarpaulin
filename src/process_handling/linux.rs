@@ -1,9 +1,9 @@
 use nix::sys::personality;
 use nix::{sched, unistd};
 
-pub fn disable_aslr() -> nix::Result<personality::Persona> {
+pub fn disable_aslr() -> nix::Result<()> {
     let this = personality::get()?;
-    nix::sys::personality::set(this | personality::Persona::ADDR_NO_RANDOMIZE)
+    nix::sys::personality::set(this | personality::Persona::ADDR_NO_RANDOMIZE).map(|_| ())
 }
 
 pub fn limit_affinity() -> nix::Result<()> {
