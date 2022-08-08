@@ -218,7 +218,8 @@ pub fn launch_tarpaulin(
             if exe.should_panic() {
                 info!("Running a test executable that is expected to panic");
             }
-            let (trace_map, run_result) = get_test_coverage(exe, &project_analysis, config, false, logger)?;
+            let (trace_map, run_result) =
+                get_test_coverage(exe, &project_analysis, config, false, logger)?;
             result.merge(&trace_map);
             return_code |= if exe.should_panic() {
                 (run_result == 0).into()
@@ -226,7 +227,8 @@ pub fn launch_tarpaulin(
                 run_result
             };
             if config.run_ignored {
-                let (trace_map, run_result) = get_test_coverage(exe, &project_analysis, config, true, logger)?;
+                let (trace_map, run_result) =
+                    get_test_coverage(exe, &project_analysis, config, true, logger)?;
                 result.merge(&trace_map);
                 return_code |= run_result;
             }

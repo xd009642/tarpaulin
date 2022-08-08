@@ -82,10 +82,14 @@ fn launch_test(
         #[cfg(target_os = "linux")]
         TraceEngine::Ptrace => {
             // Solves CI issue when fixing #953 and #966 in PR #962
-            let threads = if config.follow_exec { 1 } else { nix::sched::CpuSet::count() };
+            let threads = if config.follow_exec {
+                1
+            } else {
+                nix::sched::CpuSet::count()
+            };
             let res = execute_test(test, ignored, config, Some(threads))?;
             Ok(res)
-        },
+        }
         e => {
             error!(
                 "Tarpaulin cannot execute tests with {:?} on this platform",
@@ -175,7 +179,11 @@ fn execute_test(
     num_threads: Option<usize>,
 ) -> Result<TestHandle, RunError> {
     info!("running {}", test.path().display());
-    let _ = env::set_current_dir(test.manifest_dir().cloned().unwrap_or_else(|| config.root()));
+    let _ = env::set_current_dir(
+        test.manifest_dir()
+            .cloned()
+            .unwrap_or_else(|| config.root()),
+    );
 
     debug!("Current working dir: {:?}", env::current_dir());
 
@@ -233,20 +241,26 @@ fn execute_test(
             unsafe {
                 // NOTE: Idea from https://github.com/luser/spawn-ptrace.
                 child.pre_exec(|| {
-                    linux::limit_affinity().map_err(|e| std::io::Error::new(
-                        std::io::ErrorKind::Other,
-                        format!("failed to limit process affinity: {}", e)
-                    ))?;
+                    linux::limit_affinity().map_err(|e| {
+                        std::io::Error::new(
+                            std::io::ErrorKind::Other,
+                            format!("failed to limit process affinity: {}", e),
+                        )
+                    })?;
 
-                    linux::disable_aslr().map_err(|e| std::io::Error::new(
-                        std::io::ErrorKind::Other,
-                        format!("ASLR disable failed: {}", e)
-                    ))?;
+                    linux::disable_aslr().map_err(|e| {
+                        std::io::Error::new(
+                            std::io::ErrorKind::Other,
+                            format!("ASLR disable failed: {}", e),
+                        )
+                    })?;
 
-                    ptrace_control::request_trace().map_err(|e| std::io::Error::new(
-                        std::io::ErrorKind::Other,
-                        format!("traceme() failed: {}", e)
-                    ))?;
+                    ptrace_control::request_trace().map_err(|e| {
+                        std::io::Error::new(
+                            std::io::ErrorKind::Other,
+                            format!("traceme() failed: {}", e),
+                        )
+                    })?;
 
                     Ok(())
                 });
