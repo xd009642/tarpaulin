@@ -481,8 +481,9 @@ Gitlab can [show coverage information] in the diff of a merge request. For that,
 job: ...
   artifacts:
     reports:
-      cobertura:
-        - cobertura.xml
+      coverage_report:
+        coverage_format: cobertura
+        path: cobertura.xml
 ```
 
 and generate a `cobertura.xml` as described under [Pycobertura](#pycobertura).
