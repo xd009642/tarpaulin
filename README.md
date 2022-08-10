@@ -462,13 +462,7 @@ jobs:
 ### Gitlab Pipelines
 
 To get the coverage results showing up in your Gitlab pipelines add the following regex to the `Test
-coverage parsing` section in the CI/CD settings.
-
-```yml
-^\d+.\d+% coverage
-```
-
-Or add the regex to the job definition in `.gitlab-ci.yml`:
+coverage` section in the gitlab job definition in `.gitlab-ci.yml`:
 
 ```yml
 job: ...
