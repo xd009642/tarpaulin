@@ -477,15 +477,17 @@ fn find_str_in_file(file: &Path, value: &str) -> io::Result<Vec<usize>> {
 
 fn create_command(manifest_path: &str, config: &Config, ty: Option<RunType>) -> Command {
     let mut test_cmd = Command::new("cargo");
+    let bootstrap = matches!(env::var("RUSTC_BOOTSTRAP").as_deref(), Ok("1"));
     if ty == Some(RunType::Doctests) {
         if let Some(toolchain) = env::var("RUSTUP_TOOLCHAIN")
             .ok()
-            .filter(|t| t.starts_with("nightly"))
+            .filter(|t| t.starts_with("nightly") || bootstrap)
         {
-            test_cmd.args(&[format!("+{}", toolchain).as_str(), "test"]);
-        } else {
-            test_cmd.args(&["+nightly", "test"]);
+            test_cmd.args(&[format!("+{}", toolchain).as_str()]);
+        } else if !bootstrap {
+            test_cmd.args(&["+nightly"]);
         }
+        test_cmd.args(&["test"]);
     } else {
         if let Ok(toolchain) = env::var("RUSTUP_TOOLCHAIN") {
             test_cmd.arg(format!("+{}", toolchain));
@@ -800,6 +802,9 @@ fn setup_environment(cmd: &mut Command, config: &Config) {
     let value = rustdoc_flags(config);
     trace!("Setting RUSTDOCFLAGS='{}'", value);
     cmd.env(rustdoc, value);
+    if let Ok(bootstrap) = env::var("RUSTC_BOOTSTRAP") {
+        cmd.env("RUSTC_BOOTSTRAP", bootstrap);
+    }
 }
 
 pub fn supports_llvm_coverage() -> bool {
