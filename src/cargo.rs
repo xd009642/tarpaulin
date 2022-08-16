@@ -483,10 +483,8 @@ fn create_command(manifest_path: &str, config: &Config, ty: Option<RunType>) -> 
             .ok()
             .filter(|t| t.starts_with("nightly") || bootstrap)
         {
-            info!("Adding {}", toolchain);
             test_cmd.args(&[format!("+{}", toolchain).as_str()]);
         } else if !bootstrap {
-            info!("Adding nightly");
             test_cmd.args(&["+nightly"]);
         }
         test_cmd.args(&["test"]);
