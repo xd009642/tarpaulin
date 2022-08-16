@@ -800,6 +800,9 @@ fn setup_environment(cmd: &mut Command, config: &Config) {
     let value = rustdoc_flags(config);
     trace!("Setting RUSTDOCFLAGS='{}'", value);
     cmd.env(rustdoc, value);
+    if let Ok(bootstrap) = env::var("RUSTC_BOOTSTRAP") {
+        cmd.env("RUSTC_BOOTSTRAP", bootstrap);
+    }
 }
 
 pub fn supports_llvm_coverage() -> bool {

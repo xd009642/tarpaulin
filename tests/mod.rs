@@ -415,4 +415,24 @@ fn kill_used_in_test() {
     check_percentage_with_config("kill_proc", 0.9f64, true, config);
 }
 
+
+#[test]
+fn doc_test_bootstrap() {
+    let mut config = Config::default();
+    config.verbose = true;
+    config.set_clean(false);
+    config.test_timeout = Duration::from_secs(60);
+    let test_dir = get_test_path("doc_coverage");
+    env::set_current_dir(&test_dir).unwrap();
+    config.manifest = test_dir;
+    config.manifest.push("Cargo.toml");
+
+    config.run_types = vec![RunType::Doctests];
+
+    env::set_var("RUSTC_BOOTSTRAP", "1");
+
+    let (_res, ret) = launch_tarpaulin(&config, &None).unwrap();
+    assert_eq!(ret, 0);
+}
+
 }
