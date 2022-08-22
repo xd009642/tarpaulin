@@ -416,6 +416,7 @@ fn kill_used_in_test() {
     let mut config = Config::default();
     if config.engine() == TraceEngine::Llvm {
         println!("Tests using signals are not supported");
+        return;
     }
 
     config.follow_exec = true;
