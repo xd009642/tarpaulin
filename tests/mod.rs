@@ -1,5 +1,5 @@
 use crate::utils::get_test_path;
-use cargo_tarpaulin::config::{Config, ConfigWrapper, Mode, RunType};
+use cargo_tarpaulin::config::{Config, ConfigWrapper, Mode, RunType, TraceEngine};
 use cargo_tarpaulin::event_log::EventLog;
 use cargo_tarpaulin::launch_tarpaulin;
 use cargo_tarpaulin::path_utils::*;
