@@ -343,10 +343,10 @@ fn rustflags_handling() {
     config.manifest = test_dir;
     config.manifest.push("Cargo.toml");
 
-    let (_, ret) = launch_tarpaulin(&config, &None).unwrap();
+    let res = launch_tarpaulin(&config, &None);
     env::set_current_dir(&restore_dir).unwrap();
     env::remove_var("RUSTFLAGS");
-    assert_ne!(ret, 0);
+    assert!(res.is_err() || res.unwrap().1 != 0);
 
     let (_, ret) = launch_tarpaulin(&config, &None).unwrap();
     env::set_current_dir(&restore_dir).unwrap();
@@ -414,6 +414,10 @@ fn dot_rs_in_dir_name() {
 #[cfg(unix)]
 fn kill_used_in_test() {
     let mut config = Config::default();
+    if config.engine() == TraceEngine::Llvm {
+        println!("Tests using signals are not supported");
+    }
+
     config.follow_exec = true;
     config.set_clean(false);
     config.set_ignore_tests(false);
