@@ -490,6 +490,13 @@ fn find_str_in_file(file: &Path, value: &str) -> io::Result<Vec<usize>> {
 fn create_command(manifest_path: &str, config: &Config, ty: Option<RunType>) -> Command {
     let mut test_cmd = Command::new("cargo");
     let bootstrap = matches!(env::var("RUSTC_BOOTSTRAP").as_deref(), Ok("1"));
+    if cfg!(windows) {
+        if env::var("PATH").unwrap_or_default().contains(".rustup") {
+            // So the specific cargo we're using is in the path var so rustup toolchains won't
+            // work. This only started happening recently so special casing it for older versions
+            env::remove_var("RUSTUP_TOOLCHAIN");
+        }
+    }
     if ty == Some(RunType::Doctests) {
         if let Some(toolchain) = env::var("RUSTUP_TOOLCHAIN")
             .ok()
