@@ -104,8 +104,10 @@ impl<'a> StateData for LlvmInstrumentedData<'a> {
 
                     let instrumentation = merge_profiles(&profraws)?;
                     // Panics due to a todo!();
+                    let mut binaries = parent.extra_binaries.clone();
+                    binaries.push(binary_path);
                     let mapping =
-                        CoverageMapping::new(&[binary_path], &instrumentation).map_err(|e| {
+                        CoverageMapping::new(&binaries, &instrumentation).map_err(|e| {
                             error!("Failed to get coverage: {}", e);
                             RunError::TestCoverage(e.to_string())
                         })?;

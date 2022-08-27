@@ -24,12 +24,19 @@ pub struct RunningProcessHandle {
     pub(crate) child: Child,
     /// maintain a list of existing profraws in the project root to avoid picking up old results
     pub(crate) existing_profraws: Vec<PathBuf>,
+    /// Extra binaries we may need to look to
+    pub(crate) extra_binaries: Vec<PathBuf>,
     /// The flag showing if it should panic
     pub(crate) should_panic: bool,
 }
 
 impl RunningProcessHandle {
-    pub fn new(test: &TestBinary, cmd: &mut Command, config: &Config) -> Result<Self, RunError> {
+    pub fn new(
+        test: &TestBinary,
+        extra_binaries: Vec<PathBuf>,
+        cmd: &mut Command,
+        config: &Config,
+    ) -> Result<Self, RunError> {
         let child = cmd.spawn()?;
         let existing_profraws = get_profile_walker(config)
             .map(|x| x.path().to_path_buf())
@@ -37,6 +44,7 @@ impl RunningProcessHandle {
 
         Ok(Self {
             path: test.path().to_path_buf(),
+            extra_binaries,
             child,
             existing_profraws,
             should_panic: test.should_panic(),
@@ -67,12 +75,13 @@ impl From<RunningProcessHandle> for TestHandle {
 
 pub fn get_test_coverage(
     test: &TestBinary,
+    other_binaries: &[PathBuf],
     analysis: &HashMap<PathBuf, LineAnalysis>,
     config: &Config,
     ignored: bool,
     logger: &Option<EventLog>,
 ) -> Result<Option<(TraceMap, i32)>, RunError> {
-    let handle = launch_test(test, config, ignored, logger)?;
+    let handle = launch_test(test, other_binaries, config, ignored, logger)?;
     if let Some(handle) = handle {
         let t = collect_coverage(test.path(), handle, analysis, config, logger)?;
         Ok(Some(t))
@@ -83,6 +92,7 @@ pub fn get_test_coverage(
 
 fn launch_test(
     test: &TestBinary,
+    other_binaries: &[PathBuf],
     config: &Config,
     ignored: bool,
     logger: &Option<EventLog>,
@@ -102,7 +112,7 @@ fn launch_test(
             }
         }
         TraceEngine::Llvm => {
-            let res = execute_test(test, ignored, config, None)?;
+            let res = execute_test(test, other_binaries, ignored, config, None)?;
             Ok(Some(res))
         }
         e => {
@@ -198,6 +208,7 @@ fn get_env_vars(test: &TestBinary, config: &Config) -> Vec<(String, String)> {
 /// Launches the test executable
 fn execute_test(
     test: &TestBinary,
+    other_binaries: &[PathBuf],
     ignored: bool,
     config: &Config,
     num_threads: Option<usize>,
@@ -252,8 +263,8 @@ fn execute_test(
             debug!("Args: {:?}", argv);
             let mut child = Command::new(test.path());
             child.envs(envars).args(&argv);
-
-            let hnd = RunningProcessHandle::new(test, &mut child, config)?;
+            let others = other_binaries.iter().cloned().collect();
+            let hnd = RunningProcessHandle::new(test, others, &mut child, config)?;
             Ok(hnd.into())
         }
         #[cfg(target_os = "linux")]

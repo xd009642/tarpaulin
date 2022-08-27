@@ -25,7 +25,7 @@ impl Default for TraceEngine {
     fn default() -> Self {
         cfg_if::cfg_if! {
             if #[cfg(target_os = "linux")] {
-                TraceEngine::Ptrace
+                TraceEngine::Llvm
             } else {
                 TraceEngine::Llvm
             }

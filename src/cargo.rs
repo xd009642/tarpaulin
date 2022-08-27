@@ -40,6 +40,15 @@ impl CargoVersionInfo {
     }
 }
 
+#[derive(Clone, Debug, Default)]
+pub struct CargoOutput {
+    /// This contains all binaries we want to run to collect coverage from.
+    pub test_binaries: Vec<TestBinary>,
+    /// This covers binaries we don't want to run explicitly but may be called as part of tracing
+    /// execution of other processes.
+    pub binaries: Vec<PathBuf>,
+}
+
 #[derive(Clone, Debug, PartialEq, Eq, PartialOrd, Ord, Hash, Deserialize, Serialize)]
 pub struct TestBinary {
     path: PathBuf,
@@ -200,8 +209,8 @@ lazy_static! {
     };
 }
 
-pub fn get_tests(config: &Config) -> Result<Vec<TestBinary>, RunError> {
-    let mut result = vec![];
+pub fn get_tests(config: &Config) -> Result<CargoOutput, RunError> {
+    let mut result = CargoOutput::default();
     if config.force_clean() {
         let cleanup_dir = if config.release {
             config.target_dir().join("release")
@@ -243,7 +252,7 @@ fn run_cargo(
     manifest: &str,
     config: &Config,
     ty: Option<RunType>,
-    result: &mut Vec<TestBinary>,
+    result: &mut CargoOutput,
 ) -> Result<(), RunError> {
     let mut cmd = create_command(manifest, config, ty);
     if ty != Some(RunType::Doctests) {
@@ -254,11 +263,11 @@ fn run_cargo(
     }
     trace!("Running command {:?}", cmd);
     let mut child = cmd.spawn().map_err(|e| RunError::Cargo(e.to_string()))?;
-    let update_from = result.len();
+    let update_from = result.test_binaries.len();
     let mut paths = vec![];
 
     if ty != Some(RunType::Doctests) {
-        let mut package_ids = vec![None; result.len()];
+        let mut package_ids = vec![None; result.test_binaries.len()];
         let reader = std::io::BufReader::new(child.stdout.take().unwrap());
         let mut error = None;
         for msg in Message::parse_stream(reader) {
@@ -266,9 +275,12 @@ fn run_cargo(
                 Ok(Message::CompilerArtifact(art)) => {
                     if let Some(path) = art.executable.as_ref() {
                         if !art.profile.test && config.command == Mode::Test {
+                            result.binaries.push(PathBuf::from(path));
                             continue;
                         }
-                        result.push(TestBinary::new(PathBuf::from(path), ty));
+                        result
+                            .test_binaries
+                            .push(TestBinary::new(PathBuf::from(path), ty));
                         package_ids.push(Some(art.package_id.clone()));
                     }
                 }
@@ -310,7 +322,7 @@ fn run_cargo(
             }
         }
         debug!("Linker paths: {:?}", paths);
-        for bin in result.iter_mut().skip(update_from) {
+        for bin in result.test_binaries.iter_mut().skip(update_from) {
             bin.linker_paths = paths.clone();
         }
         let status = child.wait().unwrap();
@@ -321,6 +333,7 @@ fn run_cargo(
             return Err(RunError::Cargo("cargo run failed".to_string()));
         };
         for (res, package) in result
+            .test_binaries
             .iter_mut()
             .zip(package_ids.iter())
             .filter(|(_, b)| b.is_some())
@@ -390,7 +403,7 @@ fn run_cargo(
                     None => break,
                 }
             }
-            result.push(tb);
+            result.test_binaries.push(tb);
         }
     }
     Ok(())

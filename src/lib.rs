@@ -214,11 +214,18 @@ pub fn launch_tarpaulin(
     if !config.no_run {
         let project_analysis = SourceAnalysis::get_analysis(config);
         let project_analysis = project_analysis.lines;
-        for exe in &executables {
+        for exe in &executables.test_binaries {
             if exe.should_panic() {
                 info!("Running a test executable that is expected to panic");
             }
-            let coverage = get_test_coverage(exe, &project_analysis, config, false, logger)?;
+            let coverage = get_test_coverage(
+                exe,
+                &executables.binaries,
+                &project_analysis,
+                config,
+                false,
+                logger,
+            )?;
             if let Some(res) = coverage {
                 result.merge(&res.0);
                 return_code |= if exe.should_panic() {
@@ -228,7 +235,14 @@ pub fn launch_tarpaulin(
                 };
             }
             if config.run_ignored {
-                let coverage = get_test_coverage(exe, &project_analysis, config, true, logger)?;
+                let coverage = get_test_coverage(
+                    exe,
+                    &executables.binaries,
+                    &project_analysis,
+                    config,
+                    true,
+                    logger,
+                )?;
                 if let Some(res) = coverage {
                     result.merge(&res.0);
                     return_code |= res.1;
