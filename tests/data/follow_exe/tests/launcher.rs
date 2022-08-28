@@ -1,7 +1,7 @@
 use std::process::Command;
 
 #[cfg(windows)]
-const LS_EXE: &'static str = "dir";
+const LS_EXE: &'static str = "cmd.exe"; // I know it's not dir but dir isn't an exe in windows
 #[cfg(not(windows))]
 const LS_EXE: &'static str = "ls";
 
