@@ -257,7 +257,7 @@ fn execute_test(
             // between runs
             envars.push((
                 "LLVM_PROFILE_FILE".to_string(),
-                format!("{}_%p.profraw", test.file_name()),
+                format!("{}_%m-%p.profraw", test.file_name()),
             ));
             debug!("Env vars: {:?}", envars);
             debug!("Args: {:?}", argv);
