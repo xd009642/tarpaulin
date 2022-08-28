@@ -1,5 +1,10 @@
 use std::process::Command;
 
+#[cfg(windows)]
+const LS_EXE: &'static str = "dir";
+#[cfg(not(windows))]
+const LS_EXE: &'static str = "ls";
+
 #[test]
 fn spawn_hello_world() {
     Command::new(env!("CARGO_BIN_EXE_follow_exe"))
@@ -18,7 +23,7 @@ fn launch_hello_world() {
 
 #[test]
 fn launch_ls() {
-    Command::new("ls")
+    Command::new(LS_EXE)
         .output()
         .unwrap();
 }
