@@ -181,6 +181,8 @@ pub struct Config {
     #[serde(rename = "include-tests")]
     /// Inverse of ignore_tests
     include_tests: bool,
+    /// Delay after test to collect instrumentation files (LLVM only)
+    pub post_test_delay: Option<Duration>,
 }
 
 fn default_test_timeout() -> Duration {
@@ -248,6 +250,7 @@ impl Default for Config {
             color: Color::Auto,
             engine: RefCell::default(),
             rustflags: None,
+            post_test_delay: None,
         }
     }
 }
@@ -339,6 +342,7 @@ impl<'a> From<&'a ArgMatches<'a>> for ConfigWrapper {
             avoid_cfg_tarpaulin: args.is_present("avoid-cfg-tarpaulin"),
             implicit_test_threads: args.is_present("implicit-test-threads"),
             rustflags: get_rustflags(args),
+            post_test_delay: get_post_test_delay(args),
         };
         if args.is_present("ignore-config") {
             Self(vec![args_config])
@@ -587,6 +591,12 @@ impl Config {
         self.ignore_tests |= other.ignore_tests;
         self.no_fail_fast |= other.no_fail_fast;
 
+        let end_delay = match (self.post_test_delay, other.post_test_delay) {
+            (Some(d), None) | (None, Some(d)) => Some(d),
+            (None, None) => None,
+            (Some(a), Some(b)) => Some(a.max(b)),
+        };
+        self.post_test_delay = end_delay;
         // The two flags now don't agree, if one is set to non-default then prioritise that
         match (self.force_clean, self.skip_clean) {
             (true, false) | (false, true) => {}

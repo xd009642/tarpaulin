@@ -117,6 +117,7 @@ fn from_args() -> ArgMatches<'static> {
                  --exclude -e [PACKAGE]... 'Package id specifications to exclude from coverage. See cargo help pkgid for more info'
                  --exclude-files [FILE]... 'Exclude given files from coverage results has * wildcard'
                  --timeout -t [SECONDS] 'Integer for the maximum time in seconds without response from test before timeout (default is 1 minute).'
+                 --post-test-delay [SECONDS] 'Delay after test to collect coverage profiles'
                  --follow-exec 'Follow executed processes capturing coverage information if they're part of your project.'
                  --release   'Build in release mode.'
                  --no-run 'Compile tests but don't run coverage'

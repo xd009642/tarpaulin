@@ -9,6 +9,7 @@ use crate::TestHandle;
 use llvm_profparser::*;
 use std::collections::HashMap;
 use std::path::PathBuf;
+use std::thread::sleep;
 use tracing::info;
 
 pub fn create_state_machine<'a>(
@@ -86,6 +87,9 @@ impl<'a> StateData for LlvmInstrumentedData<'a> {
                 Ok(exit) => {
                     if !exit.success() && !should_panic {
                         return Err(RunError::TestFailed);
+                    }
+                    if let Some(delay) = self.config.post_test_delay {
+                        sleep(delay);
                     }
                     let profraws = get_profile_walker(self.config)
                         .map(|x| x.path().to_path_buf())

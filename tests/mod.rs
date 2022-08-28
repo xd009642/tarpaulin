@@ -31,6 +31,7 @@ pub fn check_percentage_with_cli_args(minimum_coverage: f64, has_lines: bool, ar
              --verbose -v 'Show extra output'
              --root -r [DIR] 'directory'
              --include-tests 'include tests in your tests'
+             --post-test-delay [SECONDS] 'Delay after test to collect coverage profiles'
              --implicit-test-threads 'Don't supply an explicit `--test-threads` argument to tarpaulin. By default tarpaulin will infer the default rustc would pick if not ran via tarpaulin and set it'"
         ).get_matches_from(args);
 
@@ -218,6 +219,8 @@ fn issue_966_follow_exec() {
         "tarpaulin".to_string(),
         "--root".to_string(),
         test_dir.display().to_string(),
+        "--post-test-delay".to_string(),
+        10.to_string(),
     ];
     check_percentage_with_cli_args(1.0f64, true, &args);
 }
@@ -371,8 +374,11 @@ fn handle_module_level_exclude_attrs() {
 #[test]
 #[cfg(unix)]
 fn handle_forks() {
+    let mut config = Config::default();
+    config.set_clean(false);
+    config.post_test_delay = Some(Duration::from_secs(10));
     // Some false negatives on more recent compilers so lets just aim for >90% and 0 return code
-    check_percentage("fork-test", 0.9f64, true);
+    check_percentage_with_config("fork-test", 0.9f64, true, config);
 }
 
 #[test]
