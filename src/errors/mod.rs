@@ -46,7 +46,7 @@ impl Display for RunError {
             Self::Cargo(e) => write!(f, "Cargo failed to run! Error: {}", e),
             Self::Packages(e) => write!(f, "Failed to resolve package in manifest! Error: {}", e),
             Self::TestLaunch(e) => write!(f, "Failed to launch test: {}", e),
-            Self::TestCompile(e) => write!(f, "Failed to compile tests! Error: {}", e),
+            Self::TestCompile(e) => write!(f, "Failed to compile tests!\n{}", e),
             Self::TestRuntime(e) => write!(f, "Failed to run tests: {}", e),
             Self::TestFailed => write!(f, "Test failed during run"),
             Self::Parse(e) => write!(f, "Error while parsing: {}", e),

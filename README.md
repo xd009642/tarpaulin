@@ -27,7 +27,7 @@ Below is the help-text for a thorough explanation of the flags and features
 available:
 
 ```
-cargo-tarpaulin version: 0.20.1
+cargo-tarpaulin version: 0.21.0
 Tool to analyse test coverage of cargo projects
 
 USAGE:
@@ -462,13 +462,7 @@ jobs:
 ### Gitlab Pipelines
 
 To get the coverage results showing up in your Gitlab pipelines add the following regex to the `Test
-coverage parsing` section in the CI/CD settings.
-
-```yml
-^\d+.\d+% coverage
-```
-
-Or add the regex to the job definition in `.gitlab-ci.yml`:
+coverage` section in the gitlab job definition in `.gitlab-ci.yml`:
 
 ```yml
 job: ...
@@ -481,8 +475,9 @@ Gitlab can [show coverage information] in the diff of a merge request. For that,
 job: ...
   artifacts:
     reports:
-      cobertura:
-        - cobertura.xml
+      coverage_report:
+        coverage_format: cobertura
+        path: cobertura.xml
 ```
 
 and generate a `cobertura.xml` as described under [Pycobertura](#pycobertura).

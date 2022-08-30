@@ -8,6 +8,11 @@ file.
 
 ### Changed
 
+## [0.21.0] 2022-08-30
+### Changed
+- Fix issue in parsing output from `cargo --version` with some beta versions (support beta.n)
+- Forward `RUSTC_BOOTSTRAP` to cargo when building test binary #1074
+
 ## [0.20.1] 2022-05-24
 ### Added
 - Added support for `--out stdout` to print uncovered lines without enabling `--verbose` logging

@@ -1,6 +1,6 @@
 [package]
 name = "cargo-tarpaulin"
-version = "0.20.1"
+version = "0.21.0"
 authors = ["Daniel McKenna <danielmckenna93@gmail.com>"]
 description = "Cargo-Tarpaulin is a tool to determine code coverage achieved via tests"
 repository = "https://github.com/xd009642/tarpaulin"
@@ -20,24 +20,24 @@ name = "integration"
 path = "tests/mod.rs"
 
 [dependencies]
-cargo_metadata = "0.14"
+cargo_metadata = "0.15"
 chrono = "0.4"
 clap = "2.34.0"
 coveralls-api = "0.5.0"
 fallible-iterator = "0.2.0"
-gimli = "0.26.1"
-git2 = "0.14"
+gimli = "0.26.2"
+git2 = "0.15"
 humantime-serde = "1"
-indexmap = { version = "1.8.1", features = ["serde-1"] }
+indexmap = { version = "1.9.1", features = ["serde-1"] }
 lazy_static = "1.0"
 tracing = { version = "0.1", default-features = false }
 tracing-subscriber = {version = "0.2.25", default-features = false, features = ["env-filter", "fmt", "chrono", "ansi", "smallvec", "tracing-log"]}
 memmap = "0.7.0"
-object = "0.28"
+object = "0.29"
 proc-macro2 = { version = "1.0", features = ["span-locations"] }
-quick-xml = "0.22"
+quick-xml = "0.23"
 quote = "1.0"
-regex = "1.5"
+regex = "1.6"
 rustc-demangle = "0.1.21"
 serde = { version = "1.0", features = ["derive"] }
 serde_json = "1.0"
@@ -49,8 +49,8 @@ num_cpus = "1.13.1"
 
 [target.'cfg(target_os = "linux")'.dependencies]
 libc = "0.2.94"
-nix = {version = "0.24.1", default-features = false, features = ["sched", "signal", "ptrace"]}
-procfs = "0.12"
+nix = {version = "0.24.2", default-features = false, features = ["sched", "signal", "ptrace"]}
+procfs = "0.14"
 
 [features]
 default = []

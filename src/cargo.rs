@@ -162,7 +162,7 @@ impl DocTestBinaryMeta {
 lazy_static! {
     static ref CARGO_VERSION_INFO: Option<CargoVersionInfo> = {
         let version_info = Regex::new(
-            r"cargo (\d)\.(\d+)\.\d+([\-betanightly]*) \([[:alnum:]]+ (\d{4})-(\d{2})-(\d{2})\)",
+            r"cargo (\d)\.(\d+)\.\d+([\-betanightly]*)(\.[[:alnum:]]+)? \([[:alnum:]]+ (\d{4})-(\d{2})-(\d{2})\)",
         )
         .unwrap();
         Command::new("cargo")
@@ -180,9 +180,9 @@ lazy_static! {
                         "-beta" => Channel::Beta,
                         _ => Channel::Stable,
                     };
-                    let year = cap[4].parse().unwrap();
-                    let month = cap[5].parse().unwrap();
-                    let day = cap[6].parse().unwrap();
+                    let year = cap[5].parse().unwrap();
+                    let month = cap[6].parse().unwrap();
+                    let day = cap[7].parse().unwrap();
                     Some(CargoVersionInfo {
                         major,
                         minor,
@@ -273,7 +273,11 @@ fn run_cargo(
                 }
                 Ok(Message::CompilerMessage(m)) => match m.message.level {
                     DiagnosticLevel::Error | DiagnosticLevel::Ice => {
-                        let msg = format!("{}: {}", m.target.name, m.message.message);
+                        let msg = if let Some(rendered) = m.message.rendered {
+                            rendered
+                        } else {
+                            format!("{}: {}", m.target.name, m.message.message)
+                        };
                         error = Some(RunError::TestCompile(msg));
                         break;
                     }
@@ -477,15 +481,17 @@ fn find_str_in_file(file: &Path, value: &str) -> io::Result<Vec<usize>> {
 
 fn create_command(manifest_path: &str, config: &Config, ty: Option<RunType>) -> Command {
     let mut test_cmd = Command::new("cargo");
+    let bootstrap = matches!(env::var("RUSTC_BOOTSTRAP").as_deref(), Ok("1"));
     if ty == Some(RunType::Doctests) {
         if let Some(toolchain) = env::var("RUSTUP_TOOLCHAIN")
             .ok()
-            .filter(|t| t.starts_with("nightly"))
+            .filter(|t| t.starts_with("nightly") || bootstrap)
         {
-            test_cmd.args(&[format!("+{}", toolchain).as_str(), "test"]);
-        } else {
-            test_cmd.args(&["+nightly", "test"]);
+            test_cmd.args(&[format!("+{}", toolchain).as_str()]);
+        } else if !bootstrap {
+            test_cmd.args(&["+nightly"]);
         }
+        test_cmd.args(&["test"]);
     } else {
         if let Ok(toolchain) = env::var("RUSTUP_TOOLCHAIN") {
             test_cmd.arg(format!("+{}", toolchain));
@@ -800,6 +806,9 @@ fn setup_environment(cmd: &mut Command, config: &Config) {
     let value = rustdoc_flags(config);
     trace!("Setting RUSTDOCFLAGS='{}'", value);
     cmd.env(rustdoc, value);
+    if let Ok(bootstrap) = env::var("RUSTC_BOOTSTRAP") {
+        cmd.env("RUSTC_BOOTSTRAP", bootstrap);
+    }
 }
 
 pub fn supports_llvm_coverage() -> bool {
