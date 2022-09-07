@@ -329,6 +329,18 @@ fn main() {
 }
 ```
 
+### Recompilation
+
+As Tarpaulin changes the `RUSTFLAGS` when building tests sometimes rebuilds of
+test binaries can't be avoided. There is also a `--clean` and `--skip-clean`
+argument, the default has been changed at times to avoid issues with incremental
+compilation when changing `RUSTFLAGS`. If you aim to reduce the amount of
+unnecessary recompilation attempting to add the `--skip-clean` flag should be
+the first step. After that you can either:
+
+1. Use `cargo tarpaulin --print-rust-flags` and use those flags for dev and coverage
+2. Use `--target-dir` when running tarpaulin and have a coverage build and dev build
+
 ### Continuous Integration Services
 
 Tarpaulin aims to be easy to add to your CI workflow. With well tested support
@@ -510,6 +522,10 @@ dependencies. In that case, you can install dependencies before, like this:
 ```text
 docker run --security-opt seccomp=unconfined -v "${PWD}:/volume" xd009642/tarpaulin sh -c "apt-get install xxx && cargo tarpaulin"
 ```
+
+Alternatively, taking the seccomp json and setting all seccomp actions
+for the `personality` syscall to `SCMP_ACT_ALLOW` to avoid removing all
+the seccomp policies for Docker.
 
 ### Config file
 
