@@ -35,7 +35,7 @@ tracing-subscriber = {version = "0.2.25", default-features = false, features = [
 memmap = "0.7.0"
 object = "0.29"
 proc-macro2 = { version = "1.0", features = ["span-locations"] }
-quick-xml = "0.23"
+quick-xml = "0.25"
 quote = "1.0"
 regex = "1.6"
 rustc-demangle = "0.1.21"
