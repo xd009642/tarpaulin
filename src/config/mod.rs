@@ -181,6 +181,7 @@ pub struct Config {
     #[serde(rename = "include-tests")]
     /// Inverse of ignore_tests
     include_tests: bool,
+    #[serde(rename = "post-test-delay")]
     /// Delay after test to collect instrumentation files (LLVM only)
     pub post_test_delay: Option<Duration>,
 }
