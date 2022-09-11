@@ -388,7 +388,7 @@ fn filter_macros() {
 fn filter_tests() {
     let config = Config::default();
     let mut igconfig = Config::default();
-    igconfig.ignore_tests = true;
+    igconfig.set_ignore_tests(true);
 
     let ctx = Context {
         config: &config,
@@ -452,7 +452,7 @@ fn filter_tests() {
 #[test]
 fn filter_test_utilities() {
     let mut config = Config::default();
-    config.ignore_tests = true;
+    config.set_ignore_tests(true);
 
     let ctx = Context {
         config: &config,

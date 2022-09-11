@@ -8,6 +8,7 @@ file.
 
 ### Changed
 - Update quick-xml to 0.25
+- Make --ignore-tests the default and add a flag --include-tests to reapply the old behaviour
 
 ## [0.21.0] 2022-08-30
 ### Changed
