@@ -386,7 +386,8 @@ fn filter_macros() {
 
 #[test]
 fn filter_tests() {
-    let config = Config::default();
+    let mut config = Config::default();
+    config.set_ignore_tests(false);
     let mut igconfig = Config::default();
     igconfig.set_ignore_tests(true);
 
@@ -473,7 +474,8 @@ fn filter_test_utilities() {
     assert!(lines.ignore.contains(&Lines::Line(3)));
     assert!(lines.ignore.contains(&Lines::Line(4)));
 
-    let config = Config::default();
+    let mut config = Config::default();
+    config.set_ignore_tests(false);
 
     let ctx = Context {
         config: &config,
