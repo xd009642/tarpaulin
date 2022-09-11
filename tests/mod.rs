@@ -30,6 +30,7 @@ pub fn check_percentage_with_cli_args(minimum_coverage: f64, has_lines: bool, ar
              --debug 'Show debug output - this is used for diagnosing issues with tarpaulin'
              --verbose -v 'Show extra output'
              --root -r [DIR] 'directory'
+             --include-tests 'include tests in your tests'
              --implicit-test-threads 'Don't supply an explicit `--test-threads` argument to tarpaulin. By default tarpaulin will infer the default rustc would pick if not ran via tarpaulin and set it'"
         ).get_matches_from(args);
 
@@ -97,6 +98,7 @@ pub fn check_percentage_with_config(
 
 pub fn check_percentage(project_name: &str, minimum_coverage: f64, has_lines: bool) {
     let mut config = Config::default();
+    config.set_ignore_tests(false);
     config.set_clean(false);
     check_percentage_with_config(project_name, minimum_coverage, has_lines, config);
 }
@@ -379,6 +381,7 @@ fn no_test_args() {
         "--root".to_string(),
         test_dir.display().to_string(),
         "--implicit-test-threads".to_string(),
+        "--include-tests".to_string(),
     ];
     check_percentage_with_cli_args(1.0, true, &args);
 }
@@ -388,6 +391,7 @@ fn dot_rs_in_dir_name() {
     // issue #857
     let mut config = Config::default();
     config.set_clean(false);
+    config.set_ignore_tests(false);
 
     let restore_dir = env::current_dir().unwrap();
     let test_dir = get_test_path("not_a_file.rs");
@@ -410,6 +414,7 @@ fn kill_used_in_test() {
     let mut config = Config::default();
     config.follow_exec = true;
     config.set_clean(false);
+    config.set_ignore_tests(false);
     // Currently 2 false negatives, but if it was only covering the integration test max coverage
     // is 75% so this is high enough to prove it works
     check_percentage_with_config("kill_proc", 0.9f64, true, config);
