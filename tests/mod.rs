@@ -271,6 +271,7 @@ fn examples_coverage() {
     let mut config = Config::default();
     config.run_types = vec![RunType::Examples];
     config.set_clean(false);
+    config.set_ignore_tests(false);
     check_percentage_with_config(test, 1.0f64, true, config.clone());
 
     config.run_types.clear();
@@ -376,6 +377,7 @@ fn handle_module_level_exclude_attrs() {
 fn handle_forks() {
     let mut config = Config::default();
     config.set_clean(false);
+    config.set_ignore_tests(false);
     config.post_test_delay = Some(Duration::from_secs(10));
     // Some false negatives on more recent compilers so lets just aim for >90% and 0 return code
     check_percentage_with_config("fork-test", 0.9f64, true, config);
