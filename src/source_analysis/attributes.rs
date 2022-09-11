@@ -15,7 +15,7 @@ impl SourceAnalysis {
                         let mut skip = false;
                         for c in &ml.nested {
                             if let NestedMeta::Meta(Meta::Path(ref i)) = c {
-                                skip |= i.is_ident("test") && ctx.config.ignore_tests;
+                                skip |= i.is_ident("test") && ctx.config.ignore_tests();
                             }
                         }
                         if skip {

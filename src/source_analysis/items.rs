@@ -59,7 +59,7 @@ impl SourceAnalysis {
                     }
                     check_insides = false;
                     break;
-                } else if ctx.config.ignore_tests && x.path().is_ident("cfg") {
+                } else if ctx.config.ignore_tests() && x.path().is_ident("cfg") {
                     if let Meta::List(ref ml) = x {
                         for nested in &ml.nested {
                             if let NestedMeta::Meta(Meta::Path(ref i)) = *nested {
@@ -119,7 +119,7 @@ impl SourceAnalysis {
             }
         }
         if ignore_span
-            || (test_func && ctx.config.ignore_tests)
+            || (test_func && ctx.config.ignore_tests())
             || (ignored_attr && !ctx.config.run_ignored)
         {
             let analysis = self.get_line_analysis(ctx.file.to_path_buf());
