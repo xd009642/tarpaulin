@@ -7,6 +7,7 @@ file.
 ### Added
 
 ### Changed
+- Update quick-xml to 0.25
 
 ## [0.21.0] 2022-08-30
 ### Changed
