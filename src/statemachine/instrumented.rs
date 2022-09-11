@@ -10,7 +10,7 @@ use llvm_profparser::*;
 use std::collections::HashMap;
 use std::path::PathBuf;
 use std::thread::sleep;
-use tracing::info;
+use tracing::{info, warn};
 
 pub fn create_state_machine<'a>(
     test: impl Into<TestHandle>,
@@ -68,7 +68,6 @@ impl<'a> LlvmInstrumentedData<'a> {
 impl<'a> StateData for LlvmInstrumentedData<'a> {
     fn start(&mut self) -> Result<Option<TestState>, RunError> {
         // Nothing needs to be done at startup as this runs like a normal process
-        println!("{:#?}", self.analysis);
         Ok(Some(TestState::wait_state()))
     }
 
@@ -160,7 +159,7 @@ impl<'a> StateData for LlvmInstrumentedData<'a> {
                                     }
                                 }
                             } else {
-                                println!(
+                                warn!(
                                     "Couldn't find {} in {:?}",
                                     file.display(),
                                     self.traces.files()
