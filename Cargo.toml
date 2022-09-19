@@ -31,8 +31,8 @@ git2 = "0.15"
 humantime-serde = "1"
 indexmap = { version = "~1.8", features = ["serde-1"] }
 lazy_static = "1.0"
-#llvm_profparser = { version = "0.1.1", default-features = false }
-llvm_profparser = { version = "0.2", default-features = false }
+llvm_profparser = { git = "https://github.com/xd009642/llvm-profparser", branch="fix/merging", default-features = false }
+#llvm_profparser = { version = "0.2", default-features = false }
 memmap = "0.7.0"
 object = "0.29"
 num_cpus = "1.13.1"
