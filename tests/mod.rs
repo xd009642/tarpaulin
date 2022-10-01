@@ -215,7 +215,7 @@ fn config_file_coverage() {
 #[test]
 fn issue_966_follow_exec() {
     let test_dir = get_test_path("follow_exec_issue966");
-    let args = vec![
+    let mut args = vec![
         "tarpaulin".to_string(),
         "--root".to_string(),
         test_dir.display().to_string(),

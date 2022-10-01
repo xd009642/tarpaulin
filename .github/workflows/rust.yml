@@ -1,5 +1,4 @@
 name: Build
-
 on:
   push:
     branches:
@@ -86,3 +85,20 @@ jobs:
         run: cargo test
         env:
           RUST_BACKTRACE: 1
+  coverage:
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        version:
+          - stable
+        target:
+          - x86_64-unknown-linux-gnu
+      fail-fast: false
+    steps:
+      - uses: actions/checkout@v2
+      - uses: actions-rs/toolchain@v1
+        with:
+          toolchain: ${{ matrix.version }}
+          override: true
+      - name: coverage:
+          run: cargo run -- tarpaulin --engine llvm --coverals ${{ secrets.COVERALLS_TOKEN }}

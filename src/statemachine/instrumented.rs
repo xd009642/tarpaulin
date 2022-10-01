@@ -8,6 +8,7 @@ use crate::statemachine::*;
 use crate::TestHandle;
 use llvm_profparser::*;
 use std::collections::HashMap;
+use std::fs;
 use std::path::PathBuf;
 use std::thread::sleep;
 use tracing::{info, warn};
@@ -96,17 +97,42 @@ impl<'a> StateData for LlvmInstrumentedData<'a> {
                         .filter(|x| !parent.existing_profraws.contains(&x))
                         .collect::<Vec<_>>();
 
+                    let profraw_dir = self.config.target_dir().join("tarpaulin/profraws");
+                    let _ = fs::remove_dir_all(&profraw_dir);
+                    if let Err(e) = fs::create_dir(&profraw_dir) {
+                        warn!(
+                            "Unable to create profraw directory in tarpaulin's target folder: {}",
+                            e
+                        );
+                    }
+                    // TODO move into config.target_dir().join("tarpaulin/profraws")
+                    // then use from that path. Also delete old profraws in the folder.
+                    //
+                    // Probably make report dir a method on Config and tidy up it's use in
+                    // report/mod.rs
+
                     info!(
                         "For binary: {}",
                         self.config.strip_base_dir(&parent.path).display()
                     );
                     for prof in &profraws {
-                        info!("Generated: {}", self.config.strip_base_dir(prof).display());
+                        let profraw_name = self.config.strip_base_dir(prof);
+                        if let Err(e) = fs::copy(prof, profraw_dir.join(&profraw_name)) {
+                            warn!("Unable to copy backup of {}: {}", profraw_name.display(), e);
+                        }
+                        info!("Generated: {}", profraw_name.display());
                     }
 
                     let binary_path = parent.path.clone();
 
-                    let instrumentation = merge_profiles(&profraws)?;
+                    let instrumentation = merge_profiles(&profraws);
+                    for prof in &profraws {
+                        // Delete them
+                        if let Err(e) = fs::remove_file(&prof) {
+                            warn!("Unable to cleanup {}: {}", prof.display(), e);
+                        }
+                    }
+                    let instrumentation = instrumentation?;
                     if instrumentation.is_empty() {
                         warn!("profraw file has no records after merging. If this is unexpected it may be caused by a panic or signal used in a test that prevented the LLVM instrumentation runtime from serialising results");
                         self.process = None;
