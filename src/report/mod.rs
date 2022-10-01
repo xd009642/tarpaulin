@@ -189,7 +189,7 @@ fn print_summary(config: &Config, result: &TraceMap) {
     } else {
         let delta = percent - 100.0f64 * last.coverage_percentage();
         println!(
-            "|| \n{:.2}% coverage, {}/{} lines covered, {:+}% change in coverage",
+            "|| \n{:.2}% coverage, {}/{} lines covered, {:+.2}% change in coverage",
             percent,
             result.total_covered(),
             result.total_coverable(),
