@@ -101,4 +101,4 @@ jobs:
           toolchain: ${{ matrix.version }}
           override: true
       - name: coverage:
-          run: cargo run -- tarpaulin --engine llvm --coverals ${{ secrets.COVERALLS_TOKEN }}
+        run: cargo run -- tarpaulin --engine llvm --coverals ${{ secrets.COVERALLS_TOKEN }}
