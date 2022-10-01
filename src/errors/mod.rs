@@ -65,7 +65,11 @@ impl Display for RunError {
             Self::Json(e) => write!(f, "Failed to generate JSON report! Error: {}", e),
             Self::Internal => write!(f, "Tarpaulin experienced an internal error"),
             Self::BelowThreshold(a, e) => {
-                write!(f, "Coverage is below the failure threshold {}% < {}%", a, e)
+                write!(
+                    f,
+                    "Coverage is below the failure threshold {:.2}% < {:.2}%",
+                    a, e
+                )
             }
             Self::Engine(s) => write!(f, "Engine error: {}", s),
         }
