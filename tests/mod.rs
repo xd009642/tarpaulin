@@ -174,6 +174,7 @@ fn paths_coverage() {
 }
 
 #[test]
+#[cfg(not(tarpaulin))]
 fn futures_coverage() {
     check_percentage("futures", 1.0f64, true);
 }
