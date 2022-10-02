@@ -5,6 +5,9 @@ on:
       - "*"
   pull_request:
 
+env:
+  RUST_BACKTRACE: 1
+
 jobs:
   linux:
     runs-on: ubuntu-latest
@@ -25,20 +28,14 @@ jobs:
           toolchain: ${{ matrix.version }}
           override: true
           components: rustfmt
-      - name: clean
-        run: cargo clean
+      - name: cache
+        uses: Swatinem/rust-cache@v2
       - name: build
         run: cargo build
-        env:
-          RUST_BACKTRACE: 1
       - name: test
-        run: cargo test 
-        env:
-          RUST_BACKTRACE: 1
+        run: cargo test
       - name: ignored test
         run: cargo test -- --ignored || true
-        env:
-          RUST_BACKTRACE: 1
         if: matrix.version == 'nightly'
       - name: check formatting
         run: cargo fmt -- --check
@@ -58,12 +55,12 @@ jobs:
         with:
           toolchain: ${{ matrix.version }}
           override: true
+      - name: cache
+        uses: Swatinem/rust-cache@v2
       - name: build
         run: cargo build
       - name: test
         run: cargo test
-        env:
-          RUST_BACKTRACE: 1
   mac:
     runs-on: macos-latest
     strategy:
@@ -79,12 +76,12 @@ jobs:
         with:
           toolchain: ${{ matrix.version }}
           override: true
+      - name: cache
+        uses: Swatinem/rust-cache@v2
       - name: build
         run: cargo build
       - name: test
         run: cargo test
-        env:
-          RUST_BACKTRACE: 1
   coverage:
     runs-on: ubuntu-latest
     strategy:
