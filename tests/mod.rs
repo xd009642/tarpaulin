@@ -422,6 +422,7 @@ fn dot_rs_in_dir_name() {
 
 #[test]
 #[cfg(unix)]
+#[cfg(not(tarpaulin))]
 fn kill_used_in_test() {
     let mut config = Config::default();
     if config.engine() == TraceEngine::Llvm {
