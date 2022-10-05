@@ -307,6 +307,7 @@ fn filter_with_inner_attributes() {
 }
 
 #[test]
+#[cfg(not(tarpaulin))]
 fn cargo_home_filtering() {
     let new_home =
         Path::new(env!("CARGO_MANIFEST_DIR")).join("tests/data/HttptestAndReqwest/new_home");
