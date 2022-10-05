@@ -420,6 +420,11 @@ impl Config {
         }
     }
 
+    /// Get directory profraws are stored in
+    pub fn profraw_dir(&self) -> PathBuf {
+        self.target_dir().join("tarpaulin/profraws")
+    }
+
     pub fn doctest_dir(&self) -> PathBuf {
         // https://github.com/rust-lang/rust/issues/98690
         let mut result = fix_unc_path(&self.target_dir());

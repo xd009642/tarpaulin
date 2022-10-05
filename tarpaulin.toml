@@ -1,3 +1,4 @@
 [test_config]
-debug = false
-verbose = false
+engine = "Llvm"
+follow-exec = true
+skip-clean = true

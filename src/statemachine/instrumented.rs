@@ -97,19 +97,7 @@ impl<'a> StateData for LlvmInstrumentedData<'a> {
                         .filter(|x| !parent.existing_profraws.contains(&x))
                         .collect::<Vec<_>>();
 
-                    let profraw_dir = self.config.target_dir().join("tarpaulin/profraws");
-                    let _ = fs::remove_dir_all(&profraw_dir);
-                    if let Err(e) = fs::create_dir(&profraw_dir) {
-                        warn!(
-                            "Unable to create profraw directory in tarpaulin's target folder: {}",
-                            e
-                        );
-                    }
-                    // TODO move into config.target_dir().join("tarpaulin/profraws")
-                    // then use from that path. Also delete old profraws in the folder.
-                    //
-                    // Probably make report dir a method on Config and tidy up it's use in
-                    // report/mod.rs
+                    let profraw_dir = self.config.profraw_dir();
 
                     info!(
                         "For binary: {}",

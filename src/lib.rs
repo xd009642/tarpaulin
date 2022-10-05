@@ -9,7 +9,7 @@ use crate::source_analysis::{LineAnalysis, SourceAnalysis};
 use crate::test_loader::*;
 use crate::traces::*;
 use std::ffi::OsString;
-use std::fs::create_dir_all;
+use std::fs::{create_dir_all, remove_dir_all};
 use tracing::{debug, error, info, warn};
 use tracing_subscriber::{filter::LevelFilter, EnvFilter};
 
@@ -157,6 +157,16 @@ fn check_fail_threshold(traces: &TraceMap, config: &Config) -> Result<(), RunErr
 }
 
 pub fn run(configs: &[Config]) -> Result<(), RunError> {
+    if configs.iter().any(|x| x.engine() == TraceEngine::Llvm) {
+        let profraw_dir = configs[0].profraw_dir();
+        let _ = remove_dir_all(&profraw_dir);
+        if let Err(e) = create_dir_all(&profraw_dir) {
+            warn!(
+                "Unable to create profraw directory in tarpaulin's target folder: {}",
+                e
+            );
+        }
+    }
     let tracemap = collect_tracemap(configs)?;
     report_tracemap(configs, tracemap)
 }
