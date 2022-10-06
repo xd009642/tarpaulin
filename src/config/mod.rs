@@ -384,6 +384,10 @@ impl Config {
         }
     }
 
+    pub fn set_engine(&self, engine: TraceEngine) {
+        self.engine.replace(engine);
+    }
+
     pub fn set_clean(&mut self, clean: bool) {
         self.force_clean = clean;
         self.skip_clean = !clean;

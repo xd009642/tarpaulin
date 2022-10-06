@@ -144,6 +144,21 @@ fn picking_up_shared_objects() {
     check_percentage("torch_test", 1.0f64, true);
 }
 
+// Just for linux if we have ptrace as default
+#[test]
+fn llvm_sanity_test() {
+    let mut config = Config::default();
+    config.set_engine(TraceEngine::Llvm);
+    config.follow_exec = true;
+    config.set_ignore_tests(false);
+    config.set_clean(false);
+
+    check_percentage_with_config("structs", 1.0f64, true, config.clone());
+    check_percentage_with_config("ifelse", 1.0f64, true, config.clone());
+    check_percentage_with_config("returns", 1.0f64, true, config.clone());
+    check_percentage_with_config("follow_exe", 1.0f64, true, config);
+}
+
 #[test]
 fn struct_expr_coverage() {
     check_percentage("structs", 1.0f64, true);
@@ -365,7 +380,6 @@ fn rustflags_handling() {
 fn follow_exes_down() {
     let mut config = Config::default();
     config.follow_exec = true;
-    config.dump_traces = true;
     config.set_clean(false);
     check_percentage_with_config("follow_exe", 1.0f64, true, config);
 }
