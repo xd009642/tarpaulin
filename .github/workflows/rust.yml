@@ -98,4 +98,4 @@ jobs:
           toolchain: ${{ matrix.version }}
           override: true
       - name: coverage
-        run: cargo run -- tarpaulin --engine llvm --follow-exec --post-test-delay 10 --coveralls ${{ secrets.COVERALLS_TOKEN }}
+        run: cargo run --release -- tarpaulin --engine llvm --follow-exec --post-test-delay 10 --coveralls ${{ secrets.COVERALLS_TOKEN }}
