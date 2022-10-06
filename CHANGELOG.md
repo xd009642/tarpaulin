@@ -5,10 +5,13 @@ file.
 
 ## [Unreleased]
 ### Added
+- Working llvm coverage instrumentation (coverage now works on Mac and Windows!)
+- `--post-test-delay` for tests which spawn a process
 
 ### Changed
 - Update quick-xml to 0.25
 - Make --ignore-tests the default and add a flag --include-tests to reapply the old behaviour
+- profraw files moved to `$TARGET_DIR/tarpaulin/profraws`
 
 ## [0.21.0] 2022-08-30
 ### Changed
