@@ -1,6 +1,7 @@
 use self::parse::*;
 pub use self::types::*;
 use crate::cargo::supports_llvm_coverage;
+use crate::path_utils::fix_unc_path;
 use cargo_metadata::{Metadata, MetadataCommand, Package};
 use clap::{value_t, ArgMatches};
 use coveralls_api::CiService;
@@ -180,6 +181,9 @@ pub struct Config {
     #[serde(rename = "include-tests")]
     /// Inverse of ignore_tests
     include_tests: bool,
+    #[serde(rename = "post-test-delay")]
+    /// Delay after test to collect instrumentation files (LLVM only)
+    pub post_test_delay: Option<Duration>,
 }
 
 fn default_test_timeout() -> Duration {
@@ -245,8 +249,9 @@ impl Default for Config {
             avoid_cfg_tarpaulin: false,
             jobs: None,
             color: Color::Auto,
-            engine: RefCell::new(TraceEngine::Ptrace),
+            engine: RefCell::default(),
             rustflags: None,
+            post_test_delay: None,
         }
     }
 }
@@ -277,7 +282,7 @@ impl<'a> From<&'a ArgMatches<'a>> for ConfigWrapper {
             }
         };
 
-        let engine = value_t!(args.value_of("engine"), TraceEngine).unwrap_or(TraceEngine::Ptrace);
+        let engine = value_t!(args.value_of("engine"), TraceEngine).unwrap_or_default();
 
         let args_config = Config {
             name: String::new(),
@@ -338,6 +343,7 @@ impl<'a> From<&'a ArgMatches<'a>> for ConfigWrapper {
             avoid_cfg_tarpaulin: args.is_present("avoid-cfg-tarpaulin"),
             implicit_test_threads: args.is_present("implicit-test-threads"),
             rustflags: get_rustflags(args),
+            post_test_delay: get_post_test_delay(args),
         };
         if args.is_present("ignore-config") {
             Self(vec![args_config])
@@ -378,6 +384,10 @@ impl Config {
         }
     }
 
+    pub fn set_engine(&self, engine: TraceEngine) {
+        self.engine.replace(engine);
+    }
+
     pub fn set_clean(&mut self, clean: bool) {
         self.force_clean = clean;
         self.skip_clean = !clean;
@@ -414,8 +424,14 @@ impl Config {
         }
     }
 
+    /// Get directory profraws are stored in
+    pub fn profraw_dir(&self) -> PathBuf {
+        self.target_dir().join("tarpaulin/profraws")
+    }
+
     pub fn doctest_dir(&self) -> PathBuf {
-        let mut result = self.target_dir();
+        // https://github.com/rust-lang/rust/issues/98690
+        let mut result = fix_unc_path(&self.target_dir());
         result.push("doctests");
         result
     }
@@ -434,11 +450,7 @@ impl Config {
     pub fn root(&self) -> PathBuf {
         match *self.get_metadata() {
             Some(ref meta) => PathBuf::from(meta.workspace_root.clone()),
-            _ => self
-                .manifest
-                .parent()
-                .map(Path::to_path_buf)
-                .unwrap_or_default(),
+            _ => self.manifest.parent().map(fix_unc_path).unwrap_or_default(),
         }
     }
 
@@ -589,6 +601,12 @@ impl Config {
         self.ignore_tests |= other.ignore_tests;
         self.no_fail_fast |= other.no_fail_fast;
 
+        let end_delay = match (self.post_test_delay, other.post_test_delay) {
+            (Some(d), None) | (None, Some(d)) => Some(d),
+            (None, None) => None,
+            (Some(a), Some(b)) => Some(a.max(b)),
+        };
+        self.post_test_delay = end_delay;
         // The two flags now don't agree, if one is set to non-default then prioritise that
         match (self.force_clean, self.skip_clean) {
             (true, false) | (false, true) => {}

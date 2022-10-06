@@ -1,15 +1,17 @@
 #![allow(dead_code)]
 use crate::config::Config;
 use crate::errors::RunError;
+use crate::path_utils::{get_profile_walker, get_source_walker};
 use crate::process_handling::RunningProcessHandle;
 use crate::source_analysis::LineAnalysis;
 use crate::statemachine::*;
 use crate::TestHandle;
+use llvm_profparser::*;
 use std::collections::HashMap;
-use std::ffi::OsStr;
 use std::fs;
 use std::path::PathBuf;
-use tracing::info;
+use std::thread::sleep;
+use tracing::{info, warn};
 
 pub fn create_state_machine<'a>(
     test: impl Into<TestHandle>,
@@ -55,6 +57,15 @@ pub struct LlvmInstrumentedData<'a> {
     analysis: &'a HashMap<PathBuf, LineAnalysis>,
 }
 
+impl<'a> LlvmInstrumentedData<'a> {
+    fn should_panic(&self) -> bool {
+        match &self.process {
+            Some(hnd) => hnd.should_panic,
+            None => false,
+        }
+    }
+}
+
 impl<'a> StateData for LlvmInstrumentedData<'a> {
     fn start(&mut self) -> Result<Option<TestState>, RunError> {
         // Nothing needs to be done at startup as this runs like a normal process
@@ -71,27 +82,112 @@ impl<'a> StateData for LlvmInstrumentedData<'a> {
     }
 
     fn wait(&mut self) -> Result<Option<TestState>, RunError> {
+        let should_panic = self.should_panic();
         if let Some(parent) = self.process.as_mut() {
             match parent.child.wait() {
                 Ok(exit) => {
-                    let profraws = fs::read_dir(self.config.root())?
-                        .into_iter()
-                        .filter_map(Result::ok)
-                        .filter(|x| {
-                            x.path().is_file()
-                                && x.path().extension() == Some(OsStr::new("profraw"))
-                                && !parent.existing_profraws.contains(&x.path())
-                        })
-                        .map(|x| x.path())
+                    if !exit.success() && !should_panic {
+                        return Err(RunError::TestFailed);
+                    }
+                    if let Some(delay) = self.config.post_test_delay {
+                        sleep(delay);
+                    }
+                    let profraws = get_profile_walker(self.config)
+                        .map(|x| x.path().to_path_buf())
+                        .filter(|x| !parent.existing_profraws.contains(&x))
                         .collect::<Vec<_>>();
+
+                    let profraw_dir = self.config.profraw_dir();
 
                     info!(
                         "For binary: {}",
                         self.config.strip_base_dir(&parent.path).display()
                     );
                     for prof in &profraws {
-                        info!("Generated: {}", self.config.strip_base_dir(prof).display());
+                        let profraw_name = self.config.strip_base_dir(prof);
+                        if let Err(e) = fs::copy(prof, profraw_dir.join(&profraw_name)) {
+                            warn!("Unable to copy backup of {}: {}", profraw_name.display(), e);
+                        }
+                        info!("Generated: {}", profraw_name.display());
                     }
+
+                    let binary_path = parent.path.clone();
+
+                    let instrumentation = merge_profiles(&profraws);
+                    for prof in &profraws {
+                        // Delete them
+                        if let Err(e) = fs::remove_file(&prof) {
+                            warn!("Unable to cleanup {}: {}", prof.display(), e);
+                        }
+                    }
+                    let instrumentation = instrumentation?;
+                    if instrumentation.is_empty() {
+                        warn!("profraw file has no records after merging. If this is unexpected it may be caused by a panic or signal used in a test that prevented the LLVM instrumentation runtime from serialising results");
+                        self.process = None;
+                        let code = exit.code().unwrap_or(1);
+                        return Ok(Some(TestState::End(code)));
+                    }
+                    // Panics due to a todo!();
+                    let mut binaries = parent.extra_binaries.clone();
+                    binaries.push(binary_path);
+                    let mapping =
+                        CoverageMapping::new(&binaries, &instrumentation).map_err(|e| {
+                            error!("Failed to get coverage: {}", e);
+                            RunError::TestCoverage(e.to_string())
+                        })?;
+                    let report = mapping.generate_report();
+
+                    if self.traces.is_empty() {
+                        for source_file in get_source_walker(self.config) {
+                            let file = source_file.path();
+                            let analysis = self.analysis.get(file);
+                            if let Some(result) = report.files.get(file) {
+                                for (loc, hits) in result.hits.iter() {
+                                    for line in loc.line_start..(loc.line_end + 1) {
+                                        let include = match analysis.as_ref() {
+                                            Some(analysis) => !analysis.should_ignore(line),
+                                            None => true,
+                                        };
+                                        if include {
+                                            let mut trace = Trace::new_stub(line as u64);
+                                            trace.stats = CoverageStat::Line(*hits as u64);
+                                            self.traces.add_trace(file, trace);
+                                        }
+                                    }
+                                }
+                            }
+                            if let Some(analysis) = analysis {
+                                for line in analysis.cover.iter() {
+                                    if !self.traces.contains_location(file, *line as u64) {
+                                        let mut trace = Trace::new_stub(*line as u64);
+                                        trace.stats = CoverageStat::Line(0);
+                                        self.traces.add_trace(file, trace);
+                                    }
+                                }
+                            }
+                        }
+                    } else {
+                        self.traces.dedup();
+
+                        for (file, result) in report.files.iter() {
+                            if let Some(traces) = self.traces.file_traces_mut(&file) {
+                                for trace in traces.iter_mut() {
+                                    if let Some(hits) = result.hits_for_line(trace.line as usize) {
+                                        if let CoverageStat::Line(ref mut x) = trace.stats {
+                                            *x = hits as _;
+                                        }
+                                    }
+                                }
+                            } else {
+                                warn!(
+                                    "Couldn't find {} in {:?}",
+                                    file.display(),
+                                    self.traces.files()
+                                );
+                            }
+                        }
+                    }
+
                     self.process = None;
                     let code = exit.code().unwrap_or(1);
                     Ok(Some(TestState::End(code)))

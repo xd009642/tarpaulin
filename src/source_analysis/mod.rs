@@ -310,11 +310,11 @@ impl SourceAnalysis {
             let skip_cause_test = config.ignore_tests() && path.starts_with(root.join("tests"));
             let skip_cause_example = path.starts_with(root.join("examples"))
                 && !config.run_types.contains(&RunType::Examples);
-            if self.is_ignored_module(path) {
+            if (skip_cause_test || skip_cause_example) || self.is_ignored_module(path) {
                 let mut analysis = LineAnalysis::new();
                 analysis.ignore_all();
                 self.lines.insert(path.to_path_buf(), analysis);
-            } else if !(skip_cause_test || skip_cause_example) {
+            } else {
                 let file = File::open(file);
                 if let Ok(mut file) = file {
                     let mut content = String::new();

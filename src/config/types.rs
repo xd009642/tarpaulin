@@ -21,6 +21,30 @@ arg_enum! {
     }
 }
 
+impl TraceEngine {
+    pub const fn supported() -> &'static [TraceEngine] {
+        cfg_if::cfg_if! {
+            if #[cfg(target_os = "linux")] {
+                &[TraceEngine::Ptrace, TraceEngine::Llvm]
+            } else {
+                &[TraceEngine::Llvm]
+            }
+        }
+    }
+}
+
+impl Default for TraceEngine {
+    fn default() -> Self {
+        cfg_if::cfg_if! {
+            if #[cfg(target_os = "linux")] {
+                TraceEngine::Ptrace
+            } else {
+                TraceEngine::Llvm
+            }
+        }
+    }
+}
+
 arg_enum! {
     #[derive(Debug, Copy, Clone, PartialEq, Eq, Hash, Ord, PartialOrd, Deserialize, Serialize)]
     pub enum Mode {

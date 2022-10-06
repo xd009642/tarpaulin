@@ -1,8 +1,29 @@
 use crate::config::Config;
 use std::env::var;
 use std::ffi::OsStr;
-use std::path::Path;
+use std::path::{Path, PathBuf};
 use walkdir::{DirEntry, WalkDir};
+
+/// On windows removes the `\\?\\` prefix to UNC paths. For other operation systems just turns the
+/// `Path` into a `PathBuf`
+pub fn fix_unc_path(res: &Path) -> PathBuf {
+    if cfg!(windows) {
+        let res_str = res.display().to_string();
+        if res_str.starts_with(r#"\\?"#) {
+            PathBuf::from(res_str.replace(r#"\\?\"#, ""))
+        } else {
+            res.to_path_buf()
+        }
+    } else {
+        res.to_path_buf()
+    }
+}
+
+/// Returns true if the file is a rust source file
+pub fn is_profraw_file(entry: &DirEntry) -> bool {
+    let p = entry.path();
+    p.is_file() && p.extension() == Some(OsStr::new("profraw"))
+}
 
 /// Returns true if the file is a rust source file
 pub fn is_source_file(entry: &DirEntry) -> bool {
@@ -74,6 +95,17 @@ pub fn get_source_walker(config: &Config) -> impl Iterator<Item = DirEntry> + '_
         .filter_map(Result::ok)
         .filter(move |e| !(config.exclude_path(e.path())))
         .filter(is_source_file)
+}
+
+pub fn get_profile_walker(config: &Config) -> impl Iterator<Item = DirEntry> {
+    let root = config.root();
+    let target = config.target_dir();
+
+    let walker = WalkDir::new(&root).into_iter();
+    walker
+        .filter_entry(move |e| is_coverable_file_path(e.path(), &root, &target))
+        .filter_map(|e| e.ok())
+        .filter(|e| is_profraw_file(e))
 }
 
 #[cfg(test)]

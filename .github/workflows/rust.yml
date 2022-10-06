@@ -1,5 +1,4 @@
 name: Build
-
 on:
   push:
     branches:
@@ -61,7 +60,7 @@ jobs:
       - name: build
         run: cargo build
       - name: test
-        run: cargo test -- || true
+        run: cargo test
   mac:
     runs-on: macos-latest
     strategy:
@@ -82,4 +81,21 @@ jobs:
       - name: build
         run: cargo build
       - name: test
-        run: cargo test -- || true
+        run: cargo test
+  coverage:
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        version:
+          - nightly
+        target:
+          - x86_64-unknown-linux-gnu
+      fail-fast: false
+    steps:
+      - uses: actions/checkout@v2
+      - uses: actions-rs/toolchain@v1
+        with:
+          toolchain: ${{ matrix.version }}
+          override: true
+      - name: coverage
+        run: cargo run --release -- tarpaulin --engine llvm --follow-exec --post-test-delay 10 --coveralls ${{ secrets.COVERALLS_TOKEN }}

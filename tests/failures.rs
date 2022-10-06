@@ -62,7 +62,7 @@ fn error_if_test_fails() {
 
     if let Err(RunError::TestFailed) = result {
     } else {
-        panic!("Expected a TestCompile error");
+        panic!("Expected a TestFailed error: {:?}", result);
     }
 }
 
