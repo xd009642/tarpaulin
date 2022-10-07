@@ -3,7 +3,7 @@ on:
   push:
     branches:
       - "*"
-  pull_request:
+  pull_request_target:
 
 env:
   RUST_BACKTRACE: 1
@@ -98,4 +98,4 @@ jobs:
           toolchain: ${{ matrix.version }}
           override: true
       - name: coverage
-        run: cargo run --release -- tarpaulin --engine llvm --follow-exec --post-test-delay 10 --coveralls ${{ secrets.COVERALLS_TOKEN }} || true
+        run: cargo run --release -- tarpaulin --engine llvm --follow-exec --post-test-delay 10 --coveralls ${{ secrets.COVERALLS_TOKEN }} 
