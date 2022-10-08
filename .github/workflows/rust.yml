@@ -40,7 +40,7 @@ jobs:
       - uses: actions/upload-artifact@v3
         if: failure()
         with:
-          name: upload-results
+          name: linux ${{ matrix.version }}
           path: |
               tests/data/
               !tests/data/**/*.rs
@@ -72,7 +72,7 @@ jobs:
       - uses: actions/upload-artifact@v3
         if: failure()
         with:
-          name: upload-results
+          name: windows ${{ matrix.version }}
           path: |
               tests/data/
               !tests/data/**/*.rs
@@ -101,7 +101,7 @@ jobs:
       - uses: actions/upload-artifact@v3
         if: failure()
         with:
-          name: upload-results
+          name: mac ${{ matrix.version }}
           path: |
               tests/data/
               !tests/data/**/*.rs
