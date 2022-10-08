@@ -1,6 +1,9 @@
 use crate::utils::get_test_path;
-use cargo_tarpaulin::run;
-use cargo_tarpaulin::{config::Config, errors::RunError};
+use cargo_tarpaulin::{
+    config::{Color, Config},
+    errors::RunError,
+};
+use cargo_tarpaulin::{run, setup_logging};
 use rusty_fork::rusty_fork_test;
 use std::{env, path::PathBuf};
 
@@ -8,6 +11,7 @@ rusty_fork_test! {
 
 #[test]
 fn coverage_below_threshold() {
+    setup_logging(Color::Never, true, true);
     let mut config = Config::default();
     let test_dir = get_test_path("simple_project");
     env::set_current_dir(&test_dir).unwrap();
@@ -30,6 +34,7 @@ fn coverage_below_threshold() {
 
 #[test]
 fn coverage_above_threshold() {
+    setup_logging(Color::Never, true, true);
     let mut config = Config::default();
     let test_dir = get_test_path("simple_project");
     env::set_current_dir(&test_dir).unwrap();
@@ -46,6 +51,7 @@ fn coverage_above_threshold() {
 
 #[test]
 fn report_coverage_fail() {
+    setup_logging(Color::Never, true, true);
     let mut config = Config::default();
     let test_dir = get_test_path("simple_project");
     env::set_current_dir(&test_dir).unwrap();

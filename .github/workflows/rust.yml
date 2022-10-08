@@ -41,6 +41,7 @@ jobs:
         if: failure()
         with:
           name: linux ${{ matrix.version }}
+          retention-days: 3
           path: |
               tests/data/
               !tests/data/**/*.rs
@@ -73,6 +74,7 @@ jobs:
         if: failure()
         with:
           name: windows ${{ matrix.version }}
+          retention-days: 3
           path: |
               tests/data/
               !tests/data/**/*.rs
@@ -102,6 +104,7 @@ jobs:
         if: failure()
         with:
           name: mac ${{ matrix.version }}
+          retention-days: 3
           path: |
               tests/data/
               !tests/data/**/*.rs
