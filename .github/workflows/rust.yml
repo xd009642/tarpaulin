@@ -36,7 +36,7 @@ jobs:
         run: cargo test
       - name: ignored test
         run: cargo test -- --ignored || true
-        if: matrix.version == 'nightly'A
+        if: matrix.version == 'nightly'
       - uses: actions/upload-artifact@v3
         if: failure()
         with:
