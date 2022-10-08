@@ -2,7 +2,7 @@ use crate::utils::get_test_path;
 use cargo_tarpaulin::run;
 use cargo_tarpaulin::{config::Config, errors::RunError};
 use rusty_fork::rusty_fork_test;
-use std::env;
+use std::{env, path::PathBuf};
 
 rusty_fork_test! {
 
@@ -15,6 +15,7 @@ fn coverage_below_threshold() {
     config.manifest.push("Cargo.toml");
     config.fail_under = Some(100.0);
     config.set_clean(false);
+    config.set_profraw_folder(PathBuf::from("coverage_below_threshold"));
 
     let result = run(&[config]);
 
@@ -36,6 +37,7 @@ fn coverage_above_threshold() {
     config.manifest.push("Cargo.toml");
     config.fail_under = Some(30.0);
     config.set_clean(false);
+    config.set_profraw_folder(PathBuf::from("coverage_above_threshold"));
 
     let result = run(&[config]);
 
@@ -51,6 +53,7 @@ fn report_coverage_fail() {
     config.manifest.push("Cargo.toml");
     config.fail_under = Some(10.0);
     config.set_clean(false);
+    config.set_profraw_folder(PathBuf::from("report_coverage_fail"));
 
     let mut report = Config::default();
     report.name = "report".to_string();

@@ -2,8 +2,8 @@ use crate::utils::get_test_path;
 use cargo_tarpaulin::config::{Config, RunType};
 use cargo_tarpaulin::launch_tarpaulin;
 use rusty_fork::rusty_fork_test;
-use std::env;
 use std::time::Duration;
+use std::{env, path::PathBuf};
 
 rusty_fork_test! {
 #[test]
@@ -15,6 +15,7 @@ fn doc_test_env() {
     env::set_current_dir(&test_dir).unwrap();
     config.manifest = test_dir;
     config.manifest.push("Cargo.toml");
+    config.set_profraw_folder(PathBuf::from("doc_test_env"));
 
     config.run_types = vec![RunType::Doctests];
 
@@ -37,6 +38,7 @@ fn doc_test_coverage() {
     config.manifest.push("Cargo.toml");
 
     config.run_types = vec![RunType::Doctests];
+    config.set_profraw_folder(PathBuf::from("doc_test_coverage_1"));
 
     let (res, ret) = launch_tarpaulin(&config, &None).unwrap();
 
@@ -45,6 +47,7 @@ fn doc_test_coverage() {
     assert_eq!(res.total_covered(), res.total_coverable());
 
     config.run_types = vec![RunType::Tests];
+    config.set_profraw_folder(PathBuf::from("doc_test_coverage_2"));
 
     let (res, ret) = launch_tarpaulin(&config, &None).unwrap();
 
@@ -64,6 +67,7 @@ fn doc_test_panics() {
     config.manifest.push("Cargo.toml");
 
     config.run_types = vec![RunType::Doctests];
+    config.set_profraw_folder(PathBuf::from("doc_test_panics_1"));
 
     let (res, ret) = launch_tarpaulin(&config, &None).unwrap();
 
@@ -72,6 +76,7 @@ fn doc_test_panics() {
     assert_eq!(res.total_covered(), res.total_coverable());
 
     config.run_types = vec![RunType::Tests];
+    config.set_profraw_folder(PathBuf::from("doc_test_panics_2"));
 
     let (res, ret) = launch_tarpaulin(&config, &None).unwrap();
 
@@ -89,6 +94,7 @@ fn doc_test_panics_workspace() {
     env::set_current_dir(&test_dir).unwrap();
     config.manifest = test_dir;
     config.manifest.push("Cargo.toml");
+    config.set_profraw_folder(PathBuf::from("doc_test_panics_workspace_1"));
 
     config.run_types = vec![RunType::Doctests];
 
@@ -99,6 +105,7 @@ fn doc_test_panics_workspace() {
     assert_eq!(res.total_covered(), res.total_coverable());
 
     config.run_types = vec![RunType::Tests];
+    config.set_profraw_folder(PathBuf::from("doc_test_panics_workspace_2"));
 
     let (res, ret) = launch_tarpaulin(&config, &None).unwrap();
 

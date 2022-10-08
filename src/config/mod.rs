@@ -184,6 +184,8 @@ pub struct Config {
     #[serde(rename = "post-test-delay")]
     /// Delay after test to collect instrumentation files (LLVM only)
     pub post_test_delay: Option<Duration>,
+    /// Joined to target/tarpaulin to store profraws
+    profraw_folder: PathBuf,
 }
 
 fn default_test_timeout() -> Duration {
@@ -252,6 +254,7 @@ impl Default for Config {
             engine: RefCell::default(),
             rustflags: None,
             post_test_delay: None,
+            profraw_folder: PathBuf::from("profraws"),
         }
     }
 }
@@ -344,6 +347,7 @@ impl<'a> From<&'a ArgMatches<'a>> for ConfigWrapper {
             implicit_test_threads: args.is_present("implicit-test-threads"),
             rustflags: get_rustflags(args),
             post_test_delay: get_post_test_delay(args),
+            profraw_folder: PathBuf::from("profraws"),
         };
         if args.is_present("ignore-config") {
             Self(vec![args_config])
@@ -426,7 +430,17 @@ impl Config {
 
     /// Get directory profraws are stored in
     pub fn profraw_dir(&self) -> PathBuf {
-        self.target_dir().join("tarpaulin/profraws")
+        if self.profraw_folder.is_relative() {
+            self.target_dir()
+                .join("tarpaulin")
+                .join(&self.profraw_folder)
+        } else {
+            self.profraw_folder.clone()
+        }
+    }
+
+    pub fn set_profraw_folder(&mut self, path: PathBuf) {
+        self.profraw_folder = path;
     }
 
     pub fn doctest_dir(&self) -> PathBuf {

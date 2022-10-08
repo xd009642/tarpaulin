@@ -9,7 +9,7 @@ use rusty_fork::rusty_fork_test;
 use std::collections::HashSet;
 use std::env;
 use std::fs;
-use std::path::Path;
+use std::path::{Path, PathBuf};
 use std::time::Duration;
 
 #[cfg(nightly)]
