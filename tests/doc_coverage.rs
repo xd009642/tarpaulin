@@ -8,7 +8,7 @@ use std::{env, path::PathBuf};
 rusty_fork_test! {
 #[test]
 fn doc_test_env() {
-    setup_logging(Color::Never, true, true);
+    setup_logging(Color::Never, false, false);
     let mut config = Config::default();
     config.set_clean(false);
     config.test_timeout = Duration::from_secs(60);
@@ -29,7 +29,7 @@ fn doc_test_env() {
 
 #[test]
 fn doc_test_coverage() {
-    setup_logging(Color::Never, true, true);
+    setup_logging(Color::Never, false, false);
     let mut config = Config::default();
     config.verbose = true;
     config.set_clean(false);
@@ -59,7 +59,7 @@ fn doc_test_coverage() {
 
 #[test]
 fn doc_test_panics() {
-    setup_logging(Color::Never, true, true);
+    setup_logging(Color::Never, false, false);
     let mut config = Config::default();
     config.verbose = true;
     config.set_clean(false);
@@ -89,7 +89,7 @@ fn doc_test_panics() {
 
 #[test]
 fn doc_test_panics_workspace() {
-    setup_logging(Color::Never, true, true);
+    setup_logging(Color::Never, false, false);
     let mut config = Config::default();
     config.verbose = true;
     config.set_clean(false);
@@ -119,7 +119,7 @@ fn doc_test_panics_workspace() {
 
 #[test]
 fn doc_test_compile_fail() {
-    setup_logging(Color::Never, true, true);
+    setup_logging(Color::Never, false, false);
     let mut config = Config::default();
     config.verbose = true;
     config.set_clean(false);
@@ -136,7 +136,7 @@ fn doc_test_compile_fail() {
 
 #[test]
 fn doc_test_no_run() {
-    setup_logging(Color::Never, true, true);
+    setup_logging(Color::Never, false, false);
     let mut config = Config::default();
     config.verbose = true;
     config.set_clean(false);

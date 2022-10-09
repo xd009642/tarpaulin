@@ -11,7 +11,7 @@ rusty_fork_test! {
 
 #[test]
 fn coverage_below_threshold() {
-    setup_logging(Color::Never, true, true);
+    setup_logging(Color::Never, false, false);
     let mut config = Config::default();
     let test_dir = get_test_path("simple_project");
     env::set_current_dir(&test_dir).unwrap();
@@ -34,7 +34,7 @@ fn coverage_below_threshold() {
 
 #[test]
 fn coverage_above_threshold() {
-    setup_logging(Color::Never, true, true);
+    setup_logging(Color::Never, false, false);
     let mut config = Config::default();
     let test_dir = get_test_path("simple_project");
     env::set_current_dir(&test_dir).unwrap();
@@ -51,7 +51,7 @@ fn coverage_above_threshold() {
 
 #[test]
 fn report_coverage_fail() {
-    setup_logging(Color::Never, true, true);
+    setup_logging(Color::Never, false, false);
     let mut config = Config::default();
     let test_dir = get_test_path("simple_project");
     env::set_current_dir(&test_dir).unwrap();

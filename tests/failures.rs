@@ -11,7 +11,7 @@ rusty_fork_test! {
 
 #[test]
 fn error_if_build_script_fails() {
-    setup_logging(Color::Never, true, true);
+    setup_logging(Color::Never, false, false);
     let mut config = Config::default();
     let test_dir = get_test_path("build_script_fail");
     env::set_current_dir(&test_dir).unwrap();
@@ -31,7 +31,7 @@ fn error_if_build_script_fails() {
 
 #[test]
 fn error_if_compilation_fails() {
-    setup_logging(Color::Never, true, true);
+    setup_logging(Color::Never, false, false);
     let mut config = Config::default();
     let test_dir = get_test_path("compile_fail");
     env::set_current_dir(&test_dir).unwrap();
@@ -51,7 +51,7 @@ fn error_if_compilation_fails() {
 
 #[test]
 fn error_if_test_fails() {
-    setup_logging(Color::Never, true, true);
+    setup_logging(Color::Never, false, false);
     let mut config = Config::default();
     let test_dir = get_test_path("failing_test");
     env::set_current_dir(&test_dir).unwrap();
@@ -71,7 +71,7 @@ fn error_if_test_fails() {
 
 #[test]
 fn issue_610() {
-    setup_logging(Color::Never, true, true);
+    setup_logging(Color::Never, false, false);
     let mut config = Config::default();
     let test_dir = get_test_path("issue_610");
     config.test_names.insert("foo".to_string());

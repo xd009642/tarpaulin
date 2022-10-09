@@ -10,7 +10,7 @@ rusty_fork_test! {
 
 #[test]
 fn mix_test_types() {
-    setup_logging(Color::Never, true, true);
+    setup_logging(Color::Never, false, false);
     // Issue 747 the clean would delete old tests leaving to only one run type effectively being
     // ran. This test covers against that mistake
     let mut config = Config::default();
@@ -42,7 +42,7 @@ fn mix_test_types() {
 
 #[test]
 fn only_test_coverage() {
-    setup_logging(Color::Never, true, true);
+    setup_logging(Color::Never, false, false);
     let mut config = Config::default();
     config.set_clean(false);
     config.test_timeout = Duration::from_secs(60);
@@ -70,7 +70,7 @@ fn only_test_coverage() {
 
 #[test]
 fn only_example_coverage() {
-    setup_logging(Color::Never, true, true);
+    setup_logging(Color::Never, false, false);
     let mut config = Config::default();
     config.set_clean(false);
     config.test_timeout = Duration::from_secs(60);
@@ -99,7 +99,7 @@ fn only_example_coverage() {
 #[test]
 #[ignore]
 fn only_bench_coverage() {
-    setup_logging(Color::Never, true, true);
+    setup_logging(Color::Never, false, false);
     let mut config = Config::default();
     config.set_clean(false);
     config.test_timeout = Duration::from_secs(60);
@@ -128,7 +128,7 @@ fn only_bench_coverage() {
 #[test]
 #[cfg(feature = "nightly")]
 fn only_doctest_coverage() {
-    setup_logging(Color::Never, true, true);
+    setup_logging(Color::Never, false, false);
     let mut config = Config::default();
     config.set_clean(false);
     config.test_timeout = Duration::from_secs(60);

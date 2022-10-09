@@ -22,7 +22,7 @@ mod utils;
 mod workspaces;
 
 pub fn check_percentage_with_cli_args(minimum_coverage: f64, has_lines: bool, args: &[String]) {
-    setup_logging(Color::Never, true, true);
+    setup_logging(Color::Never, false, false);
     let restore_dir = env::current_dir().unwrap();
     let matches = App::new("tarpaulin")
         .args_from_usage(
@@ -62,7 +62,7 @@ pub fn check_percentage_with_config(
     has_lines: bool,
     mut config: Config,
 ) {
-    setup_logging(Color::Never, true, true);
+    setup_logging(Color::Never, false, false);
     config.test_timeout = Duration::from_secs(60);
     let restore_dir = env::current_dir().unwrap();
     let test_dir = get_test_path(project_name);
