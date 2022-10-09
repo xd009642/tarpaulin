@@ -439,6 +439,8 @@ impl Config {
         }
     }
 
+    /// If a relative directory is joined to `$TARGET_DIR/tarpaulin/` otherwise is placed at
+    /// absolute directory location
     pub fn set_profraw_folder(&mut self, path: PathBuf) {
         self.profraw_folder = path;
     }
