@@ -1,7 +1,7 @@
 use crate::utils::get_test_path;
-use cargo_tarpaulin::config::Config;
-use cargo_tarpaulin::launch_tarpaulin;
+use cargo_tarpaulin::config::{Color, Config};
 use cargo_tarpaulin::traces::CoverageStat;
+use cargo_tarpaulin::{launch_tarpaulin, setup_logging};
 use rusty_fork::rusty_fork_test;
 use std::env;
 use std::time::Duration;
@@ -10,6 +10,7 @@ rusty_fork_test! {
 
 #[test]
 fn simple_project_coverage() {
+    setup_logging(Color::Never, false, false);
     let mut config = Config::default();
     config.set_clean(false);
     config.test_timeout = Duration::from_secs(60);
@@ -50,6 +51,7 @@ fn simple_project_coverage() {
 
 #[test]
 fn debug_info_0() {
+    setup_logging(Color::Never, false, false);
     // From issue #601
     let mut config = Config::default();
     config.set_clean(false);
@@ -72,6 +74,7 @@ fn debug_info_0() {
 
 #[test]
 fn test_threads_1() {
+    setup_logging(Color::Never, false, false);
     let mut config = Config::default();
     config.set_clean(false);
     let restore_dir = env::current_dir().unwrap();

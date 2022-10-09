@@ -1,14 +1,16 @@
 use crate::utils::get_test_path;
-use cargo_tarpaulin::config::{types::RunType, Config};
-use cargo_tarpaulin::launch_tarpaulin;
+use cargo_tarpaulin::config::{types::RunType, Color, Config};
+use cargo_tarpaulin::{launch_tarpaulin, setup_logging};
 use rusty_fork::rusty_fork_test;
 use std::env;
+use std::path::PathBuf;
 use std::time::Duration;
 
 rusty_fork_test! {
 
 #[test]
 fn mix_test_types() {
+    setup_logging(Color::Never, false, false);
     // Issue 747 the clean would delete old tests leaving to only one run type effectively being
     // ran. This test covers against that mistake
     let mut config = Config::default();
@@ -16,6 +18,8 @@ fn mix_test_types() {
     config.set_ignore_tests(false);
     config.test_timeout = Duration::from_secs(60);
     config.run_types = vec![RunType::Tests, RunType::Examples];
+    config.set_profraw_folder(PathBuf::from("mix_test_types"));
+
     let restore_dir = env::current_dir().unwrap();
     let test_dir = get_test_path("all_test_types");
     env::set_current_dir(&test_dir).unwrap();
@@ -38,6 +42,7 @@ fn mix_test_types() {
 
 #[test]
 fn only_test_coverage() {
+    setup_logging(Color::Never, false, false);
     let mut config = Config::default();
     config.set_clean(false);
     config.test_timeout = Duration::from_secs(60);
@@ -47,6 +52,7 @@ fn only_test_coverage() {
     env::set_current_dir(&test_dir).unwrap();
     config.manifest = test_dir;
     config.manifest.push("Cargo.toml");
+    config.set_profraw_folder(PathBuf::from("only_test_coverage"));
 
     let (res, ret) = launch_tarpaulin(&config, &None).unwrap();
     assert_eq!(ret, 0);
@@ -64,6 +70,7 @@ fn only_test_coverage() {
 
 #[test]
 fn only_example_coverage() {
+    setup_logging(Color::Never, false, false);
     let mut config = Config::default();
     config.set_clean(false);
     config.test_timeout = Duration::from_secs(60);
@@ -73,6 +80,7 @@ fn only_example_coverage() {
     env::set_current_dir(&test_dir).unwrap();
     config.manifest = test_dir;
     config.manifest.push("Cargo.toml");
+    config.set_profraw_folder(PathBuf::from("only_example_coverage"));
 
     let (res, ret) = launch_tarpaulin(&config, &None).unwrap();
     assert_eq!(ret, 0);
@@ -91,6 +99,7 @@ fn only_example_coverage() {
 #[test]
 #[ignore]
 fn only_bench_coverage() {
+    setup_logging(Color::Never, false, false);
     let mut config = Config::default();
     config.set_clean(false);
     config.test_timeout = Duration::from_secs(60);
@@ -100,6 +109,7 @@ fn only_bench_coverage() {
     env::set_current_dir(&test_dir).unwrap();
     config.manifest = test_dir;
     config.manifest.push("Cargo.toml");
+    config.set_profraw_folder(PathBuf::from("only_bench_coverage"));
 
     let (res, ret) = launch_tarpaulin(&config, &None).unwrap();
     assert_eq!(ret, 0);
@@ -118,6 +128,7 @@ fn only_bench_coverage() {
 #[test]
 #[cfg(feature = "nightly")]
 fn only_doctest_coverage() {
+    setup_logging(Color::Never, false, false);
     let mut config = Config::default();
     config.set_clean(false);
     config.test_timeout = Duration::from_secs(60);
@@ -127,6 +138,7 @@ fn only_doctest_coverage() {
     env::set_current_dir(&test_dir).unwrap();
     config.manifest = test_dir;
     config.manifest.push("Cargo.toml");
+    config.set_profraw_folder(PathBuf::from("only_doctest_coverage"));
 
     let (res, ret) = launch_tarpaulin(&config, &None).unwrap();
     assert_eq!(ret, 0);

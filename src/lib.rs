@@ -62,11 +62,15 @@ pub fn setup_logging(color: Color, debug: bool, verbose: bool) {
 
     let with_ansi = color != Color::Never;
 
-    tracing_subscriber::FmtSubscriber::builder()
+    let res = tracing_subscriber::FmtSubscriber::builder()
         .with_max_level(tracing::Level::ERROR)
         .with_env_filter(filter)
         .with_ansi(with_ansi)
-        .init();
+        .try_init();
+
+    if let Err(e) = res {
+        eprintln!("Logging may be misconfigured: {}", e);
+    }
 
     debug!("set up logging");
 }

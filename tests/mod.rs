@@ -1,15 +1,15 @@
 use crate::utils::get_test_path;
-use cargo_tarpaulin::config::{Config, ConfigWrapper, Mode, RunType, TraceEngine};
+use cargo_tarpaulin::config::{Color, Config, ConfigWrapper, Mode, RunType, TraceEngine};
 use cargo_tarpaulin::event_log::EventLog;
-use cargo_tarpaulin::launch_tarpaulin;
 use cargo_tarpaulin::path_utils::*;
 use cargo_tarpaulin::traces::TraceMap;
+use cargo_tarpaulin::{launch_tarpaulin, setup_logging};
 use clap::App;
 use rusty_fork::rusty_fork_test;
 use std::collections::HashSet;
 use std::env;
 use std::fs;
-use std::path::Path;
+use std::path::{Path, PathBuf};
 use std::time::Duration;
 
 #[cfg(nightly)]
@@ -22,6 +22,7 @@ mod utils;
 mod workspaces;
 
 pub fn check_percentage_with_cli_args(minimum_coverage: f64, has_lines: bool, args: &[String]) {
+    setup_logging(Color::Never, false, false);
     let restore_dir = env::current_dir().unwrap();
     let matches = App::new("tarpaulin")
         .args_from_usage(
@@ -61,6 +62,7 @@ pub fn check_percentage_with_config(
     has_lines: bool,
     mut config: Config,
 ) {
+    setup_logging(Color::Never, false, false);
     config.test_timeout = Duration::from_secs(60);
     let restore_dir = env::current_dir().unwrap();
     let test_dir = get_test_path(project_name);
@@ -190,7 +192,6 @@ fn paths_coverage() {
 }
 
 #[test]
-#[cfg(not(tarpaulin))]
 fn futures_coverage() {
     check_percentage("futures", 1.0f64, true);
 }
@@ -322,7 +323,6 @@ fn filter_with_inner_attributes() {
 }
 
 #[test]
-#[cfg(not(tarpaulin))]
 fn cargo_home_filtering() {
     let new_home =
         Path::new(env!("CARGO_MANIFEST_DIR")).join("tests/data/HttptestAndReqwest/new_home");

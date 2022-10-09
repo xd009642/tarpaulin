@@ -3,8 +3,8 @@ on:
   push:
     branches:
       - "*"
+  pull_request_target:
   pull_request:
-
 env:
   RUST_BACKTRACE: 1
 
@@ -37,6 +37,14 @@ jobs:
       - name: ignored test
         run: cargo test -- --ignored || true
         if: matrix.version == 'nightly'
+      - uses: actions/upload-artifact@v3
+        if: failure()
+        with:
+          name: linux ${{ matrix.version }}
+          retention-days: 3
+          path: |
+              tests/data/
+              !tests/data/**/*.rs
       - name: check formatting
         run: cargo fmt -- --check
   windows:
@@ -44,6 +52,7 @@ jobs:
     strategy:
       matrix:
         version:
+          - stable
           - nightly
         target:
           - x86_64-pc-windows-gnu
@@ -61,11 +70,20 @@ jobs:
         run: cargo build
       - name: test
         run: cargo test
+      - uses: actions/upload-artifact@v3
+        if: failure()
+        with:
+          name: windows ${{ matrix.version }}
+          retention-days: 3
+          path: |
+              tests/data/
+              !tests/data/**/*.rs
   mac:
     runs-on: macos-latest
     strategy:
       matrix:
         version:
+          - stable
           - nightly
         target:
           - x86_64-apple-darwin	
@@ -82,6 +100,14 @@ jobs:
         run: cargo build
       - name: test
         run: cargo test
+      - uses: actions/upload-artifact@v3
+        if: failure()
+        with:
+          name: mac ${{ matrix.version }}
+          retention-days: 3
+          path: |
+              tests/data/
+              !tests/data/**/*.rs
   coverage:
     runs-on: ubuntu-latest
     strategy:
@@ -98,4 +124,4 @@ jobs:
           toolchain: ${{ matrix.version }}
           override: true
       - name: coverage
-        run: cargo run --release -- tarpaulin --engine llvm --follow-exec --post-test-delay 10 --coveralls ${{ secrets.COVERALLS_TOKEN }} || true
+        run: cargo run --release -- tarpaulin --engine llvm --follow-exec --post-test-delay 10 --coveralls ${{ secrets.COVERALLS_TOKEN }} 
