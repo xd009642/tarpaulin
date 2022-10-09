@@ -14,11 +14,10 @@ working on a wide range of projects, but often unique combinations of packages
 and build features can cause issues so please report anything
 you find that's wrong. Also, check out our roadmap for planned features.
 
-**Tarpaulin only supports x86_64 processors running Linux.** This is because
-instrumenting breakpoints into executables and tracing their execution requires
-processor and OS specific code. It is a goal when greater stability is reached
-to add wider system support, however this is sufficient to run Tarpaulin on
-popular CI tools like Travis.
+On Linux Tarpaulin's default tracing backend is still Ptrace and will only work
+on x86\_64 processors. This can be changed to the llvm coverage instrumentation
+with `--engine llvm`, for Mac and Windows this is the default collection
+method.
 
 It can also be run in Docker, which is useful for when you don't use Linux but
 want to run it locally, e.g. during development. See below for how to do that.
@@ -27,7 +26,7 @@ Below is the help-text for a thorough explanation of the flags and features
 available:
 
 ```
-cargo-tarpaulin version: 0.21.0
+cargo-tarpaulin version: 0.22.0
 Tool to analyse test coverage of cargo projects
 
 USAGE:
@@ -54,10 +53,11 @@ FLAGS:
     -h, --help                     Prints help information
         --ignore-config            Ignore any project config files
         --ignore-panics            Ignore panic macros in tests
-        --ignore-tests             Ignore lines of test functions when collecting coverage
+        --ignore-tests             Ignore lines of test functions when collecting coverage (default)
     -i, --ignored                  Run ignored tests as well
         --implicit-test-threads    Don't supply an explicit `--test-threads` argument to test executable. By default
                                    tarpaulin will infer the default rustc would pick if not ran via tarpaulin and set it
+        --include-tests            Include lines of test functions when collecting coverage
         --lib                      Test only this package's library unit tests
     -l, --line                     Line coverage
         --locked                   Do not update Cargo.lock
@@ -75,45 +75,47 @@ FLAGS:
         --workspace                Test all packages in the workspace
 
 OPTIONS:
-    -Z <FEATURES>...                 List of unstable nightly only flags
-        --bench <NAME>...            Test only the specified bench target
-        --bin <NAME>...              Test only the specified binary
-        --ciserver <SERVICE>         Name of service, supported services are:
-                                     travis-ci, travis-pro, circle-ci, semaphore, jenkins and codeship.
-                                     If you are interfacing with coveralls.io or another site you can also specify a
-                                     name that they will recognise. Refer to their documentation for this.
-        --color <WHEN>               Coloring: auto, always, never [possible values: Auto, Always, Never]
-        --command <CMD>              cargo subcommand to run. So far only test and build are supported [possible values:
-                                     Test, Build]
-        --config <FILE>              Path to a toml file specifying a list of options this will override any other
-                                     options set
-        --coveralls <KEY>            Coveralls key, either the repo token, or if you're using travis use $TRAVIS_JOB_ID
-                                     and specify travis-{ci|pro} in --ciserver
-        --example <NAME>...          Test only the specified example
-    -e, --exclude <PACKAGE>...       Package id specifications to exclude from coverage. See cargo help pkgid for more
-                                     info
-        --exclude-files <FILE>...    Exclude given files from coverage results has * wildcard
-        --fail-under <PERCENTAGE>    Sets a percentage threshold for failure ranging from 0-100, if coverage is below
-                                     exit with a non-zero code
-        --features <FEATURES>...     Features to be included in the target project
-    -j, --jobs <N>                   Number of parallel jobs, defaults to # of CPUs
-        --manifest-path <PATH>       Path to Cargo.toml
-    -o, --out <FMT>...               Output format of coverage report [possible values: Json, Stdout, Xml, Html, Lcov]
-        --output-dir <PATH>          Specify a custom directory to write report files
-    -p, --packages <PACKAGE>...      Package id specifications for which package should be build. See cargo help pkgid
-                                     for more info
-        --profile <NAME>             Build artefacts with the specified profile
-        --report-uri <URI>           URI to send report to, only used if the option --coveralls is used
-    -r, --root <DIR>                 Calculates relative paths to root directory. If --manifest-path isn't specified it
-                                     will look for a Cargo.toml in root
-        --run-types <TYPE>...        Type of the coverage run [possible values: Tests, Doctests, Benchmarks, Examples,
-                                     Lib, Bins, AllTargets]
-        --rustflags <FLAGS>          rustflags to add when building project (can also be set via RUSTFLAGS env var)
-        --target <TRIPLE>            Compilation target triple
-        --target-dir <DIR>           Directory for all generated artifacts
-        --test <NAME>...             Test only the specified test target
-    -t, --timeout <SECONDS>          Integer for the maximum time in seconds without response from test before timeout
-                                     (default is 1 minute).
+    -Z <FEATURES>...                   List of unstable nightly only flags
+        --bench <NAME>...              Test only the specified bench target
+        --bin <NAME>...                Test only the specified binary
+        --ciserver <SERVICE>           Name of service, supported services are:
+                                       travis-ci, travis-pro, circle-ci, semaphore, jenkins and codeship.
+                                       If you are interfacing with coveralls.io or another site you can also specify a
+                                       name that they will recognise. Refer to their documentation for this.
+        --color <WHEN>                 Coloring: auto, always, never [possible values: Auto, Always, Never]
+        --command <CMD>                cargo subcommand to run. So far only test and build are supported [possible
+                                       values: Test, Build]
+        --config <FILE>                Path to a toml file specifying a list of options this will override any other
+                                       options set
+        --coveralls <KEY>              Coveralls key, either the repo token, or if you're using travis use
+                                       $TRAVIS_JOB_ID and specify travis-{ci|pro} in --ciserver
+        --engine <ENGINE>              Coverage tracing backend to use [possible values: Auto, Ptrace, Llvm]
+        --example <NAME>...            Test only the specified example
+    -e, --exclude <PACKAGE>...         Package id specifications to exclude from coverage. See cargo help pkgid for more
+                                       info
+        --exclude-files <FILE>...      Exclude given files from coverage results has * wildcard
+        --fail-under <PERCENTAGE>      Sets a percentage threshold for failure ranging from 0-100, if coverage is below
+                                       exit with a non-zero code
+        --features <FEATURES>...       Features to be included in the target project
+    -j, --jobs <N>                     Number of parallel jobs, defaults to # of CPUs
+        --manifest-path <PATH>         Path to Cargo.toml
+    -o, --out <FMT>...                 Output format of coverage report [possible values: Json, Stdout, Xml, Html, Lcov]
+        --output-dir <PATH>            Specify a custom directory to write report files
+    -p, --packages <PACKAGE>...        Package id specifications for which package should be build. See cargo help pkgid
+                                       for more info
+        --post-test-delay <SECONDS>    Delay after test to collect coverage profiles
+        --profile <NAME>               Build artefacts with the specified profile
+        --report-uri <URI>             URI to send report to, only used if the option --coveralls is used
+    -r, --root <DIR>                   Calculates relative paths to root directory. If --manifest-path isn't specified
+                                       it will look for a Cargo.toml in root
+        --run-types <TYPE>...          Type of the coverage run [possible values: Tests, Doctests, Benchmarks, Examples,
+                                       Lib, Bins, AllTargets]
+        --rustflags <FLAGS>            rustflags to add when building project (can also be set via RUSTFLAGS env var)
+        --target <TRIPLE>              Compilation target triple
+        --target-dir <DIR>             Directory for all generated artifacts
+        --test <NAME>...               Test only the specified test target
+    -t, --timeout <SECONDS>            Integer for the maximum time in seconds without response from test before timeout
+                                       (default is 1 minute).
 
 ARGS:
     <args>...    Arguments to be passed to the test executables can be used to filter or skip certain tests
