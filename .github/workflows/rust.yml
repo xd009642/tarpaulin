@@ -1,10 +1,12 @@
 name: Build
-
 on:
   push:
     branches:
       - "*"
+  pull_request_target:
   pull_request:
+env:
+  RUST_BACKTRACE: 1
 
 jobs:
   linux:
@@ -26,21 +28,23 @@ jobs:
           toolchain: ${{ matrix.version }}
           override: true
           components: rustfmt
-      - name: clean
-        run: cargo clean
+      - name: cache
+        uses: Swatinem/rust-cache@v2
       - name: build
         run: cargo build
-        env:
-          RUST_BACKTRACE: 1
       - name: test
-        run: cargo test 
-        env:
-          RUST_BACKTRACE: 1
+        run: cargo test
       - name: ignored test
         run: cargo test -- --ignored || true
-        env:
-          RUST_BACKTRACE: 1
         if: matrix.version == 'nightly'
+      - uses: actions/upload-artifact@v3
+        if: failure()
+        with:
+          name: linux ${{ matrix.version }}
+          retention-days: 3
+          path: |
+              tests/data/
+              !tests/data/**/*.rs
       - name: check formatting
         run: cargo fmt -- --check
   windows:
@@ -48,6 +52,7 @@ jobs:
     strategy:
       matrix:
         version:
+          - stable
           - nightly
         target:
           - x86_64-pc-windows-gnu
@@ -59,17 +64,26 @@ jobs:
         with:
           toolchain: ${{ matrix.version }}
           override: true
+      - name: cache
+        uses: Swatinem/rust-cache@v2
       - name: build
         run: cargo build
       - name: test
-        run: cargo test -- || true
-        env:
-          RUST_BACKTRACE: 1
+        run: cargo test
+      - uses: actions/upload-artifact@v3
+        if: failure()
+        with:
+          name: windows ${{ matrix.version }}
+          retention-days: 3
+          path: |
+              tests/data/
+              !tests/data/**/*.rs
   mac:
     runs-on: macos-latest
     strategy:
       matrix:
         version:
+          - stable
           - nightly
         target:
           - x86_64-apple-darwin	
@@ -80,9 +94,34 @@ jobs:
         with:
           toolchain: ${{ matrix.version }}
           override: true
+      - name: cache
+        uses: Swatinem/rust-cache@v2
       - name: build
         run: cargo build
       - name: test
-        run: cargo test -- || true
-        env:
-          RUST_BACKTRACE: 1
+        run: cargo test
+      - uses: actions/upload-artifact@v3
+        if: failure()
+        with:
+          name: mac ${{ matrix.version }}
+          retention-days: 3
+          path: |
+              tests/data/
+              !tests/data/**/*.rs
+  coverage:
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        version:
+          - nightly
+        target:
+          - x86_64-unknown-linux-gnu
+      fail-fast: false
+    steps:
+      - uses: actions/checkout@v2
+      - uses: actions-rs/toolchain@v1
+        with:
+          toolchain: ${{ matrix.version }}
+          override: true
+      - name: coverage
+        run: cargo run --release -- tarpaulin --engine llvm --follow-exec --post-test-delay 10 --coveralls ${{ secrets.COVERALLS_TOKEN }} 

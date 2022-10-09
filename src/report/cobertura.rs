@@ -47,7 +47,7 @@ use std::path::{Path, PathBuf};
 use std::time::{SystemTime, UNIX_EPOCH};
 
 use quick_xml::{
-    events::{BytesDecl, BytesEnd, BytesStart, Event},
+    events::{BytesDecl, BytesEnd, BytesStart, BytesText, Event},
     Writer,
 };
 
@@ -125,11 +125,11 @@ impl Report {
 
         let mut writer = Writer::new(Cursor::new(vec![]));
         writer
-            .write_event(Event::Decl(BytesDecl::new(b"1.0", None, None)))
+            .write_event(Event::Decl(BytesDecl::new("1.0", None, None)))
             .map_err(Error::ExportError)?;
 
-        let cov_tag = b"coverage";
-        let mut cov = BytesStart::borrowed(cov_tag, cov_tag.len());
+        let cov_tag = "coverage";
+        let mut cov = BytesStart::new(cov_tag);
         cov.push_attribute(("lines-covered", self.lines_covered.to_string().as_ref()));
         cov.push_attribute(("lines-valid", self.lines_valid.to_string().as_ref()));
         cov.push_attribute(("line-rate", self.line_rate.to_string().as_ref()));
@@ -159,7 +159,7 @@ impl Report {
             .map_err(Error::ExportError)?;
 
         writer
-            .write_event(Event::End(BytesEnd::borrowed(cov_tag)))
+            .write_event(Event::End(BytesEnd::new(cov_tag)))
             .map_err(Error::ExportError)?;
 
         let result = writer.into_inner().into_inner();
@@ -168,38 +168,29 @@ impl Report {
     }
 
     fn export_header<T: Write>(&self, writer: &mut Writer<T>) -> Result<(), quick_xml::Error> {
-        let sources_tag = b"sources";
-        let source_tag = b"source";
-        writer.write_event(Event::Start(BytesStart::borrowed(
-            sources_tag,
-            sources_tag.len(),
-        )))?;
+        let sources_tag = "sources";
+        let source_tag = "source";
+        writer.write_event(Event::Start(BytesStart::new(sources_tag)))?;
         for source in &self.sources {
             if let Some(path) = source.to_str() {
-                writer.write_event(Event::Start(BytesStart::borrowed(
-                    source_tag,
-                    source_tag.len(),
-                )))?;
-                writer.write(path.as_bytes())?;
-                writer.write_event(Event::End(BytesEnd::borrowed(source_tag)))?;
+                writer.write_event(Event::Start(BytesStart::new(source_tag)))?;
+                writer.write_event(Event::Text(BytesText::new(path)))?;
+                writer.write_event(Event::End(BytesEnd::new(source_tag)))?;
             }
         }
         writer
-            .write_event(Event::End(BytesEnd::borrowed(sources_tag)))
+            .write_event(Event::End(BytesEnd::new(sources_tag)))
             .map(|_| ())
     }
 
     fn export_packages<T: Write>(&self, writer: &mut Writer<T>) -> Result<(), quick_xml::Error> {
-        let packages_tag = b"packages";
-        let pack_tag = b"package";
+        let packages_tag = "packages";
+        let pack_tag = "package";
 
-        writer.write_event(Event::Start(BytesStart::borrowed(
-            packages_tag,
-            packages_tag.len(),
-        )))?;
+        writer.write_event(Event::Start(BytesStart::new(packages_tag)))?;
         // Export the package
         for package in &self.packages {
-            let mut pack = BytesStart::borrowed(pack_tag, pack_tag.len());
+            let mut pack = BytesStart::new(pack_tag);
             pack.push_attribute(("name", package.name.as_str()));
             pack.push_attribute(("line-rate", package.line_rate.to_string().as_ref()));
             pack.push_attribute(("branch-rate", package.branch_rate.to_string().as_ref()));
@@ -207,11 +198,11 @@ impl Report {
 
             writer.write_event(Event::Start(pack))?;
             self.export_classes(&package.classes, writer)?;
-            writer.write_event(Event::End(BytesEnd::borrowed(pack_tag)))?;
+            writer.write_event(Event::End(BytesEnd::new(pack_tag)))?;
         }
 
         writer
-            .write_event(Event::End(BytesEnd::borrowed(packages_tag)))
+            .write_event(Event::End(BytesEnd::new(packages_tag)))
             .map(|_| ())
     }
 
@@ -220,16 +211,13 @@ impl Report {
         classes: &[Class],
         writer: &mut Writer<T>,
     ) -> Result<(), quick_xml::Error> {
-        let classes_tag = b"classes";
-        let class_tag = b"class";
-        let methods_tag = b"methods";
+        let classes_tag = "classes";
+        let class_tag = "class";
+        let methods_tag = "methods";
 
-        writer.write_event(Event::Start(BytesStart::borrowed(
-            classes_tag,
-            classes_tag.len(),
-        )))?;
+        writer.write_event(Event::Start(BytesStart::new(classes_tag)))?;
         for class in classes {
-            let mut c = BytesStart::borrowed(class_tag, class_tag.len());
+            let mut c = BytesStart::new(class_tag);
             c.push_attribute(("name", class.name.as_ref()));
             c.push_attribute(("filename", class.file_name.as_ref()));
             c.push_attribute(("line-rate", class.line_rate.to_string().as_ref()));
@@ -237,15 +225,12 @@ impl Report {
             c.push_attribute(("complexity", class.complexity.to_string().as_ref()));
 
             writer.write_event(Event::Start(c))?;
-            writer.write_event(Event::Empty(BytesStart::borrowed(
-                methods_tag,
-                methods_tag.len(),
-            )))?;
+            writer.write_event(Event::Empty(BytesStart::new(methods_tag)))?;
             self.export_lines(&class.lines, writer)?;
-            writer.write_event(Event::End(BytesEnd::borrowed(class_tag)))?;
+            writer.write_event(Event::End(BytesEnd::new(class_tag)))?;
         }
         writer
-            .write_event(Event::End(BytesEnd::borrowed(classes_tag)))
+            .write_event(Event::End(BytesEnd::new(classes_tag)))
             .map(|_| ())
     }
 
@@ -254,15 +239,12 @@ impl Report {
         lines: &[Line],
         writer: &mut Writer<T>,
     ) -> Result<(), quick_xml::Error> {
-        let lines_tag = b"lines";
-        let line_tag = b"line";
+        let lines_tag = "lines";
+        let line_tag = "line";
 
-        writer.write_event(Event::Start(BytesStart::borrowed(
-            lines_tag,
-            lines_tag.len(),
-        )))?;
+        writer.write_event(Event::Start(BytesStart::new(lines_tag)))?;
         for line in lines {
-            let mut l = BytesStart::borrowed(line_tag, line_tag.len());
+            let mut l = BytesStart::new(line_tag);
             match line {
                 Line::Plain {
                     ref number,
@@ -276,7 +258,7 @@ impl Report {
             writer.write_event(Event::Empty(l))?;
         }
         writer
-            .write_event(Event::End(BytesEnd::borrowed(lines_tag)))
+            .write_event(Event::End(BytesEnd::new(lines_tag)))
             .map(|_| ())
     }
 }

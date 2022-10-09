@@ -59,7 +59,7 @@ pub fn get_test_coverage(
                     Mode::Build => "binary",
                 };
                 info!("Launching {}", bin_type);
-                execute_test(test, ignored, config, Some(threads))?;
+                execute_test(test, &[], ignored, config, Some(threads))?;
                 Ok(None)
             }
             Err(err) => Err(RunError::TestCoverage(format!(

@@ -7,6 +7,7 @@ use regex::Regex;
 use serde::{Deserialize, Serialize};
 use std::collections::{HashMap, HashSet};
 use std::env;
+use std::ffi::OsStr;
 use std::fs::{read_dir, read_to_string, remove_dir_all, File};
 use std::io;
 use std::io::{BufRead, BufReader};
@@ -35,8 +36,17 @@ struct CargoVersionInfo {
 
 impl CargoVersionInfo {
     fn supports_llvm_cov(&self) -> bool {
-        self.minor >= 50 && self.channel == Channel::Nightly
+        (self.minor >= 50 && self.channel == Channel::Nightly) || self.minor >= 60
     }
+}
+
+#[derive(Clone, Debug, Default)]
+pub struct CargoOutput {
+    /// This contains all binaries we want to run to collect coverage from.
+    pub test_binaries: Vec<TestBinary>,
+    /// This covers binaries we don't want to run explicitly but may be called as part of tracing
+    /// execution of other processes.
+    pub binaries: Vec<PathBuf>,
 }
 
 #[derive(Clone, Debug, PartialEq, Eq, PartialOrd, Ord, Hash, Deserialize, Serialize)]
@@ -199,8 +209,8 @@ lazy_static! {
     };
 }
 
-pub fn get_tests(config: &Config) -> Result<Vec<TestBinary>, RunError> {
-    let mut result = vec![];
+pub fn get_tests(config: &Config) -> Result<CargoOutput, RunError> {
+    let mut result = CargoOutput::default();
     if config.force_clean() {
         let cleanup_dir = if config.release {
             config.target_dir().join("release")
@@ -242,7 +252,7 @@ fn run_cargo(
     manifest: &str,
     config: &Config,
     ty: Option<RunType>,
-    result: &mut Vec<TestBinary>,
+    result: &mut CargoOutput,
 ) -> Result<(), RunError> {
     let mut cmd = create_command(manifest, config, ty);
     if ty != Some(RunType::Doctests) {
@@ -253,11 +263,11 @@ fn run_cargo(
     }
     trace!("Running command {:?}", cmd);
     let mut child = cmd.spawn().map_err(|e| RunError::Cargo(e.to_string()))?;
-    let update_from = result.len();
+    let update_from = result.test_binaries.len();
     let mut paths = vec![];
 
     if ty != Some(RunType::Doctests) {
-        let mut package_ids = vec![None; result.len()];
+        let mut package_ids = vec![None; result.test_binaries.len()];
         let reader = std::io::BufReader::new(child.stdout.take().unwrap());
         let mut error = None;
         for msg in Message::parse_stream(reader) {
@@ -265,9 +275,12 @@ fn run_cargo(
                 Ok(Message::CompilerArtifact(art)) => {
                     if let Some(path) = art.executable.as_ref() {
                         if !art.profile.test && config.command == Mode::Test {
+                            result.binaries.push(PathBuf::from(path));
                             continue;
                         }
-                        result.push(TestBinary::new(PathBuf::from(path), ty));
+                        result
+                            .test_binaries
+                            .push(TestBinary::new(PathBuf::from(path), ty));
                         package_ids.push(Some(art.package_id.clone()));
                     }
                 }
@@ -309,7 +322,7 @@ fn run_cargo(
             }
         }
         debug!("Linker paths: {:?}", paths);
-        for bin in result.iter_mut().skip(update_from) {
+        for bin in result.test_binaries.iter_mut().skip(update_from) {
             bin.linker_paths = paths.clone();
         }
         let status = child.wait().unwrap();
@@ -320,6 +333,7 @@ fn run_cargo(
             return Err(RunError::Cargo("cargo run failed".to_string()));
         };
         for (res, package) in result
+            .test_binaries
             .iter_mut()
             .zip(package_ids.iter())
             .filter(|(_, b)| b.is_some())
@@ -350,7 +364,14 @@ fn run_cargo(
         let dir_entries = walker
             .filter_map(Result::ok)
             .filter(|e| matches!(e.metadata(), Ok(ref m) if m.is_file() && m.len() != 0))
+            .filter(|e| e.path().extension() != Some(OsStr::new("pdb")))
+            .filter(|e| {
+                !e.path()
+                    .components()
+                    .any(|x| x.as_os_str().to_string_lossy().contains("dSYM"))
+            })
             .collect::<Vec<_>>();
+
         let should_panics = get_attribute_candidates(&dir_entries, config, "should_panic");
         let no_runs = get_attribute_candidates(&dir_entries, config, "no_run");
         for dt in &dir_entries {
@@ -382,7 +403,7 @@ fn run_cargo(
                     None => break,
                 }
             }
-            result.push(tb);
+            result.test_binaries.push(tb);
         }
     }
     Ok(())
@@ -482,13 +503,25 @@ fn find_str_in_file(file: &Path, value: &str) -> io::Result<Vec<usize>> {
 fn create_command(manifest_path: &str, config: &Config, ty: Option<RunType>) -> Command {
     let mut test_cmd = Command::new("cargo");
     let bootstrap = matches!(env::var("RUSTC_BOOTSTRAP").as_deref(), Ok("1"));
+    let override_toolchain = if cfg!(windows) {
+        if env::var("PATH").unwrap_or_default().contains(".rustup") {
+            // So the specific cargo we're using is in the path var so rustup toolchains won't
+            // work. This only started happening recently so special casing it for older versions
+            env::remove_var("RUSTUP_TOOLCHAIN");
+            false
+        } else {
+            true
+        }
+    } else {
+        true
+    };
     if ty == Some(RunType::Doctests) {
         if let Some(toolchain) = env::var("RUSTUP_TOOLCHAIN")
             .ok()
             .filter(|t| t.starts_with("nightly") || bootstrap)
         {
             test_cmd.args(&[format!("+{}", toolchain).as_str()]);
-        } else if !bootstrap {
+        } else if !bootstrap && override_toolchain {
             test_cmd.args(&["+nightly"]);
         }
         test_cmd.args(&["test"]);
@@ -631,7 +664,7 @@ fn clean_doctest_folder<P: AsRef<Path>>(doctest_dir: P) {
 
 fn handle_llvm_flags(value: &mut String, config: &Config) {
     if config.engine() == TraceEngine::Llvm {
-        value.push_str("-Zinstrument-coverage ");
+        value.push_str(llvm_coverage_rustflag());
     }
     if cfg!(not(windows)) {
         value.push_str(" -Clink-dead-code ");
@@ -640,7 +673,7 @@ fn handle_llvm_flags(value: &mut String, config: &Config) {
 
 pub fn rustdoc_flags(config: &Config) -> String {
     const RUSTDOC: &str = "RUSTDOCFLAGS";
-    let common_opts = " -Clink-dead-code -Cdebuginfo=2 --cfg=tarpaulin ";
+    let common_opts = " -Cdebuginfo=2 --cfg=tarpaulin ";
     let mut value = format!(
         "{} --persist-doctests {} -Zunstable-options ",
         common_opts,
@@ -819,6 +852,13 @@ pub fn supports_llvm_coverage() -> bool {
     }
 }
 
+pub fn llvm_coverage_rustflag() -> &'static str {
+    match CARGO_VERSION_INFO.as_ref() {
+        Some(v) if v.minor >= 60 => " -Cinstrument-coverage ",
+        _ => " -Zinstrument-coverage ",
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -854,6 +894,15 @@ mod tests {
             year: 2020,
             month: 12,
             day: 22,
+        };
+        assert!(version.supports_llvm_cov());
+        let version = CargoVersionInfo {
+            major: 1,
+            minor: 60,
+            channel: Channel::Stable,
+            year: 2022,
+            month: 04,
+            day: 7,
         };
         assert!(version.supports_llvm_cov());
     }

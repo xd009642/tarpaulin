@@ -1,6 +1,7 @@
 use self::parse::*;
 pub use self::types::*;
 use crate::cargo::supports_llvm_coverage;
+use crate::path_utils::fix_unc_path;
 use cargo_metadata::{Metadata, MetadataCommand, Package};
 use clap::{value_t, ArgMatches};
 use coveralls_api::CiService;
@@ -40,7 +41,7 @@ pub struct Config {
     pub run_ignored: bool,
     /// Flag to ignore test functions in coverage statistics
     #[serde(rename = "ignore-tests")]
-    pub ignore_tests: bool,
+    ignore_tests: bool,
     /// Ignore panic macros in code.
     #[serde(rename = "ignore-panics")]
     pub ignore_panics: bool,
@@ -177,6 +178,14 @@ pub struct Config {
     engine: RefCell<TraceEngine>,
     /// Specifying per-config rust flags
     pub rustflags: Option<String>,
+    #[serde(rename = "include-tests")]
+    /// Inverse of ignore_tests
+    include_tests: bool,
+    #[serde(rename = "post-test-delay")]
+    /// Delay after test to collect instrumentation files (LLVM only)
+    pub post_test_delay: Option<Duration>,
+    /// Joined to target/tarpaulin to store profraws
+    profraw_folder: PathBuf,
 }
 
 fn default_test_timeout() -> Duration {
@@ -194,7 +203,8 @@ impl Default for Config {
             root: Default::default(),
             run_ignored: false,
             all_targets: false,
-            ignore_tests: false,
+            ignore_tests: true,
+            include_tests: false,
             ignore_panics: false,
             force_clean: true,
             skip_clean: false,
@@ -241,8 +251,10 @@ impl Default for Config {
             avoid_cfg_tarpaulin: false,
             jobs: None,
             color: Color::Auto,
-            engine: RefCell::new(TraceEngine::Ptrace),
+            engine: RefCell::default(),
             rustflags: None,
+            post_test_delay: Some(Duration::from_secs(1)),
+            profraw_folder: PathBuf::from("profraws"),
         }
     }
 }
@@ -273,7 +285,7 @@ impl<'a> From<&'a ArgMatches<'a>> for ConfigWrapper {
             }
         };
 
-        let engine = value_t!(args.value_of("engine"), TraceEngine).unwrap_or(TraceEngine::Ptrace);
+        let engine = value_t!(args.value_of("engine"), TraceEngine).unwrap_or_default();
 
         let args_config = Config {
             name: String::new(),
@@ -285,7 +297,8 @@ impl<'a> From<&'a ArgMatches<'a>> for ConfigWrapper {
             color: value_t!(args.value_of("color"), Color).unwrap_or(Color::Auto),
             run_types: get_run_types(args),
             run_ignored: args.is_present("ignored"),
-            ignore_tests: args.is_present("ignore-tests"),
+            ignore_tests: !args.is_present("include-tests"),
+            include_tests: args.is_present("include-tests"),
             ignore_panics: args.is_present("ignore-panics"),
             force_clean,
             skip_clean: !force_clean,
@@ -333,6 +346,8 @@ impl<'a> From<&'a ArgMatches<'a>> for ConfigWrapper {
             avoid_cfg_tarpaulin: args.is_present("avoid-cfg-tarpaulin"),
             implicit_test_threads: args.is_present("implicit-test-threads"),
             rustflags: get_rustflags(args),
+            post_test_delay: get_post_test_delay(args),
+            profraw_folder: PathBuf::from("profraws"),
         };
         if args.is_present("ignore-config") {
             Self(vec![args_config])
@@ -373,9 +388,22 @@ impl Config {
         }
     }
 
+    pub fn set_engine(&self, engine: TraceEngine) {
+        self.engine.replace(engine);
+    }
+
     pub fn set_clean(&mut self, clean: bool) {
         self.force_clean = clean;
         self.skip_clean = !clean;
+    }
+
+    pub fn set_ignore_tests(&mut self, ignore: bool) {
+        self.ignore_tests = ignore;
+        self.include_tests = !ignore;
+    }
+
+    pub fn ignore_tests(&self) -> bool {
+        self.ignore_tests || !self.include_tests
     }
 
     pub fn force_clean(&self) -> bool {
@@ -400,8 +428,26 @@ impl Config {
         }
     }
 
+    /// Get directory profraws are stored in
+    pub fn profraw_dir(&self) -> PathBuf {
+        if self.profraw_folder.is_relative() {
+            self.target_dir()
+                .join("tarpaulin")
+                .join(&self.profraw_folder)
+        } else {
+            self.profraw_folder.clone()
+        }
+    }
+
+    /// If a relative directory is joined to `$TARGET_DIR/tarpaulin/` otherwise is placed at
+    /// absolute directory location
+    pub fn set_profraw_folder(&mut self, path: PathBuf) {
+        self.profraw_folder = path;
+    }
+
     pub fn doctest_dir(&self) -> PathBuf {
-        let mut result = self.target_dir();
+        // https://github.com/rust-lang/rust/issues/98690
+        let mut result = fix_unc_path(&self.target_dir());
         result.push("doctests");
         result
     }
@@ -420,11 +466,7 @@ impl Config {
     pub fn root(&self) -> PathBuf {
         match *self.get_metadata() {
             Some(ref meta) => PathBuf::from(meta.workspace_root.clone()),
-            _ => self
-                .manifest
-                .parent()
-                .map(Path::to_path_buf)
-                .unwrap_or_default(),
+            _ => self.manifest.parent().map(fix_unc_path).unwrap_or_default(),
         }
     }
 
@@ -552,6 +594,7 @@ impl Config {
         self.line_coverage |= other.line_coverage;
         self.branch_coverage |= other.branch_coverage;
         self.dump_traces |= other.dump_traces;
+        self.ignore_tests = self.ignore_tests() && other.ignore_tests();
         self.offline |= other.offline;
         if self.manifest != other.manifest && self.manifest == default_manifest() {
             self.manifest = other.manifest.clone();
@@ -574,6 +617,12 @@ impl Config {
         self.ignore_tests |= other.ignore_tests;
         self.no_fail_fast |= other.no_fail_fast;
 
+        let end_delay = match (self.post_test_delay, other.post_test_delay) {
+            (Some(d), None) | (None, Some(d)) => Some(d),
+            (None, None) => None,
+            (Some(a), Some(b)) => Some(a.max(b)),
+        };
+        self.post_test_delay = end_delay;
         // The two flags now don't agree, if one is set to non-default then prioritise that
         match (self.force_clean, self.skip_clean) {
             (true, false) | (false, true) => {}

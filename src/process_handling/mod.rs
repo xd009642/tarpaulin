@@ -1,13 +1,12 @@
 use crate::config::Color;
 use crate::generate_tracemap;
+use crate::path_utils::get_profile_walker;
 use crate::statemachine::{create_state_machine, TestState};
 use crate::traces::*;
 use crate::{Config, EventLog, LineAnalysis, RunError, TestBinary, TraceEngine};
 use std::collections::HashMap;
 use std::env;
-use std::ffi::OsStr;
 use std::fmt;
-use std::fs;
 use std::path::{Path, PathBuf};
 use std::process::{Child, Command};
 use tracing::{debug, error, info, trace_span};
@@ -25,22 +24,30 @@ pub struct RunningProcessHandle {
     pub(crate) child: Child,
     /// maintain a list of existing profraws in the project root to avoid picking up old results
     pub(crate) existing_profraws: Vec<PathBuf>,
+    /// Extra binaries we may need to look to
+    pub(crate) extra_binaries: Vec<PathBuf>,
+    /// The flag showing if it should panic
+    pub(crate) should_panic: bool,
 }
 
 impl RunningProcessHandle {
-    pub fn new(path: PathBuf, cmd: &mut Command, config: &Config) -> Result<Self, RunError> {
+    pub fn new(
+        test: &TestBinary,
+        extra_binaries: Vec<PathBuf>,
+        cmd: &mut Command,
+        config: &Config,
+    ) -> Result<Self, RunError> {
         let child = cmd.spawn()?;
-        let existing_profraws = fs::read_dir(config.root())?
-            .into_iter()
-            .filter_map(Result::ok)
-            .filter(|x| x.path().is_file() && x.path().extension() == Some(OsStr::new("profraw")))
-            .map(|x| x.path())
+        let existing_profraws = get_profile_walker(config)
+            .map(|x| x.path().to_path_buf())
             .collect();
 
         Ok(Self {
-            path,
+            path: test.path().to_path_buf(),
+            extra_binaries,
             child,
             existing_profraws,
+            should_panic: test.should_panic(),
         })
     }
 }
@@ -68,17 +75,16 @@ impl From<RunningProcessHandle> for TestHandle {
 
 pub fn get_test_coverage(
     test: &TestBinary,
+    other_binaries: &[PathBuf],
     analysis: &HashMap<PathBuf, LineAnalysis>,
     config: &Config,
     ignored: bool,
     logger: &Option<EventLog>,
 ) -> Result<Option<(TraceMap, i32)>, RunError> {
-    let handle = launch_test(test, config, ignored, logger)?;
+    let handle = launch_test(test, other_binaries, config, ignored, logger)?;
     if let Some(handle) = handle {
-        match collect_coverage(test.path(), handle, analysis, config, logger) {
-            Ok(t) => Ok(Some(t)),
-            Err(e) => Err(RunError::TestCoverage(e.to_string())),
-        }
+        let t = collect_coverage(test.path(), handle, analysis, config, logger)?;
+        Ok(Some(t))
     } else {
         Ok(None)
     }
@@ -86,6 +92,7 @@ pub fn get_test_coverage(
 
 fn launch_test(
     test: &TestBinary,
+    other_binaries: &[PathBuf],
     config: &Config,
     ignored: bool,
     logger: &Option<EventLog>,
@@ -105,7 +112,7 @@ fn launch_test(
             }
         }
         TraceEngine::Llvm => {
-            let res = execute_test(test, ignored, config, None)?;
+            let res = execute_test(test, other_binaries, ignored, config, None)?;
             Ok(Some(res))
         }
         e => {
@@ -141,7 +148,11 @@ pub(crate) fn collect_coverage(
     logger: &Option<EventLog>,
 ) -> Result<(TraceMap, i32), RunError> {
     let mut ret_code = 0;
-    let mut traces = generate_tracemap(test_path, analysis, config)?;
+    let mut traces = if config.engine() == TraceEngine::Llvm {
+        TraceMap::new()
+    } else {
+        generate_tracemap(test_path, analysis, config)?
+    };
     {
         let span = trace_span!("Collect coverage", pid=%test);
         let _enter = span.enter();
@@ -197,6 +208,7 @@ fn get_env_vars(test: &TestBinary, config: &Config) -> Vec<(String, String)> {
 /// Launches the test executable
 fn execute_test(
     test: &TestBinary,
+    other_binaries: &[PathBuf],
     ignored: bool,
     config: &Config,
     num_threads: Option<usize>,
@@ -240,18 +252,19 @@ fn execute_test(
 
     match config.engine() {
         TraceEngine::Llvm => {
+            info!("Setting LLVM_PROFILE_FILE");
             // Used for llvm coverage to avoid report naming clashes TODO could have clashes
             // between runs
             envars.push((
                 "LLVM_PROFILE_FILE".to_string(),
-                format!("{}_%p.profraw", test.file_name()),
+                format!("{}_%m-%p.profraw", test.file_name()),
             ));
             debug!("Env vars: {:?}", envars);
             debug!("Args: {:?}", argv);
             let mut child = Command::new(test.path());
             child.envs(envars).args(&argv);
-
-            let hnd = RunningProcessHandle::new(test.path().to_path_buf(), &mut child, config)?;
+            let others = other_binaries.iter().cloned().collect();
+            let hnd = RunningProcessHandle::new(test, others, &mut child, config)?;
             Ok(hnd.into())
         }
         #[cfg(target_os = "linux")]

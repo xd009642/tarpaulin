@@ -1,15 +1,15 @@
 use crate::utils::get_test_path;
-use cargo_tarpaulin::config::{Config, ConfigWrapper, Mode, RunType};
+use cargo_tarpaulin::config::{Color, Config, ConfigWrapper, Mode, RunType, TraceEngine};
 use cargo_tarpaulin::event_log::EventLog;
-use cargo_tarpaulin::launch_tarpaulin;
 use cargo_tarpaulin::path_utils::*;
 use cargo_tarpaulin::traces::TraceMap;
+use cargo_tarpaulin::{launch_tarpaulin, setup_logging};
 use clap::App;
 use rusty_fork::rusty_fork_test;
 use std::collections::HashSet;
 use std::env;
 use std::fs;
-use std::path::Path;
+use std::path::{Path, PathBuf};
 use std::time::Duration;
 
 #[cfg(nightly)]
@@ -22,6 +22,7 @@ mod utils;
 mod workspaces;
 
 pub fn check_percentage_with_cli_args(minimum_coverage: f64, has_lines: bool, args: &[String]) {
+    setup_logging(Color::Never, false, false);
     let restore_dir = env::current_dir().unwrap();
     let matches = App::new("tarpaulin")
         .args_from_usage(
@@ -30,6 +31,8 @@ pub fn check_percentage_with_cli_args(minimum_coverage: f64, has_lines: bool, ar
              --debug 'Show debug output - this is used for diagnosing issues with tarpaulin'
              --verbose -v 'Show extra output'
              --root -r [DIR] 'directory'
+             --include-tests 'include tests in your tests'
+             --post-test-delay [SECONDS] 'Delay after test to collect coverage profiles'
              --implicit-test-threads 'Don't supply an explicit `--test-threads` argument to tarpaulin. By default tarpaulin will infer the default rustc would pick if not ran via tarpaulin and set it'"
         ).get_matches_from(args);
 
@@ -59,6 +62,7 @@ pub fn check_percentage_with_config(
     has_lines: bool,
     mut config: Config,
 ) {
+    setup_logging(Color::Never, false, false);
     config.test_timeout = Duration::from_secs(60);
     let restore_dir = env::current_dir().unwrap();
     let test_dir = get_test_path(project_name);
@@ -97,6 +101,7 @@ pub fn check_percentage_with_config(
 
 pub fn check_percentage(project_name: &str, minimum_coverage: f64, has_lines: bool) {
     let mut config = Config::default();
+    config.set_ignore_tests(false);
     config.set_clean(false);
     check_percentage_with_config(project_name, minimum_coverage, has_lines, config);
 }
@@ -133,10 +138,27 @@ fn lets_coverage() {
 }
 
 #[test]
+#[cfg_attr(windows, ignore)] // TODO So there are linker issues I can't adequately diagnose myself in windows
+#[cfg(not(tarpaulin))]
 fn picking_up_shared_objects() {
     // Need a project which downloads a shared object to target folder and uses build script to set
     // the linker path.
     check_percentage("torch_test", 1.0f64, true);
+}
+
+// Just for linux if we have ptrace as default
+#[test]
+fn llvm_sanity_test() {
+    let mut config = Config::default();
+    config.set_engine(TraceEngine::Llvm);
+    config.follow_exec = true;
+    config.set_ignore_tests(false);
+    config.set_clean(false);
+
+    check_percentage_with_config("structs", 1.0f64, true, config.clone());
+    check_percentage_with_config("ifelse", 1.0f64, true, config.clone());
+    check_percentage_with_config("returns", 1.0f64, true, config.clone());
+    check_percentage_with_config("follow_exe", 1.0f64, true, config);
 }
 
 #[test]
@@ -211,10 +233,12 @@ fn config_file_coverage() {
 #[test]
 fn issue_966_follow_exec() {
     let test_dir = get_test_path("follow_exec_issue966");
-    let args = vec![
+    let mut args = vec![
         "tarpaulin".to_string(),
         "--root".to_string(),
         test_dir.display().to_string(),
+        "--post-test-delay".to_string(),
+        10.to_string(),
     ];
     check_percentage_with_cli_args(1.0f64, true, &args);
 }
@@ -265,6 +289,7 @@ fn examples_coverage() {
     let mut config = Config::default();
     config.run_types = vec![RunType::Examples];
     config.set_clean(false);
+    config.set_ignore_tests(false);
     check_percentage_with_config(test, 1.0f64, true, config.clone());
 
     config.run_types.clear();
@@ -341,10 +366,10 @@ fn rustflags_handling() {
     config.manifest = test_dir;
     config.manifest.push("Cargo.toml");
 
-    let (_, ret) = launch_tarpaulin(&config, &None).unwrap();
+    let res = launch_tarpaulin(&config, &None);
     env::set_current_dir(&restore_dir).unwrap();
     env::remove_var("RUSTFLAGS");
-    assert_ne!(ret, 0);
+    assert!(res.is_err() || res.unwrap().1 != 0);
 
     let (_, ret) = launch_tarpaulin(&config, &None).unwrap();
     env::set_current_dir(&restore_dir).unwrap();
@@ -355,7 +380,6 @@ fn rustflags_handling() {
 fn follow_exes_down() {
     let mut config = Config::default();
     config.follow_exec = true;
-    config.dump_traces = true;
     config.set_clean(false);
     check_percentage_with_config("follow_exe", 1.0f64, true, config);
 }
@@ -366,9 +390,14 @@ fn handle_module_level_exclude_attrs() {
 }
 
 #[test]
+#[cfg(unix)]
 fn handle_forks() {
+    let mut config = Config::default();
+    config.set_clean(false);
+    config.set_ignore_tests(false);
+    config.post_test_delay = Some(Duration::from_secs(10));
     // Some false negatives on more recent compilers so lets just aim for >90% and 0 return code
-    check_percentage("fork-test", 0.9f64, true);
+    check_percentage_with_config("fork-test", 0.9f64, true, config);
 }
 
 #[test]
@@ -379,6 +408,7 @@ fn no_test_args() {
         "--root".to_string(),
         test_dir.display().to_string(),
         "--implicit-test-threads".to_string(),
+        "--include-tests".to_string(),
     ];
     check_percentage_with_cli_args(1.0, true, &args);
 }
@@ -388,6 +418,7 @@ fn dot_rs_in_dir_name() {
     // issue #857
     let mut config = Config::default();
     config.set_clean(false);
+    config.set_ignore_tests(false);
 
     let restore_dir = env::current_dir().unwrap();
     let test_dir = get_test_path("not_a_file.rs");
@@ -406,10 +437,18 @@ fn dot_rs_in_dir_name() {
 }
 
 #[test]
+#[cfg(unix)]
+#[cfg(not(tarpaulin))]
 fn kill_used_in_test() {
     let mut config = Config::default();
+    if config.engine() == TraceEngine::Llvm {
+        println!("Tests using signals are not supported");
+        return;
+    }
+
     config.follow_exec = true;
     config.set_clean(false);
+    config.set_ignore_tests(false);
     // Currently 2 false negatives, but if it was only covering the integration test max coverage
     // is 75% so this is high enough to prove it works
     check_percentage_with_config("kill_proc", 0.9f64, true, config);

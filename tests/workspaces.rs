@@ -15,6 +15,7 @@ fn package_exclude() {
     config.manifest = test_dir;
     config.manifest.push("Cargo.toml");
     config.set_clean(false);
+    config.set_ignore_tests(false);
 
     config.all = true;
     let result = launch_tarpaulin(&config, &None);
@@ -45,6 +46,7 @@ fn package_exclude() {
 fn specify_package() {
     let mut config = Config::default();
     config.set_clean(false);
+    config.set_ignore_tests(false);
 
     let test_dir = get_test_path("workspace");
     env::set_current_dir(&test_dir).unwrap();

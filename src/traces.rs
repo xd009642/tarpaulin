@@ -363,6 +363,10 @@ impl TraceMap {
         i
     }
 
+    pub fn file_traces_mut(&mut self, file: &Path) -> Option<&mut Vec<Trace>> {
+        self.traces.get_mut(file)
+    }
+
     /// Gets all traces
     pub fn all_traces(&self) -> impl Iterator<Item = &Trace> {
         self.traces.values().flat_map(|x| x.iter())

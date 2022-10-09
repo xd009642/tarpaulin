@@ -95,7 +95,8 @@ fn from_args() -> ArgMatches<'static> {
                  --debug 'Show debug output - this is used for diagnosing issues with tarpaulin'
                  --dump-traces 'Log tracing events and save to a json file. Also, enabled when --debug is used'
                  --verbose -v 'Show extra output'
-                 --ignore-tests 'Ignore lines of test functions when collecting coverage'
+                 --ignore-tests 'Ignore lines of test functions when collecting coverage (default)'
+                 --include-tests 'Include lines of test functions when collecting coverage'
                  --ignore-panics 'Ignore panic macros in tests'
                  --count   'Counts the number of hits during coverage'
                  --ignored -i 'Run ignored tests as well'
@@ -116,6 +117,7 @@ fn from_args() -> ArgMatches<'static> {
                  --exclude -e [PACKAGE]... 'Package id specifications to exclude from coverage. See cargo help pkgid for more info'
                  --exclude-files [FILE]... 'Exclude given files from coverage results has * wildcard'
                  --timeout -t [SECONDS] 'Integer for the maximum time in seconds without response from test before timeout (default is 1 minute).'
+                 --post-test-delay [SECONDS] 'Delay after test to collect coverage profiles'
                  --follow-exec 'Follow executed processes capturing coverage information if they're part of your project.'
                  --release   'Build in release mode.'
                  --no-run 'Compile tests but don't run coverage'
@@ -139,8 +141,7 @@ fn from_args() -> ArgMatches<'static> {
                 Arg::from_usage("--engine [ENGINE] 'Coverage tracing backend to use'")
                     .possible_values(&TraceEngine::variants())
                     .case_insensitive(true)
-                    .multiple(false)
-                    .hidden(true),
+                    .multiple(false),
                 Arg::from_usage("--output-dir [PATH] 'Specify a custom directory to write report files'"),
                 Arg::from_usage("--run-types [TYPE]... 'Type of the coverage run'")
                     .possible_values(&RunType::variants())

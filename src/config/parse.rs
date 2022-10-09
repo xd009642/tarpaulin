@@ -171,6 +171,17 @@ pub(super) fn get_timeout(args: &ArgMatches) -> Duration {
     }
 }
 
+pub(super) fn get_post_test_delay(args: &ArgMatches) -> Option<Duration> {
+    if args.is_present("post-test-delay") {
+        value_t!(args.value_of("post-test-delay"), u64)
+            .map(Duration::from_secs)
+            .ok()
+            .or_else(|| Some(Duration::from_secs(1)))
+    } else {
+        None
+    }
+}
+
 pub fn deserialize_ci_server<'de, D>(d: D) -> Result<Option<CiService>, D::Error>
 where
     D: Deserializer<'de>,

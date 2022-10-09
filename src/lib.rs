@@ -9,7 +9,7 @@ use crate::source_analysis::{LineAnalysis, SourceAnalysis};
 use crate::test_loader::*;
 use crate::traces::*;
 use std::ffi::OsString;
-use std::fs::create_dir_all;
+use std::fs::{create_dir_all, remove_dir_all};
 use tracing::{debug, error, info, warn};
 use tracing_subscriber::{filter::LevelFilter, EnvFilter};
 
@@ -62,11 +62,15 @@ pub fn setup_logging(color: Color, debug: bool, verbose: bool) {
 
     let with_ansi = color != Color::Never;
 
-    tracing_subscriber::FmtSubscriber::builder()
+    let res = tracing_subscriber::FmtSubscriber::builder()
         .with_max_level(tracing::Level::ERROR)
         .with_env_filter(filter)
         .with_ansi(with_ansi)
-        .init();
+        .try_init();
+
+    if let Err(e) = res {
+        eprintln!("Logging may be misconfigured: {}", e);
+    }
 
     debug!("set up logging");
 }
@@ -157,6 +161,16 @@ fn check_fail_threshold(traces: &TraceMap, config: &Config) -> Result<(), RunErr
 }
 
 pub fn run(configs: &[Config]) -> Result<(), RunError> {
+    if configs.iter().any(|x| x.engine() == TraceEngine::Llvm) {
+        let profraw_dir = configs[0].profraw_dir();
+        let _ = remove_dir_all(&profraw_dir);
+        if let Err(e) = create_dir_all(&profraw_dir) {
+            warn!(
+                "Unable to create profraw directory in tarpaulin's target folder: {}",
+                e
+            );
+        }
+    }
     let tracemap = collect_tracemap(configs)?;
     report_tracemap(configs, tracemap)
 }
@@ -214,11 +228,18 @@ pub fn launch_tarpaulin(
     if !config.no_run {
         let project_analysis = SourceAnalysis::get_analysis(config);
         let project_analysis = project_analysis.lines;
-        for exe in &executables {
+        for exe in &executables.test_binaries {
             if exe.should_panic() {
                 info!("Running a test executable that is expected to panic");
             }
-            let coverage = get_test_coverage(exe, &project_analysis, config, false, logger)?;
+            let coverage = get_test_coverage(
+                exe,
+                &executables.binaries,
+                &project_analysis,
+                config,
+                false,
+                logger,
+            )?;
             if let Some(res) = coverage {
                 result.merge(&res.0);
                 return_code |= if exe.should_panic() {
@@ -228,7 +249,14 @@ pub fn launch_tarpaulin(
                 };
             }
             if config.run_ignored {
-                let coverage = get_test_coverage(exe, &project_analysis, config, true, logger)?;
+                let coverage = get_test_coverage(
+                    exe,
+                    &executables.binaries,
+                    &project_analysis,
+                    config,
+                    true,
+                    logger,
+                )?;
                 if let Some(res) = coverage {
                     result.merge(&res.0);
                     return_code |= res.1;

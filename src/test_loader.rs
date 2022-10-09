@@ -279,7 +279,7 @@ fn get_line_addresses(
                 let temp_map = temp_map
                     .into_iter()
                     .filter(|&(ref k, _)| {
-                        !(config.ignore_tests && k.path.starts_with(&project.join("tests")))
+                        !(config.ignore_tests() && k.path.starts_with(&project.join("tests")))
                     })
                     .filter(|&(ref k, _)| !(config.exclude_path(&k.path)))
                     .filter(|&(ref k, _)| {
@@ -356,14 +356,17 @@ fn open_symbols_file(test: &Path) -> io::Result<File> {
     File::open(test)
 }
 
+/*
 #[cfg(target_os = "macos")]
 fn open_symbols_file(test: &Path) -> io::Result<File> {
     let d_sym = test.with_extension("dSYM");
     File::open(&d_sym)
 }
+*/
 
-#[cfg(target_os = "windows")]
-fn open_symbols_file(test: &Path) -> io::Result<File> {
+//#[cfg(target_os = "windows")]
+#[cfg(not(target_os = "linux"))]
+fn open_symbols_file(_test: &Path) -> io::Result<File> {
     Err(io::Error::new(
         io::ErrorKind::Other,
         "Windows is not currently supported",
