@@ -192,7 +192,6 @@ fn paths_coverage() {
 }
 
 #[test]
-#[cfg(not(tarpaulin))]
 fn futures_coverage() {
     check_percentage("futures", 1.0f64, true);
 }
@@ -324,7 +323,6 @@ fn filter_with_inner_attributes() {
 }
 
 #[test]
-#[cfg(not(tarpaulin))]
 fn cargo_home_filtering() {
     let new_home =
         Path::new(env!("CARGO_MANIFEST_DIR")).join("tests/data/HttptestAndReqwest/new_home");
