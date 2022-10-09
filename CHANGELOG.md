@@ -4,6 +4,10 @@ From 2019 onwards, all notable changes to tarpaulin will be documented in this
 file.
 
 ## [Unreleased]
+### Changed
+- Look for existing profraws before spawning test
+
+## [0.22.0] 2022-10-09
 ### Added
 - Working llvm coverage instrumentation (coverage now works on Mac and Windows!)
 - `--post-test-delay` for tests which spawn a process (default 1s for llvm coverage)
