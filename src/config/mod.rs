@@ -253,7 +253,7 @@ impl Default for Config {
             color: Color::Auto,
             engine: RefCell::default(),
             rustflags: None,
-            post_test_delay: None,
+            post_test_delay: Some(Duration::from_secs(1)),
             profraw_folder: PathBuf::from("profraws"),
         }
     }

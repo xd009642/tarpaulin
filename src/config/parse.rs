@@ -176,6 +176,7 @@ pub(super) fn get_post_test_delay(args: &ArgMatches) -> Option<Duration> {
         value_t!(args.value_of("post-test-delay"), u64)
             .map(Duration::from_secs)
             .ok()
+            .or_else(|| Some(Duration::from_secs(1)))
     } else {
         None
     }
