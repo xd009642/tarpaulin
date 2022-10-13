@@ -37,10 +37,10 @@ impl RunningProcessHandle {
         cmd: &mut Command,
         config: &Config,
     ) -> Result<Self, RunError> {
-        let child = cmd.spawn()?;
         let existing_profraws = get_profile_walker(config)
             .map(|x| x.path().to_path_buf())
             .collect();
+        let child = cmd.spawn()?;
 
         Ok(Self {
             path: test.path().to_path_buf(),
