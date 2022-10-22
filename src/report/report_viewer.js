@@ -184,7 +184,7 @@ function File({file, onClick}) {
         + (file.is_folder ? ' files-list__file_folder': ''),
       onClick: () => onClick(file),
     },
-    e('td', null, pathToString(file.path)),
+    e('td', null, e('a', null, pathToString(file.path))),
     e('td', null,
       file.covered + ' / ' + file.coverable +
       (coverage >= 0 ? ' (' + coverage.toFixed(2) + '%)' : ''),
