@@ -6,6 +6,7 @@ file.
 ## [Unreleased]
 ### Changed
 - Look for existing profraws before spawning test
+- Add empty `<a>` wrapping elements to improve mouseless navigation of HTML reports #1120 
 
 ## [0.22.0] 2022-10-09
 ### Added
