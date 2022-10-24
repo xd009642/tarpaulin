@@ -11,7 +11,7 @@ use tracing::error;
 
 pub mod instrumented;
 cfg_if::cfg_if! {
-    if #[cfg(target_os = "linux")] {
+    if #[cfg(ptrace_supported)] {
         pub mod linux;
         pub use linux::ProcessInfo;
     }
@@ -26,7 +26,7 @@ pub fn create_state_machine<'a>(
     match config.engine() {
         TraceEngine::Ptrace => {
             cfg_if::cfg_if! {
-                if #[cfg(target_os="linux")] {
+                if #[cfg(ptrace_supported)] {
                     let (state, machine) = linux::create_state_machine(test, traces, source_analysis, config, event_log);
                     (state, Box::new(machine))
                 } else {

@@ -351,7 +351,7 @@ fn get_line_addresses(
     Ok(result)
 }
 
-#[cfg(target_os = "linux")]
+#[cfg(ptrace_supported)]
 fn open_symbols_file(test: &Path) -> io::Result<File> {
     File::open(test)
 }
@@ -364,12 +364,11 @@ fn open_symbols_file(test: &Path) -> io::Result<File> {
 }
 */
 
-//#[cfg(target_os = "windows")]
-#[cfg(not(target_os = "linux"))]
+#[cfg(not(ptrace_supported))]
 fn open_symbols_file(_test: &Path) -> io::Result<File> {
     Err(io::Error::new(
         io::ErrorKind::Other,
-        "Windows is not currently supported",
+        "Symbol files aren't read on non-ptrace systems",
     ))
 }
 
