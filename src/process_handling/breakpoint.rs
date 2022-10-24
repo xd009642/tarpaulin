@@ -8,10 +8,8 @@ use std::collections::HashMap;
 /// one byte instruction defined for use by debuggers. For implementing support for other
 /// architectures the equivalent instructions will have to be found and also the architectures
 /// added to the CI.
-#[cfg(target_arch = "x86_64")]
-const INT: usize = libc::RIP as usize;
-#[cfg(target_arch = "x86")]
-const INT: usize = libc::EIP as usize;
+#[cfg(any(target_arch = "x86", target_arch = "x86_64"))]
+const INT: u64 = 0xCC;
 
 /// Breakpoint construct used to monitor program execution. As tarpaulin is an
 /// automated process, this will likely have less functionality than most
