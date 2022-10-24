@@ -48,9 +48,9 @@ tracing = { version = "0.1", default-features = false }
 tracing-subscriber = { version = "0.2.25", default-features = false, features = ["env-filter", "fmt", "chrono", "ansi", "smallvec", "tracing-log"] }
 walkdir = "2.3.2"
 
-[target.'cfg(target_os = "linux")'.dependencies]
+[target.'cfg(all(target_os = "linux", target_arch = "x86_64"))'.dependencies]
 libc = "0.2.94"
-nix = {version = "0.25.0", default-features = false, features = ["sched", "signal", "ptrace"]}
+nix = {version = "0.25.0", default-features = false, features = ["sched", "signal", "ptrace", "personality"]}
 procfs = "0.14"
 
 [features]
