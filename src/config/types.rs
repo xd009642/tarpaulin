@@ -24,7 +24,7 @@ arg_enum! {
 impl TraceEngine {
     pub const fn supported() -> &'static [TraceEngine] {
         cfg_if::cfg_if! {
-            if #[cfg(target_os = "linux")] {
+            if #[cfg(ptrace_supported)] {
                 &[TraceEngine::Ptrace, TraceEngine::Llvm]
             } else {
                 &[TraceEngine::Llvm]
@@ -36,7 +36,7 @@ impl TraceEngine {
 impl Default for TraceEngine {
     fn default() -> Self {
         cfg_if::cfg_if! {
-            if #[cfg(target_os = "linux")] {
+            if #[cfg(ptrace_supported)] {
                 TraceEngine::Ptrace
             } else {
                 TraceEngine::Llvm

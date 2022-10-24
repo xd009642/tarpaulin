@@ -6,30 +6,15 @@ use crate::Config;
 use crate::TestBinary;
 use crate::TestHandle;
 use lazy_static::lazy_static;
-use nix::errno::Errno;
-use nix::libc::{c_int, c_long};
 use nix::sched::*;
+use nix::sys::personality;
 use nix::unistd::*;
 use std::ffi::{CStr, CString};
 use std::path::Path;
 use tracing::{info, warn};
 
-#[cfg(any(target_arch = "x86", target_arch = "x86_64", target_arch = "arm"))]
-type Persona = c_long;
-
 lazy_static! {
     static ref NUM_CPUS: usize = num_cpus::get();
-}
-
-const ADDR_NO_RANDOMIZE: Persona = 0x004_0000;
-const GET_PERSONA: Persona = 0xFFFF_FFFF;
-
-mod ffi {
-    use nix::libc::{c_int, c_long};
-
-    extern "C" {
-        pub fn personality(persona: c_long) -> c_int;
-    }
 }
 
 /// Returns the coverage statistics for a test executable in the given workspace
@@ -71,25 +56,9 @@ pub fn get_test_coverage(
     }
 }
 
-fn personality(persona: Persona) -> nix::Result<c_int> {
-    let ret = unsafe {
-        Errno::clear();
-        ffi::personality(persona)
-    };
-    match Errno::result(ret) {
-        Ok(..) | Err(Errno::UnknownErrno) => Ok(ret),
-        err @ Err(..) => err,
-    }
-}
-
-fn disable_aslr() -> nix::Result<i32> {
-    match personality(GET_PERSONA) {
-        Ok(p) => match personality(i64::from(p) | ADDR_NO_RANDOMIZE) {
-            ok @ Ok(_) => ok,
-            err @ Err(..) => err,
-        },
-        err @ Err(..) => err,
-    }
+fn disable_aslr() -> nix::Result<()> {
+    let this = personality::get()?;
+    personality::set(this | personality::Persona::ADDR_NO_RANDOMIZE).map(|_| ())
 }
 
 pub fn limit_affinity() -> nix::Result<()> {
