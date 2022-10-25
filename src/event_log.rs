@@ -85,7 +85,7 @@ impl TraceEvent {
         }
     }
 
-    #[cfg(target_os = "linux")]
+    #[cfg(ptrace_supported)]
     pub(crate) fn new_from_wait(wait: &WaitStatus, offset: u64, traces: &TraceMap) -> Self {
         let pid = wait.pid().map(|p| p.as_raw().into());
         let mut event = TraceEvent {
