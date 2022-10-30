@@ -726,12 +726,12 @@ impl<'a> LinuxData<'a> {
         let mut hits_to_increment = HashSet::new();
         if let Some(process) = self.get_traced_process_mut(current) {
             let visited = visited_pcs.entry(process.parent).or_default();
-            if let Ok(rip) = current_instruction_pointer(current) {
-                let rip = (rip - 1) as u64;
-                trace!("Hit address 0x{:x}", rip);
-                if process.breakpoints.contains_key(&rip) {
-                    let bp = process.breakpoints.get_mut(&rip).unwrap();
-                    let updated = if visited.contains(&rip) {
+            if let Ok(pc) = current_instruction_pointer(current) {
+                let pc = (pc - 1) as u64;
+                trace!("Hit address {:#x}", pc);
+                if process.breakpoints.contains_key(&pc) {
+                    let bp = process.breakpoints.get_mut(&pc).unwrap();
+                    let updated = if visited.contains(&pc) {
                         let _ = bp.jump_to(current);
                         (true, TracerAction::Continue(current.into()))
                     } else {
@@ -745,7 +745,7 @@ impl<'a> LinuxData<'a> {
                         }
                     };
                     if updated.0 {
-                        hits_to_increment.insert(rip - process.offset);
+                        hits_to_increment.insert(pc - process.offset);
                     }
                     action = Some(updated.1);
                 }
