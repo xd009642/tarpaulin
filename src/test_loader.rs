@@ -384,18 +384,12 @@ pub fn generate_tracemap(
         }
     };
     let obj = object::File::parse(&file)
-        .map_err(|_| io::Error::new(
-            io::ErrorKind::InvalidData,
-            "Unable to parse binary",
-        ))?;
+        .map_err(|_| io::Error::new(io::ErrorKind::InvalidData, "Unable to parse binary"))?;
     let endian = if obj.is_little_endian() {
         RunTimeEndian::Little
     } else {
         RunTimeEndian::Big
     };
     get_line_addresses(endian, &obj, analysis, config)
-        .map_err(|_| io::Error::new(
-            io::ErrorKind::InvalidData,
-            "Error while parsing",
-        ))
+        .map_err(|_| io::Error::new(io::ErrorKind::InvalidData, "Error while parsing"))
 }
