@@ -4,9 +4,6 @@ on:
   push:
     tags:
       - '*.*.*'
-    branches:
-      - "*"
-
 jobs:
   crates:
     runs-on: ubuntu-latest
