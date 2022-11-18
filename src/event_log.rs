@@ -53,7 +53,7 @@ pub struct TraceEvent {
 }
 
 impl TraceEvent {
-    #[cfg(target_os = "linux")]
+    #[cfg(ptrace_supported)]
     pub(crate) fn new_from_action(action: &TracerAction<ProcessInfo>) -> Self {
         match action {
             TracerAction::TryContinue(t) => TraceEvent {
