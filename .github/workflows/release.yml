@@ -4,7 +4,6 @@ on:
   push:
     tags:
       - '*.*.*'
-
 jobs:
   crates:
     runs-on: ubuntu-latest
@@ -19,16 +18,16 @@ jobs:
     name: Build cargo-tarpaulin binaries for ${{ matrix.target }}
     strategy:
       matrix:
-        include:
-          - target: x86_64-unknown-linux-gnu
-          - target: x86_64-unknown-linux-musl
+        target:
+          - x86_64-unknown-linux-gnu
+          - x86_64-unknown-linux-musl
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v2
-      - name: install toolchain
-        uses: actions-rs/toolchain@v1
+      - uses: actions-rs/toolchain@v1
         with:
             target: ${{ matrix.target }}
+            toolchain: stable
             override: true
       - name: build
         run: cargo build --release
