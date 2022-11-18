@@ -6,7 +6,7 @@ on:
       - '*.*.*'
 
 jobs:
-  release-crates:
+  crates:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v2
@@ -15,16 +15,22 @@ jobs:
           cargo package
           cargo publish --token ${{ secrets.CARGO_TOKEN }}
 
-  release:
+  binaries:
+    name: Build cargo-tarpaulin binaries for ${{ matrix.target }}
+    strategy:
+      matrix:
+        include:
+          - target: x86_64-unknown-linux-gnu
+          - target: x86_64-unknown-linux-musl
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v2
       - name: build
-        run: cargo build --release
+        run: cargo build --release --target ${{ matrix.target }}
       - name: archive
         run: |
           GIT_TAG=$(git describe --tags `git rev-list --tags --max-count=1`)
-          tar -C target/release -czf $(pwd)/cargo-tarpaulin-${GIT_TAG}-travis.tar.gz cargo-tarpaulin
+          tar -C target/${{ matrix.target }}/release -czf $(pwd)/cargo-tarpaulin-${GIT_TAG}-${{ matrix.target }}.tar.gz cargo-tarpaulin
       - name: publish release
         uses: softprops/action-gh-release@v1
         with:

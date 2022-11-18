@@ -9,4 +9,7 @@ fn main() {
     if channel == Channel::Nightly {
         println!("cargo:rustc-cfg=nightly");
     }
+
+    #[cfg(all(target_os = "linux", target_arch = "x86_64"))]
+    println!("cargo:rustc-cfg=ptrace_supported");
 }

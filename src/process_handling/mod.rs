@@ -37,10 +37,10 @@ impl RunningProcessHandle {
         cmd: &mut Command,
         config: &Config,
     ) -> Result<Self, RunError> {
-        let child = cmd.spawn()?;
         let existing_profraws = get_profile_walker(config)
             .map(|x| x.path().to_path_buf())
             .collect();
+        let child = cmd.spawn()?;
 
         Ok(Self {
             path: test.path().to_path_buf(),
@@ -103,7 +103,7 @@ fn launch_test(
     match config.engine() {
         TraceEngine::Ptrace => {
             cfg_if::cfg_if! {
-                if #[cfg(target_os="linux")] {
+                if #[cfg(ptrace_supported)] {
                     linux::get_test_coverage(test, config, ignored)
                 } else {
                     error!("Ptrace is not supported on this platform");
@@ -126,7 +126,7 @@ fn launch_test(
 }
 
 cfg_if::cfg_if! {
-    if #[cfg(target_os= "linux")] {
+    if #[cfg(ptrace_supported)] {
         pub mod linux;
         pub use linux::*;
 
@@ -267,7 +267,7 @@ fn execute_test(
             let hnd = RunningProcessHandle::new(test, others, &mut child, config)?;
             Ok(hnd.into())
         }
-        #[cfg(target_os = "linux")]
+        #[cfg(ptrace_supported)]
         TraceEngine::Ptrace => {
             argv.insert(0, test.path().display().to_string());
             debug!("Env vars: {:?}", envars);
