@@ -21,8 +21,6 @@ jobs:
     name: Build cargo-tarpaulin binaries for ${{ matrix.target }}
     strategy:
       matrix:
-        version:
-          - stable
         target:
           - x86_64-unknown-linux-gnu
           - x86_64-unknown-linux-musl
@@ -32,6 +30,7 @@ jobs:
       - uses: actions-rs/toolchain@v1
         with:
             target: ${{ matrix.target }}
+            toolchain: stable
             override: true
       - name: build
         run: cargo build --release
