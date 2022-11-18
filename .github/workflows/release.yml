@@ -4,6 +4,8 @@ on:
   push:
     tags:
       - '*.*.*'
+    branches:
+      - "*"
 
 jobs:
   crates:
@@ -25,8 +27,7 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v2
-      - name: install toolchain
-        uses: actions-rs/toolchain@v1
+      - uses: actions-rs/toolchain@v1
         with:
             target: ${{ matrix.target }}
             override: true
