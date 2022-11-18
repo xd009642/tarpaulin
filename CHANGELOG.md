@@ -3,11 +3,14 @@
 From 2019 onwards, all notable changes to tarpaulin will be documented in this
 file.
 
-## [Unreleased]
+## [0.23.0] 2022-11-18
 ### Changed
 - Look for existing profraws before spawning test
 - Add empty `<a>` wrapping elements to improve mouseless navigation of HTML reports #1120 
 - Disable ptrace engine support for non-x64 architectures
+
+### Removed
+- Travis install script - users should use one of the other fast install tools
 
 ## [0.22.0] 2022-10-09
 ### Added
