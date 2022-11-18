@@ -25,8 +25,13 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v2
+      - name: install toolchain
+        uses: actions-rs/toolchain@v1
+        with:
+            target: ${{ matrix.target }}
+            override: true
       - name: build
-        run: cargo build --release --target ${{ matrix.target }}
+        run: cargo build --release
       - name: archive
         run: |
           GIT_TAG=$(git describe --tags `git rev-list --tags --max-count=1`)
