@@ -99,7 +99,7 @@ jobs:
       - name: build
         run: cargo build
       - name: test
-        run: cargo test
+        run: cargo test -- --test-threads 1
       - uses: actions/upload-artifact@v3
         if: failure()
         with:
