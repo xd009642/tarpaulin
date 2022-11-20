@@ -671,27 +671,10 @@ fn handle_llvm_flags(value: &mut String, config: &Config) {
     }
 }
 
-pub fn rustdoc_flags(config: &Config) -> String {
-    const RUSTDOC: &str = "RUSTDOCFLAGS";
-    let common_opts = " -Cdebuginfo=2 --cfg=tarpaulin ";
-    let mut value = format!(
-        "{} --persist-doctests {} -Zunstable-options ",
-        common_opts,
-        config.doctest_dir().display()
-    );
-    if let Ok(vtemp) = env::var(RUSTDOC) {
-        if !vtemp.contains("--persist-doctests") {
-            value.push_str(vtemp.as_ref());
-        }
-    }
-    handle_llvm_flags(&mut value, config);
-    deduplicate_flags(&value)
-}
-
-fn look_for_rustflags_in_table(value: &Value) -> String {
+fn look_for_field_in_table(value: &Value, field: &str) -> String {
     let table = value.as_table().unwrap();
 
-    if let Some(rustflags) = table.get("rustflags") {
+    if let Some(rustflags) = table.get(field) {
         if rustflags.is_array() {
             let vec_of_flags: Vec<String> = rustflags
                 .as_array()
@@ -712,42 +695,42 @@ fn look_for_rustflags_in_table(value: &Value) -> String {
     }
 }
 
-fn look_for_rustflags_in_file(path: &Path) -> Option<String> {
+fn look_for_field_in_file(path: &Path, section: &str, field: &str) -> Option<String> {
     if let Ok(contents) = read_to_string(path) {
         let value = contents.parse::<Value>().ok()?;
 
-        let rustflags_in_file: Vec<String> = value
+        let value: Vec<String> = value
             .as_table()?
             .into_iter()
             .map(|(s, v)| {
-                if s.as_str() == "build" {
-                    look_for_rustflags_in_table(v)
+                if s.as_str() == section {
+                    look_for_field_in_table(v, field)
                 } else {
                     String::new()
                 }
             })
             .collect();
 
-        Some(rustflags_in_file.join(" "))
+        Some(value.join(" "))
     } else {
         None
     }
 }
 
-fn look_for_rustflags_in(path: &Path) -> Option<String> {
+fn look_for_field_in_section(path: &Path, section: &str, field: &str) -> Option<String> {
     let mut config_path = path.join("config");
 
-    let rustflags = look_for_rustflags_in_file(&config_path);
-    if rustflags.is_some() {
-        return rustflags;
+    let value = look_for_field_in_file(&config_path, section, field);
+    if value.is_some() {
+        return value;
     }
 
     config_path.pop();
     config_path.push("config.toml");
 
-    let rustflags = look_for_rustflags_in_file(&config_path);
-    if rustflags.is_some() {
-        return rustflags;
+    let value = look_for_field_in_file(&config_path, section, field);
+    if value.is_some() {
+        return value;
     }
 
     None
@@ -761,14 +744,18 @@ fn build_config_path(base: impl AsRef<Path>) -> PathBuf {
     config_path
 }
 
-fn gather_config_rust_flags(config: &Config) -> String {
-    if let Some(rustflags) = look_for_rustflags_in(&build_config_path(&config.root())) {
-        return rustflags;
+fn gather_config_field_from_section(config: &Config, section: &str, field: &str) -> String {
+    if let Some(value) =
+        look_for_field_in_section(&build_config_path(&config.root()), section, field)
+    {
+        return value;
     }
 
     if let Ok(cargo_home_config) = env::var("CARGO_HOME") {
-        if let Some(rustflags) = look_for_rustflags_in(&PathBuf::from(cargo_home_config)) {
-            return rustflags;
+        if let Some(value) =
+            look_for_field_in_section(&PathBuf::from(cargo_home_config), section, field)
+        {
+            return value;
         }
     }
 
@@ -792,9 +779,29 @@ pub fn rust_flags(config: &Config) -> String {
     if let Ok(vtemp) = env::var(RUSTFLAGS) {
         value.push_str(&DEBUG_INFO.replace_all(&vtemp, " "));
     } else {
-        let vtemp = gather_config_rust_flags(config);
+        let vtemp = gather_config_field_from_section(config, "build", "rustflags");
         value.push_str(&DEBUG_INFO.replace_all(&vtemp, " "));
     }
+    deduplicate_flags(&value)
+}
+
+pub fn rustdoc_flags(config: &Config) -> String {
+    const RUSTDOC: &str = "RUSTDOCFLAGS";
+    let common_opts = " -Cdebuginfo=2 --cfg=tarpaulin ";
+    let mut value = format!(
+        "{} --persist-doctests {} -Zunstable-options ",
+        common_opts,
+        config.doctest_dir().display()
+    );
+    if let Ok(vtemp) = env::var(RUSTDOC) {
+        if !vtemp.contains("--persist-doctests") {
+            value.push_str(vtemp.as_ref());
+        }
+    } else {
+        let vtemp = gather_config_field_from_section(config, "build", "rustdocflags");
+        value.push_str(&vtemp);
+    }
+    handle_llvm_flags(&mut value, config);
     deduplicate_flags(&value)
 }
 
@@ -871,7 +878,7 @@ mod tests {
         };
 
         assert_eq!(
-            look_for_rustflags_in_table(&list_flags),
+            look_for_field_in_table(&list_flags, "rustflags"),
             "--cfg=foo --cfg=bar"
         );
 
@@ -880,7 +887,7 @@ mod tests {
         };
 
         assert_eq!(
-            look_for_rustflags_in_table(&string_flags),
+            look_for_field_in_table(&string_flags, "rustflags"),
             "--cfg=bar --cfg=baz"
         );
     }

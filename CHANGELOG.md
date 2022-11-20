@@ -3,6 +3,10 @@
 From 2019 onwards, all notable changes to tarpaulin will be documented in this
 file.
 
+## [Unreleased]
+### Added
+- Merge rustdocflags field from `cargo/config.toml` with env tarpaulin sets
+
 ## [0.23.1] 2022-11-18
 ### Changed
 - Fix linux cfg instead of ptrace\_supported cfg on event log for ARM linux builds
