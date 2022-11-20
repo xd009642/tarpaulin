@@ -9,7 +9,7 @@ use rusty_fork::rusty_fork_test;
 use std::collections::HashSet;
 use std::env;
 use std::fs;
-use std::path::{Path, PathBuf};
+use std::path::Path;
 use std::time::Duration;
 
 #[cfg(nightly)]
@@ -233,7 +233,7 @@ fn config_file_coverage() {
 #[test]
 fn issue_966_follow_exec() {
     let test_dir = get_test_path("follow_exec_issue966");
-    let mut args = vec![
+    let args = vec![
         "tarpaulin".to_string(),
         "--root".to_string(),
         test_dir.display().to_string(),

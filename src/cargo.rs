@@ -878,7 +878,7 @@ mod tests {
         };
 
         assert_eq!(
-            look_for_rustflags_in_table(&list_flags),
+            look_for_field_in_table(&list_flags, "rustflags"),
             "--cfg=foo --cfg=bar"
         );
 
@@ -887,7 +887,7 @@ mod tests {
         };
 
         assert_eq!(
-            look_for_rustflags_in_table(&string_flags),
+            look_for_field_in_table(&string_flags, "rustflags"),
             "--cfg=bar --cfg=baz"
         );
     }

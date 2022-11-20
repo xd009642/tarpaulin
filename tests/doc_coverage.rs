@@ -151,4 +151,27 @@ fn doc_test_no_run() {
     let (_, ret) = launch_tarpaulin(&config, &None).unwrap();
     assert_eq!(ret, 0);
 }
+
+#[test]
+fn rustdocflags_handling() {
+    env::set_var("RUSTDOCFLAGS", "--cfg=foo");
+    let mut config = Config::default();
+    config.run_types = vec![RunType::Doctests];
+    config.set_clean(false);
+
+    let restore_dir = env::current_dir().unwrap();
+    let test_dir = get_test_path("rustflags");
+    env::set_current_dir(&test_dir).unwrap();
+    config.manifest = test_dir;
+    config.manifest.push("Cargo.toml");
+
+    let res = launch_tarpaulin(&config, &None);
+    env::set_current_dir(&restore_dir).unwrap();
+    env::remove_var("RUSTDOCFLAGS");
+    assert!(res.is_err() || res.unwrap().1 != 0);
+
+    let (_, ret) = launch_tarpaulin(&config, &None).unwrap();
+    env::set_current_dir(&restore_dir).unwrap();
+    assert_eq!(ret, 0);
+}
 }
