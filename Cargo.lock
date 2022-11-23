@@ -120,7 +120,7 @@ dependencies = [
  "memmap",
  "nix",
  "num_cpus",
- "object 0.29.0",
+ "object 0.30.0",
  "proc-macro2",
  "procfs",
  "quick-xml",
@@ -679,9 +679,9 @@ dependencies = [
 
 [[package]]
 name = "object"
-version = "0.29.0"
+version = "0.30.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "21158b2c33aa6d4561f1c0a6ea283ca92bc54802a93b263e910746d679a7eb53"
+checksum = "239da7f290cfa979f43f85a8efeee9a8a76d0827c356d37f9d3d7254d6b537fb"
 dependencies = [
  "flate2",
  "memchr",
