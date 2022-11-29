@@ -23,10 +23,9 @@ jobs:
       fail-fast: false
     steps:
       - uses: actions/checkout@v2
-      - uses: actions-rs/toolchain@v1
+      - uses: dtolnay/rust-toolchain@master
         with:
           toolchain: ${{ matrix.version }}
-          override: true
           components: rustfmt
       - name: cache
         uses: Swatinem/rust-cache@v2
@@ -60,10 +59,9 @@ jobs:
       fail-fast: false
     steps:
       - uses: actions/checkout@v2
-      - uses: actions-rs/toolchain@v1
+      - uses: dtolnay/rust-toolchain@master
         with:
           toolchain: ${{ matrix.version }}
-          override: true
       - name: cache
         uses: Swatinem/rust-cache@v2
       - name: build
@@ -90,10 +88,9 @@ jobs:
       fail-fast: false
     steps:
       - uses: actions/checkout@v2
-      - uses: actions-rs/toolchain@v1
+      - uses: dtolnay/rust-toolchain@master
         with:
           toolchain: ${{ matrix.version }}
-          override: true
       - name: cache
         uses: Swatinem/rust-cache@v2
       - name: build
@@ -119,9 +116,8 @@ jobs:
       fail-fast: false
     steps:
       - uses: actions/checkout@v2
-      - uses: actions-rs/toolchain@v1
+      - uses: dtolnay/rust-toolchain@master
         with:
           toolchain: ${{ matrix.version }}
-          override: true
       - name: coverage
         run: cargo run --release -- tarpaulin --engine llvm --follow-exec --post-test-delay 10 --coveralls ${{ secrets.COVERALLS_TOKEN }} 
