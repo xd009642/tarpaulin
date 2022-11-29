@@ -2,11 +2,12 @@ use crate::utils::get_test_path;
 use cargo_tarpaulin::config::*;
 use cargo_tarpaulin::traces::CoverageStat;
 use cargo_tarpaulin::{launch_tarpaulin, setup_logging};
+use regex::Regex;
+use rusty_fork::rusty_fork_test;
 use std::time::Duration;
 use std::{env, fs, io};
-use regex::Regex;
 
-
+rusty_fork_test! {
 // Just for linux if we have ptrace as default
 #[test]
 fn sanitised_paths() {
@@ -46,4 +47,4 @@ fn sanitised_paths() {
     }
     assert_eq!(count, config.generate.len());
 }
-
+}
