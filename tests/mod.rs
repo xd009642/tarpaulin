@@ -1,23 +1,24 @@
 use crate::utils::get_test_path;
-use cargo_tarpaulin::config::{Color, Config, ConfigWrapper, Mode, RunType, TraceEngine};
+use cargo_tarpaulin::config::{
+    Color, Config, ConfigWrapper, Mode, OutputFile, RunType, TraceEngine,
+};
 use cargo_tarpaulin::event_log::EventLog;
 use cargo_tarpaulin::path_utils::*;
 use cargo_tarpaulin::traces::TraceMap;
 use cargo_tarpaulin::{launch_tarpaulin, setup_logging};
 use clap::App;
+use regex::Regex;
 use rusty_fork::rusty_fork_test;
 use std::collections::HashSet;
-use std::env;
-use std::fs;
 use std::path::Path;
 use std::time::Duration;
+use std::{env, fs, io};
 
 #[cfg(nightly)]
 mod doc_coverage;
 mod failure_thresholds;
 mod failures;
 mod line_coverage;
-mod reports;
 mod test_types;
 mod utils;
 mod workspaces;
@@ -473,6 +474,45 @@ fn doc_test_bootstrap() {
 
     let (_res, ret) = launch_tarpaulin(&config, &None).unwrap();
     assert_eq!(ret, 0);
+}
+
+#[test]
+fn sanitised_paths() {
+    setup_logging(Color::Never, true, true);
+    let test_dir = get_test_path("simple_project");
+    let mut config = Config::default();
+    config.set_engine(TraceEngine::Llvm);
+    config.set_ignore_tests(false);
+    config.set_clean(false);
+    config.generate = vec![OutputFile::Json, OutputFile::Xml, OutputFile::Lcov];
+    let report_dir = test_dir.join("reports");
+    let _ = fs::remove_dir_all(&report_dir);
+    let _ = fs::create_dir(&report_dir);
+    config.output_directory = Some(report_dir.clone());
+    let restore_dir = env::current_dir().unwrap();
+
+    env::set_current_dir(&test_dir).unwrap();
+    println!("RUN TARPAULIN");
+    launch_tarpaulin(&config, &None).unwrap();
+    env::set_current_dir(restore_dir).unwrap();
+
+    println!("Look at reports");
+    let mut count = 0;
+    let bad_path_regex = Regex::new(r#"\\\\\?\w:\\"#).unwrap();
+    for entry in fs::read_dir(&report_dir).unwrap() {
+        let entry = entry.unwrap().path();
+        if !entry.is_dir() {
+            count += 1;
+            println!("Checking: {}", entry.display());
+            let f = fs::File::open(entry).unwrap();
+            if let Ok(s) = io::read_to_string(f) {
+                assert!(bad_path_regex.find(&s).is_none());
+            } else {
+                println!("Not unicode");
+            }
+        }
+    }
+    assert_eq!(count, config.generate.len());
 }
 
 }
