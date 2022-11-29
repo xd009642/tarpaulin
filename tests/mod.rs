@@ -17,6 +17,7 @@ mod doc_coverage;
 mod failure_thresholds;
 mod failures;
 mod line_coverage;
+mod reports;
 mod test_types;
 mod utils;
 mod workspaces;
