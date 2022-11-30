@@ -484,7 +484,7 @@ fn sanitised_paths() {
     config.set_engine(TraceEngine::Llvm);
     config.set_ignore_tests(false);
     config.set_clean(false);
-    config.generate = vec![OutputFile::Json, OutputFile::Xml, OutputFile::Lcov];
+    config.generate = vec![OutputFile::Lcov];
     let report_dir = test_dir.join("reports");
     let _ = fs::remove_dir_all(&report_dir);
     let _ = fs::create_dir(&report_dir);
@@ -513,18 +513,6 @@ fn sanitised_paths() {
         }
     }
     assert_eq!(count, config.generate.len());
-}
-
-#[test]
-fn dumb() {
-}
-
-#[test]
-fn dumb2() {
-}
-
-#[test]
-fn dumb3() {
 }
 
 }

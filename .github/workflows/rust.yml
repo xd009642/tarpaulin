@@ -23,18 +23,12 @@ jobs:
       fail-fast: false
     steps:
       - uses: actions/checkout@v2
-        with:
-          ref: ${{ github.event.pull_request.head.sha }}
       - uses: dtolnay/rust-toolchain@master
         with:
           toolchain: ${{ matrix.version }}
           components: rustfmt
       - name: cache
         uses: Swatinem/rust-cache@v2
-      - name: debug
-        run: echo "${{ github.event.pull_request.head.sha }}"
-      - name: clean
-        run: cargo clean
       - name: test
         run: cargo test
       - name: ignored test
@@ -63,15 +57,11 @@ jobs:
       fail-fast: false
     steps:
       - uses: actions/checkout@v2
-        with:
-          ref: ${{ github.event.pull_request.head.sha }}
       - uses: dtolnay/rust-toolchain@master
         with:
           toolchain: ${{ matrix.version }}
       - name: cache
         uses: Swatinem/rust-cache@v2
-      - name: clean
-        run: cargo clean
       - name: test
         run: cargo test
       - uses: actions/upload-artifact@v3
@@ -94,15 +84,11 @@ jobs:
       fail-fast: false
     steps:
       - uses: actions/checkout@v2
-        with:
-          ref: ${{ github.event.pull_request.head.sha }}
       - uses: dtolnay/rust-toolchain@master
         with:
           toolchain: ${{ matrix.version }}
       - name: cache
         uses: Swatinem/rust-cache@v2
-      - name: clean
-        run: cargo clean
       - name: test
         run: cargo test
       - uses: actions/upload-artifact@v3
@@ -113,21 +99,3 @@ jobs:
           path: |
               tests/data/
               !tests/data/**/*.rs
-  coverage:
-    runs-on: ubuntu-latest
-    strategy:
-      matrix:
-        version:
-          - nightly
-        target:
-          - x86_64-unknown-linux-gnu
-      fail-fast: false
-    steps:
-      - uses: actions/checkout@v2
-        with:
-          ref: ${{ github.event.pull_request.head.sha }}
-      - uses: dtolnay/rust-toolchain@master
-        with:
-          toolchain: ${{ matrix.version }}
-      - name: coverage
-        run: cargo run --release -- tarpaulin --engine llvm --follow-exec --post-test-delay 10 --coveralls ${{ secrets.COVERALLS_TOKEN }} 
