@@ -29,8 +29,8 @@ jobs:
           components: rustfmt
       - name: cache
         uses: Swatinem/rust-cache@v2
-      - name: build
-        run: cargo build
+      - name: clean
+        run: cargo clean
       - name: test
         run: cargo test
       - name: ignored test
@@ -64,8 +64,8 @@ jobs:
           toolchain: ${{ matrix.version }}
       - name: cache
         uses: Swatinem/rust-cache@v2
-      - name: build
-        run: cargo build
+      - name: clean
+        run: cargo clean
       - name: test
         run: cargo test
       - uses: actions/upload-artifact@v3
@@ -93,8 +93,8 @@ jobs:
           toolchain: ${{ matrix.version }}
       - name: cache
         uses: Swatinem/rust-cache@v2
-      - name: build
-        run: cargo build
+      - name: clean
+        run: cargo clean
       - name: test
         run: cargo test
       - uses: actions/upload-artifact@v3
