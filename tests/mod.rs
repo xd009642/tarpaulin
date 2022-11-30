@@ -515,4 +515,16 @@ fn sanitised_paths() {
     assert_eq!(count, config.generate.len());
 }
 
+#[test]
+fn dumb() {
+}
+
+#[test]
+fn dumb2() {
+}
+
+#[test]
+fn dumb3() {
+}
+
 }
