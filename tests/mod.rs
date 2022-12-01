@@ -478,8 +478,8 @@ fn doc_test_bootstrap() {
 
 #[test]
 fn sanitised_paths() {
-    setup_logging(Color::Never, true, true);
-    let test_dir = get_test_path("simple_project");
+    setup_logging(Color::Never, false, false);
+    let test_dir = get_test_path("assigns");
     let mut config = Config::default();
     config.set_engine(TraceEngine::Llvm);
     config.set_ignore_tests(false);
