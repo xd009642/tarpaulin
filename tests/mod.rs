@@ -484,6 +484,7 @@ fn sanitised_paths() {
     config.set_engine(TraceEngine::Llvm);
     config.set_ignore_tests(false);
     config.set_clean(false);
+    config.generate.push(OutputFile::Lcov);
     //config.generate = vec![OutputFile::Lcov];
     let report_dir = test_dir.join("reports");
     let _ = fs::remove_dir_all(&report_dir);
