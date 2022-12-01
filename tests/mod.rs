@@ -488,7 +488,7 @@ fn sanitised_paths() {
     let report_dir = test_dir.join("reports");
     let _ = fs::remove_dir_all(&report_dir);
     let _ = fs::create_dir(&report_dir);
-    //config.output_directory = Some(report_dir.clone());
+    config.output_directory = Some(report_dir.clone());
 
     check_percentage_with_config("assigns", 0.0f64, true, config.clone());
 
