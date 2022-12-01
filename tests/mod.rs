@@ -484,17 +484,13 @@ fn sanitised_paths() {
     config.set_engine(TraceEngine::Llvm);
     config.set_ignore_tests(false);
     config.set_clean(false);
-    config.generate = vec![OutputFile::Lcov];
+    //config.generate = vec![OutputFile::Lcov];
     let report_dir = test_dir.join("reports");
     let _ = fs::remove_dir_all(&report_dir);
     let _ = fs::create_dir(&report_dir);
-    config.output_directory = Some(report_dir.clone());
-    let restore_dir = env::current_dir().unwrap();
+    //config.output_directory = Some(report_dir.clone());
 
-    env::set_current_dir(&test_dir).unwrap();
-    println!("RUN TARPAULIN");
-    launch_tarpaulin(&config, &None).unwrap();
-    env::set_current_dir(restore_dir).unwrap();
+    check_percentage_with_config("assigns", 0.0f64, true, config.clone());
 
     println!("Look at reports");
     let mut count = 0;
