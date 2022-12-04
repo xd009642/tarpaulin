@@ -188,7 +188,7 @@ fn collect_tracemap(configs: &[Config]) -> Result<TraceMap, RunError> {
     Ok(tracemap)
 }
 
-fn report_tracemap(configs: &[Config], tracemap: TraceMap) -> Result<(), RunError> {
+pub fn report_tracemap(configs: &[Config], tracemap: TraceMap) -> Result<(), RunError> {
     let mut reported = false;
     for c in configs.iter() {
         if c.no_run || c.name != "report" {

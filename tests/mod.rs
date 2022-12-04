@@ -5,7 +5,7 @@ use cargo_tarpaulin::config::{
 use cargo_tarpaulin::event_log::EventLog;
 use cargo_tarpaulin::path_utils::*;
 use cargo_tarpaulin::traces::TraceMap;
-use cargo_tarpaulin::{launch_tarpaulin, setup_logging};
+use cargo_tarpaulin::{launch_tarpaulin, report_tracemap, setup_logging};
 use clap::App;
 use regex::Regex;
 use rusty_fork::rusty_fork_test;
@@ -23,7 +23,11 @@ mod test_types;
 mod utils;
 mod workspaces;
 
-pub fn check_percentage_with_cli_args(minimum_coverage: f64, has_lines: bool, args: &[String]) {
+pub fn check_percentage_with_cli_args(
+    minimum_coverage: f64,
+    has_lines: bool,
+    args: &[String],
+) -> TraceMap {
     setup_logging(Color::Never, false, false);
     let restore_dir = env::current_dir().unwrap();
     let matches = App::new("tarpaulin")
@@ -56,6 +60,7 @@ pub fn check_percentage_with_cli_args(minimum_coverage: f64, has_lines: bool, ar
         );
         assert!(res.total_coverable() > 0);
     }
+    res
 }
 
 pub fn check_percentage_with_config(
@@ -63,7 +68,7 @@ pub fn check_percentage_with_config(
     minimum_coverage: f64,
     has_lines: bool,
     mut config: Config,
-) {
+) -> TraceMap {
     setup_logging(Color::Never, false, false);
     config.test_timeout = Duration::from_secs(60);
     let restore_dir = env::current_dir().unwrap();
@@ -99,13 +104,14 @@ pub fn check_percentage_with_config(
     } else {
         assert_eq!(res.total_coverable(), 0);
     }
+    res
 }
 
-pub fn check_percentage(project_name: &str, minimum_coverage: f64, has_lines: bool) {
+pub fn check_percentage(project_name: &str, minimum_coverage: f64, has_lines: bool) -> TraceMap {
     let mut config = Config::default();
     config.set_ignore_tests(false);
     config.set_clean(false);
-    check_percentage_with_config(project_name, minimum_coverage, has_lines, config);
+    check_percentage_with_config(project_name, minimum_coverage, has_lines, config)
 }
 
 rusty_fork_test! {
@@ -485,13 +491,17 @@ fn sanitised_paths() {
     config.set_ignore_tests(false);
     config.set_clean(false);
     config.generate.push(OutputFile::Lcov);
+    config.generate.push(OutputFile::Html);
+    config.generate.push(OutputFile::Xml);
+    config.generate.push(OutputFile::Json);
     //config.generate = vec![OutputFile::Lcov];
     let report_dir = test_dir.join("reports");
     let _ = fs::remove_dir_all(&report_dir);
     let _ = fs::create_dir(&report_dir);
     config.output_directory = Some(report_dir.clone());
 
-    check_percentage_with_config("assigns", 0.0f64, true, config.clone());
+    let traces = check_percentage_with_config("assigns", 0.0f64, true, config.clone());
+    report_tracemap(&[config.clone()], traces).unwrap();
 
     println!("Look at reports");
     let mut count = 0;

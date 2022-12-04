@@ -99,7 +99,7 @@ impl<'a> StateData for LlvmInstrumentedData<'a> {
 
                     let profraw_dir = self.config.profraw_dir();
                     if !profraw_dir.exists() {
-                        fs::create_dir_all(&profraw_dir);
+                        let _ = fs::create_dir_all(&profraw_dir);
                     }
 
                     info!(
