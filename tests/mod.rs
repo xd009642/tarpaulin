@@ -505,7 +505,7 @@ fn sanitised_paths() {
 
     println!("Look at reports");
     let mut count = 0;
-    let bad_path_regex = Regex::new(r#"\\\\\?\w:\\"#).unwrap();
+    let bad_path_regex = Regex::new(r#"\\\\\?\\\w:\\"#).unwrap();
     for entry in fs::read_dir(&report_dir).unwrap() {
         let entry = entry.unwrap().path();
         if !entry.is_dir() {
