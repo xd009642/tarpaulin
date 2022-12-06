@@ -5,7 +5,7 @@ use cargo_tarpaulin::config::{
 use cargo_tarpaulin::event_log::EventLog;
 use cargo_tarpaulin::path_utils::*;
 use cargo_tarpaulin::traces::TraceMap;
-use cargo_tarpaulin::{launch_tarpaulin, report_tracemap, setup_logging};
+use cargo_tarpaulin::{launch_tarpaulin, run, setup_logging};
 use clap::App;
 use regex::Regex;
 use rusty_fork::rusty_fork_test;
@@ -61,6 +61,21 @@ pub fn check_percentage_with_cli_args(
         assert!(res.total_coverable() > 0);
     }
     res
+}
+
+pub fn run_config(project_name: &str, mut config: Config) {
+    setup_logging(Color::Never, false, false);
+    config.test_timeout = Duration::from_secs(60);
+    let restore_dir = env::current_dir().unwrap();
+    let test_dir = get_test_path(project_name);
+    env::set_current_dir(&test_dir).unwrap();
+    config.manifest = test_dir;
+    config.manifest.push("Cargo.toml");
+    config.set_clean(false);
+
+    run(&[config]).unwrap();
+
+    env::set_current_dir(restore_dir).unwrap();
 }
 
 pub fn check_percentage_with_config(
@@ -500,8 +515,8 @@ fn sanitised_paths() {
     let _ = fs::create_dir(&report_dir);
     config.output_directory = Some(report_dir.clone());
 
-    let traces = check_percentage_with_config("assigns", 0.0f64, true, config.clone());
-    report_tracemap(&[config.clone()], traces).unwrap();
+
+    run_config("assigns", config.clone());
 
     println!("Look at reports");
     let mut count = 0;
