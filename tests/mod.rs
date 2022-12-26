@@ -6,7 +6,7 @@ use cargo_tarpaulin::event_log::EventLog;
 use cargo_tarpaulin::path_utils::*;
 use cargo_tarpaulin::traces::TraceMap;
 use cargo_tarpaulin::{launch_tarpaulin, run, setup_logging};
-use clap::App;
+use clap::{App, Arg};
 use regex::Regex;
 use rusty_fork::rusty_fork_test;
 use std::collections::HashSet;
@@ -40,7 +40,21 @@ pub fn check_percentage_with_cli_args(
              --include-tests 'include tests in your tests'
              --post-test-delay [SECONDS] 'Delay after test to collect coverage profiles'
              --implicit-test-threads 'Don't supply an explicit `--test-threads` argument to tarpaulin. By default tarpaulin will infer the default rustc would pick if not ran via tarpaulin and set it'"
-        ).get_matches_from(args);
+        ).args(&[
+                Arg::from_usage("--out -o [FMT]   'Output format of coverage report'")
+                    .possible_values(&OutputFile::variants())
+                    .case_insensitive(true)
+                    .multiple(true),
+                Arg::from_usage("--engine [ENGINE] 'Coverage tracing backend to use'")
+                    .possible_values(&TraceEngine::variants())
+                    .case_insensitive(true)
+                    .multiple(false),
+                Arg::from_usage("--output-dir [PATH] 'Specify a custom directory to write report files'"),
+                Arg::from_usage("--color [WHEN] 'Coloring: auto, always, never'")
+                    .case_insensitive(true)
+                    .possible_values(&Color::variants()),
+        ])
+        .get_matches_from(args);
 
     let mut configs = ConfigWrapper::from(&matches).0;
     let mut res = TraceMap::new();
@@ -501,6 +515,9 @@ fn doc_test_bootstrap() {
 fn sanitised_paths() {
     setup_logging(Color::Never, false, false);
     let test_dir = get_test_path("assigns");
+    let report_dir = test_dir.join("reports");
+    let args = &["tarpaulin".to_string(), "--root".to_string(), test_dir.display().to_string(), "--engine".to_string(), "llvm".to_string(), "--include-tests".to_string(), "--out".to_string(), "lcov".to_string(), "html".to_string(), "xml".to_string(), "json".to_string(), "--output-dir".to_string(), report_dir.display().to_string()];
+    /*
     let mut config = Config::default();
     config.set_engine(TraceEngine::Llvm);
     config.set_ignore_tests(false);
@@ -510,14 +527,14 @@ fn sanitised_paths() {
     config.generate.push(OutputFile::Xml);
     config.generate.push(OutputFile::Json);
     //config.generate = vec![OutputFile::Lcov];
-    let report_dir = test_dir.join("reports");
+    */
     let _ = fs::remove_dir_all(&report_dir);
     let _ = fs::create_dir(&report_dir);
-    config.output_directory = Some(report_dir.clone());
+    //config.output_directory = Some(report_dir.clone());
 
 
-    run_config("assigns", config.clone());
-
+    //run_config("assigns", config.clone());
+    check_percentage_with_cli_args(0.0, true, args);
     println!("Look at reports");
     let mut count = 0;
     let bad_path_regex = Regex::new(r#"\\\\\?\\\w:\\"#).unwrap();
@@ -534,7 +551,7 @@ fn sanitised_paths() {
             }
         }
     }
-    assert_eq!(count, config.generate.len());
+    assert_eq!(count, 4);
 }
 
 }

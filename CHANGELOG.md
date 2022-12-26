@@ -7,6 +7,9 @@ file.
 ### Added
 - Merge rustdocflags field from `cargo/config.toml` with env tarpaulin sets
 
+### Changed
+- Create profraw folder if it doesn't exist
+
 ## [0.23.1] 2022-11-18
 ### Changed
 - Fix linux cfg instead of ptrace\_supported cfg on event log for ARM linux builds
