@@ -82,9 +82,9 @@ pub fn run_config(project_name: &str, mut config: Config) {
     config.test_timeout = Duration::from_secs(60);
     let restore_dir = env::current_dir().unwrap();
     let test_dir = get_test_path(project_name);
-    env::set_current_dir(&test_dir).unwrap();
     config.manifest = test_dir;
     config.manifest.push("Cargo.toml");
+    env::set_current_dir(config.root()).unwrap();
     config.set_clean(false);
 
     run(&[config]).unwrap();
@@ -517,7 +517,6 @@ fn sanitised_paths() {
     let test_dir = get_test_path("assigns");
     let report_dir = test_dir.join("reports");
     let args = &["tarpaulin".to_string(), "--root".to_string(), test_dir.display().to_string(), "--engine".to_string(), "llvm".to_string(), "--include-tests".to_string(), "--out".to_string(), "lcov".to_string(), "html".to_string(), "xml".to_string(), "json".to_string(), "--output-dir".to_string(), report_dir.display().to_string()];
-    /*
     let mut config = Config::default();
     config.set_engine(TraceEngine::Llvm);
     config.set_ignore_tests(false);
@@ -526,15 +525,11 @@ fn sanitised_paths() {
     config.generate.push(OutputFile::Html);
     config.generate.push(OutputFile::Xml);
     config.generate.push(OutputFile::Json);
-    //config.generate = vec![OutputFile::Lcov];
-    */
     let _ = fs::remove_dir_all(&report_dir);
     let _ = fs::create_dir(&report_dir);
-    //config.output_directory = Some(report_dir.clone());
+    config.output_directory = Some(report_dir.clone());
 
-
-    //run_config("assigns", config.clone());
-    check_percentage_with_cli_args(0.0, true, args);
+    run_config("assigns", config.clone());
     println!("Look at reports");
     let mut count = 0;
     let bad_path_regex = Regex::new(r#"\\\\\?\\\w:\\"#).unwrap();
