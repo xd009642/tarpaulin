@@ -10,7 +10,7 @@ use clap::{App, Arg};
 use regex::Regex;
 use rusty_fork::rusty_fork_test;
 use std::collections::HashSet;
-use std::path::Path;
+use std::path::{Path, PathBuf};
 use std::time::Duration;
 use std::{env, fs, io};
 
@@ -513,10 +513,9 @@ fn doc_test_bootstrap() {
 
 #[test]
 fn sanitised_paths() {
-    setup_logging(Color::Never, false, false);
+    setup_logging(Color::Never, true, true);
     let test_dir = get_test_path("assigns");
     let report_dir = test_dir.join("reports");
-    let args = &["tarpaulin".to_string(), "--root".to_string(), test_dir.display().to_string(), "--engine".to_string(), "llvm".to_string(), "--include-tests".to_string(), "--out".to_string(), "lcov".to_string(), "html".to_string(), "xml".to_string(), "json".to_string(), "--output-dir".to_string(), report_dir.display().to_string()];
     let mut config = Config::default();
     config.set_engine(TraceEngine::Llvm);
     config.set_ignore_tests(false);
@@ -529,7 +528,20 @@ fn sanitised_paths() {
     let _ = fs::create_dir(&report_dir);
     config.output_directory = Some(report_dir.clone());
 
-    run_config("assigns", config.clone());
+    config.test_timeout = Duration::from_secs(60);
+    let restore_dir = env::current_dir().unwrap();
+    let test_dir = get_test_path("assigns");
+    config.manifest = test_dir;
+    config.manifest.push("Cargo.toml");
+    env::set_current_dir(format!(r#"\\?\{}"#, config.root().display())).unwrap();
+    config.manifest = PathBuf::from(format!(r#"\\?\{}"#, config.manifest.display()));
+    config.set_clean(false);
+
+    println!("{:#?}", config);
+    run(&[config]).unwrap();
+
+    env::set_current_dir(restore_dir).unwrap();
+
     println!("Look at reports");
     let mut count = 0;
     let bad_path_regex = Regex::new(r#"\\\\\?\\\w:\\"#).unwrap();
