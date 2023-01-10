@@ -552,6 +552,7 @@ fn sanitised_paths() {
             println!("Checking: {}", entry.display());
             let f = fs::File::open(entry).unwrap();
             if let Ok(s) = io::read_to_string(f) {
+                assert!(!s.is_empty());
                 assert!(bad_path_regex.find(&s).is_none());
             } else {
                 println!("Not unicode");
