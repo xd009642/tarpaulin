@@ -1,4 +1,5 @@
 use crate::config::types::*;
+use crate::path_utils::fix_unc_path;
 use clap::{value_t, values_t, ArgMatches};
 use coveralls_api::CiService;
 use regex::Regex;
@@ -49,7 +50,7 @@ pub(super) fn get_manifest(args: &ArgMatches) -> PathBuf {
     }
 
     manifest.push("Cargo.toml");
-    manifest.canonicalize().unwrap_or(manifest)
+    fix_unc_path(&manifest.canonicalize().unwrap_or(manifest))
 }
 
 pub(super) fn default_manifest() -> PathBuf {

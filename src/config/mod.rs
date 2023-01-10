@@ -421,7 +421,7 @@ impl Config {
                 _ => self
                     .manifest
                     .parent()
-                    .map(Path::to_path_buf)
+                    .map(fix_unc_path)
                     .unwrap_or_default()
                     .join("target"),
             }
@@ -478,11 +478,12 @@ impl Config {
     }
 
     pub fn output_dir(&self) -> PathBuf {
-        if let Some(ref path) = self.output_directory {
+        let path = if let Some(ref path) = self.output_directory {
             path.clone()
         } else {
             env::current_dir().unwrap()
-        }
+        };
+        fix_unc_path(&path)
     }
 
     pub fn get_config_vec(file_configs: std::io::Result<Vec<Self>>, backup: Self) -> ConfigWrapper {
@@ -787,7 +788,7 @@ impl Config {
     /// uses root if set, else env::current_dir()
     #[inline]
     pub fn get_base_dir(&self) -> PathBuf {
-        if let Some(root) = &self.root {
+        let res = if let Some(root) = &self.root {
             if Path::new(root).is_absolute() {
                 PathBuf::from(root)
             } else {
@@ -800,7 +801,8 @@ impl Config {
             }
         } else {
             env::current_dir().unwrap()
-        }
+        };
+        fix_unc_path(&res)
     }
 
     /// returns the relative path from the base_dir
