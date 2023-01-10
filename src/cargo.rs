@@ -1,6 +1,6 @@
 use crate::config::*;
 use crate::errors::RunError;
-use crate::path_utils::get_source_walker;
+use crate::path_utils::{fix_unc_path, get_source_walker};
 use cargo_metadata::{diagnostic::DiagnosticLevel, CargoOpt, Message, Metadata, MetadataCommand};
 use lazy_static::lazy_static;
 use regex::Regex;
@@ -280,7 +280,7 @@ fn run_cargo(
                         }
                         result
                             .test_binaries
-                            .push(TestBinary::new(PathBuf::from(path), ty));
+                            .push(TestBinary::new(fix_unc_path(path.as_std_path()), ty));
                         package_ids.push(Some(art.package_id.clone()));
                     }
                 }
@@ -343,7 +343,7 @@ fn run_cargo(
                 res.cargo_dir = package
                     .manifest_path
                     .parent()
-                    .map(|x| PathBuf::from(x.to_path_buf()));
+                    .map(|x| fix_unc_path(x.as_std_path()));
                 res.pkg_name = Some(package.name.clone());
                 res.pkg_version = Some(package.version.to_string());
                 res.pkg_authors = Some(package.authors.clone());
@@ -375,7 +375,7 @@ fn run_cargo(
         let should_panics = get_attribute_candidates(&dir_entries, config, "should_panic");
         let no_runs = get_attribute_candidates(&dir_entries, config, "no_run");
         for dt in &dir_entries {
-            let mut tb = TestBinary::new(dt.path().to_path_buf(), ty);
+            let mut tb = TestBinary::new(fix_unc_path(dt.path()), ty);
 
             if let Some(meta) = DocTestBinaryMeta::new(dt.path()) {
                 if no_runs
@@ -393,7 +393,7 @@ fn run_cargo(
             let mut current_dir = dt.path();
             loop {
                 if current_dir.is_dir() && current_dir.join("Cargo.toml").exists() {
-                    tb.cargo_dir = Some(current_dir.to_path_buf());
+                    tb.cargo_dir = Some(fix_unc_path(current_dir));
                     break;
                 }
                 match current_dir.parent() {
