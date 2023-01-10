@@ -477,6 +477,10 @@ impl Config {
         fix_unc_path(&self.manifest)
     }
 
+    pub fn set_manifest(&mut self, manifest: PathBuf) {
+        self.manifest = manifest;
+    }
+
     pub fn get_packages(&self) -> Vec<Package> {
         match *self.get_metadata() {
             Some(ref meta) => meta.packages.clone(),

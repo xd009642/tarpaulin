@@ -23,8 +23,9 @@ fn mix_test_types() {
     let restore_dir = env::current_dir().unwrap();
     let test_dir = get_test_path("all_test_types");
     env::set_current_dir(&test_dir).unwrap();
-    config.manifest = test_dir;
-    config.manifest.push("Cargo.toml");
+    let mut manifest = test_dir;
+    manifest.push("Cargo.toml");
+    config.set_manifest(manifest);
 
     let (res, ret) = launch_tarpaulin(&config, &None).unwrap();
     assert_eq!(ret, 0);
@@ -50,8 +51,9 @@ fn only_test_coverage() {
     let restore_dir = env::current_dir().unwrap();
     let test_dir = get_test_path("all_test_types");
     env::set_current_dir(&test_dir).unwrap();
-    config.manifest = test_dir;
-    config.manifest.push("Cargo.toml");
+    let mut manifest = test_dir;
+    manifest.push("Cargo.toml");
+    config.set_manifest(manifest);
     config.set_profraw_folder(PathBuf::from("only_test_coverage"));
 
     let (res, ret) = launch_tarpaulin(&config, &None).unwrap();
@@ -78,8 +80,9 @@ fn only_example_coverage() {
     let restore_dir = env::current_dir().unwrap();
     let test_dir = get_test_path("all_test_types");
     env::set_current_dir(&test_dir).unwrap();
-    config.manifest = test_dir;
-    config.manifest.push("Cargo.toml");
+    let mut manifest = test_dir;
+    manifest.push("Cargo.toml");
+    config.set_manifest(manifest);
     config.set_profraw_folder(PathBuf::from("only_example_coverage"));
 
     let (res, ret) = launch_tarpaulin(&config, &None).unwrap();
@@ -107,8 +110,9 @@ fn only_bench_coverage() {
     let restore_dir = env::current_dir().unwrap();
     let test_dir = get_test_path("all_test_types");
     env::set_current_dir(&test_dir).unwrap();
-    config.manifest = test_dir;
-    config.manifest.push("Cargo.toml");
+    let mut manifest = test_dir;
+    manifest.push("Cargo.toml");
+    config.set_manifest(manifest);
     config.set_profraw_folder(PathBuf::from("only_bench_coverage"));
 
     let (res, ret) = launch_tarpaulin(&config, &None).unwrap();
@@ -136,8 +140,9 @@ fn only_doctest_coverage() {
     let restore_dir = env::current_dir().unwrap();
     let test_dir = get_test_path("all_test_types");
     env::set_current_dir(&test_dir).unwrap();
-    config.manifest = test_dir;
-    config.manifest.push("Cargo.toml");
+    let mut manifest = test_dir;
+    manifest.push("Cargo.toml");
+    config.set_manifest(manifest);
     config.set_profraw_folder(PathBuf::from("only_doctest_coverage"));
 
     let (res, ret) = launch_tarpaulin(&config, &None).unwrap();

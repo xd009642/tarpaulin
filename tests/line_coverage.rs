@@ -17,8 +17,9 @@ fn simple_project_coverage() {
     let restore_dir = env::current_dir().unwrap();
     let test_dir = get_test_path("simple_project");
     env::set_current_dir(&test_dir).unwrap();
-    config.manifest = test_dir.clone();
-    config.manifest.push("Cargo.toml");
+    let mut manifest = test_dir.clone();
+    manifest.push("Cargo.toml");
+    config.set_manifest(manifest);
 
     let (res, ret) = launch_tarpaulin(&config, &None).unwrap();
     assert_eq!(ret, 0);
@@ -58,8 +59,9 @@ fn debug_info_0() {
     let restore_dir = env::current_dir().unwrap();
     let test_dir = get_test_path("simple_project");
     env::set_current_dir(&test_dir).unwrap();
-    config.manifest = test_dir;
-    config.manifest.push("Cargo.toml");
+    let mut manifest = test_dir;
+    manifest.push("Cargo.toml");
+    config.set_manifest(manifest);
     let backup_flag = env::var("RUSTFLAGS").ok();
     env::set_var("RUSTFLAGS", "-Cdebuginfo=0");
     let (res, ret) = launch_tarpaulin(&config, &None).unwrap();
@@ -80,8 +82,9 @@ fn test_threads_1() {
     let restore_dir = env::current_dir().unwrap();
     let test_dir = get_test_path("simple_project");
     env::set_current_dir(&test_dir).unwrap();
-    config.manifest = test_dir.clone();
-    config.manifest.push("Cargo.toml");
+    let mut manifest = test_dir.clone();
+    manifest.push("Cargo.toml");
+    config.set_manifest(manifest);
     config.varargs.push("--test-threads".to_string());
     config.varargs.push("1".to_string());
 

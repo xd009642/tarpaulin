@@ -82,8 +82,9 @@ pub fn run_config(project_name: &str, mut config: Config) {
     config.test_timeout = Duration::from_secs(60);
     let restore_dir = env::current_dir().unwrap();
     let test_dir = get_test_path(project_name);
-    config.manifest = test_dir;
-    config.manifest.push("Cargo.toml");
+    let mut manifest = test_dir;
+    manifest.push("Cargo.toml");
+    config.set_manifest(manifest);
     env::set_current_dir(config.root()).unwrap();
     config.set_clean(false);
 
@@ -103,8 +104,9 @@ pub fn check_percentage_with_config(
     let restore_dir = env::current_dir().unwrap();
     let test_dir = get_test_path(project_name);
     env::set_current_dir(&test_dir).unwrap();
-    config.manifest = test_dir;
-    config.manifest.push("Cargo.toml");
+    let mut manifest = test_dir;
+    manifest.push("Cargo.toml");
+    config.set_manifest(manifest);
     config.set_clean(false);
 
     // Note to contributors. If an integration test fails, uncomment this to be able to see the
@@ -112,7 +114,7 @@ pub fn check_percentage_with_config(
     //cargo_tarpaulin::setup_logging(true, true);
     let event_log = if config.dump_traces {
         let mut paths = HashSet::new();
-        paths.insert(config.manifest.clone());
+        paths.insert(config.manifest().clone());
         Some(EventLog::new(paths))
     } else {
         None
@@ -148,7 +150,9 @@ rusty_fork_test! {
 #[test]
 fn incorrect_manifest_path() {
     let mut config = Config::default();
-    config.manifest.push("__invalid_dir__");
+    let mut invalid = config.manifest();
+    invalid.push("__invalid_dir__");
+    config.set_manifest(invalid);
     config.set_clean(false);
     let launch = launch_tarpaulin(&config, &None);
     assert!(launch.is_err());
@@ -160,7 +164,7 @@ fn proc_macro_link() {
     config.test_timeout = Duration::from_secs(60);
     config.set_clean(false);
     let test_dir = get_test_path("proc_macro");
-    config.manifest = test_dir.join("Cargo.toml");
+    config.set_manifest(test_dir.join("Cargo.toml"));
     assert!(launch_tarpaulin(&config, &None).is_ok());
 }
 
@@ -371,8 +375,9 @@ fn cargo_home_filtering() {
     let restore_dir = env::current_dir().unwrap();
     let test_dir = get_test_path("HttptestAndReqwest");
     env::set_current_dir(&test_dir).unwrap();
-    config.manifest = test_dir;
-    config.manifest.push("Cargo.toml");
+    let mut manifest = test_dir;
+    manifest.push("Cargo.toml");
+    config.set_manifest(manifest);
 
     env::set_var("CARGO_HOME", new_home.display().to_string());
     let run = launch_tarpaulin(&config, &None);
@@ -400,8 +405,9 @@ fn rustflags_handling() {
     let restore_dir = env::current_dir().unwrap();
     let test_dir = get_test_path("rustflags");
     env::set_current_dir(&test_dir).unwrap();
-    config.manifest = test_dir;
-    config.manifest.push("Cargo.toml");
+    let mut manifest = test_dir;
+    manifest.push("Cargo.toml");
+    config.set_manifest(manifest);
 
     let res = launch_tarpaulin(&config, &None);
     env::set_current_dir(&restore_dir).unwrap();
@@ -460,8 +466,9 @@ fn dot_rs_in_dir_name() {
     let restore_dir = env::current_dir().unwrap();
     let test_dir = get_test_path("not_a_file.rs");
     env::set_current_dir(&test_dir).unwrap();
-    config.manifest = test_dir;
-    config.manifest.push("Cargo.toml");
+    let mut manifest = test_dir;
+    manifest.push("Cargo.toml");
+    config.set_manifest(manifest);
 
     let (res, _ret) = launch_tarpaulin(&config, &None).unwrap();
     env::set_current_dir(&restore_dir).unwrap();
@@ -500,8 +507,9 @@ fn doc_test_bootstrap() {
     config.test_timeout = Duration::from_secs(60);
     let test_dir = get_test_path("doc_coverage");
     env::set_current_dir(&test_dir).unwrap();
-    config.manifest = test_dir;
-    config.manifest.push("Cargo.toml");
+    let mut manifest = test_dir;
+    manifest.push("Cargo.toml");
+    config.set_manifest(manifest);
 
     config.run_types = vec![RunType::Doctests];
 
@@ -531,10 +539,11 @@ fn sanitised_paths() {
     config.test_timeout = Duration::from_secs(60);
     let restore_dir = env::current_dir().unwrap();
     let test_dir = get_test_path("assigns");
-    config.manifest = test_dir;
-    config.manifest.push("Cargo.toml");
+    let mut manifest = test_dir;
+    manifest.push("Cargo.toml");
+    config.set_manifest(manifest);
     env::set_current_dir(format!(r#"\\?\{}"#, config.root().display())).unwrap();
-    config.manifest = PathBuf::from(format!(r#"\\?\{}"#, config.manifest.display()));
+    config.set_manifest(PathBuf::from(format!(r#"\\?\{}"#, config.manifest().display())));
     config.set_clean(false);
 
     println!("{:#?}", config);
