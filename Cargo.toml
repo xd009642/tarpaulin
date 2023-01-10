@@ -65,7 +65,7 @@ rusty-fork = "0.3.0"
 
 [package.metadata.binstall]
 pkg-url = "{ repo }/releases/download/{ version }/cargo-tarpaulin-{ target }.tar.gz"
-bin-dir = "cargo-tarpaulin"
+bin-dir = "cargo-tarpaulin{ binary-ext }"
 pkg-fmt = "tgz"
 
 [package.metadata.binstall.overrides.x86_64-pc-windows-msvc]
