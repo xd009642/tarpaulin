@@ -413,7 +413,7 @@ impl Config {
     }
 
     pub fn target_dir(&self) -> PathBuf {
-        if let Some(s) = &self.target_dir {
+        let res = if let Some(s) = &self.target_dir {
             s.clone()
         } else {
             match *self.get_metadata() {
@@ -425,7 +425,8 @@ impl Config {
                     .unwrap_or_default()
                     .join("target"),
             }
-        }
+        };
+        fix_unc_path(&res)
     }
 
     /// Get directory profraws are stored in
@@ -447,7 +448,7 @@ impl Config {
 
     pub fn doctest_dir(&self) -> PathBuf {
         // https://github.com/rust-lang/rust/issues/98690
-        let mut result = fix_unc_path(&self.target_dir());
+        let mut result = self.target_dir();
         result.push("doctests");
         result
     }
@@ -464,10 +465,11 @@ impl Config {
         self.metadata.borrow()
     }
     pub fn root(&self) -> PathBuf {
-        match *self.get_metadata() {
+        let res = match *self.get_metadata() {
             Some(ref meta) => PathBuf::from(meta.workspace_root.clone()),
             _ => self.manifest.parent().map(fix_unc_path).unwrap_or_default(),
-        }
+        };
+        fix_unc_path(&res)
     }
 
     pub fn get_packages(&self) -> Vec<Package> {
