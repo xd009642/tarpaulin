@@ -31,7 +31,7 @@ pub struct Config {
     pub name: String,
     /// Path to the projects cargo manifest
     #[serde(rename = "manifest-path")]
-    pub manifest: PathBuf,
+    manifest: PathBuf,
     /// Path to a tarpaulin.toml config file
     pub config: Option<PathBuf>,
     /// Path to the projects cargo manifest
@@ -464,12 +464,17 @@ impl Config {
         }
         self.metadata.borrow()
     }
+
     pub fn root(&self) -> PathBuf {
         let res = match *self.get_metadata() {
             Some(ref meta) => PathBuf::from(meta.workspace_root.clone()),
             _ => self.manifest.parent().map(fix_unc_path).unwrap_or_default(),
         };
         fix_unc_path(&res)
+    }
+
+    pub fn manifest(&self) -> PathBuf {
+        fix_unc_path(&self.manifest)
     }
 
     pub fn get_packages(&self) -> Vec<Package> {

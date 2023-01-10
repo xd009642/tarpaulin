@@ -224,7 +224,8 @@ pub fn get_tests(config: &Config) -> Result<CargoOutput, RunError> {
             }
         }
     }
-    let manifest = config.manifest.as_path().to_str().unwrap_or("Cargo.toml");
+    let man_binding = config.manifest();
+    let manifest = man_binding.as_path().to_str().unwrap_or("Cargo.toml");
     let metadata = MetadataCommand::new()
         .manifest_path(manifest)
         .features(CargoOpt::AllFeatures)
