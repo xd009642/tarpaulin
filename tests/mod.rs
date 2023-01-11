@@ -520,6 +520,7 @@ fn doc_test_bootstrap() {
 }
 
 #[test]
+#[cfg(windows)]
 fn sanitised_paths() {
     setup_logging(Color::Never, true, true);
     let test_dir = get_test_path("assigns");
