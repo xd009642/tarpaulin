@@ -47,7 +47,6 @@ toml = "0.5"
 tracing = { version = "0.1", default-features = false }
 tracing-subscriber = { version = "0.2.25", default-features = false, features = ["env-filter", "fmt", "chrono", "ansi", "smallvec", "tracing-log"] }
 walkdir = "2.3.2"
-omnipath = "0.1.1"
 
 [target.'cfg(all(target_os = "linux", target_arch = "x86_64"))'.dependencies]
 libc = "0.2.94"
