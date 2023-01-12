@@ -15,8 +15,9 @@ fn error_if_build_script_fails() {
     let mut config = Config::default();
     let test_dir = get_test_path("build_script_fail");
     env::set_current_dir(&test_dir).unwrap();
-    config.manifest = test_dir;
-    config.manifest.push("Cargo.toml");
+    let mut manifest = test_dir;
+    manifest.push("Cargo.toml");
+    config.set_manifest(manifest);
     config.set_clean(false);
 
     let result = launch_tarpaulin(&config, &None);
@@ -35,8 +36,9 @@ fn error_if_compilation_fails() {
     let mut config = Config::default();
     let test_dir = get_test_path("compile_fail");
     env::set_current_dir(&test_dir).unwrap();
-    config.manifest = test_dir;
-    config.manifest.push("Cargo.toml");
+    let mut manifest = test_dir;
+    manifest.push("Cargo.toml");
+    config.set_manifest(manifest);
     config.set_clean(false);
 
     let result = launch_tarpaulin(&config, &None);
@@ -55,8 +57,9 @@ fn error_if_test_fails() {
     let mut config = Config::default();
     let test_dir = get_test_path("failing_test");
     env::set_current_dir(&test_dir).unwrap();
-    config.manifest = test_dir;
-    config.manifest.push("Cargo.toml");
+    let mut manifest = test_dir;
+    manifest.push("Cargo.toml");
+    config.set_manifest(manifest);
     config.set_clean(false);
 
     let result = run(&[config]);
@@ -76,8 +79,9 @@ fn issue_610() {
     let test_dir = get_test_path("issue_610");
     config.test_names.insert("foo".to_string());
     env::set_current_dir(&test_dir).unwrap();
-    config.manifest = test_dir;
-    config.manifest.push("Cargo.toml");
+    let mut manifest = test_dir;
+    manifest.push("Cargo.toml");
+    config.set_manifest(manifest);
     config.set_clean(false);
 
     let result = run(&[config.clone()]);

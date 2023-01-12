@@ -433,7 +433,7 @@ mod tests {
     #[test]
     fn package_coverage() {
         let mut config = Config::default();
-        config.manifest = PathBuf::from("fake/Cargo.toml");
+        config.set_manifest(PathBuf::from("fake/Cargo.toml"));
         let mut map = TraceMap::new();
 
         map.add_file(&PathBuf::from("fake/examples/foo.rs"));

@@ -14,8 +14,9 @@ fn doc_test_env() {
     config.test_timeout = Duration::from_secs(60);
     let test_dir = get_test_path("doctest_env");
     env::set_current_dir(&test_dir).unwrap();
-    config.manifest = test_dir;
-    config.manifest.push("Cargo.toml");
+    let mut manifest = test_dir;
+    manifest.push("Cargo.toml");
+    config.set_manifest(manifest);
     config.set_profraw_folder(PathBuf::from("doc_test_env"));
 
     config.run_types = vec![RunType::Doctests];
@@ -36,8 +37,9 @@ fn doc_test_coverage() {
     config.test_timeout = Duration::from_secs(60);
     let test_dir = get_test_path("doc_coverage");
     env::set_current_dir(&test_dir).unwrap();
-    config.manifest = test_dir;
-    config.manifest.push("Cargo.toml");
+    let mut manifest = test_dir;
+    manifest.push("Cargo.toml");
+    config.set_manifest(manifest);
 
     config.run_types = vec![RunType::Doctests];
     config.set_profraw_folder(PathBuf::from("doc_test_coverage_1"));
@@ -66,8 +68,9 @@ fn doc_test_panics() {
     config.test_timeout = Duration::from_secs(60);
     let test_dir = get_test_path("doctest_should_panic");
     env::set_current_dir(&test_dir).unwrap();
-    config.manifest = test_dir;
-    config.manifest.push("Cargo.toml");
+    let mut manifest = test_dir;
+    manifest.push("Cargo.toml");
+    config.set_manifest(manifest);
 
     config.run_types = vec![RunType::Doctests];
     config.set_profraw_folder(PathBuf::from("doc_test_panics_1"));
@@ -96,8 +99,9 @@ fn doc_test_panics_workspace() {
     config.test_timeout = Duration::from_secs(60);
     let test_dir = get_test_path("doctest_workspace_should_panic");
     env::set_current_dir(&test_dir).unwrap();
-    config.manifest = test_dir;
-    config.manifest.push("Cargo.toml");
+    let mut manifest = test_dir;
+    manifest.push("Cargo.toml");
+    config.set_manifest(manifest);
     config.set_profraw_folder(PathBuf::from("doc_test_panics_workspace_1"));
 
     config.run_types = vec![RunType::Doctests];
@@ -126,8 +130,9 @@ fn doc_test_compile_fail() {
     config.test_timeout = Duration::from_secs(60);
     let test_dir = get_test_path("doctest_compile_fail_fail");
     env::set_current_dir(&test_dir).unwrap();
-    config.manifest = test_dir;
-    config.manifest.push("Cargo.toml");
+    let mut manifest = test_dir;
+    manifest.push("Cargo.toml");
+    config.set_manifest(manifest);
 
     config.run_types = vec![RunType::Doctests];
 
@@ -143,8 +148,9 @@ fn doc_test_no_run() {
     config.test_timeout = Duration::from_secs(60);
     let test_dir = get_test_path("doctest_norun");
     env::set_current_dir(&test_dir).unwrap();
-    config.manifest = test_dir;
-    config.manifest.push("Cargo.toml");
+    let mut manifest = test_dir;
+    manifest.push("Cargo.toml");
+    config.set_manifest(manifest);
 
     config.run_types = vec![RunType::Doctests];
 
@@ -162,8 +168,9 @@ fn rustdocflags_handling() {
     let restore_dir = env::current_dir().unwrap();
     let test_dir = get_test_path("rustflags");
     env::set_current_dir(&test_dir).unwrap();
-    config.manifest = test_dir;
-    config.manifest.push("Cargo.toml");
+    let mut manifest = test_dir;
+    manifest.push("Cargo.toml");
+    config.set_manifest(manifest);
 
     let res = launch_tarpaulin(&config, &None);
     env::set_current_dir(&restore_dir).unwrap();

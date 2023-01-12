@@ -98,6 +98,9 @@ impl<'a> StateData for LlvmInstrumentedData<'a> {
                         .collect::<Vec<_>>();
 
                     let profraw_dir = self.config.profraw_dir();
+                    if !profraw_dir.exists() {
+                        let _ = fs::create_dir_all(&profraw_dir);
+                    }
 
                     info!(
                         "For binary: {}",

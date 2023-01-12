@@ -31,7 +31,7 @@ pub struct Config {
     pub name: String,
     /// Path to the projects cargo manifest
     #[serde(rename = "manifest-path")]
-    pub manifest: PathBuf,
+    manifest: PathBuf,
     /// Path to a tarpaulin.toml config file
     pub config: Option<PathBuf>,
     /// Path to the projects cargo manifest
@@ -413,7 +413,7 @@ impl Config {
     }
 
     pub fn target_dir(&self) -> PathBuf {
-        if let Some(s) = &self.target_dir {
+        let res = if let Some(s) = &self.target_dir {
             s.clone()
         } else {
             match *self.get_metadata() {
@@ -421,11 +421,12 @@ impl Config {
                 _ => self
                     .manifest
                     .parent()
-                    .map(Path::to_path_buf)
+                    .map(fix_unc_path)
                     .unwrap_or_default()
                     .join("target"),
             }
-        }
+        };
+        fix_unc_path(&res)
     }
 
     /// Get directory profraws are stored in
@@ -447,7 +448,7 @@ impl Config {
 
     pub fn doctest_dir(&self) -> PathBuf {
         // https://github.com/rust-lang/rust/issues/98690
-        let mut result = fix_unc_path(&self.target_dir());
+        let mut result = self.target_dir();
         result.push("doctests");
         result
     }
@@ -463,11 +464,21 @@ impl Config {
         }
         self.metadata.borrow()
     }
+
     pub fn root(&self) -> PathBuf {
-        match *self.get_metadata() {
+        let res = match *self.get_metadata() {
             Some(ref meta) => PathBuf::from(meta.workspace_root.clone()),
             _ => self.manifest.parent().map(fix_unc_path).unwrap_or_default(),
-        }
+        };
+        fix_unc_path(&res)
+    }
+
+    pub fn manifest(&self) -> PathBuf {
+        fix_unc_path(&self.manifest)
+    }
+
+    pub fn set_manifest(&mut self, manifest: PathBuf) {
+        self.manifest = manifest;
     }
 
     pub fn get_packages(&self) -> Vec<Package> {
@@ -478,11 +489,12 @@ impl Config {
     }
 
     pub fn output_dir(&self) -> PathBuf {
-        if let Some(ref path) = self.output_directory {
+        let path = if let Some(ref path) = self.output_directory {
             path.clone()
         } else {
             env::current_dir().unwrap()
-        }
+        };
+        fix_unc_path(&path)
     }
 
     pub fn get_config_vec(file_configs: std::io::Result<Vec<Self>>, backup: Self) -> ConfigWrapper {
@@ -787,7 +799,7 @@ impl Config {
     /// uses root if set, else env::current_dir()
     #[inline]
     pub fn get_base_dir(&self) -> PathBuf {
-        if let Some(root) = &self.root {
+        let res = if let Some(root) = &self.root {
             if Path::new(root).is_absolute() {
                 PathBuf::from(root)
             } else {
@@ -800,7 +812,8 @@ impl Config {
             }
         } else {
             env::current_dir().unwrap()
-        }
+        };
+        fix_unc_path(&res)
     }
 
     /// returns the relative path from the base_dir

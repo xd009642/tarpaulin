@@ -1,4 +1,5 @@
 use crate::config::types::*;
+use crate::path_utils::fix_unc_path;
 use clap::{value_t, values_t, ArgMatches};
 use coveralls_api::CiService;
 use regex::Regex;
@@ -39,7 +40,7 @@ pub(super) fn get_manifest(args: &ArgMatches) -> PathBuf {
                 .canonicalize()
                 .unwrap();
         }
-        return path;
+        return fix_unc_path(&path);
     }
 
     let mut manifest = env::current_dir().unwrap();
@@ -49,13 +50,13 @@ pub(super) fn get_manifest(args: &ArgMatches) -> PathBuf {
     }
 
     manifest.push("Cargo.toml");
-    manifest.canonicalize().unwrap_or(manifest)
+    fix_unc_path(&manifest.canonicalize().unwrap_or(manifest))
 }
 
 pub(super) fn default_manifest() -> PathBuf {
     let mut manifest = env::current_dir().unwrap();
     manifest.push("Cargo.toml");
-    manifest.canonicalize().unwrap_or(manifest)
+    fix_unc_path(&manifest.canonicalize().unwrap_or(manifest))
 }
 
 pub(super) fn get_target(args: &ArgMatches) -> Option<String> {
@@ -87,7 +88,7 @@ pub(super) fn get_target_dir(args: &ArgMatches) -> Option<PathBuf> {
     } else {
         path
     };
-    Some(path)
+    Some(fix_unc_path(&path))
 }
 
 pub(super) fn get_root(args: &ArgMatches) -> Option<PathBuf> {

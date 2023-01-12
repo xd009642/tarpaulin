@@ -33,6 +33,7 @@ pub fn setup_logging(color: Color, debug: bool, verbose: bool) {
     let base_exceptions = |env: EnvFilter| {
         if debug {
             env.add_directive("cargo_tarpaulin=trace".parse().unwrap())
+                .add_directive("llvm_profparser=trace".parse().unwrap())
         } else if verbose {
             env.add_directive("cargo_tarpaulin=debug".parse().unwrap())
         } else {
@@ -187,7 +188,7 @@ fn collect_tracemap(configs: &[Config]) -> Result<TraceMap, RunError> {
     Ok(tracemap)
 }
 
-fn report_tracemap(configs: &[Config], tracemap: TraceMap) -> Result<(), RunError> {
+pub fn report_tracemap(configs: &[Config], tracemap: TraceMap) -> Result<(), RunError> {
     let mut reported = false;
     for c in configs.iter() {
         if c.no_run || c.name != "report" {
