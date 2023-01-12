@@ -7,7 +7,10 @@ use walkdir::{DirEntry, WalkDir};
 /// On windows removes the `\\?\\` prefix to UNC paths. For other operation systems just turns the
 /// `Path` into a `PathBuf`
 pub fn fix_unc_path(res: &Path) -> PathBuf {
-    if cfg!(windows) {
+    let path = omnipath::sys_absolute(res);
+    if let Ok(s) = path {
+        s
+    } else if cfg!(windows) {
         let res_str = res.display().to_string();
         if res_str.starts_with(r#"\\?"#) {
             PathBuf::from(res_str.replace(r#"\\?\"#, ""))

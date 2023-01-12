@@ -121,6 +121,7 @@ dependencies = [
  "nix",
  "num_cpus",
  "object 0.30.0",
+ "omnipath",
  "proc-macro2",
  "procfs",
  "quick-xml",
@@ -686,6 +687,12 @@ dependencies = [
  "flate2",
  "memchr",
 ]
+
+[[package]]
+name = "omnipath"
+version = "0.1.1"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "e7461858c5ac9bde3fcdeedc17f58ed0469ec74f2d737b6369fc31c0b0ef576c"
 
 [[package]]
 name = "once_cell"
