@@ -12,7 +12,7 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v3
-      - uses: taiki-e/create-gh-release-action@v1.3.0
+      - uses: taiki-e/create-gh-release-action@v1
         with:
           changelog: CHANGELOG.md
         env:
@@ -20,7 +20,7 @@ jobs:
   crates:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v2
+      - uses: actions/checkout@v3
       - name: publish package to crates
         run: |
           cargo package
@@ -31,9 +31,12 @@ jobs:
     needs:
       - create-release
     strategy:
+      fail-fast: false
       matrix:
         include:
           - target: x86_64-unknown-linux-gnu
+            os: ubuntu-latest
+          - target: x86_64-unknown-linux-musl
             os: ubuntu-latest
           - target: x86_64-apple-darwin
             os: macos-latest
@@ -41,16 +44,20 @@ jobs:
             os: windows-latest
           - target: aarch64-unknown-linux-gnu
             os: ubuntu-latest
+          - target: aarch64-unknown-linux-musl
+            os: ubuntu-latest
           - target: aarch64-apple-darwin
             os: macos-latest
-          - target: aarch64-pc-windows-msvc
-            os: windows-latest
+          - target: universal-apple-darwin
+            os: macos-latest
     runs-on: ${{ matrix.os }}
     steps:
       - uses: actions/checkout@v3
+      - uses: dtolnay/rust-toolchain@stable
       - uses: taiki-e/upload-rust-binary-action@v1
         with:
-          bin: rust-sandbox
+          bin: cargo-tarpaulin
           target: ${{ matrix.target }}
+          features: vendored-openssl
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
