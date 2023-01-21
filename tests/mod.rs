@@ -7,12 +7,17 @@ use cargo_tarpaulin::path_utils::*;
 use cargo_tarpaulin::traces::TraceMap;
 use cargo_tarpaulin::{launch_tarpaulin, run, setup_logging};
 use clap::{App, Arg};
+#[cfg(windows)]
 use regex::Regex;
 use rusty_fork::rusty_fork_test;
 use std::collections::HashSet;
-use std::path::{Path, PathBuf};
+#[cfg(windows)]
+use std::io;
+use std::path::Path;
+#[cfg(windows)]
+use std::path::PathBuf;
 use std::time::Duration;
-use std::{env, fs, io};
+use std::{env, fs};
 
 #[cfg(nightly)]
 mod doc_coverage;

@@ -7,7 +7,6 @@ use clap::{value_t, ArgMatches};
 use coveralls_api::CiService;
 use humantime_serde::deserialize as humantime_serde;
 use indexmap::IndexMap;
-use regex::Regex;
 use serde::{Deserialize, Serialize};
 use std::cell::{Ref, RefCell};
 use std::collections::HashSet;
@@ -124,7 +123,7 @@ pub struct Config {
     pub exclude: Vec<String>,
     /// Files to exclude from testing in their compiled form
     #[serde(skip_deserializing, skip_serializing)]
-    excluded_files: RefCell<Vec<Regex>>,
+    excluded_files: RefCell<Vec<glob::Pattern>>,
     /// Files to exclude from testing in uncompiled form (for serde)
     #[serde(rename = "exclude-files")]
     excluded_files_raw: Vec<String>,
@@ -787,7 +786,7 @@ impl Config {
     pub fn exclude_path(&self, path: &Path) -> bool {
         if self.excluded_files.borrow().len() != self.excluded_files_raw.len() {
             let mut excluded_files = self.excluded_files.borrow_mut();
-            let mut compiled = regexes_from_excluded(&self.excluded_files_raw);
+            let mut compiled = globs_from_excluded(&self.excluded_files_raw);
             excluded_files.clear();
             excluded_files.append(&mut compiled);
         }
@@ -796,7 +795,7 @@ impl Config {
         self.excluded_files
             .borrow()
             .iter()
-            .any(|x| x.is_match(project.to_str().unwrap_or("")))
+            .any(|x| x.matches_path(&project))
     }
 
     /// returns the relative path from the base_dir
@@ -932,6 +931,21 @@ mod tests {
         assert!(!conf[0].exclude_path(Path::new("src/mod.rs")));
         assert!(!conf[0].exclude_path(Path::new("unrelated.rs")));
         assert!(conf[0].exclude_path(Path::new("module.rs")));
+    }
+
+    #[test]
+    fn exclude_paths_mismatched_directory_separators() {
+        let matches = App::new("tarpaulin")
+            .args_from_usage("--exclude-files [FILE]... 'Exclude given files from coverage results has * wildcard'")
+            .get_matches_from_safe(vec!["tarpaulin", "--exclude-files", "src/foo/*", "src\\bar\\*"])
+            .unwrap();
+        let conf = ConfigWrapper::from(&matches).0;
+        assert_eq!(conf.len(), 1);
+        assert!(conf[0].exclude_path(Path::new("src/foo/file.rs")));
+        assert!(!conf[0].exclude_path(Path::new("src\\foo\\file.rs")));
+
+        assert!(!conf[0].exclude_path(Path::new("src/bar/file.rs")));
+        assert!(conf[0].exclude_path(Path::new("src\\bar\\file.rs")));
     }
 
     #[test]
