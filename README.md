@@ -611,10 +611,10 @@ accuracy. If you see missing lines or files, check your compiler version.
 * [ ] Branch coverage for tests
 * [ ] Condition coverage for tests
 * [ ] MCDC coverage reports
-* [ ] LLVM coverage support
+* [x] LLVM coverage support
 * [ ] Support for embedded targets
-* [ ] OSX support
-* [ ] Windows support
+* [x] OSX support
+* [x] Windows support
 
 ## License
 
