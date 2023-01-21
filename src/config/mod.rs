@@ -496,7 +496,7 @@ impl Config {
         let path = if let Some(ref path) = self.output_directory {
             path.clone()
         } else {
-            env::current_dir().unwrap()
+            self.root()
         };
         fix_unc_path(&path)
     }
