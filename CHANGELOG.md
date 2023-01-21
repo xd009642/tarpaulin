@@ -10,6 +10,7 @@ file.
 ### Changed
 - Create profraw folder if it doesn't exist
 - Normalise UNC paths provided via env or CLI args
+- Make output directory crate root if not provided
 
 ## [0.23.1] 2022-11-18
 ### Changed
