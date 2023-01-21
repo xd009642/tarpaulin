@@ -10,6 +10,9 @@ file.
 ### Changed
 - Create profraw folder if it doesn't exist
 - Normalise UNC paths provided via env or CLI args
+- Make output directory crate root if not provided
+- If root is not provided fall-back to root from manifest for base directory when printing
+reports not the current directory
 
 ## [0.23.1] 2022-11-18
 ### Changed
