@@ -2,7 +2,6 @@ use crate::config::types::*;
 use crate::path_utils::fix_unc_path;
 use clap::{value_t, values_t, ArgMatches};
 use coveralls_api::CiService;
-use regex::Regex;
 use serde::de::{self, Deserializer};
 use std::env;
 use std::fmt;
@@ -145,19 +144,17 @@ pub(super) fn get_run_types(args: &ArgMatches) -> Vec<RunType> {
     res
 }
 
-pub(super) fn get_excluded(args: &ArgMatches) -> Vec<Regex> {
-    regexes_from_excluded(&get_list(args, "exclude-files"))
+pub(super) fn get_excluded(args: &ArgMatches) -> Vec<glob::Pattern> {
+    globs_from_excluded(&get_list(args, "exclude-files"))
 }
 
-pub(super) fn regexes_from_excluded(strs: &[String]) -> Vec<Regex> {
+pub(super) fn globs_from_excluded(strs: &[String]) -> Vec<glob::Pattern> {
     let mut files = vec![];
     for temp_str in strs {
-        let s = &temp_str.replace('.', r"\.").replace('*', ".*");
-
-        if let Ok(re) = Regex::new(s) {
-            files.push(re);
+        if let Ok(glob) = glob::Pattern::new(&temp_str) {
+            files.push(glob);
         } else {
-            error!("Invalid regex: {}", temp_str);
+            error!("Ignoring invalid glob pattern: '{}'", temp_str);
         }
     }
     files

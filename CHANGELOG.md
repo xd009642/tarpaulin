@@ -13,6 +13,7 @@ file.
 - Make output directory crate root if not provided
 - If root is not provided fall-back to root from manifest for base directory when printing
 reports not the current directory
+- Change exclude-files pattern to use glob crate instead of a regex
 
 ## [0.23.1] 2022-11-18
 ### Changed
