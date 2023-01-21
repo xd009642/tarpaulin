@@ -934,7 +934,7 @@ mod tests {
     }
 
     #[test]
-    fn exclude_paths_mismatched_directory_separators() {
+    fn exclude_paths_directory_separators() {
         let matches = App::new("tarpaulin")
             .args_from_usage("--exclude-files [FILE]... 'Exclude given files from coverage results has * wildcard'")
             .get_matches_from_safe(vec!["tarpaulin", "--exclude-files", "src/foo/*", "src\\bar\\*"])
