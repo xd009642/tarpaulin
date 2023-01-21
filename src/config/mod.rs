@@ -468,7 +468,11 @@ impl Config {
     pub fn root(&self) -> PathBuf {
         let res = match *self.get_metadata() {
             Some(ref meta) => PathBuf::from(meta.workspace_root.clone()),
-            _ => self.manifest.parent().map(fix_unc_path).unwrap_or_default(),
+            _ => self
+                .manifest
+                .parent()
+                .map(Path::to_path_buf)
+                .unwrap_or_default(),
         };
         fix_unc_path(&res)
     }
@@ -799,19 +803,16 @@ impl Config {
     /// uses root if set, else env::current_dir()
     #[inline]
     pub fn get_base_dir(&self) -> PathBuf {
-        let res = if let Some(root) = &self.root {
-            if Path::new(root).is_absolute() {
-                PathBuf::from(root)
-            } else {
-                let base_dir = env::current_dir().unwrap();
-                if let Ok(res) = base_dir.join(root).canonicalize() {
-                    res
-                } else {
-                    base_dir
-                }
-            }
+        let root = self.root();
+        let res = if root.is_absolute() {
+            root
         } else {
-            env::current_dir().unwrap()
+            let base_dir = env::current_dir().unwrap();
+            if let Ok(res) = base_dir.join(root).canonicalize() {
+                res
+            } else {
+                base_dir
+            }
         };
         fix_unc_path(&res)
     }
