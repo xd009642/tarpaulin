@@ -942,10 +942,17 @@ mod tests {
         let conf = ConfigWrapper::from(&matches).0;
         assert_eq!(conf.len(), 1);
         assert!(conf[0].exclude_path(Path::new("src/foo/file.rs")));
-        assert!(!conf[0].exclude_path(Path::new("src\\foo\\file.rs")));
-
-        assert!(!conf[0].exclude_path(Path::new("src/bar/file.rs")));
         assert!(conf[0].exclude_path(Path::new("src\\bar\\file.rs")));
+
+        cfg_if::cfg_if! {
+            if #[cfg(windows)] {
+                assert!(conf[0].exclude_path(Path::new("src\\foo\\file.rs")));
+                assert!(conf[0].exclude_path(Path::new("src/bar/file.rs")));
+            } else {
+                assert!(!conf[0].exclude_path(Path::new("src\\foo\\file.rs")));
+                assert!(!conf[0].exclude_path(Path::new("src/bar/file.rs")));
+            }
+        }
     }
 
     #[test]
