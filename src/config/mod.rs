@@ -493,7 +493,11 @@ impl Config {
 
     pub fn output_dir(&self) -> PathBuf {
         let path = if let Some(ref path) = self.output_directory {
-            path.clone()
+            if path.is_relative() {
+                self.root().join(path)
+            } else {
+                path.clone()
+            }
         } else {
             self.root()
         };
