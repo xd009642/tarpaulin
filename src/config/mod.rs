@@ -1181,16 +1181,16 @@ mod tests {
         cfg_if::cfg_if! {
             if #[cfg(windows)] {
                 let toml = r#"[has_dir]
-                output-dir = "C:\foo"
+                output-dir = "C:/foo"
 
                 [no_dir]
                 coveralls = "xyz"
                 
                 [other_dir]
-                output-dir = "C:\bar"
+                output-dir = "C:/bar"
                 "#;
-                let foo_dir = PathBuf::from("C:\\foo");
-                let bar_dir = PathBuf::from("C:\\bar");
+                let foo_dir = PathBuf::from("C:/foo");
+                let bar_dir = PathBuf::from("C:/bar");
             } else {
                 let toml = r#"[has_dir]
                 output-dir = "/foo"
