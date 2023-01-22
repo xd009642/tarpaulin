@@ -112,7 +112,8 @@ fn launch_test(
             }
         }
         TraceEngine::Llvm => {
-            let res = execute_test(test, other_binaries, ignored, config, None)?;
+            // 1 test thread because https://github.com/rust-lang/rust/issues/91092
+            let res = execute_test(test, other_binaries, ignored, config, Some(1))?;
             Ok(Some(res))
         }
         e => {
@@ -255,9 +256,12 @@ fn execute_test(
             info!("Setting LLVM_PROFILE_FILE");
             // Used for llvm coverage to avoid report naming clashes TODO could have clashes
             // between runs
+            let profile_dir = config
+                .profraw_dir()
+                .join(format!("{}_%m-%p.profraw", test.file_name()));
             envars.push((
                 "LLVM_PROFILE_FILE".to_string(),
-                format!("{}_%m-%p.profraw", test.file_name()),
+                profile_dir.display().to_string(),
             ));
             debug!("Env vars: {:?}", envars);
             debug!("Args: {:?}", argv);
