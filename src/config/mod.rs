@@ -493,7 +493,11 @@ impl Config {
 
     pub fn output_dir(&self) -> PathBuf {
         let path = if let Some(ref path) = self.output_directory {
-            path.clone()
+            if path.is_relative() {
+                self.root().join(path)
+            } else {
+                path.clone()
+            }
         } else {
             self.root()
         };
@@ -1174,15 +1178,33 @@ mod tests {
 
     #[test]
     fn output_dir_merge() {
-        let toml = r#"[has_dir]
-        output-dir = "foo"
+        cfg_if::cfg_if! {
+            if #[cfg(windows)] {
+                let toml = r#"[has_dir]
+                output-dir = "C:/foo"
 
-        [no_dir]
-        coveralls = "xyz"
-        
-        [other_dir]
-        output-dir = "bar"
-        "#;
+                [no_dir]
+                coveralls = "xyz"
+                
+                [other_dir]
+                output-dir = "C:/bar"
+                "#;
+                let foo_dir = PathBuf::from("C:/foo");
+                let bar_dir = PathBuf::from("C:/bar");
+            } else {
+                let toml = r#"[has_dir]
+                output-dir = "/foo"
+
+                [no_dir]
+                coveralls = "xyz"
+                
+                [other_dir]
+                output-dir = "/bar"
+                "#;
+                let foo_dir = PathBuf::from("/foo");
+                let bar_dir = PathBuf::from("/bar");
+            }
+        }
 
         let configs = Config::parse_config_toml(toml.as_bytes()).unwrap();
         let has_dir = configs
@@ -1199,11 +1221,11 @@ mod tests {
 
         let mut merged_into_has_dir = has_dir.clone();
         merged_into_has_dir.merge(&no_dir);
-        assert_eq!(merged_into_has_dir.output_dir(), PathBuf::from("foo"));
+        assert_eq!(merged_into_has_dir.output_dir(), foo_dir);
 
         let mut merged_into_no_dir = no_dir.clone();
         merged_into_no_dir.merge(&has_dir);
-        assert_eq!(merged_into_no_dir.output_dir(), PathBuf::from("foo"));
+        assert_eq!(merged_into_no_dir.output_dir(), foo_dir);
 
         let mut neither_merged_dir = no_dir.clone();
         neither_merged_dir.merge(&no_dir);
@@ -1211,7 +1233,7 @@ mod tests {
 
         let mut both_merged_dir = has_dir;
         both_merged_dir.merge(&other_dir);
-        assert_eq!(both_merged_dir.output_dir(), PathBuf::from("bar"));
+        assert_eq!(both_merged_dir.output_dir(), bar_dir);
     }
 
     #[test]
