@@ -116,6 +116,7 @@ dependencies = [
  "humantime-serde",
  "indexmap",
  "lazy_static",
+ "lcov",
  "libc",
  "llvm_profparser",
  "memmap",
@@ -500,6 +501,15 @@ name = "lazy_static"
 version = "1.4.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "e2abad23fbc42b3700f2f279844dc832adb2b2eb069b2df918f455c4e18cc646"
+
+[[package]]
+name = "lcov"
+version = "0.8.1"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "1ccfa6d5e585a884db65b37f38184e4364eaf74d884ac35d0a90fe9baf80b723"
+dependencies = [
+ "thiserror",
+]
 
 [[package]]
 name = "leb128"

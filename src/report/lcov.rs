@@ -6,11 +6,15 @@ use std::io::Write;
 
 pub fn export(coverage_data: &TraceMap, config: &Config) -> Result<(), RunError> {
     let file_path = config.output_dir().join("lcov.info");
-    let mut file = match File::create(file_path) {
+    let file = match File::create(file_path) {
         Ok(k) => k,
         Err(e) => return Err(RunError::Lcov(format!("File is not writeable: {}", e))),
     };
+   
+    write_lcov(file, coverage_data)
+}
 
+fn write_lcov(mut file: impl Write, coverage_data: &TraceMap) -> Result<(), RunError>  {
     for (path, traces) in coverage_data.iter() {
         if traces.is_empty() {
             continue;
@@ -72,6 +76,110 @@ pub fn export(coverage_data: &TraceMap, config: &Config) -> Result<(), RunError>
 
         writeln!(file, "end_of_record")?;
     }
-
     Ok(())
+}
+
+#[cfg(test)]
+mod tests {
+    use crate::traces::*;
+    use super::*;
+    use lcov::{record::Record, Reader};
+    use std::io::Cursor;
+    use std::path::{Path, PathBuf};
+
+    #[test]
+    fn generate_valid_lcov() {
+        let mut traces = TraceMap::new();
+        traces.add_trace(Path::new("foo.rs"), Trace {
+            line:4, 
+            stats: CoverageStat::Line(1),
+            address: Default::default(),
+            length: 0,
+            fn_name: None,
+        });
+        traces.add_trace(Path::new("foo.rs"), Trace {
+            line: 5, 
+            stats: CoverageStat::Line(0),
+            address: Default::default(),
+            length: 0,
+            fn_name: None,
+        });
+        
+        traces.add_trace(Path::new("bar.rs"), Trace {
+            line:14, 
+            stats: CoverageStat::Line(9),
+            address: Default::default(),
+            length: 0,
+            fn_name: Some("baz".to_string()),
+        });
+
+        let mut data = vec![];
+        let cursor = Cursor::new(&mut data);
+
+        write_lcov(cursor, &traces).unwrap();
+        
+        let reader = Reader::new(data.as_slice());
+        let mut items = 0;
+        let mut files_seen = 0;
+
+        let mut current_source = PathBuf::new();
+        for item in reader {
+            let record = item.unwrap();
+
+            match record {
+                Record::SourceFile { path } => {
+                    current_source = path.clone();
+                    // We know files are presented sorted
+                    if files_seen == 0 {
+                        assert_eq!(path, Path::new("bar.rs"));
+                    } else if files_seen == 1 {
+                        assert_eq!(path, Path::new("foo.rs"));
+                    } else {
+                        panic!("Too many files");
+                    }
+
+                    files_seen += 1;
+                }, 
+                Record::EndOfRecord => {
+                    current_source = PathBuf::new();
+                },
+                Record::FunctionName { name, start_line } => {
+                    assert_eq!(name, "baz");
+                    assert_eq!(start_line, 14);
+                },
+                Record::LineData { line, count, checksum: _ } => {
+                    if current_source == Path::new("bar.rs") {
+                       assert_eq!(line, 14); 
+                       assert_eq!(count, 9); 
+                    } else if current_source == Path::new("foo.rs") {
+                       assert!((line == 4 && count == 1) || (line == 5 && count == 0)); 
+                    } else {
+                        panic!("Line data not attached to file");
+                    }
+                },
+                Record::LinesFound { found } => {
+                    if current_source == Path::new("bar.rs") {
+                       assert_eq!(found, 1); 
+                    } else if current_source == Path::new("foo.rs") {
+                       assert_eq!(found, 2); 
+                    } else {
+                        panic!("Lines found not attached to file");
+                    }
+                },
+                Record::LinesHit { hit } => {
+                    if current_source == Path::new("bar.rs") {
+                       assert_eq!(hit, 1); 
+                    } else if current_source == Path::new("foo.rs") {
+                       assert_eq!(hit, 1); 
+                    } else {
+                        panic!("Lines found not attached to file");
+                    }
+                }
+                _ => {},
+            }
+
+            items += 1;
+        }
+        assert!(items > 0);
+    }
 }

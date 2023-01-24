@@ -62,6 +62,7 @@ vendored-openssl = ["git2/vendored-openssl"]
 rustc_version = "0.4"
 
 [dev-dependencies]
+lcov = "0.8.1"
 rusty-fork = "0.3.0"
 
 [package.metadata.binstall]
