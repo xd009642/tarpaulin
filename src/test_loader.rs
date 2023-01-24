@@ -1,5 +1,5 @@
 use crate::config::{types::TraceEngine, Config};
-use crate::path_utils::is_coverable_file_path;
+use crate::path_utils::{fix_unc_path, is_coverable_file_path};
 use crate::source_analysis::*;
 use crate::traces::*;
 use gimli::read::Error;
@@ -179,7 +179,7 @@ where
                     }
                 }
                 if let Ok(p) = path.canonicalize() {
-                    path = p;
+                    path = fix_unc_path(&p);
                 }
                 let file = file.path_name();
                 let line = ln_row.line().unwrap();

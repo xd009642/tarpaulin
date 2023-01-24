@@ -1,6 +1,6 @@
 [package]
 name = "cargo-tarpaulin"
-version = "0.23.1"
+version = "0.24.0"
 authors = ["Daniel McKenna <danielmckenna93@gmail.com>"]
 description = "Cargo-Tarpaulin is a tool to determine code coverage achieved via tests"
 repository = "https://github.com/xd009642/tarpaulin"
@@ -26,17 +26,17 @@ chrono = "0.4"
 clap = "2.34.0"
 coveralls-api = "0.5.0"
 fallible-iterator = "0.2.0"
-gimli = "0.26.2"
-git2 = "0.15"
+gimli = "0.27.1"
+git2 = "0.16"
 humantime-serde = "1"
 indexmap = { version = "~1.8", features = ["serde-1"] }
 lazy_static = "1.0"
 llvm_profparser = { version = "0.3", default-features = false }
 memmap = "0.7.0"
-object = "0.29"
-num_cpus = "1.14.0"
+object = "0.30"
+num_cpus = "1.15.0"
 proc-macro2 = { version = "1.0", features = ["span-locations"] }
-quick-xml = "0.26"
+quick-xml = "0.27"
 quote = "1.0"
 regex = "1.7"
 rustc-demangle = "0.1.21"
@@ -47,10 +47,11 @@ toml = "0.5"
 tracing = { version = "0.1", default-features = false }
 tracing-subscriber = { version = "0.2.25", default-features = false, features = ["env-filter", "fmt", "chrono", "ansi", "smallvec", "tracing-log"] }
 walkdir = "2.3.2"
+glob = "0.3.1"
 
 [target.'cfg(all(target_os = "linux", target_arch = "x86_64"))'.dependencies]
 libc = "0.2.94"
-nix = {version = "0.25.0", default-features = false, features = ["sched", "signal", "ptrace", "personality"]}
+nix = {version = "0.26.2", default-features = false, features = ["sched", "signal", "ptrace", "personality"]}
 procfs = "0.14"
 
 [features]
@@ -64,6 +65,9 @@ rustc_version = "0.4"
 rusty-fork = "0.3.0"
 
 [package.metadata.binstall]
-pkg-url = "{ repo }/releases/download/{ version }/cargo-tarpaulin-{ version }-travis.tar.gz"
-bin-dir = "cargo-tarpaulin"
+pkg-url = "{ repo }/releases/download/{ version }/cargo-tarpaulin-{ target }.tar.gz"
+bin-dir = "cargo-tarpaulin{ binary-ext }"
 pkg-fmt = "tgz"
+
+[package.metadata.binstall.overrides.x86_64-pc-windows-msvc]
+pkg-fmt = "zip"

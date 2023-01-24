@@ -1,6 +1,10 @@
+//! Dumb doc test
+//!
+//! ```rust
+//! #[cfg(not(boop))]
+//! panic!("No boop");
+//! ```
 #![allow(dead_code)]
-
-use std::env;
 
 #[test]
 fn ensure_rustflags_are_set() {

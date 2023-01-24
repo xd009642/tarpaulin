@@ -5,6 +5,7 @@
 [![License:MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
 [![Docker](https://img.shields.io/docker/automated/xd009642/tarpaulin.svg)](https://hub.docker.com/r/xd009642/tarpaulin/)
 [![Developers Wiki](https://img.shields.io/badge/development-wiki-yellowgreen.svg)](https://github.com/xd009642/tarpaulin/wiki/Developers)
+[![Coverage Status](https://coveralls.io/repos/github/xd009642/tarpaulin/badge.svg?branch=develop)](https://coveralls.io/github/xd009642/tarpaulin?branch=develop)
 
 Tarpaulin is a code coverage reporting tool for the Cargo build system, named 
 for a waterproof cloth used to cover cargo on a ship. Currently, tarpaulin
@@ -416,10 +417,8 @@ If you rely on certain nightly features you may need to change the `before_scrip
 `before_cache` to force tarpaulin to reinstall each time. However, if it can be avoided it
 will speed up your CI runs.
 
-Alternatively, there are the prebuilt docker images or the travis-install shell script.
-The travis-install script will install the latest tagged release built on travis to your
-travis instance and significantly speeds up the travis builds. You can install via that script
-using `bash <(curl https://raw.githubusercontent.com/xd009642/tarpaulin/master/travis-install.sh)`.
+Alternatively, there are the prebuilt docker images or you can use
+[cargo-binstall](https://github.com/cargo-bins/cargo-binstall).
 
 The prebuilt binary is built using github actions ubuntu:latest image, because of this it
 doesn't work on xenial or trusty, but it works on bionic. You should still keep the rest
@@ -612,10 +611,10 @@ accuracy. If you see missing lines or files, check your compiler version.
 * [ ] Branch coverage for tests
 * [ ] Condition coverage for tests
 * [ ] MCDC coverage reports
-* [ ] LLVM coverage support
+* [x] LLVM coverage support
 * [ ] Support for embedded targets
-* [ ] OSX support
-* [ ] Windows support
+* [x] OSX support
+* [x] Windows support
 
 ## License
 

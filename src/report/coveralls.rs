@@ -105,7 +105,7 @@ pub fn export(coverage_data: &TraceMap, config: &Config) -> Result<(), RunError>
             }
         }
 
-        match get_git_info(&config.manifest) {
+        match get_git_info(&config.manifest()) {
             Ok(git_info) => {
                 report.set_detailed_git_info(git_info);
                 info!("Git info collected");

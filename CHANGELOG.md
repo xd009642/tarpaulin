@@ -3,6 +3,20 @@
 From 2019 onwards, all notable changes to tarpaulin will be documented in this
 file.
 
+## [0.24.0] 2023-01-24
+### Added
+- Merge rustdocflags field from `cargo/config.toml` with env tarpaulin sets
+
+### Changed
+- Create profraw folder if it doesn't exist
+- Normalise UNC paths provided via env or CLI args
+- Make output directory crate root if not provided
+- If root is not provided fall-back to root from manifest for base directory when printing
+reports not the current directory
+- Change exclude-files pattern to use glob crate instead of a regex
+- Set `LLVM_PROFILE_FILE` so profraw files go directly to target dir
+- Make llvm coverage single threaded to avoid concurrency issues when writing profraw files
+
 ## [0.23.1] 2022-11-18
 ### Changed
 - Fix linux cfg instead of ptrace\_supported cfg on event log for ARM linux builds

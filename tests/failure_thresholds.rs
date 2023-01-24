@@ -15,8 +15,9 @@ fn coverage_below_threshold() {
     let mut config = Config::default();
     let test_dir = get_test_path("simple_project");
     env::set_current_dir(&test_dir).unwrap();
-    config.manifest = test_dir;
-    config.manifest.push("Cargo.toml");
+    let mut manifest = test_dir;
+    manifest.push("Cargo.toml");
+    config.set_manifest(manifest);
     config.fail_under = Some(100.0);
     config.set_clean(false);
     config.set_profraw_folder(PathBuf::from("coverage_below_threshold"));
@@ -38,8 +39,9 @@ fn coverage_above_threshold() {
     let mut config = Config::default();
     let test_dir = get_test_path("simple_project");
     env::set_current_dir(&test_dir).unwrap();
-    config.manifest = test_dir;
-    config.manifest.push("Cargo.toml");
+    let mut manifest = test_dir;
+    manifest.push("Cargo.toml");
+    config.set_manifest(manifest);
     config.fail_under = Some(30.0);
     config.set_clean(false);
     config.set_profraw_folder(PathBuf::from("coverage_above_threshold"));
@@ -55,16 +57,18 @@ fn report_coverage_fail() {
     let mut config = Config::default();
     let test_dir = get_test_path("simple_project");
     env::set_current_dir(&test_dir).unwrap();
-    config.manifest = test_dir.clone();
-    config.manifest.push("Cargo.toml");
+    let mut manifest = test_dir.clone();
+    manifest.push("Cargo.toml");
+    config.set_manifest(manifest);
     config.fail_under = Some(10.0);
     config.set_clean(false);
     config.set_profraw_folder(PathBuf::from("report_coverage_fail"));
 
     let mut report = Config::default();
     report.name = "report".to_string();
-    report.manifest = test_dir;
-    report.manifest.push("Cargo.toml");
+    let mut manifest = test_dir;
+    manifest.push("Cargo.toml");
+    report.set_manifest(manifest);
     report.fail_under = Some(99.0);
 
     let result = run(&[config, report]);

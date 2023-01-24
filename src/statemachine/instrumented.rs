@@ -8,7 +8,6 @@ use crate::statemachine::*;
 use crate::TestHandle;
 use llvm_profparser::*;
 use std::collections::HashMap;
-use std::fs;
 use std::path::PathBuf;
 use std::thread::sleep;
 use tracing::{info, warn};
@@ -97,30 +96,18 @@ impl<'a> StateData for LlvmInstrumentedData<'a> {
                         .filter(|x| !parent.existing_profraws.contains(&x))
                         .collect::<Vec<_>>();
 
-                    let profraw_dir = self.config.profraw_dir();
-
                     info!(
                         "For binary: {}",
                         self.config.strip_base_dir(&parent.path).display()
                     );
                     for prof in &profraws {
                         let profraw_name = self.config.strip_base_dir(prof);
-                        if let Err(e) = fs::copy(prof, profraw_dir.join(&profraw_name)) {
-                            warn!("Unable to copy backup of {}: {}", profraw_name.display(), e);
-                        }
                         info!("Generated: {}", profraw_name.display());
                     }
 
                     let binary_path = parent.path.clone();
 
-                    let instrumentation = merge_profiles(&profraws);
-                    for prof in &profraws {
-                        // Delete them
-                        if let Err(e) = fs::remove_file(&prof) {
-                            warn!("Unable to cleanup {}: {}", prof.display(), e);
-                        }
-                    }
-                    let instrumentation = instrumentation?;
+                    let instrumentation = merge_profiles(&profraws)?;
                     if instrumentation.is_empty() {
                         warn!("profraw file has no records after merging. If this is unexpected it may be caused by a panic or signal used in a test that prevented the LLVM instrumentation runtime from serialising results");
                         self.process = None;

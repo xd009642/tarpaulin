@@ -12,8 +12,9 @@ fn package_exclude() {
     let mut config = Config::default();
     let test_dir = get_test_path("workspace");
     env::set_current_dir(&test_dir).unwrap();
-    config.manifest = test_dir;
-    config.manifest.push("Cargo.toml");
+    let mut manifest = test_dir;
+    manifest.push("Cargo.toml");
+    config.set_manifest(manifest);
     config.set_clean(false);
     config.set_ignore_tests(false);
 
@@ -50,8 +51,9 @@ fn specify_package() {
 
     let test_dir = get_test_path("workspace");
     env::set_current_dir(&test_dir).unwrap();
-    config.manifest = test_dir;
-    config.manifest.push("Cargo.toml");
+    let mut manifest = test_dir;
+    manifest.push("Cargo.toml");
+    config.set_manifest(manifest);
     config.packages = vec!["foo".to_string()];
     let result = launch_tarpaulin(&config, &None);
     let result = result.expect("Test failed").0;
@@ -86,8 +88,8 @@ fn config_relative_pathing() {
     let configs = Config::load_config_file(&test_dir).unwrap();
 
     assert_eq!(configs.len(), 2);
-    assert_eq!(configs[0].manifest, base_path.join("lib/Cargo.toml"));
-    assert_eq!(configs[1].manifest, base_path.join("bin/Cargo.toml"));
+    assert_eq!(configs[0].manifest(), base_path.join("lib/Cargo.toml"));
+    assert_eq!(configs[1].manifest(), base_path.join("bin/Cargo.toml"));
     assert_eq!(configs[1].target_dir(), base_path.join("targ"));
 }
 

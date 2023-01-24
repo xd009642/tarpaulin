@@ -1,0 +1,25 @@
+name: Coverage
+on:
+  push:
+    branches:
+      - "*"
+env:
+  RUST_BACKTRACE: 1
+jobs:
+  coverage:
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        version:
+          - nightly
+        target:
+          - x86_64-unknown-linux-gnu
+      fail-fast: false
+    steps:
+      - uses: actions/checkout@v2
+      - uses: dtolnay/rust-toolchain@master
+        with:
+          toolchain: ${{ matrix.version }}
+      - name: coverage
+        run: cargo run --release -- tarpaulin --engine llvm --follow-exec --post-test-delay 10 --coveralls ${{ secrets.COVERALLS_TOKEN }} 
+

@@ -7,7 +7,6 @@ use clap::{value_t, ArgMatches};
 use coveralls_api::CiService;
 use humantime_serde::deserialize as humantime_serde;
 use indexmap::IndexMap;
-use regex::Regex;
 use serde::{Deserialize, Serialize};
 use std::cell::{Ref, RefCell};
 use std::collections::HashSet;
@@ -31,7 +30,7 @@ pub struct Config {
     pub name: String,
     /// Path to the projects cargo manifest
     #[serde(rename = "manifest-path")]
-    pub manifest: PathBuf,
+    manifest: PathBuf,
     /// Path to a tarpaulin.toml config file
     pub config: Option<PathBuf>,
     /// Path to the projects cargo manifest
@@ -124,7 +123,7 @@ pub struct Config {
     pub exclude: Vec<String>,
     /// Files to exclude from testing in their compiled form
     #[serde(skip_deserializing, skip_serializing)]
-    excluded_files: RefCell<Vec<Regex>>,
+    excluded_files: RefCell<Vec<glob::Pattern>>,
     /// Files to exclude from testing in uncompiled form (for serde)
     #[serde(rename = "exclude-files")]
     excluded_files_raw: Vec<String>,
@@ -413,7 +412,7 @@ impl Config {
     }
 
     pub fn target_dir(&self) -> PathBuf {
-        if let Some(s) = &self.target_dir {
+        let res = if let Some(s) = &self.target_dir {
             s.clone()
         } else {
             match *self.get_metadata() {
@@ -421,11 +420,12 @@ impl Config {
                 _ => self
                     .manifest
                     .parent()
-                    .map(Path::to_path_buf)
+                    .map(fix_unc_path)
                     .unwrap_or_default()
                     .join("target"),
             }
-        }
+        };
+        fix_unc_path(&res)
     }
 
     /// Get directory profraws are stored in
@@ -447,7 +447,7 @@ impl Config {
 
     pub fn doctest_dir(&self) -> PathBuf {
         // https://github.com/rust-lang/rust/issues/98690
-        let mut result = fix_unc_path(&self.target_dir());
+        let mut result = self.target_dir();
         result.push("doctests");
         result
     }
@@ -463,11 +463,25 @@ impl Config {
         }
         self.metadata.borrow()
     }
+
     pub fn root(&self) -> PathBuf {
-        match *self.get_metadata() {
+        let res = match *self.get_metadata() {
             Some(ref meta) => PathBuf::from(meta.workspace_root.clone()),
-            _ => self.manifest.parent().map(fix_unc_path).unwrap_or_default(),
-        }
+            _ => self
+                .manifest
+                .parent()
+                .map(Path::to_path_buf)
+                .unwrap_or_default(),
+        };
+        fix_unc_path(&res)
+    }
+
+    pub fn manifest(&self) -> PathBuf {
+        fix_unc_path(&self.manifest)
+    }
+
+    pub fn set_manifest(&mut self, manifest: PathBuf) {
+        self.manifest = manifest;
     }
 
     pub fn get_packages(&self) -> Vec<Package> {
@@ -478,11 +492,16 @@ impl Config {
     }
 
     pub fn output_dir(&self) -> PathBuf {
-        if let Some(ref path) = self.output_directory {
-            path.clone()
+        let path = if let Some(ref path) = self.output_directory {
+            if path.is_relative() {
+                self.root().join(path)
+            } else {
+                path.clone()
+            }
         } else {
-            env::current_dir().unwrap()
-        }
+            self.root()
+        };
+        fix_unc_path(&path)
     }
 
     pub fn get_config_vec(file_configs: std::io::Result<Vec<Self>>, backup: Self) -> ConfigWrapper {
@@ -771,7 +790,7 @@ impl Config {
     pub fn exclude_path(&self, path: &Path) -> bool {
         if self.excluded_files.borrow().len() != self.excluded_files_raw.len() {
             let mut excluded_files = self.excluded_files.borrow_mut();
-            let mut compiled = regexes_from_excluded(&self.excluded_files_raw);
+            let mut compiled = globs_from_excluded(&self.excluded_files_raw);
             excluded_files.clear();
             excluded_files.append(&mut compiled);
         }
@@ -780,27 +799,25 @@ impl Config {
         self.excluded_files
             .borrow()
             .iter()
-            .any(|x| x.is_match(project.to_str().unwrap_or("")))
+            .any(|x| x.matches_path(&project))
     }
 
     /// returns the relative path from the base_dir
     /// uses root if set, else env::current_dir()
     #[inline]
     pub fn get_base_dir(&self) -> PathBuf {
-        if let Some(root) = &self.root {
-            if Path::new(root).is_absolute() {
-                PathBuf::from(root)
-            } else {
-                let base_dir = env::current_dir().unwrap();
-                if let Ok(res) = base_dir.join(root).canonicalize() {
-                    res
-                } else {
-                    base_dir
-                }
-            }
+        let root = self.root();
+        let res = if root.is_absolute() {
+            root
         } else {
-            env::current_dir().unwrap()
-        }
+            let base_dir = env::current_dir().unwrap();
+            if let Ok(res) = base_dir.join(root).canonicalize() {
+                res
+            } else {
+                base_dir
+            }
+        };
+        fix_unc_path(&res)
     }
 
     /// returns the relative path from the base_dir
@@ -918,6 +935,28 @@ mod tests {
         assert!(!conf[0].exclude_path(Path::new("src/mod.rs")));
         assert!(!conf[0].exclude_path(Path::new("unrelated.rs")));
         assert!(conf[0].exclude_path(Path::new("module.rs")));
+    }
+
+    #[test]
+    fn exclude_paths_directory_separators() {
+        let matches = App::new("tarpaulin")
+            .args_from_usage("--exclude-files [FILE]... 'Exclude given files from coverage results has * wildcard'")
+            .get_matches_from_safe(vec!["tarpaulin", "--exclude-files", "src/foo/*", "src\\bar\\*"])
+            .unwrap();
+        let conf = ConfigWrapper::from(&matches).0;
+        assert_eq!(conf.len(), 1);
+        assert!(conf[0].exclude_path(Path::new("src/foo/file.rs")));
+        assert!(conf[0].exclude_path(Path::new("src\\bar\\file.rs")));
+
+        cfg_if::cfg_if! {
+            if #[cfg(windows)] {
+                assert!(conf[0].exclude_path(Path::new("src\\foo\\file.rs")));
+                assert!(conf[0].exclude_path(Path::new("src/bar/file.rs")));
+            } else {
+                assert!(!conf[0].exclude_path(Path::new("src\\foo\\file.rs")));
+                assert!(!conf[0].exclude_path(Path::new("src/bar/file.rs")));
+            }
+        }
     }
 
     #[test]
@@ -1139,15 +1178,33 @@ mod tests {
 
     #[test]
     fn output_dir_merge() {
-        let toml = r#"[has_dir]
-        output-dir = "foo"
+        cfg_if::cfg_if! {
+            if #[cfg(windows)] {
+                let toml = r#"[has_dir]
+                output-dir = "C:/foo"
 
-        [no_dir]
-        coveralls = "xyz"
-        
-        [other_dir]
-        output-dir = "bar"
-        "#;
+                [no_dir]
+                coveralls = "xyz"
+                
+                [other_dir]
+                output-dir = "C:/bar"
+                "#;
+                let foo_dir = PathBuf::from("C:/foo");
+                let bar_dir = PathBuf::from("C:/bar");
+            } else {
+                let toml = r#"[has_dir]
+                output-dir = "/foo"
+
+                [no_dir]
+                coveralls = "xyz"
+                
+                [other_dir]
+                output-dir = "/bar"
+                "#;
+                let foo_dir = PathBuf::from("/foo");
+                let bar_dir = PathBuf::from("/bar");
+            }
+        }
 
         let configs = Config::parse_config_toml(toml.as_bytes()).unwrap();
         let has_dir = configs
@@ -1164,11 +1221,11 @@ mod tests {
 
         let mut merged_into_has_dir = has_dir.clone();
         merged_into_has_dir.merge(&no_dir);
-        assert_eq!(merged_into_has_dir.output_dir(), PathBuf::from("foo"));
+        assert_eq!(merged_into_has_dir.output_dir(), foo_dir);
 
         let mut merged_into_no_dir = no_dir.clone();
         merged_into_no_dir.merge(&has_dir);
-        assert_eq!(merged_into_no_dir.output_dir(), PathBuf::from("foo"));
+        assert_eq!(merged_into_no_dir.output_dir(), foo_dir);
 
         let mut neither_merged_dir = no_dir.clone();
         neither_merged_dir.merge(&no_dir);
@@ -1176,7 +1233,7 @@ mod tests {
 
         let mut both_merged_dir = has_dir;
         both_merged_dir.merge(&other_dir);
-        assert_eq!(both_merged_dir.output_dir(), PathBuf::from("bar"));
+        assert_eq!(both_merged_dir.output_dir(), bar_dir);
     }
 
     #[test]

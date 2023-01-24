@@ -1,4 +1,5 @@
 use rustc_version::{version, version_meta, Channel};
+use std::env;
 
 fn main() {
     assert!(version().expect("Couldn't get compiler version").major >= 1);
@@ -10,6 +11,9 @@ fn main() {
         println!("cargo:rustc-cfg=nightly");
     }
 
-    #[cfg(all(target_os = "linux", target_arch = "x86_64"))]
-    println!("cargo:rustc-cfg=ptrace_supported");
+    let target_arch = env::var("CARGO_CFG_TARGET_ARCH").expect("CARGO_CFG_TARGET_ARCH not set");
+    let target_os = env::var("CARGO_CFG_TARGET_OS").expect("CARGO_CFG_TARGET_OS not set");
+    if target_os == "linux" && target_arch == "x86_64" {
+        println!("cargo:rustc-cfg=ptrace_supported");
+    }
 }

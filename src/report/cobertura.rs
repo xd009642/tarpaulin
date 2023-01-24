@@ -44,6 +44,7 @@ use std::fmt;
 use std::fs::File;
 use std::io::{Cursor, Write};
 use std::path::{Path, PathBuf};
+use std::sync::Arc;
 use std::time::{SystemTime, UNIX_EPOCH};
 
 use quick_xml::{
@@ -120,8 +121,8 @@ impl Report {
 
     pub fn export(&self, config: &Config) -> Result<(), Error> {
         let file_path = config.output_dir().join("cobertura.xml");
-        let mut file =
-            File::create(file_path).map_err(|e| Error::ExportError(quick_xml::Error::Io(e)))?;
+        let mut file = File::create(file_path)
+            .map_err(|e| Error::ExportError(quick_xml::Error::Io(Arc::new(e))))?;
 
         let mut writer = Writer::new(Cursor::new(vec![]));
         writer
@@ -164,7 +165,7 @@ impl Report {
 
         let result = writer.into_inner().into_inner();
         file.write_all(&result)
-            .map_err(|e| Error::ExportError(quick_xml::Error::Io(e)))
+            .map_err(|e| Error::ExportError(quick_xml::Error::Io(Arc::new(e))))
     }
 
     fn export_header<T: Write>(&self, writer: &mut Writer<T>) -> Result<(), quick_xml::Error> {
@@ -432,7 +433,7 @@ mod tests {
     #[test]
     fn package_coverage() {
         let mut config = Config::default();
-        config.manifest = PathBuf::from("fake/Cargo.toml");
+        config.set_manifest(PathBuf::from("fake/Cargo.toml"));
         let mut map = TraceMap::new();
 
         map.add_file(&PathBuf::from("fake/examples/foo.rs"));

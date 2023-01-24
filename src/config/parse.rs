@@ -1,7 +1,7 @@
 use crate::config::types::*;
+use crate::path_utils::fix_unc_path;
 use clap::{value_t, values_t, ArgMatches};
 use coveralls_api::CiService;
-use regex::Regex;
 use serde::de::{self, Deserializer};
 use std::env;
 use std::fmt;
@@ -39,7 +39,7 @@ pub(super) fn get_manifest(args: &ArgMatches) -> PathBuf {
                 .canonicalize()
                 .unwrap();
         }
-        return path;
+        return fix_unc_path(&path);
     }
 
     let mut manifest = env::current_dir().unwrap();
@@ -49,13 +49,13 @@ pub(super) fn get_manifest(args: &ArgMatches) -> PathBuf {
     }
 
     manifest.push("Cargo.toml");
-    manifest.canonicalize().unwrap_or(manifest)
+    fix_unc_path(&manifest.canonicalize().unwrap_or(manifest))
 }
 
 pub(super) fn default_manifest() -> PathBuf {
     let mut manifest = env::current_dir().unwrap();
     manifest.push("Cargo.toml");
-    manifest.canonicalize().unwrap_or(manifest)
+    fix_unc_path(&manifest.canonicalize().unwrap_or(manifest))
 }
 
 pub(super) fn get_target(args: &ArgMatches) -> Option<String> {
@@ -87,7 +87,7 @@ pub(super) fn get_target_dir(args: &ArgMatches) -> Option<PathBuf> {
     } else {
         path
     };
-    Some(path)
+    Some(fix_unc_path(&path))
 }
 
 pub(super) fn get_root(args: &ArgMatches) -> Option<PathBuf> {
@@ -144,19 +144,17 @@ pub(super) fn get_run_types(args: &ArgMatches) -> Vec<RunType> {
     res
 }
 
-pub(super) fn get_excluded(args: &ArgMatches) -> Vec<Regex> {
-    regexes_from_excluded(&get_list(args, "exclude-files"))
+pub(super) fn get_excluded(args: &ArgMatches) -> Vec<glob::Pattern> {
+    globs_from_excluded(&get_list(args, "exclude-files"))
 }
 
-pub(super) fn regexes_from_excluded(strs: &[String]) -> Vec<Regex> {
+pub(super) fn globs_from_excluded(strs: &[String]) -> Vec<glob::Pattern> {
     let mut files = vec![];
     for temp_str in strs {
-        let s = &temp_str.replace('.', r"\.").replace('*', ".*");
-
-        if let Ok(re) = Regex::new(s) {
-            files.push(re);
+        if let Ok(glob) = glob::Pattern::new(&temp_str) {
+            files.push(glob);
         } else {
-            error!("Invalid regex: {}", temp_str);
+            error!("Ignoring invalid glob pattern: '{}'", temp_str);
         }
     }
     files
