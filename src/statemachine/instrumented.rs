@@ -8,7 +8,6 @@ use crate::statemachine::*;
 use crate::TestHandle;
 use llvm_profparser::*;
 use std::collections::HashMap;
-use std::fs;
 use std::path::PathBuf;
 use std::thread::sleep;
 use tracing::{info, warn};

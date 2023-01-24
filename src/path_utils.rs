@@ -98,9 +98,6 @@ pub fn get_source_walker(config: &Config) -> impl Iterator<Item = DirEntry> + '_
 }
 
 pub fn get_profile_walker(config: &Config) -> impl Iterator<Item = DirEntry> {
-    let root = config.root();
-    let target = config.target_dir();
-
     let walker = WalkDir::new(config.profraw_dir()).into_iter();
     walker.filter_map(Result::ok).filter(|e| is_profraw_file(e))
 }
