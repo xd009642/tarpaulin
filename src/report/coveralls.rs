@@ -151,6 +151,7 @@ mod tests {
     #[test]
     fn git_info_correct() {
         let manifest = Path::new(env!("CARGO_MANIFEST_DIR")).join("Cargo.toml");
+        println!("{:?}", manifest);
         let res = get_git_info(&manifest).unwrap();
 
         let git_output = Command::new("git")
