@@ -15,6 +15,7 @@ file.
 reports not the current directory
 - Change exclude-files pattern to use glob crate instead of a regex
 - Set `LLVM_PROFILE_FILE` so profraw files go directly to target dir
+- Make llvm coverage single threaded to avoid concurrency issues when writing profraw files
 
 ## [0.23.1] 2022-11-18
 ### Changed
