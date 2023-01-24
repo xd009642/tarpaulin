@@ -142,3 +142,29 @@ pub fn export(coverage_data: &TraceMap, config: &Config) -> Result<(), RunError>
         ))
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use std::process::Command;
+
+    #[test]
+    fn git_info_correct() {
+        let manifest = Path::new(env!("CARGO_MANIFEST_DIR")).join("Cargo.toml");
+        let res = get_git_info(&manifest).unwrap();
+
+        let git_output = Command::new("git")
+            .args(&["log", "-1", "--pretty=format:%H %an %ae"])
+            .output()
+            .unwrap();
+
+        let output = String::from_utf8(git_output.stdout).unwrap();
+
+        let expected = format!(
+            "{} {} {}",
+            res.head.id, res.head.author_name, res.head.author_email
+        );
+
+        assert_eq!(output, expected);
+    }
+}
