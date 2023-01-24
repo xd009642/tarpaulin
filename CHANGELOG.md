@@ -14,6 +14,7 @@ file.
 - If root is not provided fall-back to root from manifest for base directory when printing
 reports not the current directory
 - Change exclude-files pattern to use glob crate instead of a regex
+- Set `LLVM_PROFILE_FILE` so profraw files go directly to target dir
 
 ## [0.23.1] 2022-11-18
 ### Changed
