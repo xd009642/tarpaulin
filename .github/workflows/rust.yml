@@ -90,7 +90,7 @@ jobs:
       - name: cache
         uses: Swatinem/rust-cache@v2
       - name: test
-        run: cargo test || true
+        run: cargo test
       - uses: actions/upload-artifact@v3
         #if: failure()
         with:
