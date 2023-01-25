@@ -218,10 +218,7 @@ impl EventLog {
 
 impl Drop for EventLog {
     fn drop(&mut self) {
-        let fname = format!(
-            "tarpaulin_{}.json",
-            Local::now().to_rfc3339_opts(SecondsFormat::Secs, false)
-        );
+        let fname = format!("tarpaulin_{}.json", Local::now().format("%Y%m%d%H%M%S"));
         let path = self.output_folder.join(fname);
         info!("Serializing tarpaulin debug log to {}", path.display());
         if let Ok(output) = File::create(path) {
