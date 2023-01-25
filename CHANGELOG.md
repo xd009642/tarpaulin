@@ -3,6 +3,12 @@
 From 2019 onwards, all notable changes to tarpaulin will be documented in this
 file.
 
+## [Unreleased]
+### Changed
+- Dumped traces are now saved to reports output directory
+- Change event log name to print datetime stamps without colons or slashes so they'll save in other
+operating systems
+
 ## [0.24.0] 2023-01-24
 ### Added
 - Merge rustdocflags field from `cargo/config.toml` with env tarpaulin sets

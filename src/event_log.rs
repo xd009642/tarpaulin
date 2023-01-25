@@ -1,4 +1,5 @@
 use crate::cargo::TestBinary;
+use crate::config::Config;
 #[cfg(ptrace_supported)]
 use crate::ptrace_control::*;
 #[cfg(ptrace_supported)]
@@ -14,7 +15,7 @@ use serde::{Deserialize, Serialize};
 use std::cell::RefCell;
 use std::collections::HashSet;
 use std::fs::File;
-use std::path::{Path, PathBuf};
+use std::path::PathBuf;
 use std::time::Instant;
 use tracing::{info, warn};
 
@@ -165,14 +166,17 @@ pub struct EventLog {
     #[serde(skip)]
     start: Option<Instant>,
     manifest_paths: HashSet<PathBuf>,
+    #[serde(skip)]
+    output_folder: PathBuf,
 }
 
 impl EventLog {
-    pub fn new(manifest_paths: HashSet<PathBuf>) -> Self {
+    pub fn new(manifest_paths: HashSet<PathBuf>, config: &Config) -> Self {
         Self {
             events: RefCell::new(vec![]),
             start: Some(Instant::now()),
             manifest_paths,
+            output_folder: config.output_dir(),
         }
     }
 
@@ -214,11 +218,8 @@ impl EventLog {
 
 impl Drop for EventLog {
     fn drop(&mut self) {
-        let fname = format!(
-            "tarpaulin_{}.json",
-            Local::now().to_rfc3339_opts(SecondsFormat::Secs, false)
-        );
-        let path = Path::new(&fname);
+        let fname = format!("tarpaulin_{}.json", Local::now().format("%Y%m%d%H%M%S"));
+        let path = self.output_folder.join(fname);
         info!("Serializing tarpaulin debug log to {}", path.display());
         if let Ok(output) = File::create(path) {
             if let Err(e) = serde_json::to_writer(output, self) {

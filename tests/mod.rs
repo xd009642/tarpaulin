@@ -120,7 +120,7 @@ pub fn check_percentage_with_config(
     let event_log = if config.dump_traces {
         let mut paths = HashSet::new();
         paths.insert(config.manifest().clone());
-        Some(EventLog::new(paths))
+        Some(EventLog::new(paths, &config))
     } else {
         None
     };
@@ -586,6 +586,7 @@ fn output_dir_workspace() {
     config.set_engine(TraceEngine::Llvm);
     config.set_ignore_tests(false);
     config.set_clean(false);
+    config.dump_traces = true;
     config.generate.push(OutputFile::Lcov);
     config.generate.push(OutputFile::Html);
     config.generate.push(OutputFile::Xml);
@@ -606,10 +607,17 @@ fn output_dir_workspace() {
             output.insert(file_name);
         }
     }
-    assert!(output.contains("cobertura.xml"));
-    assert!(output.contains("lcov.info"));
-    assert!(output.contains("tarpaulin-report.html"));
-    assert!(output.contains("tarpaulin-report.json"));
-    assert_eq!(output.len(), 4);
+    assert!(output.remove("cobertura.xml"));
+    assert!(output.remove("lcov.info"));
+    assert!(output.remove("tarpaulin-report.html"));
+    assert!(output.remove("tarpaulin-report.json"));
+    assert_eq!(output.len(), 1);
+
+    for event_log in &output {
+        let events = report_dir.join(event_log);
+        let log = fs::read(events).unwrap();
+        // We can deserialize event log so it must be good
+        serde_json::from_slice::<EventLog>(log.as_slice()).unwrap();
+    }
 }
 }
