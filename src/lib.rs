@@ -126,7 +126,16 @@ pub fn trace(configs: &[Config]) -> Result<TraceMap, RunError> {
 
 fn create_logger(configs: &[Config]) -> Option<EventLog> {
     if configs.iter().any(|c| c.dump_traces) {
-        Some(EventLog::new(configs.iter().map(|x| x.root()).collect()))
+        let config = if let Some(c) = configs.iter().find(|c| c.output_directory.is_some()) {
+            c
+        } else {
+            &configs[0]
+        };
+
+        Some(EventLog::new(
+            configs.iter().map(|x| x.root()).collect(),
+            config,
+        ))
     } else {
         None
     }
