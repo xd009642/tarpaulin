@@ -1,3 +1,4 @@
+#![cfg(not(tarpaulin_include))]
 use cargo_tarpaulin::cargo::{rust_flags, rustdoc_flags};
 use cargo_tarpaulin::config::{
     Color, Config, ConfigWrapper, Mode, OutputFile, RunType, TraceEngine,
