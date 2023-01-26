@@ -6,7 +6,7 @@ use crate::ptrace_control::*;
 use crate::statemachine::ProcessInfo;
 use crate::statemachine::TracerAction;
 use crate::traces::{Location, TraceMap};
-use chrono::{offset::Local, SecondsFormat};
+use chrono::offset::Local;
 #[cfg(ptrace_supported)]
 use nix::libc::*;
 #[cfg(ptrace_supported)]
