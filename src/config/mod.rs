@@ -183,6 +183,9 @@ pub struct Config {
     #[serde(rename = "post-test-delay")]
     /// Delay after test to collect instrumentation files (LLVM only)
     pub post_test_delay: Option<Duration>,
+    /// Other objects that should be included to get counter values from for instrumentation
+    /// coverage
+    objects: Vec<PathBuf>,
     /// Joined to target/tarpaulin to store profraws
     profraw_folder: PathBuf,
 }
@@ -253,6 +256,7 @@ impl Default for Config {
             engine: RefCell::default(),
             rustflags: None,
             post_test_delay: Some(Duration::from_secs(1)),
+            objects: vec![],
             profraw_folder: PathBuf::from("profraws"),
         }
     }
@@ -346,6 +350,7 @@ impl<'a> From<&'a ArgMatches<'a>> for ConfigWrapper {
             implicit_test_threads: args.is_present("implicit-test-threads"),
             rustflags: get_rustflags(args),
             post_test_delay: get_post_test_delay(args),
+            objects: get_objects(args),
             profraw_folder: PathBuf::from("profraws"),
         };
         if args.is_present("ignore-config") {
@@ -618,6 +623,11 @@ impl Config {
         if self.manifest != other.manifest && self.manifest == default_manifest() {
             self.manifest = other.manifest.clone();
         }
+        for obj in &other.objects {
+            if !self.objects.contains(obj) {
+                self.objects.push(obj.clone());
+            }
+        }
         self.root = Config::pick_optional_config(&self.root, &other.root);
         self.coveralls = Config::pick_optional_config(&self.coveralls, &other.coveralls);
         self.ci_tool = Config::pick_optional_config(&self.ci_tool, &other.ci_tool);
@@ -772,6 +782,10 @@ impl Config {
         } else {
             base_config.clone()
         }
+    }
+
+    pub fn objects(&self) -> &[PathBuf] {
+        &self.objects
     }
 
     pub fn has_named_tests(&self) -> bool {
