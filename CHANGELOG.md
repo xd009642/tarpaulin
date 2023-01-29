@@ -4,6 +4,9 @@ From 2019 onwards, all notable changes to tarpaulin will be documented in this
 file.
 
 ## [Unreleased]
+### Added
+- `--objects` argument to provide other object files with coverage information 
+
 ### Changed
 - Dumped traces are now saved to reports output directory
 - Change event log name to print datetime stamps without colons or slashes so they'll save in other

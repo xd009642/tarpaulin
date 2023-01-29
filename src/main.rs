@@ -133,7 +133,7 @@ fn from_args() -> ArgMatches<'static> {
                  --avoid-cfg-tarpaulin 'Remove --cfg=tarpaulin from the RUSTFLAG'
                  -j --jobs [N] 'Number of parallel jobs, defaults to # of CPUs'
                  --rustflags [FLAGS] 'rustflags to add when building project (can also be set via RUSTFLAGS env var)'
-                --objects [objects]...   'Other objects to load which contain information for llvm coverage'
+                --objects [objects]...   'Other object files to load which contain information for llvm coverage - must have been compiled with llvm coverage instrumentation (ignored for ptrace)'
                  -Z [FEATURES]...   'List of unstable nightly only flags'")
             .args(&[
                 Arg::from_usage("--out -o [FMT]   'Output format of coverage report'")
