@@ -881,6 +881,18 @@ mod tests {
     use toml::toml;
 
     #[test]
+    #[cfg(not(windows))]
+    fn check_dead_code_flags() {
+        let mut config = Config::default();
+        assert!(rustdoc_flags(&config).contains("link-dead-code"));
+        assert!(rust_flags(&config).contains("link-dead-code"));
+
+        config.no_dead_code = true;
+        assert!(!rustdoc_flags(&config).contains("link-dead-code"));
+        assert!(!rust_flags(&config).contains("link-dead-code"));
+    }
+
+    #[test]
     fn parse_rustflags_from_toml() {
         let list_flags = toml! {
             rustflags = ["--cfg=foo", "--cfg=bar"]
