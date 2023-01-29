@@ -118,6 +118,10 @@ pub(super) fn get_output_directory(args: &ArgMatches) -> Option<PathBuf> {
     args.value_of("output-dir").map(PathBuf::from)
 }
 
+pub(super) fn get_objects(args: &ArgMatches) -> Vec<PathBuf> {
+    values_t!(args.values_of("objects"), PathBuf).unwrap_or_else(|_| vec![])
+}
+
 pub(super) fn get_run_types(args: &ArgMatches) -> Vec<RunType> {
     let mut res = values_t!(args.values_of("run-types"), RunType).unwrap_or_else(|_| vec![]);
     if args.is_present("lib") && !res.contains(&RunType::Lib) {
