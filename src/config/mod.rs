@@ -85,7 +85,7 @@ pub struct Config {
     #[serde(rename = "forward")]
     pub forward_signals: bool,
     /// Doesn't link projects with `-Clink-dead-code`
-    #[serde(rename="no-dead-code")]
+    #[serde(rename = "no-dead-code")]
     pub no_dead_code: bool,
     /// Include all available features in target build
     #[serde(rename = "all-features")]
