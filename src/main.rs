@@ -97,6 +97,7 @@ fn from_args() -> ArgMatches<'static> {
                  --dump-traces 'Log tracing events and save to a json file. Also, enabled when --debug is used'
                  --verbose -v 'Show extra output'
                  --ignore-tests 'Ignore lines of test functions when collecting coverage (default)'
+                 --no-dead-code 'Stops tarpaulin from building projects with -Clink-dead-code'
                  --include-tests 'Include lines of test functions when collecting coverage'
                  --ignore-panics 'Ignore panic macros in tests'
                  --count   'Counts the number of hits during coverage'

@@ -84,6 +84,9 @@ pub struct Config {
     /// rely on signals to work.
     #[serde(rename = "forward")]
     pub forward_signals: bool,
+    /// Doesn't link projects with `-Clink-dead-code`
+    #[serde(rename = "no-dead-code")]
+    pub no_dead_code: bool,
     /// Include all available features in target build
     #[serde(rename = "all-features")]
     pub all_features: bool,
@@ -210,6 +213,7 @@ impl Default for Config {
             ignore_panics: false,
             force_clean: true,
             skip_clean: false,
+            no_dead_code: false,
             verbose: false,
             debug: false,
             follow_exec: false,
@@ -303,6 +307,7 @@ impl<'a> From<&'a ArgMatches<'a>> for ConfigWrapper {
             ignore_tests: !args.is_present("include-tests"),
             include_tests: args.is_present("include-tests"),
             ignore_panics: args.is_present("ignore-panics"),
+            no_dead_code: args.is_present("no-dead-code"),
             force_clean,
             skip_clean: !force_clean,
             no_fail_fast: args.is_present("no-fail-fast"),
@@ -611,6 +616,7 @@ impl Config {
         self.forward_signals |= other.forward_signals;
         self.run_ignored |= other.run_ignored;
         self.release |= other.release;
+        self.no_dead_code |= other.no_dead_code;
         self.count |= other.count;
         self.all_features |= other.all_features;
         self.implicit_test_threads |= other.implicit_test_threads;

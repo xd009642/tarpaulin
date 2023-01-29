@@ -672,7 +672,9 @@ fn handle_llvm_flags(value: &mut String, config: &Config) {
         value.push_str(llvm_coverage_rustflag());
     }
     if cfg!(not(windows)) {
-        value.push_str(" -Clink-dead-code ");
+        if !config.no_dead_code {
+            value.push_str(" -Clink-dead-code ");
+        }
     }
 }
 
@@ -877,6 +879,18 @@ pub fn llvm_coverage_rustflag() -> &'static str {
 mod tests {
     use super::*;
     use toml::toml;
+
+    #[test]
+    #[cfg(not(windows))]
+    fn check_dead_code_flags() {
+        let mut config = Config::default();
+        assert!(rustdoc_flags(&config).contains("link-dead-code"));
+        assert!(rust_flags(&config).contains("link-dead-code"));
+
+        config.no_dead_code = true;
+        assert!(!rustdoc_flags(&config).contains("link-dead-code"));
+        assert!(!rust_flags(&config).contains("link-dead-code"));
+    }
 
     #[test]
     fn parse_rustflags_from_toml() {
