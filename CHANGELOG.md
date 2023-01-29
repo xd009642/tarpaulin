@@ -6,6 +6,7 @@ file.
 ## [Unreleased]
 ### Added
 - `--objects` argument to provide other object files with coverage information 
+- `--no-dead-code` flag to avoid adding `-Clink-dead-code` to linker flags
 
 ### Changed
 - Dumped traces are now saved to reports output directory
