@@ -784,17 +784,8 @@ impl Config {
         }
     }
 
-    pub fn objects(&self) -> Vec<PathBuf> {
-        self.objects
-            .iter()
-            .map(|x| {
-                if x.is_relative() {
-                    self.root().join(x)
-                } else {
-                    x.clone()
-                }
-            })
-            .collect()
+    pub fn objects(&self) -> &[PathBuf] {
+        &self.objects
     }
 
     pub fn has_named_tests(&self) -> bool {

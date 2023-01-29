@@ -119,7 +119,19 @@ pub(super) fn get_output_directory(args: &ArgMatches) -> Option<PathBuf> {
 }
 
 pub(super) fn get_objects(args: &ArgMatches) -> Vec<PathBuf> {
-    values_t!(args.values_of("objects"), PathBuf).unwrap_or_else(|_| vec![])
+    let mut objs = values_t!(args.values_of("objects"), PathBuf).unwrap_or_else(|_| vec![]);
+
+    for obj in objs.iter_mut() {
+        if obj.is_relative() {
+            *obj = env::current_dir()
+                .unwrap()
+                .join(&obj)
+                .canonicalize()
+                .unwrap();
+            *obj = fix_unc_path(&obj);
+        }
+    }
+    objs
 }
 
 pub(super) fn get_run_types(args: &ArgMatches) -> Vec<RunType> {
