@@ -672,7 +672,9 @@ fn handle_llvm_flags(value: &mut String, config: &Config) {
         value.push_str(llvm_coverage_rustflag());
     }
     if cfg!(not(windows)) {
-        value.push_str(" -Clink-dead-code ");
+        if !config.no_dead_code {
+            value.push_str(" -Clink-dead-code ");
+        }
     }
 }
 
