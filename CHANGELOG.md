@@ -8,6 +8,8 @@ file.
 - Dumped traces are now saved to reports output directory
 - Change event log name to print datetime stamps without colons or slashes so they'll save in other
 operating systems
+- Set `LLVM_PROFILE_FILE` for building tests and delete the generated profraws to ignore build script
+coverage 
 
 ## [0.24.0] 2023-01-24
 ### Added
