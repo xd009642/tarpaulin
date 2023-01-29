@@ -7,6 +7,7 @@ file.
 ### Added
 - `--objects` argument to provide other object files with coverage information 
 - `--no-dead-code` flag to avoid adding `-Clink-dead-code` to linker flags
+- ptrace support for x86
 
 ### Changed
 - Dumped traces are now saved to reports output directory
@@ -14,6 +15,7 @@ file.
 operating systems
 - Set `LLVM_PROFILE_FILE` for building tests and delete the generated profraws to ignore build script
 coverage 
+- Remove dependency on memmap
 
 ## [0.24.0] 2023-01-24
 ### Added
