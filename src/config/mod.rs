@@ -185,7 +185,7 @@ pub struct Config {
     pub post_test_delay: Option<Duration>,
     /// Other objects that should be included to get counter values from for instrumentation
     /// coverage
-    pub objects: Vec<PathBuf>,
+    objects: Vec<PathBuf>,
     /// Joined to target/tarpaulin to store profraws
     profraw_folder: PathBuf,
 }
@@ -782,6 +782,19 @@ impl Config {
         } else {
             base_config.clone()
         }
+    }
+
+    pub fn objects(&self) -> Vec<PathBuf> {
+        self.objects
+            .iter()
+            .map(|x| {
+                if x.is_relative() {
+                    self.root().join(x)
+                } else {
+                    x.clone()
+                }
+            })
+            .collect()
     }
 
     pub fn has_named_tests(&self) -> bool {

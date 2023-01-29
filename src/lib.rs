@@ -238,7 +238,7 @@ pub fn launch_tarpaulin(
     if !config.no_run {
         let project_analysis = SourceAnalysis::get_analysis(config);
         let project_analysis = project_analysis.lines;
-        let mut other_bins = config.objects.clone();
+        let mut other_bins = config.objects();
         other_bins.extend(executables.binaries.iter().cloned());
         for exe in &executables.test_binaries {
             if exe.should_panic() {
