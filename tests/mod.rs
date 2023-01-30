@@ -120,7 +120,7 @@ pub fn check_percentage_with_config(
     let event_log = if config.dump_traces {
         let mut paths = HashSet::new();
         paths.insert(config.manifest().clone());
-        Some(EventLog::new(paths))
+        Some(EventLog::new(paths, &config))
     } else {
         None
     };
@@ -577,4 +577,47 @@ fn sanitised_paths() {
     assert_eq!(count, 4);
 }
 
+#[test]
+fn output_dir_workspace() {
+    setup_logging(Color::Never, true, true);
+    let test_dir = get_test_path("workspace");
+    let report_dir = test_dir.join("reports");
+    let mut config = Config::default();
+    config.set_engine(TraceEngine::Llvm);
+    config.set_ignore_tests(false);
+    config.set_clean(false);
+    config.dump_traces = true;
+    config.generate.push(OutputFile::Lcov);
+    config.generate.push(OutputFile::Html);
+    config.generate.push(OutputFile::Xml);
+    config.generate.push(OutputFile::Json);
+    let _ = fs::remove_dir_all(&report_dir);
+    let _ = fs::create_dir(&report_dir);
+    config.output_directory = Some(report_dir.clone());
+
+    config.test_timeout = Duration::from_secs(60);
+
+    run_config("workspace", config);
+
+    let mut output = HashSet::new();
+    for entry in fs::read_dir(&report_dir).unwrap() {
+        let entry = entry.unwrap().path();
+        if !entry.is_dir() {
+            let file_name = entry.file_name().unwrap().to_string_lossy().to_string();
+            output.insert(file_name);
+        }
+    }
+    assert!(output.remove("cobertura.xml"));
+    assert!(output.remove("lcov.info"));
+    assert!(output.remove("tarpaulin-report.html"));
+    assert!(output.remove("tarpaulin-report.json"));
+    assert_eq!(output.len(), 1);
+
+    for event_log in &output {
+        let events = report_dir.join(event_log);
+        let log = fs::read(events).unwrap();
+        // We can deserialize event log so it must be good
+        serde_json::from_slice::<EventLog>(log.as_slice()).unwrap();
+    }
+}
 }

@@ -106,7 +106,7 @@ impl<'a> StateData for LlvmInstrumentedData<'a> {
                     }
 
                     let binary_path = parent.path.clone();
-
+                    info!("Merging coverage reports");
                     let instrumentation = merge_profiles(&profraws)?;
                     if instrumentation.is_empty() {
                         warn!("profraw file has no records after merging. If this is unexpected it may be caused by a panic or signal used in a test that prevented the LLVM instrumentation runtime from serialising results");
@@ -117,6 +117,7 @@ impl<'a> StateData for LlvmInstrumentedData<'a> {
                     // Panics due to a todo!();
                     let mut binaries = parent.extra_binaries.clone();
                     binaries.push(binary_path);
+                    info!("Mapping coverage data to source");
                     let mapping =
                         CoverageMapping::new(&binaries, &instrumentation).map_err(|e| {
                             error!("Failed to get coverage: {}", e);

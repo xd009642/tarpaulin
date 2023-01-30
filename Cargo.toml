@@ -1,6 +1,6 @@
 [package]
 name = "cargo-tarpaulin"
-version = "0.24.0"
+version = "0.25.0"
 authors = ["Daniel McKenna <danielmckenna93@gmail.com>"]
 description = "Cargo-Tarpaulin is a tool to determine code coverage achieved via tests"
 repository = "https://github.com/xd009642/tarpaulin"
@@ -32,7 +32,6 @@ humantime-serde = "1"
 indexmap = { version = "~1.8", features = ["serde-1"] }
 lazy_static = "1.0"
 llvm_profparser = { version = "0.3", default-features = false }
-memmap = "0.7.0"
 object = "0.30"
 num_cpus = "1.15.0"
 proc-macro2 = { version = "1.0", features = ["span-locations"] }
@@ -62,6 +61,7 @@ vendored-openssl = ["git2/vendored-openssl"]
 rustc_version = "0.4"
 
 [dev-dependencies]
+lcov = "0.8.1"
 rusty-fork = "0.3.0"
 
 [package.metadata.binstall]

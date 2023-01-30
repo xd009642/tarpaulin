@@ -84,6 +84,9 @@ pub struct Config {
     /// rely on signals to work.
     #[serde(rename = "forward")]
     pub forward_signals: bool,
+    /// Doesn't link projects with `-Clink-dead-code`
+    #[serde(rename = "no-dead-code")]
+    pub no_dead_code: bool,
     /// Include all available features in target build
     #[serde(rename = "all-features")]
     pub all_features: bool,
@@ -183,6 +186,9 @@ pub struct Config {
     #[serde(rename = "post-test-delay")]
     /// Delay after test to collect instrumentation files (LLVM only)
     pub post_test_delay: Option<Duration>,
+    /// Other objects that should be included to get counter values from for instrumentation
+    /// coverage
+    objects: Vec<PathBuf>,
     /// Joined to target/tarpaulin to store profraws
     profraw_folder: PathBuf,
 }
@@ -207,6 +213,7 @@ impl Default for Config {
             ignore_panics: false,
             force_clean: true,
             skip_clean: false,
+            no_dead_code: false,
             verbose: false,
             debug: false,
             follow_exec: false,
@@ -253,6 +260,7 @@ impl Default for Config {
             engine: RefCell::default(),
             rustflags: None,
             post_test_delay: Some(Duration::from_secs(1)),
+            objects: vec![],
             profraw_folder: PathBuf::from("profraws"),
         }
     }
@@ -299,6 +307,7 @@ impl<'a> From<&'a ArgMatches<'a>> for ConfigWrapper {
             ignore_tests: !args.is_present("include-tests"),
             include_tests: args.is_present("include-tests"),
             ignore_panics: args.is_present("ignore-panics"),
+            no_dead_code: args.is_present("no-dead-code"),
             force_clean,
             skip_clean: !force_clean,
             no_fail_fast: args.is_present("no-fail-fast"),
@@ -346,6 +355,7 @@ impl<'a> From<&'a ArgMatches<'a>> for ConfigWrapper {
             implicit_test_threads: args.is_present("implicit-test-threads"),
             rustflags: get_rustflags(args),
             post_test_delay: get_post_test_delay(args),
+            objects: get_objects(args),
             profraw_folder: PathBuf::from("profraws"),
         };
         if args.is_present("ignore-config") {
@@ -606,6 +616,7 @@ impl Config {
         self.forward_signals |= other.forward_signals;
         self.run_ignored |= other.run_ignored;
         self.release |= other.release;
+        self.no_dead_code |= other.no_dead_code;
         self.count |= other.count;
         self.all_features |= other.all_features;
         self.implicit_test_threads |= other.implicit_test_threads;
@@ -617,6 +628,11 @@ impl Config {
         self.offline |= other.offline;
         if self.manifest != other.manifest && self.manifest == default_manifest() {
             self.manifest = other.manifest.clone();
+        }
+        for obj in &other.objects {
+            if !self.objects.contains(obj) {
+                self.objects.push(obj.clone());
+            }
         }
         self.root = Config::pick_optional_config(&self.root, &other.root);
         self.coveralls = Config::pick_optional_config(&self.coveralls, &other.coveralls);
@@ -772,6 +788,10 @@ impl Config {
         } else {
             base_config.clone()
         }
+    }
+
+    pub fn objects(&self) -> &[PathBuf] {
+        &self.objects
     }
 
     pub fn has_named_tests(&self) -> bool {

@@ -3,6 +3,21 @@
 From 2019 onwards, all notable changes to tarpaulin will be documented in this
 file.
 
+## [0.25.0] 2023-01-30
+### Added
+- `--objects` argument to provide other object files with coverage information 
+- `--no-dead-code` flag to avoid adding `-Clink-dead-code` to linker flags
+- ptrace support for x86
+
+### Changed
+- Dumped traces are now saved to reports output directory
+- Change event log name to print datetime stamps without colons or slashes so they'll save in other
+operating systems
+- Set `LLVM_PROFILE_FILE` for building tests and delete the generated profraws to ignore build script
+coverage 
+- Remove dependency on memmap
+- Filter out expressions or items with `#[cfg_attr(tarpaulin, no_coverage)]`
+
 ## [0.24.0] 2023-01-24
 ### Added
 - Merge rustdocflags field from `cargo/config.toml` with env tarpaulin sets

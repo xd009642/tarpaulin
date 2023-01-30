@@ -102,7 +102,7 @@ dependencies = [
 
 [[package]]
 name = "cargo-tarpaulin"
-version = "0.24.0"
+version = "0.25.0"
 dependencies = [
  "cargo_metadata",
  "cfg-if",
@@ -116,9 +116,9 @@ dependencies = [
  "humantime-serde",
  "indexmap",
  "lazy_static",
+ "lcov",
  "libc",
  "llvm_profparser",
- "memmap",
  "nix",
  "num_cpus",
  "object 0.30.3",
@@ -502,6 +502,15 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "e2abad23fbc42b3700f2f279844dc832adb2b2eb069b2df918f455c4e18cc646"
 
 [[package]]
+name = "lcov"
+version = "0.8.1"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "1ccfa6d5e585a884db65b37f38184e4364eaf74d884ac35d0a90fe9baf80b723"
+dependencies = [
+ "thiserror",
+]
+
+[[package]]
 name = "leb128"
 version = "0.2.5"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -611,16 +620,6 @@ name = "memchr"
 version = "2.5.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "2dffe52ecf27772e601905b7522cb4ef790d2cc203488bbd0e2fe85fcb74566d"
-
-[[package]]
-name = "memmap"
-version = "0.7.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "6585fd95e7bb50d6cc31e20d4cf9afb4e2ba16c5846fc76793f11218da9c475b"
-dependencies = [
- "libc",
- "winapi",
-]
 
 [[package]]
 name = "minimal-lexical"

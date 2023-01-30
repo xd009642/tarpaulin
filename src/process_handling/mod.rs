@@ -17,6 +17,7 @@ pub enum TestHandle {
     Process(RunningProcessHandle),
 }
 
+#[derive(Debug)]
 pub struct RunningProcessHandle {
     /// Used to map coverage counters to line numbers
     pub(crate) path: PathBuf,

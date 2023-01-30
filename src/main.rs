@@ -1,3 +1,4 @@
+#![cfg(not(tarpaulin_include))]
 use cargo_tarpaulin::cargo::{rust_flags, rustdoc_flags};
 use cargo_tarpaulin::config::{
     Color, Config, ConfigWrapper, Mode, OutputFile, RunType, TraceEngine,
@@ -96,6 +97,7 @@ fn from_args() -> ArgMatches<'static> {
                  --dump-traces 'Log tracing events and save to a json file. Also, enabled when --debug is used'
                  --verbose -v 'Show extra output'
                  --ignore-tests 'Ignore lines of test functions when collecting coverage (default)'
+                 --no-dead-code 'Stops tarpaulin from building projects with -Clink-dead-code'
                  --include-tests 'Include lines of test functions when collecting coverage'
                  --ignore-panics 'Ignore panic macros in tests'
                  --count   'Counts the number of hits during coverage'
@@ -132,6 +134,7 @@ fn from_args() -> ArgMatches<'static> {
                  --avoid-cfg-tarpaulin 'Remove --cfg=tarpaulin from the RUSTFLAG'
                  -j --jobs [N] 'Number of parallel jobs, defaults to # of CPUs'
                  --rustflags [FLAGS] 'rustflags to add when building project (can also be set via RUSTFLAGS env var)'
+                --objects [objects]...   'Other object files to load which contain information for llvm coverage - must have been compiled with llvm coverage instrumentation (ignored for ptrace)'
                  -Z [FEATURES]...   'List of unstable nightly only flags'")
             .args(&[
                 Arg::from_usage("--out -o [FMT]   'Output format of coverage report'")

@@ -8,7 +8,7 @@ use serde::{Deserialize, Serialize};
 use std::collections::{HashMap, HashSet};
 use std::env;
 use std::ffi::OsStr;
-use std::fs::{read_dir, read_to_string, remove_dir_all, File};
+use std::fs::{read_dir, read_to_string, remove_dir_all, remove_file, File};
 use std::io;
 use std::io::{BufRead, BufReader};
 use std::path::{Component, Path, PathBuf};
@@ -16,6 +16,8 @@ use std::process::{Command, Stdio};
 use toml::Value;
 use tracing::{debug, error, info, trace, warn};
 use walkdir::{DirEntry, WalkDir};
+
+const BUILD_PROFRAW: &'static str = "build_rs_cov.profraw";
 
 #[derive(Copy, Clone, Debug, Eq, PartialEq, Hash, Ord, PartialOrd)]
 enum Channel {
@@ -245,6 +247,8 @@ pub fn get_tests(config: &Config) -> Result<CargoOutput, RunError> {
         };
         run_cargo(&metadata, manifest, config, ty, &mut result)?;
     }
+    // Only matters for llvm cov and who knows, one day may not be needed
+    let _ = remove_file(config.root().join(BUILD_PROFRAW));
     Ok(result)
 }
 
@@ -668,7 +672,9 @@ fn handle_llvm_flags(value: &mut String, config: &Config) {
         value.push_str(llvm_coverage_rustflag());
     }
     if cfg!(not(windows)) {
-        value.push_str(" -Clink-dead-code ");
+        if !config.no_dead_code {
+            value.push_str(" -Clink-dead-code ");
+        }
     }
 }
 
@@ -838,6 +844,8 @@ fn deduplicate_flags(flags: &str) -> String {
 }
 
 fn setup_environment(cmd: &mut Command, config: &Config) {
+    // https://github.com/rust-lang/rust/issues/107447
+    cmd.env("LLVM_PROFILE_FILE", config.root().join(BUILD_PROFRAW));
     cmd.env("TARPAULIN", "1");
     let rustflags = "RUSTFLAGS";
     let value = rust_flags(config);
@@ -871,6 +879,18 @@ pub fn llvm_coverage_rustflag() -> &'static str {
 mod tests {
     use super::*;
     use toml::toml;
+
+    #[test]
+    #[cfg(not(windows))]
+    fn check_dead_code_flags() {
+        let mut config = Config::default();
+        assert!(rustdoc_flags(&config).contains("link-dead-code"));
+        assert!(rust_flags(&config).contains("link-dead-code"));
+
+        config.no_dead_code = true;
+        assert!(!rustdoc_flags(&config).contains("link-dead-code"));
+        assert!(!rust_flags(&config).contains("link-dead-code"));
+    }
 
     #[test]
     fn parse_rustflags_from_toml() {
