@@ -27,7 +27,7 @@ Below is the help-text for a thorough explanation of the flags and features
 available:
 
 ```
-cargo-tarpaulin version: 0.23.1
+cargo-tarpaulin version: 0.25.0
 Tool to analyse test coverage of cargo projects
 
 USAGE:
@@ -62,6 +62,7 @@ FLAGS:
         --lib                      Test only this package's library unit tests
     -l, --line                     Line coverage
         --locked                   Do not update Cargo.lock
+        --no-dead-code             Stops tarpaulin from building projects with -Clink-dead-code
         --no-default-features      Do not include default features
         --no-fail-fast             Run all tests regardless of failure
         --no-run                   Compile tests but don't run coverage
@@ -100,6 +101,8 @@ OPTIONS:
         --features <FEATURES>...       Features to be included in the target project
     -j, --jobs <N>                     Number of parallel jobs, defaults to # of CPUs
         --manifest-path <PATH>         Path to Cargo.toml
+        --objects <objects>...         Other object files to load which contain information for llvm coverage - must
+                                       have been compiled with llvm coverage instrumentation (ignored for ptrace)
     -o, --out <FMT>...                 Output format of coverage report [possible values: Json, Stdout, Xml, Html, Lcov]
         --output-dir <PATH>            Specify a custom directory to write report files
     -p, --packages <PACKAGE>...        Package id specifications for which package should be build. See cargo help pkgid
@@ -125,10 +128,10 @@ ARGS:
 ### Note on tests using signals
 
 If your tests or application make use of unix signals they may not work with
-tarpaulin. This is because tarpaulin relies on the sigtrap signal to catch when
-the instrumentation points are hit. The `--forward` option results in
-forwarding the signals from process stops not caused by SIGSTOP, SIGSEGV or
-SIGILL to the test binary.
+ptrace instrumentation in tarpaulin. This is because tarpaulin relies on the
+sigtrap signal to catch when the instrumentation points are hit. The
+`--forward` option results in forwarding the signals from process stops not
+caused by SIGSTOP, SIGSEGV or SIGILL to the test binary.
 
 ## Features
 
@@ -210,28 +213,30 @@ relatively simple project to test and if you check the test, you can see the
 output correctly reports the lines the test hits.
 
 ```bash
-cargo tarpaulin -v
-[INFO tarpaulin] Running Tarpaulin
-[INFO tarpaulin] Building project
-    Finished dev [unoptimized + debuginfo] target(s) in 0.00s
-[DEBUG tarpaulin] Processing simple_project
-[INFO tarpaulin] Launching test
-[INFO tarpaulin] running /home/xd009642/code/rust/tarpaulin/tests/data/simple_project/target/debug/deps/simple_project-b0accf6671d080e0
+cargo tarpaulin
+Jan 30 21:43:33.715  INFO cargo_tarpaulin::config: Creating config
+Jan 30 21:43:33.908  INFO cargo_tarpaulin: Running Tarpaulin
+Jan 30 21:43:33.908  INFO cargo_tarpaulin: Building project
+Jan 30 21:43:33.908  INFO cargo_tarpaulin::cargo: Cleaning project
+   Compiling simple_project v0.1.0 (/home/daniel/personal/tarpaulin/tests/data/simple_project)
+    Finished test [unoptimized + debuginfo] target(s) in 0.51s
+Jan 30 21:43:34.631  INFO cargo_tarpaulin::process_handling::linux: Launching test
+Jan 30 21:43:34.631  INFO cargo_tarpaulin::process_handling: running /home/daniel/personal/tarpaulin/tests/data/simple_project/target/debug/deps/simple_project-417a21905eb8be09
 
 running 1 test
 test tests::bad_test ... ok
 
-test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.02s
 
-[INFO tarpaulin] Coverage Results:
+Jan 30 21:43:35.563  INFO cargo_tarpaulin::report: Coverage Results:
 || Uncovered Lines:
 || src/lib.rs: 6
 || src/unused.rs: 4-6
 || Tested/Total Lines:
-|| src/lib.rs: 5/6
+|| src/lib.rs: 3/4
 || src/unused.rs: 0/3
-||
-55.56% coverage, 5/9 lines covered
+|| 
+42.86% coverage, 3/7 lines covered
 ```
 
 Tarpaulin can also report the change in coverage for each file between runs. If
@@ -239,25 +244,30 @@ the tests were updated in the previous example to cover all the lines we would
 expect the following output.
 
 ```text
-cargo tarpaulin -v
-[INFO tarpaulin] Running Tarpaulin
-[INFO tarpaulin] Building project
-    Finished dev [unoptimized + debuginfo] target(s) in 0.00s
-[DEBUG tarpaulin] Processing simple_project
-[INFO tarpaulin] Launching test
-[INFO tarpaulin] running /home/xd009642/code/rust/tarpaulin/tests/data/simple_project/target/debug/deps/simple_project-b0accf6671d080e0
+cargo tarpaulin
+Jan 30 21:45:37.611  INFO cargo_tarpaulin::config: Creating config
+Jan 30 21:45:37.623  INFO cargo_tarpaulin: Running Tarpaulin
+Jan 30 21:45:37.623  INFO cargo_tarpaulin: Building project
+Jan 30 21:45:37.623  INFO cargo_tarpaulin::cargo: Cleaning project
+   Compiling simple_project v0.1.0 (/home/daniel/personal/tarpaulin/tests/data/simple_project)
+    Finished test [unoptimized + debuginfo] target(s) in 0.40s
+Jan 30 21:45:38.085  INFO cargo_tarpaulin::process_handling::linux: Launching test
+Jan 30 21:45:38.085  INFO cargo_tarpaulin::process_handling: running /home/daniel/personal/tarpaulin/tests/data/simple_project/target/debug/deps/simple_project-417a21905eb8be09
 
-running 1 test
+running 2 tests
+test unused::blah ... ok
 test tests::bad_test ... ok
 
-test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out
+test result: ok. 2 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.02s
 
-[INFO tarpaulin] Coverage Results:
+Jan 30 21:45:38.990  INFO cargo_tarpaulin::report: Coverage Results:
+|| Uncovered Lines:
+|| src/lib.rs: 6
 || Tested/Total Lines:
-|| src/lib.rs: 6/6 +16.67%
-|| src/unused.rs: 3/3 +100%
-||
-100% coverage, 9/9 lines covered, +44.44% change in coverage
+|| src/lib.rs: 3/4 +0.00%
+|| src/unused.rs: 3/3 +100.00%
+|| 
+85.71% coverage, 6/7 lines covered, +42.86% change in coverage
 ```
 
 Hint: if using coveralls.io with travis-ci run with the options
