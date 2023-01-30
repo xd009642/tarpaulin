@@ -268,7 +268,7 @@ fn execute_test(
             debug!("Args: {:?}", argv);
             let mut child = Command::new(test.path());
             child.envs(envars).args(&argv);
-            let others = other_binaries.iter().cloned().collect();
+            let others = other_binaries.to_vec();
             let hnd = RunningProcessHandle::new(test, others, &mut child, config)?;
             Ok(hnd.into())
         }
