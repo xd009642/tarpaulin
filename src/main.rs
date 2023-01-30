@@ -21,14 +21,14 @@ fn print_env(seen_rustflags: HashMap<String, Vec<String>>, prefix: &str, default
     info!("Printing `{}`", prefix);
     if seen_rustflags.is_empty() {
         info!("No configs provided printing default RUSTFLAGS");
-        println!("{}={}", prefix, default_val);
+        println!("{prefix}={default_val}");
     } else if seen_rustflags.len() == 1 {
         let flags = seen_rustflags.keys().next().unwrap();
-        println!(r#"{}="{}""#, prefix, flags);
+        println!(r#"{prefix}="{flags}""#);
     } else {
         for (k, v) in &seen_rustflags {
             info!("RUSTFLAGS for configs {:?}", v);
-            println!(r#"{}="{}""#, prefix, k);
+            println!(r#"{prefix}="{k}""#);
         }
     }
 }

@@ -56,7 +56,7 @@ impl RunningProcessHandle {
 impl fmt::Display for TestHandle {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         match self {
-            TestHandle::Id(id) => write!(f, "{}", id),
+            TestHandle::Id(id) => write!(f, "{id}"),
             TestHandle::Process(c) => write!(f, "{}", c.child.id()),
         }
     }
@@ -279,10 +279,7 @@ fn execute_test(
             debug!("Args: {:?}", argv);
             execute(test.path(), &argv, envars.as_slice())
         }
-        e => Err(RunError::Engine(format!(
-            "invalid execution engine {:?}",
-            e
-        ))),
+        e => Err(RunError::Engine(format!("invalid execution engine {e:?}"))),
     }
 }
 

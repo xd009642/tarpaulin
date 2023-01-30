@@ -222,7 +222,7 @@ pub fn get_tests(config: &Config) -> Result<CargoOutput, RunError> {
         info!("Cleaning project");
         if cleanup_dir.exists() {
             if let Err(e) = remove_dir_all(cleanup_dir) {
-                error!("Cargo clean failed: {}", e);
+                error!("Cargo clean failed: {e}");
             }
         }
     }
@@ -321,7 +321,7 @@ fn run_cargo(
                     }
                 }
                 Err(e) => {
-                    error!("Error parsing cargo messages {}", e);
+                    error!("Error parsing cargo messages {e}");
                 }
                 _ => {}
             }
@@ -525,14 +525,14 @@ fn create_command(manifest_path: &str, config: &Config, ty: Option<RunType>) -> 
             .ok()
             .filter(|t| t.starts_with("nightly") || bootstrap)
         {
-            test_cmd.args(&[format!("+{}", toolchain).as_str()]);
+            test_cmd.args(&[format!("+{toolchain}").as_str()]);
         } else if !bootstrap && override_toolchain {
             test_cmd.args(&["+nightly"]);
         }
         test_cmd.args(&["test"]);
     } else {
         if let Ok(toolchain) = env::var("RUSTUP_TOOLCHAIN") {
-            test_cmd.arg(format!("+{}", toolchain));
+            test_cmd.arg(format!("+{toolchain}"));
         }
         if config.command == Mode::Test {
             test_cmd.args(&["test", "--no-run"]);
@@ -638,7 +638,7 @@ fn init_args(test_cmd: &mut Command, config: &Config) {
         test_cmd.arg("--offline");
     }
     for feat in &config.unstable_features {
-        test_cmd.arg(format!("-Z{}", feat));
+        test_cmd.arg(format!("-Z{feat}"));
     }
     if config.command == Mode::Test && !config.varargs.is_empty() {
         let mut args = vec!["--".to_string()];

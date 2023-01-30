@@ -201,8 +201,8 @@ mod tests {
         let source = "fn foo(x: i32) {
             if x > 0 {
                 println!(\"BOO\");
-            } 
-            else 
+            }
+            else
             {
                 todo!()
             }
@@ -234,9 +234,9 @@ mod tests {
                 println!(\"BOO\");
             } else if x < 0 {
                 todo!()
-            } 
-            else 
-            {   
+            }
+            else
+            {
                 todo!()
             }
         }";
@@ -254,7 +254,7 @@ mod tests {
             }
         }
         let branches = branches.unwrap();
-        println!("Branches: {:?}", branches);
+        println!("Branches: {branches:?}");
         assert!(!branches.implicit_default);
         assert_eq!(branches.ranges.len(), 3);
         assert_eq!(branches.ranges[0], LineRange::new(2, 4));

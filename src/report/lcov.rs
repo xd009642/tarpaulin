@@ -8,7 +8,7 @@ pub fn export(coverage_data: &TraceMap, config: &Config) -> Result<(), RunError>
     let file_path = config.output_dir().join("lcov.info");
     let file = match File::create(file_path) {
         Ok(k) => k,
-        Err(e) => return Err(RunError::Lcov(format!("File is not writeable: {}", e))),
+        Err(e) => return Err(RunError::Lcov(format!("File is not writeable: {e}"))),
     };
 
     write_lcov(file, coverage_data)
@@ -39,7 +39,7 @@ fn write_lcov(mut file: impl Write, coverage_data: &TraceMap) -> Result<(), RunE
                 };
 
                 fns.push(format!("FN:{},{}", trace.line, fn_name));
-                fnda.push(format!("FNDA:{},{}", fn_hits, fn_name));
+                fnda.push(format!("FNDA:{fn_hits},{fn_name}"));
             }
 
             if let CoverageStat::Line(hits) = trace.stats {
@@ -48,17 +48,17 @@ fn write_lcov(mut file: impl Write, coverage_data: &TraceMap) -> Result<(), RunE
         }
 
         for fn_line in &fns {
-            writeln!(file, "{}", fn_line)?;
+            writeln!(file, "{fn_line}",)?;
         }
 
         writeln!(file, "FNF:{}", fns.len())?;
 
         for fnda_line in fnda {
-            writeln!(file, "{}", fnda_line)?;
+            writeln!(file, "{fnda_line}")?;
         }
 
         for (line, hits) in &da {
-            writeln!(file, "DA:{},{}", line, hits)?;
+            writeln!(file, "DA:{line},{hits}")?;
         }
 
         writeln!(file, "LF:{}", da.len())?;
