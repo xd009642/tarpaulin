@@ -301,12 +301,8 @@ impl TraceMap {
     /// Gets a mutable reference to a trace at a given address
     /// Returns None if there is no trace at that address
     pub fn get_trace_mut(&mut self, address: u64) -> Option<&mut Trace> {
-        for val in self.all_traces_mut() {
-            if val.address.contains(&address) {
-                return Some(val);
-            }
-        }
-        None
+        self.all_traces_mut()
+            .find(|val| val.address.contains(&address))
     }
 
     pub fn get_location(&self, address: u64) -> Option<Location> {
