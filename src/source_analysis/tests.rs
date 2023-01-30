@@ -787,7 +787,6 @@ fn filter_closure_contents() {
     assert!(!lines.ignore.contains(&Lines::Line(3)));
 }
 
-
 #[test]
 fn tarpaulin_skip_attr() {
     let config = Config::default();

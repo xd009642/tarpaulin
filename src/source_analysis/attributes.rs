@@ -72,18 +72,18 @@ pub(crate) fn check_cfg_attr(attr: &Meta) -> bool {
             }
         }
     } else {
-         let skip_attrs = &["tarpaulin", "skip"]; 
-         let mut n = 0; 
-         ignore_span = true; 
-         for (segment, attr) in id.segments.iter().zip(skip_attrs.iter()) { 
-             n += 1; 
-             if segment.ident != attr { 
-                 ignore_span = false; 
-             } 
-         } 
-         if n < skip_attrs.len() { 
-             ignore_span = false; 
-         } 
-     } 
-     ignore_span 
+        let skip_attrs = &["tarpaulin", "skip"];
+        let mut n = 0;
+        ignore_span = true;
+        for (segment, attr) in id.segments.iter().zip(skip_attrs.iter()) {
+            n += 1;
+            if segment.ident != attr {
+                ignore_span = false;
+            }
+        }
+        if n < skip_attrs.len() {
+            ignore_span = false;
+        }
+    }
+    ignore_span
 }
