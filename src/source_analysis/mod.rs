@@ -269,7 +269,7 @@ impl SourceAnalysis {
     }
 
     fn is_ignored_module(&self, path: &Path) -> bool {
-        self.ignored_modules.iter().any(|x| path.starts_with(&x))
+        self.ignored_modules.iter().any(|x| path.starts_with(x))
     }
 
     pub fn get_analysis(config: &Config) -> Self {

@@ -560,7 +560,7 @@ impl<'a> LinuxData<'a> {
 
         if let Ok(proc) = Process::new(pid.into()) {
             let exe = match proc.exe() {
-                Ok(e) if !e.starts_with(&self.config.target_dir()) => {
+                Ok(e) if !e.starts_with(self.config.target_dir()) => {
                     return Ok((TestState::wait_state(), TracerAction::Detach(pid.into())));
                 }
                 Ok(e) => e,

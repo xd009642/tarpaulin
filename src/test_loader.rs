@@ -277,11 +277,11 @@ fn get_line_addresses<'data: 'file, 'file>(
                 }
                 let temp_map = temp_map
                     .into_iter()
-                    .filter(|&(ref k, _)| {
-                        !(config.ignore_tests() && k.path.starts_with(&project.join("tests")))
+                    .filter(|(ref k, _)| {
+                        !(config.ignore_tests() && k.path.starts_with(project.join("tests")))
                     })
-                    .filter(|&(ref k, _)| !(config.exclude_path(&k.path)))
-                    .filter(|&(ref k, _)| {
+                    .filter(|(ref k, _)| !(config.exclude_path(&k.path)))
+                    .filter(|(ref k, _)| {
                         !analysis.should_ignore(k.path.as_ref(), &(k.line as usize))
                     })
                     .map(|(k, v)| {

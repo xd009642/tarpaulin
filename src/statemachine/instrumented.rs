@@ -93,7 +93,7 @@ impl<'a> StateData for LlvmInstrumentedData<'a> {
                     }
                     let profraws = get_profile_walker(self.config)
                         .map(|x| x.path().to_path_buf())
-                        .filter(|x| !parent.existing_profraws.contains(&x))
+                        .filter(|x| !parent.existing_profraws.contains(x))
                         .collect::<Vec<_>>();
 
                     info!(
@@ -158,7 +158,7 @@ impl<'a> StateData for LlvmInstrumentedData<'a> {
                         self.traces.dedup();
 
                         for (file, result) in report.files.iter() {
-                            if let Some(traces) = self.traces.file_traces_mut(&file) {
+                            if let Some(traces) = self.traces.file_traces_mut(file) {
                                 for trace in traces.iter_mut() {
                                     if let Some(hits) = result.hits_for_line(trace.line as usize) {
                                         if let CoverageStat::Line(ref mut x) = trace.stats {
