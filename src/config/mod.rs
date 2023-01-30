@@ -585,7 +585,7 @@ impl Config {
     pub fn parse_config_toml(buffer: &[u8]) -> std::io::Result<Vec<Self>> {
         let mut map: IndexMap<String, Self> = toml::from_slice(buffer).map_err(|e| {
             error!("Invalid config file {}", e);
-            Error::new(ErrorKind::InvalidData, format!("{}", e))
+            Error::new(ErrorKind::InvalidData, format!("{e}"))
         })?;
 
         let mut result = Vec::new();
@@ -670,7 +670,7 @@ impl Config {
         }
 
         let new_flags = match (self.rustflags.as_ref(), other.rustflags.as_ref()) {
-            (Some(a), Some(b)) => Some(format!("{} {}", a, b)),
+            (Some(a), Some(b)) => Some(format!("{a} {b}")),
             (Some(a), None) => Some(a.clone()),
             (None, Some(b)) => Some(b.clone()),
             _ => None,
@@ -1016,8 +1016,8 @@ mod tests {
                 let root_base = "";
             }
         }
-        let path_a = PathBuf::from(format!("{}/this/should/form/a/rel/path/", root_base));
-        let path_b = PathBuf::from(format!("{}/this/should/form/b/rel/path/", root_base));
+        let path_a = PathBuf::from(format!("{root_base}/this/should/form/a/rel/path/"));
+        let path_b = PathBuf::from(format!("{root_base}/this/should/form/b/rel/path/"));
 
         let rel_path = path_relative_from(&path_b, &path_a);
         assert!(rel_path.is_some());
@@ -1027,7 +1027,7 @@ mod tests {
             "Wrong relative path"
         );
 
-        let path_a = PathBuf::from(format!("{}/this/should/not/form/a/rel/path/", root_base));
+        let path_a = PathBuf::from(format!("{root_base}/this/should/not/form/a/rel/path/"));
         let path_b = Path::new("this/should/not/form/a/rel/path/");
         assert!(!path_b.is_absolute());
         assert!(path_a.is_absolute());
@@ -1205,7 +1205,7 @@ mod tests {
 
                 [no_dir]
                 coveralls = "xyz"
-                
+
                 [other_dir]
                 output-dir = "C:/bar"
                 "#;
@@ -1217,7 +1217,7 @@ mod tests {
 
                 [no_dir]
                 coveralls = "xyz"
-                
+
                 [other_dir]
                 output-dir = "/bar"
                 "#;
@@ -1261,7 +1261,7 @@ mod tests {
         let toml = r#"
         [flag1]
         rustflags = "xyz"
-        
+
         [flag2]
         rustflags = "bar"
         "#;

@@ -84,13 +84,13 @@ pub fn execute(
     envar: &[(String, String)],
 ) -> Result<TestHandle, RunError> {
     let program = CString::new(test.display().to_string()).unwrap_or_default();
-    disable_aslr().map_err(|e| RunError::TestRuntime(format!("ASLR disable failed: {}", e)))?;
+    disable_aslr().map_err(|e| RunError::TestRuntime(format!("ASLR disable failed: {e}")))?;
 
     request_trace().map_err(|e| RunError::Trace(e.to_string()))?;
 
     let envar = envar
         .iter()
-        .map(|(k, v)| CString::new(format!("{}={}", k, v).as_str()).unwrap_or_default())
+        .map(|(k, v)| CString::new(format!("{k}={v}").as_str()).unwrap_or_default())
         .collect::<Vec<CString>>();
 
     let argv = argv

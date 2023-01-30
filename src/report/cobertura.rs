@@ -74,7 +74,7 @@ impl fmt::Display for Error {
     #[inline]
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         match self {
-            Error::ExportError(ref e) => write!(f, "Export Error {}", e),
+            Error::ExportError(ref e) => write!(f, "Export Error {e}"),
             Error::Unknown => write!(f, "Unknown Error"),
         }
     }

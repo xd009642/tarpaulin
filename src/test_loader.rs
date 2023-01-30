@@ -226,7 +226,7 @@ fn get_line_addresses<'data: 'file, 'file>(
 ) -> Result<TraceMap> {
     let project = config.root();
     let io_err = |e| {
-        error!("IO error parsing section: {}", e);
+        error!("IO error parsing section: {e}");
         Error::Io
     };
     let mut result = TraceMap::new();

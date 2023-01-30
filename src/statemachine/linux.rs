@@ -145,8 +145,7 @@ impl<'a> StateData for LinuxData<'a> {
                 "Unexpected signal when starting test".to_string(),
             )),
             Err(e) => Err(RunError::TestRuntime(format!(
-                "Error when starting test: {}",
-                e
+                "Error when starting test: {e}"
             ))),
         }
     }
@@ -213,8 +212,7 @@ impl<'a> StateData for LinuxData<'a> {
                 Err(e) => {
                     running = false;
                     result = Err(RunError::TestRuntime(format!(
-                        "An error occurred while waiting for response from test: {}",
-                        e
+                        "An error occurred while waiting for response from test: {e}"
                     )));
                 }
             }
@@ -254,8 +252,7 @@ impl<'a> StateData for LinuxData<'a> {
                 WaitStatus::PtraceEvent(c, s, e) => match self.handle_ptrace_event(*c, *s, *e) {
                     Ok(s) => Ok(s),
                     Err(e) => Err(RunError::TestRuntime(format!(
-                        "Error occurred when handling ptrace event: {}",
-                        e
+                        "Error occurred when handling ptrace event: {e}"
                     ))),
                 },
                 WaitStatus::Stopped(c, Signal::SIGTRAP) => {
@@ -263,8 +260,7 @@ impl<'a> StateData for LinuxData<'a> {
                     match self.collect_coverage_data(&mut pcs) {
                         Ok(s) => Ok(s),
                         Err(e) => Err(RunError::TestRuntime(format!(
-                            "Error when collecting coverage: {}",
-                            e
+                            "Error when collecting coverage: {e}"
                         ))),
                     }
                 }
@@ -279,8 +275,7 @@ impl<'a> StateData for LinuxData<'a> {
                     let pc = current_instruction_pointer(*child).unwrap_or(1) - 1;
                     trace!("SIGILL raised. Child program counter is: 0x{:x}", pc);
                     Err(RunError::TestRuntime(format!(
-                        "Error running test - SIGILL raised in {}",
-                        child
+                        "Error running test - SIGILL raised in {child}"
                     )))
                 }
                 WaitStatus::Stopped(c, Signal::SIGCHLD) => {
@@ -704,12 +699,11 @@ impl<'a> LinuxData<'a> {
                     ))
                 }
                 _ => Err(RunError::TestRuntime(format!(
-                    "Unrecognised ptrace event {}",
-                    event
+                    "Unrecognised ptrace event {event}"
                 ))),
             }
         } else {
-            trace!("Unexpected signal with ptrace event {}", event);
+            trace!("Unexpected signal with ptrace event {event}");
             trace!("Signal: {:?}", sig);
             Err(RunError::TestRuntime("Unexpected signal".to_string()))
         }

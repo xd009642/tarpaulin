@@ -223,7 +223,7 @@ impl Drop for EventLog {
         info!("Serializing tarpaulin debug log to {}", path.display());
         if let Ok(output) = File::create(path) {
             if let Err(e) = serde_json::to_writer(output, self) {
-                warn!("Failed to serialise or write result: {}", e);
+                warn!("Failed to serialise or write result: {e}");
             }
         } else {
             warn!("Failed to create log file");
