@@ -3,7 +3,7 @@
 From 2019 onwards, all notable changes to tarpaulin will be documented in this
 file.
 
-## [Unreleased]
+## [0.25.0] 2023-01-30
 ### Added
 - `--objects` argument to provide other object files with coverage information 
 - `--no-dead-code` flag to avoid adding `-Clink-dead-code` to linker flags
