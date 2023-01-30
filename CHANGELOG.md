@@ -16,6 +16,7 @@ operating systems
 - Set `LLVM_PROFILE_FILE` for building tests and delete the generated profraws to ignore build script
 coverage 
 - Remove dependency on memmap
+- Filter out expressions or items with `#[cfg_attr(tarpaulin, no_coverage)]`
 
 ## [0.24.0] 2023-01-24
 ### Added
