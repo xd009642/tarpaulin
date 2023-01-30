@@ -55,19 +55,35 @@ pub(crate) fn check_cfg_attr(attr: &Meta) -> bool {
                 }
             }
         }
-    } else {
-        let skip_attrs = vec!["tarpaulin", "skip"];
-        let mut n = 0;
-        ignore_span = true;
-        for (segment, attr) in id.segments.iter().zip(skip_attrs.iter()) {
-            n += 1;
-            if segment.ident != attr {
-                ignore_span = false;
+    } else if id.is_ident("cfg_attr") {
+        if let Meta::List(ml) = attr {
+            let tarp_cfged_ignores = &["no_coverage"];
+            if let NestedMeta::Meta(Meta::Path(ref i)) = ml.nested[0] {
+                if i.is_ident("tarpaulin") {
+                    for p in ml.nested.iter().skip(1) {
+                        if let NestedMeta::Meta(Meta::Path(ref path)) = p {
+                            if tarp_cfged_ignores.iter().any(|x| path.is_ident(x)) {
+                                ignore_span = true;
+                                break;
+                            }
+                        }
+                    }
+                }
             }
         }
-        if n < skip_attrs.len() {
-            ignore_span = false;
-        }
-    }
-    ignore_span
+    } else {
+         let skip_attrs = &["tarpaulin", "skip"]; 
+         let mut n = 0; 
+         ignore_span = true; 
+         for (segment, attr) in id.segments.iter().zip(skip_attrs.iter()) { 
+             n += 1; 
+             if segment.ident != attr { 
+                 ignore_span = false; 
+             } 
+         } 
+         if n < skip_attrs.len() { 
+             ignore_span = false; 
+         } 
+     } 
+     ignore_span 
 }
