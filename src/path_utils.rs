@@ -33,7 +33,7 @@ pub fn is_source_file(entry: &DirEntry) -> bool {
 
 /// Returns true if the folder is a target folder
 fn is_target_folder(entry: &Path, target: &Path) -> bool {
-    entry.starts_with(&target)
+    entry.starts_with(target)
 }
 
 /// Returns true if the file or folder is hidden
@@ -54,7 +54,7 @@ fn is_cargo_home(entry: &Path, root: &Path) -> bool {
                 true
             } else {
                 let home = root.join(path);
-                entry.starts_with(&home)
+                entry.starts_with(home)
             }
         }
         _ => false,
@@ -99,7 +99,7 @@ pub fn get_source_walker(config: &Config) -> impl Iterator<Item = DirEntry> + '_
 
 pub fn get_profile_walker(config: &Config) -> impl Iterator<Item = DirEntry> {
     let walker = WalkDir::new(config.profraw_dir()).into_iter();
-    walker.filter_map(Result::ok).filter(|e| is_profraw_file(e))
+    walker.filter_map(Result::ok).filter(is_profraw_file)
 }
 
 #[cfg(test)]

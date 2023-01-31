@@ -217,8 +217,8 @@ fn execute_test(
 ) -> Result<TestHandle, RunError> {
     info!("running {}", test.path().display());
     let _ = match test.manifest_dir() {
-        Some(md) => env::set_current_dir(&md),
-        None => env::set_current_dir(&config.root()),
+        Some(md) => env::set_current_dir(md),
+        None => env::set_current_dir(config.root()),
     };
 
     debug!("Current working dir: {:?}", env::current_dir());

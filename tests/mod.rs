@@ -119,7 +119,7 @@ pub fn check_percentage_with_config(
     //cargo_tarpaulin::setup_logging(true, true);
     let event_log = if config.dump_traces {
         let mut paths = HashSet::new();
-        paths.insert(config.manifest().clone());
+        paths.insert(config.manifest());
         Some(EventLog::new(paths, &config))
     } else {
         None
@@ -390,7 +390,7 @@ fn cargo_home_filtering() {
     match previous {
         Ok(s) => env::set_var("CARGO_HOME", s),
         Err(_) => {
-            let _ = env::remove_var("CARGO_HOME");
+            env::remove_var("CARGO_HOME");
         }
     }
     let (res, _) = run.unwrap();

@@ -164,7 +164,7 @@ mod tests {
         };
 
         let git_output = Command::new("git")
-            .args(&["log", "-1", "--pretty=format:%H %an %ae"])
+            .args(["log", "-1", "--pretty=format:%H %an %ae"])
             .output()
             .unwrap();
 

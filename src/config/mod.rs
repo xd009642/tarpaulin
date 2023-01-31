@@ -369,10 +369,10 @@ impl<'a> From<&'a ArgMatches<'a>> for ConfigWrapper {
                     .canonicalize()
                     .unwrap();
             }
-            let confs = Config::load_config_file(&path);
+            let confs = Config::load_config_file(path);
             Config::get_config_vec(confs, args_config)
         } else if let Some(cfg) = args_config.check_for_configs() {
-            let confs = Config::load_config_file(&cfg);
+            let confs = Config::load_config_file(cfg);
             Config::get_config_vec(confs, args_config)
         } else {
             Self(vec![args_config])
@@ -533,9 +533,9 @@ impl Config {
     /// Taking an existing config look for any relevant config files
     pub fn check_for_configs(&self) -> Option<PathBuf> {
         if let Some(root) = &self.root {
-            Self::check_path_for_configs(&root)
+            Self::check_path_for_configs(root)
         } else if let Some(root) = self.manifest.clone().parent() {
-            Self::check_path_for_configs(&root)
+            Self::check_path_for_configs(root)
         } else {
             None
         }
