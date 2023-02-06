@@ -3,6 +3,10 @@
 From 2019 onwards, all notable changes to tarpaulin will be documented in this
 file.
 
+## [Unreleased]
+### Changed
+- Improve logs for processing stripped projects with ptrace
+
 ## [0.25.0] 2023-01-30
 ### Added
 - `--objects` argument to provide other object files with coverage information 
