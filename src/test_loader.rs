@@ -270,7 +270,6 @@ fn get_line_addresses<'data: 'file, 'file>(
                 Ok(Some(AttributeValue::DebugLineRef(o))) => o,
                 _ => continue,
             };
-            tracing::info!("Reading line program");
             let prog = debug_line.program(offset, addr_size, None, None)?; // Here?
             let mut temp_map: HashMap<SourceLocation, Vec<TracerData>> = HashMap::new();
 
