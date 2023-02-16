@@ -51,7 +51,7 @@ glob = "0.3.1"
 [target.'cfg(all(target_os = "linux", target_arch = "x86_64"))'.dependencies]
 libc = "0.2.94"
 nix = {version = "0.26.2", default-features = false, features = ["sched", "signal", "ptrace", "personality"]}
-procfs = "0.14"
+procfs = "0.15"
 
 [features]
 default = []
