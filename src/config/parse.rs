@@ -125,9 +125,9 @@ pub(super) fn get_objects(args: &ArgMatches) -> Vec<PathBuf> {
         if obj.is_relative() {
             *obj = env::current_dir()
                 .unwrap()
-                .join(&obj)
                 .canonicalize()
-                .unwrap();
+                .unwrap()
+                .join(&obj);
             *obj = fix_unc_path(obj);
         }
     }
