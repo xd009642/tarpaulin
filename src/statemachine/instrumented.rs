@@ -114,8 +114,26 @@ impl<'a> StateData for LlvmInstrumentedData<'a> {
                         let code = exit.code().unwrap_or(1);
                         return Ok(Some(TestState::End(code)));
                     }
-                    // Panics due to a todo!();
-                    let mut binaries = parent.extra_binaries.clone();
+
+                    let mut binaries = parent
+                        .extra_binaries
+                        .iter()
+                        .filter(|path| {
+                            // extra binaries might not exist yet and be created
+                            // later by the test suite
+                            if path.exists() {
+                                true
+                            } else {
+                                info!(
+                                    "Skipping additional object '{}' since the file does not exist",
+                                    path.display()
+                                );
+                                false
+                            }
+                        })
+                        .cloned()
+                        .collect::<Vec<_>>();
+
                     binaries.push(binary_path);
                     info!("Mapping coverage data to source");
                     let mapping =
