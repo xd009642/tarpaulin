@@ -21,11 +21,11 @@ fn get_git_info(manifest_path: &Path) -> Result<GitInfo, String> {
 
     let head = repo
         .head()
-        .map_err(|err| format!("failed to get repository head: {}", err))?;
+        .map_err(|err| format!("failed to get repository head: {err}"))?;
     let branch = git2::Branch::wrap(head);
     let branch_name = branch
         .name()
-        .map_err(|err| format!("failed to get branch name: {}", err))?;
+        .map_err(|err| format!("failed to get branch name: {err}"))?;
     let get_string = |data: Option<&str>| match data {
         Some(str) => Ok(str.to_string()),
         None => Err("string is not valid utf-8".to_string()),
@@ -35,7 +35,7 @@ fn get_git_info(manifest_path: &Path) -> Result<GitInfo, String> {
         .head()
         .unwrap()
         .peel_to_commit()
-        .map_err(|err| format!("failed to get commit: {}", err))?;
+        .map_err(|err| format!("failed to get commit: {err}"))?;
 
     let author = commit.author();
     let committer = commit.committer();
@@ -134,7 +134,7 @@ pub fn export(coverage_data: &TraceMap, config: &Config) -> Result<(), RunError>
                 trace!("Coveralls response {:?}", s);
                 Ok(())
             }
-            Err(e) => Err(RunError::CovReport(format!("Coveralls send failed. {}", e))),
+            Err(e) => Err(RunError::CovReport(format!("Coveralls send failed. {e}"))),
         }
     } else {
         Err(RunError::CovReport(
@@ -164,7 +164,7 @@ mod tests {
         };
 
         let git_output = Command::new("git")
-            .args(&["log", "-1", "--pretty=format:%H %an %ae"])
+            .args(["log", "-1", "--pretty=format:%H %an %ae"])
             .output()
             .unwrap();
 

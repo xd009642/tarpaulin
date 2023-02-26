@@ -209,10 +209,10 @@ fn accumulate_lines(
         } else {
             match (group.first(), group.last()) {
                 (Some(first), Some(last)) if first == last => {
-                    acc.push(format!("{}", first));
+                    acc.push(format!("{first}"));
                 }
                 (Some(first), Some(last)) => {
-                    acc.push(format!("{}-{}", first, last));
+                    acc.push(format!("{first}-{last}"));
                 }
                 (Some(_), None) | (None, _) => (),
             };

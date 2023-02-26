@@ -3,6 +3,12 @@
 From 2019 onwards, all notable changes to tarpaulin will be documented in this
 file.
 
+## [0.25.1] 2023-02-26
+### Changed
+- Improve logs for processing stripped projects with ptrace
+- Skip missing objects provided by `--objects` if they aren't present when getting reports
+- No longer canonicalise potentially missing paths for `--objects`
+
 ## [0.25.0] 2023-01-30
 ### Added
 - `--objects` argument to provide other object files with coverage information 

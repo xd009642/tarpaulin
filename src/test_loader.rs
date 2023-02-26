@@ -10,7 +10,7 @@ use std::collections::{HashMap, HashSet};
 use std::fs::File;
 use std::io;
 use std::path::{Path, PathBuf};
-use tracing::{debug, error, trace};
+use tracing::{debug, error, trace, warn};
 
 /// Describes a function as `low_pc`, `high_pc` and bool representing `is_test`.
 type FuncDesc = (u64, u64, FunctionType, Option<String>);
@@ -226,21 +226,28 @@ fn get_line_addresses<'data: 'file, 'file>(
 ) -> Result<TraceMap> {
     let project = config.root();
     let io_err = |e| {
-        error!("IO error parsing section: {}", e);
+        error!("IO error parsing section: {e}");
         Error::Io
     };
+    trace!("Reading object sections");
     let mut result = TraceMap::new();
+    trace!("Reading .debug_info");
     let debug_info = obj.section_by_name(".debug_info").ok_or(Error::Io)?;
     let debug_info = DebugInfo::new(debug_info.data().map_err(io_err)?, endian);
+    trace!("Reading .debug_abbrev");
     let debug_abbrev = obj.section_by_name(".debug_abbrev").ok_or(Error::Io)?;
     let debug_abbrev = DebugAbbrev::new(debug_abbrev.data().map_err(io_err)?, endian);
+    trace!("Reading .debug_str");
     let debug_strings = obj.section_by_name(".debug_str").ok_or(Error::Io)?;
     let debug_strings = DebugStr::new(debug_strings.data().map_err(io_err)?, endian);
+    trace!("Reading .debug_line");
     let debug_line = obj.section_by_name(".debug_line").ok_or(Error::Io)?;
     let debug_line = DebugLine::new(debug_line.data().map_err(io_err)?, endian);
 
+    trace!("Reading .text");
     let base_addr = obj.section_by_name(".text").ok_or(Error::Io)?;
 
+    trace!("Reading DebugInfo units");
     let mut iter = debug_info.units();
     while let Ok(Some(cu)) = iter.next() {
         let addr_size = cu.address_size();
@@ -263,7 +270,7 @@ fn get_line_addresses<'data: 'file, 'file>(
                 Ok(Some(AttributeValue::DebugLineRef(o))) => o,
                 _ => continue,
             };
-            let prog = debug_line.program(offset, addr_size, None, None)?;
+            let prog = debug_line.program(offset, addr_size, None, None)?; // Here?
             let mut temp_map: HashMap<SourceLocation, Vec<TracerData>> = HashMap::new();
 
             if let Err(e) =
@@ -277,11 +284,11 @@ fn get_line_addresses<'data: 'file, 'file>(
                 }
                 let temp_map = temp_map
                     .into_iter()
-                    .filter(|&(ref k, _)| {
-                        !(config.ignore_tests() && k.path.starts_with(&project.join("tests")))
+                    .filter(|(ref k, _)| {
+                        !(config.ignore_tests() && k.path.starts_with(project.join("tests")))
                     })
-                    .filter(|&(ref k, _)| !(config.exclude_path(&k.path)))
-                    .filter(|&(ref k, _)| {
+                    .filter(|(ref k, _)| !(config.exclude_path(&k.path)))
+                    .filter(|(ref k, _)| {
                         !analysis.should_ignore(k.path.as_ref(), &(k.line as usize))
                     })
                     .map(|(k, v)| {
@@ -376,6 +383,7 @@ pub fn generate_tracemap(
     analysis: &HashMap<PathBuf, LineAnalysis>,
     config: &Config,
 ) -> io::Result<TraceMap> {
+    trace!("Generating traces for {}", test.display());
     let file = match open_symbols_file(test) {
         Ok(s) => object::read::ReadCache::new(s),
         Err(e) if config.engine() != TraceEngine::Llvm => return Err(e),
@@ -391,5 +399,10 @@ pub fn generate_tracemap(
         RunTimeEndian::Big
     };
     get_line_addresses(endian, &obj, analysis, config)
-        .map_err(|_| io::Error::new(io::ErrorKind::InvalidData, "Error while parsing"))
+        .map_err(|e| {
+            // They may be running with a stripped binary or doing something weird
+            error!("Error parsing debug information from binary: {}", e);
+            warn!("Stripping symbol information can prevent tarpaulin from working. If you want to do this pass `--engine=llvm`");
+            io::Error::new(io::ErrorKind::InvalidData, "Error while parsing binary or DWARF info.")
+        })
 }

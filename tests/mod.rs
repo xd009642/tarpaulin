@@ -119,7 +119,7 @@ pub fn check_percentage_with_config(
     //cargo_tarpaulin::setup_logging(true, true);
     let event_log = if config.dump_traces {
         let mut paths = HashSet::new();
-        paths.insert(config.manifest().clone());
+        paths.insert(config.manifest());
         Some(EventLog::new(paths, &config))
     } else {
         None
@@ -390,7 +390,7 @@ fn cargo_home_filtering() {
     match previous {
         Ok(s) => env::set_var("CARGO_HOME", s),
         Err(_) => {
-            let _ = env::remove_var("CARGO_HOME");
+            env::remove_var("CARGO_HOME");
         }
     }
     let (res, _) = run.unwrap();
@@ -620,4 +620,32 @@ fn output_dir_workspace() {
         serde_json::from_slice::<EventLog>(log.as_slice()).unwrap();
     }
 }
+
+
+
+#[test]
+fn stripped_crate() {
+    let mut config = Config::default();
+    config.verbose = true;
+    config.set_clean(false);
+    config.test_timeout = Duration::from_secs(60);
+    let test_dir = get_test_path("stripped");
+
+    cfg_if::cfg_if! {
+        if #[cfg(ptrace_supported)] {
+            env::set_current_dir(&test_dir).unwrap();
+            let mut manifest = test_dir;
+            manifest.push("Cargo.toml");
+            config.set_manifest(manifest);
+
+            let res = launch_tarpaulin(&config, &None);
+            assert!(res.is_err());
+        }
+    }
+
+    config.set_engine(TraceEngine::Llvm);
+    check_percentage_with_config("stripped", 0.9, true, config);
+}
+
+
 }

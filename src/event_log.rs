@@ -4,8 +4,11 @@ use crate::config::Config;
 use crate::ptrace_control::*;
 #[cfg(ptrace_supported)]
 use crate::statemachine::ProcessInfo;
+#[cfg(ptrace_supported)]
 use crate::statemachine::TracerAction;
-use crate::traces::{Location, TraceMap};
+use crate::traces::Location;
+#[cfg(ptrace_supported)]
+use crate::traces::TraceMap;
 use chrono::offset::Local;
 #[cfg(ptrace_supported)]
 use nix::libc::*;
@@ -223,7 +226,7 @@ impl Drop for EventLog {
         info!("Serializing tarpaulin debug log to {}", path.display());
         if let Ok(output) = File::create(path) {
             if let Err(e) = serde_json::to_writer(output, self) {
-                warn!("Failed to serialise or write result: {}", e);
+                warn!("Failed to serialise or write result: {e}");
             }
         } else {
             warn!("Failed to create log file");

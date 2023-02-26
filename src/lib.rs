@@ -53,7 +53,7 @@ pub fn setup_logging(color: Color, debug: bool, verbose: bool) {
             for s in env.split(',') {
                 match s.parse() {
                     Ok(d) => filter = filter.add_directive(d),
-                    Err(err) => println!("WARN ignoring log directive: `{}`: {}", s, err),
+                    Err(err) => println!("WARN ignoring log directive: `{s}`: {err}"),
                 };
             }
             filter
@@ -70,7 +70,7 @@ pub fn setup_logging(color: Color, debug: bool, verbose: bool) {
         .try_init();
 
     if let Err(e) = res {
-        eprintln!("Logging may be misconfigured: {}", e);
+        eprintln!("Logging may be misconfigured: {e}");
     }
 
     debug!("set up logging");
@@ -104,7 +104,7 @@ pub fn trace(configs: &[Config]) -> Result<TraceMap, RunError> {
                 tracemap.merge(&t);
             }
             Err(e) => {
-                error!("{}", e);
+                error!("{e}");
                 tarpaulin_result = tarpaulin_result.and(Err(e));
             }
         }

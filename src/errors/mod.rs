@@ -42,36 +42,35 @@ pub enum RunError {
 impl Display for RunError {
     fn fmt(&self, f: &mut Formatter) -> fmt::Result {
         match self {
-            Self::Manifest(e) => write!(f, "Failed to parse Cargo.toml! Error: {}", e),
-            Self::Cargo(e) => write!(f, "Cargo failed to run! Error: {}", e),
-            Self::Packages(e) => write!(f, "Failed to resolve package in manifest! Error: {}", e),
-            Self::TestLaunch(e) => write!(f, "Failed to launch test: {}", e),
-            Self::TestCompile(e) => write!(f, "Failed to compile tests!\n{}", e),
-            Self::TestRuntime(e) => write!(f, "Failed to run tests: {}", e),
+            Self::Manifest(e) => write!(f, "Failed to parse Cargo.toml! Error: {e}"),
+            Self::Cargo(e) => write!(f, "Cargo failed to run! Error: {e}"),
+            Self::Packages(e) => write!(f, "Failed to resolve package in manifest! Error: {e}"),
+            Self::TestLaunch(e) => write!(f, "Failed to launch test: {e}"),
+            Self::TestCompile(e) => write!(f, "Failed to compile tests!\n{e}"),
+            Self::TestRuntime(e) => write!(f, "Failed to run tests: {e}"),
             Self::TestFailed => write!(f, "Test failed during run"),
-            Self::Parse(e) => write!(f, "Error while parsing: {}", e),
-            Self::TestCoverage(e) => write!(f, "Failed to get test coverage! Error: {}", e),
+            Self::Parse(e) => write!(f, "Error while parsing: {e}"),
+            Self::TestCoverage(e) => write!(f, "Failed to get test coverage! Error: {e}"),
             // TODO: Better error message!
-            Self::Trace(e) => write!(f, "Failed to trace! Error: {}", e),
-            Self::CovReport(e) => write!(f, "Failed to report coverage! Error: {}", e),
-            Self::OutFormat(e) => write!(f, "{}", e),
-            Self::IO(e) => write!(f, "{}", e),
-            Self::StateMachine(e) => write!(f, "Error running test: {}", e),
+            Self::Trace(e) => write!(f, "Failed to trace! Error: {e}"),
+            Self::CovReport(e) => write!(f, "Failed to report coverage! Error: {e}"),
+            Self::OutFormat(e) => write!(f, "{e}"),
+            Self::IO(e) => write!(f, "{e}"),
+            Self::StateMachine(e) => write!(f, "Error running test: {e}"),
             #[cfg(ptrace_supported)]
-            Self::NixError(e) => write!(f, "{}", e),
-            Self::Html(e) => write!(f, "Failed to generate HTML report! Error: {}", e),
-            Self::XML(e) => write!(f, "Failed to generate XML report! Error: {}", e),
-            Self::Lcov(e) => write!(f, "Failed to generate Lcov report! Error: {}", e),
-            Self::Json(e) => write!(f, "Failed to generate JSON report! Error: {}", e),
+            Self::NixError(e) => write!(f, "{e}"),
+            Self::Html(e) => write!(f, "Failed to generate HTML report! Error: {e}"),
+            Self::XML(e) => write!(f, "Failed to generate XML report! Error: {e}"),
+            Self::Lcov(e) => write!(f, "Failed to generate Lcov report! Error: {e}"),
+            Self::Json(e) => write!(f, "Failed to generate JSON report! Error: {e}"),
             Self::Internal => write!(f, "Tarpaulin experienced an internal error"),
             Self::BelowThreshold(a, e) => {
                 write!(
                     f,
-                    "Coverage is below the failure threshold {:.2}% < {:.2}%",
-                    a, e
+                    "Coverage is below the failure threshold {a:.2}% < {e:.2}%"
                 )
             }
-            Self::Engine(s) => write!(f, "Engine error: {}", s),
+            Self::Engine(s) => write!(f, "Engine error: {s}"),
         }
     }
 }

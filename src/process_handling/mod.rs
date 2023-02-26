@@ -56,7 +56,7 @@ impl RunningProcessHandle {
 impl fmt::Display for TestHandle {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         match self {
-            TestHandle::Id(id) => write!(f, "{}", id),
+            TestHandle::Id(id) => write!(f, "{id}"),
             TestHandle::Process(c) => write!(f, "{}", c.child.id()),
         }
     }
@@ -217,8 +217,8 @@ fn execute_test(
 ) -> Result<TestHandle, RunError> {
     info!("running {}", test.path().display());
     let _ = match test.manifest_dir() {
-        Some(md) => env::set_current_dir(&md),
-        None => env::set_current_dir(&config.root()),
+        Some(md) => env::set_current_dir(md),
+        None => env::set_current_dir(config.root()),
     };
 
     debug!("Current working dir: {:?}", env::current_dir());
@@ -268,7 +268,7 @@ fn execute_test(
             debug!("Args: {:?}", argv);
             let mut child = Command::new(test.path());
             child.envs(envars).args(&argv);
-            let others = other_binaries.iter().cloned().collect();
+            let others = other_binaries.to_vec();
             let hnd = RunningProcessHandle::new(test, others, &mut child, config)?;
             Ok(hnd.into())
         }
@@ -279,10 +279,7 @@ fn execute_test(
             debug!("Args: {:?}", argv);
             execute(test.path(), &argv, envars.as_slice())
         }
-        e => Err(RunError::Engine(format!(
-            "invalid execution engine {:?}",
-            e
-        ))),
+        e => Err(RunError::Engine(format!("invalid execution engine {e:?}"))),
     }
 }
 

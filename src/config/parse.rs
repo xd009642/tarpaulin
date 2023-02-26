@@ -125,10 +125,10 @@ pub(super) fn get_objects(args: &ArgMatches) -> Vec<PathBuf> {
         if obj.is_relative() {
             *obj = env::current_dir()
                 .unwrap()
-                .join(&obj)
                 .canonicalize()
-                .unwrap();
-            *obj = fix_unc_path(&obj);
+                .unwrap()
+                .join(&obj);
+            *obj = fix_unc_path(obj);
         }
     }
     objs
@@ -167,7 +167,7 @@ pub(super) fn get_excluded(args: &ArgMatches) -> Vec<glob::Pattern> {
 pub(super) fn globs_from_excluded(strs: &[String]) -> Vec<glob::Pattern> {
     let mut files = vec![];
     for temp_str in strs {
-        if let Ok(glob) = glob::Pattern::new(&temp_str) {
+        if let Ok(glob) = glob::Pattern::new(temp_str) {
             files.push(glob);
         } else {
             error!("Ignoring invalid glob pattern: '{}'", temp_str);

@@ -27,7 +27,7 @@ Below is the help-text for a thorough explanation of the flags and features
 available:
 
 ```
-cargo-tarpaulin version: 0.25.0
+cargo-tarpaulin version: 0.25.1
 Tool to analyse test coverage of cargo projects
 
 USAGE:
@@ -466,7 +466,7 @@ jobs:
           fail_ci_if_error:     true
 ```
 
-### CircleCI
+#### CircleCI
 
 To run tarpaulin on CircleCI you need to run tarpaulin in docker and set the
 machine flag to true as shown below:
@@ -482,7 +482,7 @@ jobs:
           command: docker run --security-opt seccomp=unconfined -v "${PWD}:/volume" xd009642/tarpaulin
 ```
 
-### Gitlab Pipelines
+#### Gitlab Pipelines
 
 To get the coverage results showing up in your Gitlab pipelines add the following regex to the `Test
 coverage` section in the gitlab job definition in `.gitlab-ci.yml`:

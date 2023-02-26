@@ -1,6 +1,6 @@
 [package]
 name = "cargo-tarpaulin"
-version = "0.25.0"
+version = "0.25.1"
 authors = ["Daniel McKenna <danielmckenna93@gmail.com>"]
 description = "Cargo-Tarpaulin is a tool to determine code coverage achieved via tests"
 repository = "https://github.com/xd009642/tarpaulin"
@@ -26,7 +26,7 @@ chrono = "0.4"
 clap = "2.34.0"
 coveralls-api = "0.5.0"
 fallible-iterator = "0.2.0"
-gimli = "0.27.1"
+gimli = "0.27.2"
 git2 = "0.16"
 humantime-serde = "1"
 indexmap = { version = "~1.8", features = ["serde-1"] }
@@ -51,7 +51,7 @@ glob = "0.3.1"
 [target.'cfg(all(target_os = "linux", target_arch = "x86_64"))'.dependencies]
 libc = "0.2.94"
 nix = {version = "0.26.2", default-features = false, features = ["sched", "signal", "ptrace", "personality"]}
-procfs = "0.14"
+procfs = "0.15"
 
 [features]
 default = []

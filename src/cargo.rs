@@ -17,7 +17,7 @@ use toml::Value;
 use tracing::{debug, error, info, trace, warn};
 use walkdir::{DirEntry, WalkDir};
 
-const BUILD_PROFRAW: &'static str = "build_rs_cov.profraw";
+const BUILD_PROFRAW: &str = "build_rs_cov.profraw";
 
 #[derive(Copy, Clone, Debug, Eq, PartialEq, Hash, Ord, PartialOrd)]
 enum Channel {
@@ -222,7 +222,7 @@ pub fn get_tests(config: &Config) -> Result<CargoOutput, RunError> {
         info!("Cleaning project");
         if cleanup_dir.exists() {
             if let Err(e) = remove_dir_all(cleanup_dir) {
-                error!("Cargo clean failed: {}", e);
+                error!("Cargo clean failed: {e}");
             }
         }
     }
@@ -321,7 +321,7 @@ fn run_cargo(
                     }
                 }
                 Err(e) => {
-                    error!("Error parsing cargo messages {}", e);
+                    error!("Error parsing cargo messages {e}");
                 }
                 _ => {}
             }
@@ -525,22 +525,22 @@ fn create_command(manifest_path: &str, config: &Config, ty: Option<RunType>) -> 
             .ok()
             .filter(|t| t.starts_with("nightly") || bootstrap)
         {
-            test_cmd.args(&[format!("+{}", toolchain).as_str()]);
+            test_cmd.args([format!("+{toolchain}").as_str()]);
         } else if !bootstrap && override_toolchain {
-            test_cmd.args(&["+nightly"]);
+            test_cmd.args(["+nightly"]);
         }
-        test_cmd.args(&["test"]);
+        test_cmd.args(["test"]);
     } else {
         if let Ok(toolchain) = env::var("RUSTUP_TOOLCHAIN") {
-            test_cmd.arg(format!("+{}", toolchain));
+            test_cmd.arg(format!("+{toolchain}"));
         }
         if config.command == Mode::Test {
-            test_cmd.args(&["test", "--no-run"]);
+            test_cmd.args(["test", "--no-run"]);
         } else {
             test_cmd.arg("build");
         }
     }
-    test_cmd.args(&["--message-format", "json", "--manifest-path", manifest_path]);
+    test_cmd.args(["--message-format", "json", "--manifest-path", manifest_path]);
     if let Some(ty) = ty {
         match ty {
             RunType::Tests => test_cmd.arg("--tests"),
@@ -627,7 +627,7 @@ fn init_args(test_cmd: &mut Command, config: &Config) {
     test_cmd.arg("--color");
     test_cmd.arg(config.color.to_string().to_ascii_lowercase());
     if let Some(target) = config.target.as_ref() {
-        test_cmd.args(&["--target", target]);
+        test_cmd.args(["--target", target]);
     }
     let args = vec![
         "--target-dir".to_string(),
@@ -638,7 +638,7 @@ fn init_args(test_cmd: &mut Command, config: &Config) {
         test_cmd.arg("--offline");
     }
     for feat in &config.unstable_features {
-        test_cmd.arg(format!("-Z{}", feat));
+        test_cmd.arg(format!("-Z{feat}"));
     }
     if config.command == Mode::Test && !config.varargs.is_empty() {
         let mut args = vec!["--".to_string()];
@@ -671,10 +671,8 @@ fn handle_llvm_flags(value: &mut String, config: &Config) {
     if config.engine() == TraceEngine::Llvm {
         value.push_str(llvm_coverage_rustflag());
     }
-    if cfg!(not(windows)) {
-        if !config.no_dead_code {
-            value.push_str(" -Clink-dead-code ");
-        }
+    if cfg!(not(windows)) && !config.no_dead_code {
+        value.push_str(" -Clink-dead-code ");
     }
 }
 
@@ -753,7 +751,7 @@ fn build_config_path(base: impl AsRef<Path>) -> PathBuf {
 
 fn gather_config_field_from_section(config: &Config, section: &str, field: &str) -> String {
     if let Some(value) =
-        look_for_field_in_section(&build_config_path(&config.root()), section, field)
+        look_for_field_in_section(&build_config_path(config.root()), section, field)
     {
         return value;
     }
