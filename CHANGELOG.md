@@ -6,6 +6,8 @@ file.
 ## [Unreleased]
 ### Changed
 - Improve logs for processing stripped projects with ptrace
+- Skip missing objects provided by `--objects` if they aren't present when getting reports
+- No longer canonicalise potentially missing paths for `--objects`
 
 ## [0.25.0] 2023-01-30
 ### Added
