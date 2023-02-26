@@ -4,8 +4,11 @@ use crate::config::Config;
 use crate::ptrace_control::*;
 #[cfg(ptrace_supported)]
 use crate::statemachine::ProcessInfo;
+#[cfg(ptrace_supported)]
 use crate::statemachine::TracerAction;
-use crate::traces::{Location, TraceMap};
+use crate::traces::Location;
+#[cfg(ptrace_supported)]
+use crate::traces::TraceMap;
 use chrono::offset::Local;
 #[cfg(ptrace_supported)]
 use nix::libc::*;
