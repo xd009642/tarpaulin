@@ -245,7 +245,17 @@ pub fn launch_tarpaulin(
                 info!("Running a test executable that is expected to panic");
             }
             let coverage =
-                get_test_coverage(exe, &other_bins, &project_analysis, config, false, logger)?;
+                get_test_coverage(exe, &other_bins, &project_analysis, config, false, logger);
+            let coverage = match coverage {
+                Ok(coverage) => coverage,
+                Err(run_error) => {
+                    if config.no_fail_fast {
+                        None
+                    } else {
+                        return Err(run_error);
+                    }
+                }
+            };
             if let Some(res) = coverage {
                 result.merge(&res.0);
                 return_code |= if exe.should_panic() {

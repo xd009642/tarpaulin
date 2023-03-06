@@ -93,4 +93,24 @@ fn config_relative_pathing() {
     assert_eq!(configs[1].target_dir(), base_path.join("targ"));
 }
 
+
+#[test]
+fn workspace_no_fail_fast() {
+    let mut config = Config::default();
+    config.set_clean(false);
+    config.set_ignore_tests(false);
+    config.no_fail_fast = true;
+
+    let test_dir = get_test_path("workspace_with_fail_tests");
+    env::set_current_dir(&test_dir).unwrap();
+    let mut manifest = test_dir;
+    manifest.push("Cargo.toml");
+    config.set_manifest(manifest);
+    config.packages = vec!["bar".to_string(), "foo".to_string()];
+    let result = launch_tarpaulin(&config, &None);
+    let result = result.expect("Test failed").0;
+    let files = result.files();
+    assert!(files.iter().any(|f| f.ends_with("foo/src/lib.rs")));
+    assert!(!files.iter().any(|f| f.ends_with("bar/src/lib.rs")));
+}
 }
