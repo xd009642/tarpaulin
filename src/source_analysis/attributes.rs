@@ -1,6 +1,17 @@
 use crate::source_analysis::prelude::*;
 use syn::*;
 
+mod predicates {
+    pub fn is_test_attribute(id: &syn::Path) -> bool {
+        id.segments
+            .last()
+            .unwrap()
+            .ident
+            .to_string()
+            .ends_with("test")
+    }
+}
+
 impl SourceAnalysis {
     pub(crate) fn check_attr_list(&mut self, attrs: &[Attribute], ctx: &Context) -> bool {
         let analysis = self.get_line_analysis(ctx.file.to_path_buf());
@@ -71,6 +82,8 @@ pub(crate) fn check_cfg_attr(attr: &Meta) -> bool {
                 }
             }
         }
+    } else if predicates::is_test_attribute(id) {
+        ignore_span = true;
     } else {
         let skip_attrs = &["tarpaulin", "skip"];
         let mut n = 0;
