@@ -8,7 +8,7 @@ fn logical_lines_let_bindings() {
     let ctx = Context {
         config: &config,
         file_contents: "fn foo() {
-            let x 
+            let x
                   =
                     5;
         }",
@@ -60,12 +60,12 @@ fn match_pattern_logical_lines() {
         config: &config,
         file_contents: "fn foo(num: i32) -> bool {
             match num {
-            1 
+            1
             | 3
             | 5
             | 7
             | 9 => {
-                true 
+                true
                 },
             _ => false,
             }
@@ -413,8 +413,7 @@ fn filter_tests() {
             mod tests {
                 fn boo(){
                     assert!(true);
-                }
-            }",
+                }\n}",
         file: Path::new(""),
         ignore_mods: RefCell::new(HashSet::new()),
     };
@@ -447,6 +446,75 @@ fn filter_tests() {
     analysis.process_items(&parser.items, &ctx);
     let lines = analysis.get_line_analysis(ctx.file.to_path_buf());
     assert!(lines.ignore.contains(&Lines::Line(2)));
+    assert!(lines.ignore.contains(&Lines::Line(3)));
+}
+
+#[test]
+fn filter_nonstd_tests() {
+    let mut igconfig = Config::default();
+    igconfig.set_ignore_tests(true);
+
+    let ctx = Context {
+        config: &igconfig,
+        file_contents: "#[cfg(test)]
+            mod tests {
+                #[tokio::test(worker_threads = 1)]
+                fn boo(){
+                    assert!(true);
+                }
+            }",
+        file: Path::new(""),
+        ignore_mods: RefCell::new(HashSet::new()),
+    };
+    let parser = parse_file(ctx.file_contents).unwrap();
+    let mut analysis = SourceAnalysis::new();
+    analysis.process_items(&parser.items, &ctx);
+    let lines = analysis.get_line_analysis(ctx.file.to_path_buf());
+    assert!(lines.ignore.contains(&Lines::Line(5)));
+
+    let ctx = Context {
+        config: &igconfig,
+        file_contents: "#[tokio::test(worker_threads = 1)]
+                fn boo(){
+                    assert!(true);
+                }",
+        file: Path::new(""),
+        ignore_mods: RefCell::new(HashSet::new()),
+    };
+    let parser = parse_file(ctx.file_contents).unwrap();
+    let mut analysis = SourceAnalysis::new();
+    analysis.process_items(&parser.items, &ctx);
+    let lines = analysis.get_line_analysis(ctx.file.to_path_buf());
+    assert!(lines.ignore.contains(&Lines::Line(3)));
+
+    let ctx = Context {
+        config: &igconfig,
+        file_contents: "#[some_fancy_crate::test]
+                fn boo(){
+                    assert!(true);
+                }",
+        file: Path::new(""),
+        ignore_mods: RefCell::new(HashSet::new()),
+    };
+    let parser = parse_file(ctx.file_contents).unwrap();
+    let mut analysis = SourceAnalysis::new();
+    analysis.process_items(&parser.items, &ctx);
+    let lines = analysis.get_line_analysis(ctx.file.to_path_buf());
+    assert!(lines.ignore.contains(&Lines::Line(3)));
+
+    let ctx = Context {
+        config: &igconfig,
+        file_contents: "#[some_fancy_crate::marker_test]
+                fn boo(){
+                    assert!(true);
+                }",
+        file: Path::new(""),
+        ignore_mods: RefCell::new(HashSet::new()),
+    };
+    let parser = parse_file(ctx.file_contents).unwrap();
+    let mut analysis = SourceAnalysis::new();
+    analysis.process_items(&parser.items, &ctx);
+    let lines = analysis.get_line_analysis(ctx.file.to_path_buf());
     assert!(lines.ignore.contains(&Lines::Line(3)));
 }
 
@@ -1408,14 +1476,14 @@ fn visit_generics() {
     let config = Config::default();
     let ctx = Context {
         config: &config,
-        file_contents: "fn blah<T>(t: T)  
+        file_contents: "fn blah<T>(t: T)
         where
             T: Clone,
             T: Eq
         {
             println!(\"{:?}\", t.clone());
         }
-        
+
         pub trait Foo<T> // 9
         where
             T: Clone
