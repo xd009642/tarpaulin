@@ -3,6 +3,10 @@
 From 2019 onwards, all notable changes to tarpaulin will be documented in this
 file.
 
+## [Unreleased]
+### Added
+- Filtering for other test attributes such as `#[tokio::test]`
+
 ## [0.25.1] 2023-02-26
 ### Changed
 - Improve logs for processing stripped projects with ptrace
