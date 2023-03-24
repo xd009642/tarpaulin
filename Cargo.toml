@@ -41,7 +41,7 @@ regex = "1.10"
 rustc-demangle = "0.1.24"
 serde = { version = "1.0", features = ["derive"] }
 serde_json = "1.0"
-syn = { version = "1.0", features = ["full"] }
+syn = { version = "2.0", features = ["full"] }
 toml = "0.8"
 tracing = { version = "0.1", default-features = false }
 tracing-subscriber = { version = "0.3.18", default-features = false, features = [
