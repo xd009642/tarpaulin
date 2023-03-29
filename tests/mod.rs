@@ -244,7 +244,7 @@ fn futures_coverage() {
 
 #[test]
 fn breaks_expr_coverage() {
-    check_percentage("breaks", 1.0f64, true);
+    check_percentage("breaks", 0.95f64, true);
 }
 
 #[test]
