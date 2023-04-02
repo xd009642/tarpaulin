@@ -282,8 +282,7 @@ impl SourceAnalysis {
             let s = match first_stmt {
                 Stmt::Local(l) => l.span(),
                 Stmt::Item(i) => i.span(),
-                Stmt::Expr(e) => e.span(),
-                Stmt::Semi(e, _) => e.span(),
+                Stmt::Expr(e, _) => e.span(),
             };
             if u_line != s.start().line {
                 let analysis = self.get_line_analysis(ctx.file.to_path_buf());
@@ -299,7 +298,7 @@ impl SourceAnalysis {
         } else {
             let analysis = self.get_line_analysis(ctx.file.to_path_buf());
             analysis.ignore_tokens(unsafe_expr.unsafe_token);
-            analysis.ignore_span(blk.brace_token.span);
+            analysis.ignore_span(blk.span());
         }
         res
     }

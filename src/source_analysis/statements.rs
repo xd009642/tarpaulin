@@ -10,7 +10,7 @@ impl SourceAnalysis {
         for stmt in stmts.iter() {
             let res = match stmt {
                 Stmt::Item(i) => self.process_items(&[i.clone()], ctx),
-                Stmt::Expr(i) | Stmt::Semi(i, _) => self.process_expr(i, ctx),
+                Stmt::Expr(i, _) => self.process_expr(i, ctx),
                 Stmt::Local(i) => self.process_local(i, ctx),
             };
             unreachable |= res.is_unreachable();
@@ -30,7 +30,7 @@ impl SourceAnalysis {
 
     fn process_local(&mut self, local: &Local, ctx: &Context) -> SubResult {
         let mut result = SubResult::Ok;
-        if let Some((eq, expr)) = &local.init {
+        if let Some(init) = &local.init {
             // Process if the local wasn't ignored with an attribute
             let check_cover = self.check_attr_list(&local.attrs, ctx);
             let analysis = self.get_line_analysis(ctx.file.to_path_buf());
@@ -47,16 +47,19 @@ impl SourceAnalysis {
                     if lhs.start().line != base_line {
                         analysis.logical_lines.insert(lhs.start().line, base_line);
                     }
-                    let eq = eq.span();
+                    let eq = init.eq_token.span();
                     if eq.start().line != base_line {
                         analysis.logical_lines.insert(eq.start().line, base_line);
                     }
-                    if expr.span().start().line != base_line {
+                    if init.expr.span().start().line != base_line {
                         analysis
                             .logical_lines
-                            .insert(expr.span().start().line, base_line);
+                            .insert(init.expr.span().start().line, base_line);
                     }
                     result += self.process_expr(expr, ctx);
+                    if let Some((_, expr)) = init.diverge {
+                        self.process_expr(&expr, ctx);
+                    }
                 }
             } else {
                 analysis.ignore_tokens(local);

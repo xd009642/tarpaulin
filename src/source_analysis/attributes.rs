@@ -18,21 +18,16 @@ impl SourceAnalysis {
         let mut check_cover = true;
         for attr in attrs {
             analysis.ignore_tokens(attr);
-            if let Ok(x) = attr.parse_meta() {
-                if check_cfg_attr(&x) {
+            if check_cfg_attr(&attr.meta) {
+                check_cover = false;
+            } else if attr.meta.path().is_ident("cfg") {
+                let mut skip = false;
+                attr.meta.parse_nested_meta(|meta| {
+                    skip |= meta.path.is_ident("test") && ctx.config.ignore_tests();
+                    Ok(())
+                });
+                if skip {
                     check_cover = false;
-                } else if x.path().is_ident("cfg") {
-                    if let Meta::List(ref ml) = x {
-                        let mut skip = false;
-                        for c in &ml.nested {
-                            if let NestedMeta::Meta(Meta::Path(ref i)) = c {
-                                skip |= i.is_ident("test") && ctx.config.ignore_tests();
-                            }
-                        }
-                        if skip {
-                            check_cover = false;
-                        }
-                    }
                 }
             }
             if !check_cover {
@@ -52,6 +47,7 @@ pub(crate) fn check_cfg_attr(attr: &Meta) -> bool {
     } else if id.is_ident("cfg") {
         if let Meta::List(ml) = attr {
             'outer: for p in ml.nested.iter() {
+
                 if let NestedMeta::Meta(Meta::List(ref i)) = p {
                     if i.path.is_ident("not") {
                         for n in i.nested.iter() {

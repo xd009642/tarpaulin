@@ -55,7 +55,7 @@ impl SourceAnalysis {
                 if check_cfg_attr(&x) {
                     analysis.ignore_tokens(module);
                     if let Some((ref braces, _)) = module.content {
-                        analysis.ignore_span(braces.span);
+                        analysis.ignore_span(braces.span.join());
                     }
                     check_insides = false;
                     break;
@@ -67,7 +67,7 @@ impl SourceAnalysis {
                                     check_insides = false;
                                     analysis.ignore_tokens(module.mod_token);
                                     if let Some((ref braces, _)) = module.content {
-                                        analysis.ignore_span(braces.span);
+                                        analysis.ignore_span(braces.spani.join());
                                     }
                                 }
                             }
@@ -107,7 +107,7 @@ impl SourceAnalysis {
                     test_func = true;
                 } else if id.is_ident("derive") {
                     let analysis = self.get_line_analysis(ctx.file.to_path_buf());
-                    analysis.ignore_span(attr.bracket_token.span);
+                    analysis.ignore_span(attr.span());
                 } else if id.is_ident("inline") {
                     is_inline = true;
                 } else if id.is_ident("ignore") {
@@ -128,7 +128,7 @@ impl SourceAnalysis {
             if is_inline || is_generic || force_cover {
                 let analysis = self.get_line_analysis(ctx.file.to_path_buf());
                 // We need to force cover!
-                analysis.cover_span(func.block.brace_token.span, Some(ctx.file_contents));
+                analysis.cover_span(func.block.span(), Some(ctx.file_contents));
             }
             if self
                 .process_statements(&func.block.stmts, ctx)
@@ -156,7 +156,7 @@ impl SourceAnalysis {
         let check_cover = self.check_attr_list(&trait_item.attrs, ctx);
         if check_cover {
             for item in &trait_item.items {
-                if let TraitItem::Method(ref i) = *item {
+                if let TraitItem::Fn(ref i) = *item {
                     if self.check_attr_list(&i.attrs, ctx) {
                         let item = i.clone();
                         if let Some(block) = item.default {
@@ -194,7 +194,7 @@ impl SourceAnalysis {
         let check_cover = self.check_attr_list(&impl_blk.attrs, ctx);
         if check_cover {
             for item in &impl_blk.items {
-                if let ImplItem::Method(ref i) = *item {
+                if let ImplItem::Fn(ref i) = *item {
                     let item = i.clone();
                     let item_fn = ItemFn {
                         attrs: item.attrs,
