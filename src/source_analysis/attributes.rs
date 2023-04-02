@@ -22,7 +22,7 @@ impl SourceAnalysis {
                 check_cover = false;
             } else if attr.meta.path().is_ident("cfg") {
                 let mut skip = false;
-                attr.meta.parse_nested_meta(|meta| {
+                attr.parse_nested_meta(|meta| {
                     skip |= meta.path.is_ident("test") && ctx.config.ignore_tests();
                     Ok(())
                 });
@@ -47,7 +47,6 @@ pub(crate) fn check_cfg_attr(attr: &Meta) -> bool {
     } else if id.is_ident("cfg") {
         if let Meta::List(ml) = attr {
             'outer: for p in ml.nested.iter() {
-
                 if let NestedMeta::Meta(Meta::List(ref i)) = p {
                     if i.path.is_ident("not") {
                         for n in i.nested.iter() {

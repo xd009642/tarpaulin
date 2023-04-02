@@ -61,17 +61,16 @@ impl SourceAnalysis {
                     break;
                 } else if ctx.config.ignore_tests() && x.path().is_ident("cfg") {
                     if let Meta::List(ref ml) = x {
-                        for nested in &ml.nested {
-                            if let NestedMeta::Meta(Meta::Path(ref i)) = *nested {
-                                if i.is_ident("test") {
-                                    check_insides = false;
-                                    analysis.ignore_tokens(module.mod_token);
-                                    if let Some((ref braces, _)) = module.content {
-                                        analysis.ignore_span(braces.spani.join());
-                                    }
+                        ml.parse_nested_meta(|nested| {
+                            if nested.path.is_ident("test") {
+                                check_insides = false;
+                                analysis.ignore_tokens(module.mod_token);
+                                if let Some((ref braces, _)) = module.content {
+                                    analysis.ignore_span(braces.span.join());
                                 }
                             }
-                        }
+                            Ok(())
+                        });
                     }
                 }
             }
