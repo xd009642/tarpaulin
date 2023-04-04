@@ -3,6 +3,13 @@
 From 2019 onwards, all notable changes to tarpaulin will be documented in this
 file.
 
+## [0.25.2] 2023-04-04
+### Added
+- Filtering for other test attributes such as `#[tokio::test]`
+
+### Changed
+- Update to newer faster `llvm_profparser`
+
 ## [0.25.1] 2023-02-26
 ### Changed
 - Improve logs for processing stripped projects with ptrace
