@@ -817,7 +817,7 @@ fn deduplicate_flags(flags: &str) -> String {
         static ref Z_FLAG: Regex = Regex::new(r#"\-Z\s+"#).unwrap();
     }
 
-    // Gonna remove the excess spaces to make it easier to filter things
+    // Going to remove the excess spaces to make it easier to filter things.
     let res = CFG_FLAG.replace_all(flags, "--cfg=");
     let res = C_FLAG.replace_all(&res, "-C");
     let res = Z_FLAG.replace_all(&res, "-Z");
