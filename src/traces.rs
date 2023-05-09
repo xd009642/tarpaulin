@@ -187,7 +187,7 @@ impl TraceMap {
         self.traces.is_empty()
     }
 
-    /// Provides an interator to the underlying map of PathBufs to Vec<Trace>
+    /// Provides an iterator to the underlying map of PathBufs to Vec<Trace>
     pub fn iter(&self) -> Iter<PathBuf, Vec<Trace>> {
         self.traces.iter()
     }

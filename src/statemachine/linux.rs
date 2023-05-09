@@ -328,7 +328,7 @@ impl<'a> StateData for LinuxData<'a> {
                         match self.exit_code {
                             Some(ec) if self.processes.is_empty() => return Ok(TestState::End(ec)),
                             _ => {
-                                // Process may have already been destroyed. This is just incase
+                                // Process may have already been destroyed. This is just in case
                                 Ok((
                                     TestState::wait_state(),
                                     TracerAction::TryContinue(self.parent.into()),

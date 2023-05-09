@@ -101,7 +101,7 @@ reports not the current directory
 
 ### Changed
 - Support skip-clean in config files and implement prioritisation in merges
-- Fix issue where in a workspace wih different run types the package IDs can become misaligned with test binaries
+- Fix issue where in a workspace with different run types the package IDs can become misaligned with test binaries
 
 ## [0.19.0] 2021-12-27
 ### Added
