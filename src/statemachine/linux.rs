@@ -728,7 +728,7 @@ impl<'a> LinuxData<'a> {
                         let _ = bp.jump_to(current);
                         (true, TracerAction::Continue(current.into()))
                     } else {
-                        // Don't reenable if multithreaded as can't yet sort out segfault issue
+                        // Don't re-enable if multithreaded as can't yet sort out segfault issue
                         if let Ok(x) = bp.process(current, enable) {
                             x
                         } else {
