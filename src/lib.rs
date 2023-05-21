@@ -76,12 +76,14 @@ pub fn setup_logging(color: Color, debug: bool, verbose: bool) {
     debug!("set up logging");
 }
 
-pub fn trace(configs: &[Config]) -> Result<TraceMap, RunError> {
+pub fn trace(configs: &[Config]) -> Result<(TraceMap, i32), RunError> {
     let logger = create_logger(configs);
     let mut tracemap = TraceMap::new();
     let mut ret = 0;
+    let mut fail_fast_ret = 0;
     let mut tarpaulin_result = Ok(());
     let mut bad_threshold = Ok(());
+
     for config in configs.iter() {
         if config.name == "report" {
             continue;
@@ -96,7 +98,11 @@ pub fn trace(configs: &[Config]) -> Result<TraceMap, RunError> {
 
         match launch_tarpaulin(config, &logger) {
             Ok((t, r)) => {
-                ret |= r;
+                if config.no_fail_fast {
+                    fail_fast_ret |= r;
+                } else {
+                    ret |= r;
+                }
                 if configs.len() > 1 {
                     // Otherwise threshold is a global one and we'll let the caller handle it
                     bad_threshold = check_fail_threshold(&t, config);
@@ -118,7 +124,7 @@ pub fn trace(configs: &[Config]) -> Result<TraceMap, RunError> {
         let _ = report_coverage(&configs[0], &tracemap);
         Err(bad_limit)
     } else if ret == 0 {
-        tarpaulin_result.map(|_| tracemap)
+        tarpaulin_result.map(|_| (tracemap, fail_fast_ret))
     } else {
         Err(RunError::TestFailed)
     }
@@ -181,12 +187,19 @@ pub fn run(configs: &[Config]) -> Result<(), RunError> {
             );
         }
     }
-    let tracemap = collect_tracemap(configs)?;
-    report_tracemap(configs, tracemap)
+    let (tracemap, ret) = collect_tracemap(configs)?;
+    report_tracemap(configs, tracemap)?;
+    if ret != 0 {
+        // So we had a test fail in a way where we still want to report coverage so since we've now
+        // done that we can return the test failed error.
+        Err(RunError::TestFailed)
+    } else {
+        Ok(())
+    }
 }
 
-fn collect_tracemap(configs: &[Config]) -> Result<TraceMap, RunError> {
-    let mut tracemap = trace(configs)?;
+fn collect_tracemap(configs: &[Config]) -> Result<(TraceMap, i32), RunError> {
+    let (mut tracemap, ret) = trace(configs)?;
     if !configs.is_empty() {
         // Assumption: all configs are for the same project
         for dir in get_source_walker(&configs[0]) {
@@ -194,7 +207,7 @@ fn collect_tracemap(configs: &[Config]) -> Result<TraceMap, RunError> {
         }
     }
 
-    Ok(tracemap)
+    Ok((tracemap, ret))
 }
 
 pub fn report_tracemap(configs: &[Config], tracemap: TraceMap) -> Result<(), RunError> {
@@ -251,6 +264,7 @@ pub fn launch_tarpaulin(
                 Ok(coverage) => coverage,
                 Err(run_error) => {
                     if config.no_fail_fast {
+                        return_code = 101;
                         None
                     } else {
                         return Err(run_error);
@@ -267,7 +281,18 @@ pub fn launch_tarpaulin(
             }
             if config.run_ignored {
                 let coverage =
-                    get_test_coverage(exe, &other_bins, &project_analysis, config, true, logger)?;
+                    get_test_coverage(exe, &other_bins, &project_analysis, config, true, logger);
+                let coverage = match coverage {
+                    Ok(coverage) => coverage,
+                    Err(run_error) => {
+                        if config.no_fail_fast {
+                            return_code = 101;
+                            None
+                        } else {
+                            return Err(run_error);
+                        }
+                    }
+                };
                 if let Some(res) = coverage {
                     result.merge(&res.0);
                     return_code |= res.1;
