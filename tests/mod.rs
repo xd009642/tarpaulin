@@ -662,10 +662,10 @@ fn workspace_no_fail_fast() {
     config.set_manifest(manifest);
     config.packages = vec!["bar".to_string(), "foo".to_string()];
     let result = launch_tarpaulin(&config, &None);
-    let result = result.expect("Test failed").0;
+    let (result, ret) = result.expect("Test failed");
     let files = result.files();
     assert!(files.iter().any(|f| f.ends_with("foo/src/lib.rs")));
-    assert!(!files.iter().any(|f| f.ends_with("bar/src/lib.rs")));
+    assert!(ret != 0);
 }
 
 }

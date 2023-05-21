@@ -264,6 +264,7 @@ pub fn launch_tarpaulin(
                 Ok(coverage) => coverage,
                 Err(run_error) => {
                     if config.no_fail_fast {
+                        info!("No failing fast!");
                         return_code = 101;
                         None
                     } else {

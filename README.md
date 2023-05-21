@@ -133,6 +133,22 @@ sigtrap signal to catch when the instrumentation points are hit. The
 `--forward` option results in forwarding the signals from process stops not
 caused by SIGSTOP, SIGSEGV or SIGILL to the test binary.
 
+### Nuances with LLVM Coverage
+
+Despite generally being far more accurate there are some nuances with the LLVM
+coverage instrumentation. 
+
+1. If a test has a non-zero exit code coverage data isn't returned
+2. Some areas of thread unsafety
+3. Unable to handle fork and similar syscalls (one process will overwrite anothers
+profraw file)
+
+In these cases coverage results may differ a lot between ptrace and llvm and llvm
+coverage may be a worse choice. Things like doc tests with the `should_panic`
+attribute or `--no-fail-fast` won't report any coverage because of non-zero
+exit codes and if you use these and want coverage data from them you should
+avoid the llvm coverage backend.
+
 ## Features
 
 Below is a list of features currently implemented. As Tarpaulin loads binary
