@@ -3,6 +3,10 @@
 From 2019 onwards, all notable changes to tarpaulin will be documented in this
 file.
 
+## [Unreleased]
+### Changed
+- Match `cargo test` behaviour for --no-fail-fast and report coverage when option is selected
+
 ## [0.25.2] 2023-04-04
 ### Added
 - Filtering for other test attributes such as `#[tokio::test]`
