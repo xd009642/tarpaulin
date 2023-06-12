@@ -6,6 +6,7 @@ file.
 ## [Unreleased]
 ### Changed
 - Match `cargo test` behaviour for --no-fail-fast and report coverage when option is selected
+- Simplify cargo version parsing for rust installed via distro package managers
 
 ## [0.25.2] 2023-04-04
 ### Added
