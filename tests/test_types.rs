@@ -83,7 +83,7 @@ fn all_targets_coverage() {
     let mut manifest = test_dir;
     manifest.push("Cargo.toml");
     config.set_manifest(manifest);
-    config.set_profraw_folder(PathBuf::from("only_example_coverage"));
+    config.set_profraw_folder(PathBuf::from("all_targets_coverage"));
 
     let (res, ret) = launch_tarpaulin(&config, &None).unwrap();
     assert_eq!(ret, 0);
