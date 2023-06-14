@@ -33,10 +33,10 @@ fn mix_test_types() {
 
     for f in res.files() {
         let f_name = f.file_name().unwrap().to_str().unwrap();
-        if f_name.contains("doc") {
-            assert_eq!(res.covered_in_path(f), 0);
-        } else {
+        if f_name.contains("example") || (f_name.contains("test") && !f_name.contains("doc")) {
             assert!(res.covered_in_path(f) > 0);
+        } else {
+            assert_eq!(res.covered_in_path(f), 0);
         }
     }
 }
