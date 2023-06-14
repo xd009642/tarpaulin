@@ -451,6 +451,11 @@ impl Config {
         self.profraw_folder = path;
     }
 
+    /// Sets the target dir explicitly
+    pub fn set_target_dir(&mut self, target_dir: PathBuf) {
+        self.target_dir = Some(target_dir);
+    }
+
     pub fn doctest_dir(&self) -> PathBuf {
         // https://github.com/rust-lang/rust/issues/98690
         let mut result = self.target_dir();
