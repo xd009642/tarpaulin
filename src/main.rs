@@ -90,7 +90,7 @@ fn from_args() -> ArgMatches<'static> {
                  --bench [NAME]... 'Test only the specified bench target'
                  --benches 'Test all benches'
                  --doc 'Test only this library's documentation'
-                 --all-targets 'Test all targets'
+                 --all-targets 'Test all targets (excluding doctests)'
                  --no-fail-fast 'Run all tests regardless of failure'
                  --profile [NAME] 'Build artefacts with the specified profile'
                  --debug 'Show debug output - this is used for diagnosing issues with tarpaulin'

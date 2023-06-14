@@ -50,8 +50,6 @@ pub struct Config {
     /// The opposite of --force-clean
     #[serde(rename = "skip-clean")]
     skip_clean: bool,
-    #[serde(rename = "all-targets")]
-    pub all_targets: bool,
     /// Verbose flag for printing information to the user
     pub verbose: bool,
     /// Debug flag for printing internal debugging information to the user
@@ -207,7 +205,6 @@ impl Default for Config {
             config: None,
             root: Default::default(),
             run_ignored: false,
-            all_targets: false,
             ignore_tests: true,
             include_tests: false,
             ignore_panics: false,
@@ -311,7 +308,6 @@ impl<'a> From<&'a ArgMatches<'a>> for ConfigWrapper {
             force_clean,
             skip_clean: !force_clean,
             no_fail_fast: args.is_present("no-fail-fast"),
-            all_targets: args.is_present("all-targets"),
             follow_exec: args.is_present("follow-exec"),
             verbose,
             debug,
@@ -620,7 +616,6 @@ impl Config {
         self.count |= other.count;
         self.all_features |= other.all_features;
         self.implicit_test_threads |= other.implicit_test_threads;
-        self.all_targets |= other.all_targets;
         self.line_coverage |= other.line_coverage;
         self.branch_coverage |= other.branch_coverage;
         self.dump_traces |= other.dump_traces;
@@ -1338,7 +1333,6 @@ mod tests {
         assert!(config.debug);
         assert!(config.verbose);
         assert!(config.dump_traces);
-        assert!(config.all_targets);
         assert!(config.ignore_panics);
         assert!(config.count);
         assert!(config.run_ignored);
