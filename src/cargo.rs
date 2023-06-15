@@ -592,9 +592,6 @@ fn init_args(test_cmd: &mut Command, config: &Config) {
         test_cmd.arg("--features");
         test_cmd.arg(features);
     }
-    if config.all_targets {
-        test_cmd.arg("--all-targets");
-    }
     if config.all_features {
         test_cmd.arg("--all-features");
     }
