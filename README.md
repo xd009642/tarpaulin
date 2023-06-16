@@ -27,7 +27,7 @@ Below is the help-text for a thorough explanation of the flags and features
 available:
 
 ```
-cargo-tarpaulin version: 0.25.2
+cargo-tarpaulin version: 0.26.0
 Tool to analyse test coverage of cargo projects
 
 USAGE:
@@ -36,7 +36,7 @@ USAGE:
 FLAGS:
         --all                      Alias for --workspace (deprecated)
         --all-features             Build all available features
-        --all-targets              Test all targets
+        --all-targets              Test all targets (excluding doctests)
         --avoid-cfg-tarpaulin      Remove --cfg=tarpaulin from the RUSTFLAG
         --benches                  Test all benches
         --bins                     Test all binaries

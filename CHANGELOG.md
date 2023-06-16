@@ -3,7 +3,7 @@
 From 2019 onwards, all notable changes to tarpaulin will be documented in this
 file.
 
-## [Unreleased]
+## [0.26.0] 2023-06-16
 ### Changed
 - Match `cargo test` behaviour for --no-fail-fast and report coverage when option is selected
 - Simplify cargo version parsing for rust installed via distro package managers
