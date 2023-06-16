@@ -8,6 +8,9 @@ file.
 - Match `cargo test` behaviour for --no-fail-fast and report coverage when option is selected
 - Simplify cargo version parsing for rust installed via distro package managers
 
+### Removed
+- Unused utility methods on json report type
+
 ### Fixed
 - Fix handling of `--all-targets` flag
 
