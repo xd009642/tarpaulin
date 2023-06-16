@@ -98,7 +98,7 @@ impl Breakpoint {
         }
     }
 
-    /// Call this when a ptrace thread is killed. Won't reenable the breakpoint
+    /// Call this when a ptrace thread is killed. Won't re-enable the breakpoint
     /// so may lose the ability to instrument this line.
     pub fn thread_killed(&mut self, pid: Pid) {
         self.is_running.remove(&pid);

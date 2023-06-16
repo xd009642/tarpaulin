@@ -31,9 +31,6 @@ struct CargoVersionInfo {
     major: usize,
     minor: usize,
     channel: Channel,
-    year: usize,
-    month: usize,
-    day: usize,
 }
 
 impl CargoVersionInfo {
@@ -174,7 +171,7 @@ impl DocTestBinaryMeta {
 lazy_static! {
     static ref CARGO_VERSION_INFO: Option<CargoVersionInfo> = {
         let version_info = Regex::new(
-            r"cargo (\d)\.(\d+)\.\d+([\-betanightly]*)(\.[[:alnum:]]+)? \([[:alnum:]]+ (\d{4})-(\d{2})-(\d{2})\)",
+            r"cargo (\d)\.(\d+)\.\d+([\-betanightly]*)(\.[[:alnum:]]+)?",
         )
         .unwrap();
         Command::new("cargo")
@@ -192,16 +189,10 @@ lazy_static! {
                         "-beta" => Channel::Beta,
                         _ => Channel::Stable,
                     };
-                    let year = cap[5].parse().unwrap();
-                    let month = cap[6].parse().unwrap();
-                    let day = cap[7].parse().unwrap();
                     Some(CargoVersionInfo {
                         major,
                         minor,
                         channel,
-                        year,
-                        month,
-                        day,
                     })
                 } else {
                     None
@@ -601,9 +592,6 @@ fn init_args(test_cmd: &mut Command, config: &Config) {
         test_cmd.arg("--features");
         test_cmd.arg(features);
     }
-    if config.all_targets {
-        test_cmd.arg("--all-targets");
-    }
     if config.all_features {
         test_cmd.arg("--all-features");
     }
@@ -817,7 +805,7 @@ fn deduplicate_flags(flags: &str) -> String {
         static ref Z_FLAG: Regex = Regex::new(r#"\-Z\s+"#).unwrap();
     }
 
-    // Gonna remove the excess spaces to make it easier to filter things
+    // Going to remove the excess spaces to make it easier to filter things.
     let res = CFG_FLAG.replace_all(flags, "--cfg=");
     let res = C_FLAG.replace_all(&res, "-C");
     let res = Z_FLAG.replace_all(&res, "-Z");
@@ -917,18 +905,12 @@ mod tests {
             major: 1,
             minor: 50,
             channel: Channel::Nightly,
-            year: 2020,
-            month: 12,
-            day: 22,
         };
         assert!(version.supports_llvm_cov());
         let version = CargoVersionInfo {
             major: 1,
             minor: 60,
             channel: Channel::Stable,
-            year: 2022,
-            month: 04,
-            day: 7,
         };
         assert!(version.supports_llvm_cov());
     }
@@ -939,9 +921,6 @@ mod tests {
             major: 1,
             minor: 48,
             channel: Channel::Stable,
-            year: 2020,
-            month: 10,
-            day: 14,
         };
         assert!(!version.supports_llvm_cov());
         version.channel = Channel::Beta;

@@ -328,7 +328,7 @@ impl<'a> StateData for LinuxData<'a> {
                         match self.exit_code {
                             Some(ec) if self.processes.is_empty() => return Ok(TestState::End(ec)),
                             _ => {
-                                // Process may have already been destroyed. This is just incase
+                                // Process may have already been destroyed. This is just in case
                                 Ok((
                                     TestState::wait_state(),
                                     TracerAction::TryContinue(self.parent.into()),
@@ -728,7 +728,7 @@ impl<'a> LinuxData<'a> {
                         let _ = bp.jump_to(current);
                         (true, TracerAction::Continue(current.into()))
                     } else {
-                        // Don't reenable if multithreaded as can't yet sort out segfault issue
+                        // Don't re-enable if multithreaded as can't yet sort out segfault issue
                         if let Ok(x) = bp.process(current, enable) {
                             x
                         } else {

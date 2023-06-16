@@ -23,9 +23,12 @@ fn mix_test_types() {
     let restore_dir = env::current_dir().unwrap();
     let test_dir = get_test_path("all_test_types");
     env::set_current_dir(&test_dir).unwrap();
-    let mut manifest = test_dir;
+    let mut manifest = test_dir.clone();
     manifest.push("Cargo.toml");
     config.set_manifest(manifest);
+    let mut target = test_dir;
+    target.push("mix_target");
+    config.set_target_dir(target);
 
     let (res, ret) = launch_tarpaulin(&config, &None).unwrap();
     assert_eq!(ret, 0);
@@ -51,9 +54,12 @@ fn only_test_coverage() {
     let restore_dir = env::current_dir().unwrap();
     let test_dir = get_test_path("all_test_types");
     env::set_current_dir(&test_dir).unwrap();
-    let mut manifest = test_dir;
+    let mut manifest = test_dir.clone();
     manifest.push("Cargo.toml");
     config.set_manifest(manifest);
+    let mut target = test_dir;
+    target.push("only_test_target");
+    config.set_target_dir(target);
     config.set_profraw_folder(PathBuf::from("only_test_coverage"));
 
     let (res, ret) = launch_tarpaulin(&config, &None).unwrap();
@@ -71,6 +77,39 @@ fn only_test_coverage() {
 }
 
 #[test]
+fn all_targets_coverage() {
+    setup_logging(Color::Never, false, false);
+    let mut config = Config::default();
+    config.set_clean(false);
+    config.test_timeout = Duration::from_secs(60);
+    config.run_types = vec![RunType::AllTargets];
+    let restore_dir = env::current_dir().unwrap();
+    let test_dir = get_test_path("all_test_types");
+    env::set_current_dir(&test_dir).unwrap();
+    let mut manifest = test_dir.clone();
+    manifest.push("Cargo.toml");
+    config.set_manifest(manifest);
+    let mut target = test_dir;
+    target.push("all_target");
+    config.set_target_dir(target);
+    config.set_profraw_folder(PathBuf::from("all_targets_coverage"));
+
+    let (res, ret) = launch_tarpaulin(&config, &None).unwrap();
+    assert_eq!(ret, 0);
+    env::set_current_dir(restore_dir).unwrap();
+
+    for f in res.files() {
+        let f_name = f.file_name().unwrap().to_str().unwrap();
+        if f_name.contains("doc") {
+            assert_eq!(res.covered_in_path(f), 0);
+        } else {
+            assert!(res.covered_in_path(f) > 0);
+        }
+    }
+}
+
+
+#[test]
 fn only_example_coverage() {
     setup_logging(Color::Never, false, false);
     let mut config = Config::default();
@@ -80,9 +119,12 @@ fn only_example_coverage() {
     let restore_dir = env::current_dir().unwrap();
     let test_dir = get_test_path("all_test_types");
     env::set_current_dir(&test_dir).unwrap();
-    let mut manifest = test_dir;
+    let mut manifest = test_dir.clone();
     manifest.push("Cargo.toml");
     config.set_manifest(manifest);
+    let mut target = test_dir;
+    target.push("example_target");
+    config.set_target_dir(target);
     config.set_profraw_folder(PathBuf::from("only_example_coverage"));
 
     let (res, ret) = launch_tarpaulin(&config, &None).unwrap();
@@ -110,9 +152,12 @@ fn only_bench_coverage() {
     let restore_dir = env::current_dir().unwrap();
     let test_dir = get_test_path("all_test_types");
     env::set_current_dir(&test_dir).unwrap();
-    let mut manifest = test_dir;
+    let mut manifest = test_dir.clone();
     manifest.push("Cargo.toml");
     config.set_manifest(manifest);
+    let mut target = test_dir;
+    target.push("bench_target");
+    config.set_target_dir(target);
     config.set_profraw_folder(PathBuf::from("only_bench_coverage"));
 
     let (res, ret) = launch_tarpaulin(&config, &None).unwrap();
@@ -140,9 +185,12 @@ fn only_doctest_coverage() {
     let restore_dir = env::current_dir().unwrap();
     let test_dir = get_test_path("all_test_types");
     env::set_current_dir(&test_dir).unwrap();
-    let mut manifest = test_dir;
+    let mut manifest = test_dir.clone();
     manifest.push("Cargo.toml");
     config.set_manifest(manifest);
+    let mut target = test_dir;
+    target.push("doc_target");
+    config.set_target_dir(target);
     config.set_profraw_folder(PathBuf::from("only_doctest_coverage"));
 
     let (res, ret) = launch_tarpaulin(&config, &None).unwrap();

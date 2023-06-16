@@ -1,12 +1,9 @@
-use std::convert::From;
-use std::{fs, io::Write};
-
 use crate::config::Config;
 use crate::errors::*;
 use crate::traces::{Trace, TraceMap};
-use std::slice::Iter;
-
 use serde::Serialize;
+use std::convert::From;
+use std::{fs, io::Write};
 
 #[derive(Serialize)]
 struct SourceFile {
@@ -20,20 +17,6 @@ struct SourceFile {
 #[derive(Serialize)]
 pub struct CoverageReport {
     files: Vec<SourceFile>,
-}
-
-impl CoverageReport {
-    fn iter(&self) -> Iter<SourceFile> {
-        self.files.iter()
-    }
-
-    pub fn covered(&self) -> Vec<usize> {
-        self.iter().map(|r| r.covered).collect()
-    }
-
-    pub fn coverable(&self) -> Vec<usize> {
-        self.iter().map(|r| r.coverable).collect()
-    }
 }
 
 impl From<&TraceMap> for Vec<SourceFile> {

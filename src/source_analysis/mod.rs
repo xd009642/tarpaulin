@@ -391,7 +391,7 @@ impl SourceAnalysis {
     }
 
     /// Finds lines from the raw string which are ignorable.
-    /// These are often things like close braces, semi colons that may regiser as
+    /// These are often things like close braces, semicolons that may register as
     /// false positives.
     fn find_ignorable_lines(&mut self, ctx: &Context) {
         lazy_static! {

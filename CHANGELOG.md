@@ -3,6 +3,17 @@
 From 2019 onwards, all notable changes to tarpaulin will be documented in this
 file.
 
+## [0.26.0] 2023-06-16
+### Changed
+- Match `cargo test` behaviour for --no-fail-fast and report coverage when option is selected
+- Simplify cargo version parsing for rust installed via distro package managers
+
+### Removed
+- Unused utility methods on json report type
+
+### Fixed
+- Fix handling of `--all-targets` flag
+
 ## [0.25.2] 2023-04-04
 ### Added
 - Filtering for other test attributes such as `#[tokio::test]`
@@ -101,7 +112,7 @@ reports not the current directory
 
 ### Changed
 - Support skip-clean in config files and implement prioritisation in merges
-- Fix issue where in a workspace wih different run types the package IDs can become misaligned with test binaries
+- Fix issue where in a workspace with different run types the package IDs can become misaligned with test binaries
 
 ## [0.19.0] 2021-12-27
 ### Added
