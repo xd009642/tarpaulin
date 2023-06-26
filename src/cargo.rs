@@ -883,6 +883,7 @@ mod tests {
         let list_flags = toml! {
             rustflags = ["--cfg=foo", "--cfg=bar"]
         };
+        let list_flags = toml::Value::Table(list_flags);
 
         assert_eq!(
             look_for_field_in_table(&list_flags, "rustflags"),
@@ -892,6 +893,7 @@ mod tests {
         let string_flags = toml! {
             rustflags = "--cfg=bar --cfg=baz"
         };
+        let string_flags = toml::Value::Table(string_flags);
 
         assert_eq!(
             look_for_field_in_table(&string_flags, "rustflags"),

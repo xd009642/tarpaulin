@@ -11,8 +11,8 @@ use serde::{Deserialize, Serialize};
 use std::cell::{Ref, RefCell};
 use std::collections::HashSet;
 use std::env;
-use std::fs::File;
-use std::io::{Error, ErrorKind, Read};
+use std::fs;
+use std::io::{Error, ErrorKind};
 use std::path::{Path, PathBuf};
 use std::time::Duration;
 use tracing::{error, info, warn};
@@ -557,9 +557,7 @@ impl Config {
     }
 
     pub fn load_config_file<P: AsRef<Path>>(file: P) -> std::io::Result<Vec<Self>> {
-        let mut f = File::open(file.as_ref())?;
-        let mut buffer = Vec::new();
-        f.read_to_end(&mut buffer)?;
+        let buffer = fs::read_to_string(file.as_ref())?;
         let mut res = Self::parse_config_toml(&buffer);
         let parent = match file.as_ref().parent() {
             Some(p) => p.to_path_buf(),
@@ -583,8 +581,8 @@ impl Config {
         res
     }
 
-    pub fn parse_config_toml(buffer: &[u8]) -> std::io::Result<Vec<Self>> {
-        let mut map: IndexMap<String, Self> = toml::from_slice(buffer).map_err(|e| {
+    pub fn parse_config_toml(buffer: &str) -> std::io::Result<Vec<Self>> {
+        let mut map: IndexMap<String, Self> = toml::from_str(buffer).map_err(|e| {
             error!("Invalid config file {}", e);
             Error::new(ErrorKind::InvalidData, format!("{e}"))
         })?;
@@ -1055,7 +1053,7 @@ mod tests {
         [other]
         run-types = [\"Doctests\", \"Tests\"]";
 
-        let configs = Config::parse_config_toml(toml.as_bytes()).unwrap();
+        let configs = Config::parse_config_toml(toml).unwrap();
         assert_eq!(configs.len(), 2);
         for c in &configs {
             if c.name == "global" {
@@ -1077,7 +1075,7 @@ mod tests {
         exclude-files = ["foo.rs"]
         "#;
 
-        let mut configs = Config::parse_config_toml(toml.as_bytes()).unwrap();
+        let mut configs = Config::parse_config_toml(toml).unwrap();
         let mut config = configs.remove(0);
         config.merge(&configs[0]);
         assert!(config.excluded_files_raw.contains(&"target/*".to_string()));
@@ -1093,9 +1091,9 @@ mod tests {
         let toml_b = r#"target = "wasm32-unknown-unknown""#;
         let toml_c = r#"target = "x86_64-linux-gnu""#;
 
-        let mut a: Config = toml::from_slice(toml_a.as_bytes()).unwrap();
-        let mut b: Config = toml::from_slice(toml_b.as_bytes()).unwrap();
-        let c: Config = toml::from_slice(toml_c.as_bytes()).unwrap();
+        let mut a: Config = toml::from_str(toml_a).unwrap();
+        let mut b: Config = toml::from_str(toml_b).unwrap();
+        let c: Config = toml::from_str(toml_c).unwrap();
 
         assert_eq!(a.target, None);
         assert_eq!(b.target, Some(String::from("wasm32-unknown-unknown")));
@@ -1113,8 +1111,8 @@ mod tests {
         let toml_a = r#"workspace = false"#;
         let toml_b = r#"workspace = true"#;
 
-        let mut a: Config = toml::from_slice(toml_a.as_bytes()).unwrap();
-        let b: Config = toml::from_slice(toml_b.as_bytes()).unwrap();
+        let mut a: Config = toml::from_str(toml_a).unwrap();
+        let b: Config = toml::from_str(toml_b).unwrap();
 
         assert!(!a.all);
         assert!(b.all);
@@ -1129,9 +1127,9 @@ mod tests {
         let toml_b = r#"packages = ["a"]"#;
         let toml_c = r#"packages = ["b", "a"]"#;
 
-        let mut a: Config = toml::from_slice(toml_a.as_bytes()).unwrap();
-        let mut b: Config = toml::from_slice(toml_b.as_bytes()).unwrap();
-        let c: Config = toml::from_slice(toml_c.as_bytes()).unwrap();
+        let mut a: Config = toml::from_str(toml_a).unwrap();
+        let mut b: Config = toml::from_str(toml_b).unwrap();
+        let c: Config = toml::from_str(toml_c).unwrap();
 
         assert_eq!(a.packages, Vec::<String>::new());
         assert_eq!(b.packages, vec![String::from("a")]);
@@ -1153,9 +1151,9 @@ mod tests {
         let toml_c = r#"packages = ["b", "a"]
                         exclude = ["c"]"#;
 
-        let mut a: Config = toml::from_slice(toml_a.as_bytes()).unwrap();
-        let mut b: Config = toml::from_slice(toml_b.as_bytes()).unwrap();
-        let c: Config = toml::from_slice(toml_c.as_bytes()).unwrap();
+        let mut a: Config = toml::from_str(toml_a).unwrap();
+        let mut b: Config = toml::from_str(toml_b).unwrap();
+        let c: Config = toml::from_str(toml_c).unwrap();
 
         assert_eq!(a.exclude, vec![String::from("a")]);
         assert_eq!(b.exclude, vec![String::from("b")]);
@@ -1181,7 +1179,7 @@ mod tests {
         ciserver = "coveralls-ruby"
         "#;
 
-        let configs = Config::parse_config_toml(toml.as_bytes()).unwrap();
+        let configs = Config::parse_config_toml(toml).unwrap();
         let mut a_config = configs.iter().find(|x| x.name == "a").unwrap().clone();
         let b_config = configs.iter().find(|x| x.name == "b").unwrap();
         a_config.merge(b_config);
@@ -1226,7 +1224,7 @@ mod tests {
             }
         }
 
-        let configs = Config::parse_config_toml(toml.as_bytes()).unwrap();
+        let configs = Config::parse_config_toml(toml).unwrap();
         let has_dir = configs
             .iter()
             .find(|x| x.name == "has_dir")
@@ -1266,7 +1264,7 @@ mod tests {
         rustflags = "bar"
         "#;
 
-        let configs = Config::parse_config_toml(toml.as_bytes()).unwrap();
+        let configs = Config::parse_config_toml(toml).unwrap();
         let flag1 = configs.iter().find(|x| x.name == "flag1").unwrap().clone();
         let flag2 = configs.iter().find(|x| x.name == "flag2").unwrap().clone();
         let noflags = Config::default();
@@ -1332,7 +1330,7 @@ mod tests {
         dump-traces = true
         all-targets = true
         "#;
-        let mut configs = Config::parse_config_toml(toml.as_bytes()).unwrap();
+        let mut configs = Config::parse_config_toml(toml).unwrap();
         assert_eq!(configs.len(), 1);
         let config = configs.remove(0);
         assert!(config.debug);
