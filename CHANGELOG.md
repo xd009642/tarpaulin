@@ -3,6 +3,10 @@
 From 2019 onwards, all notable changes to tarpaulin will be documented in this
 file.
 
+## [Unreleased]
+### Changed
+- Expand doc test prefix to cover more of the directory tree to work with the new naming structure
+
 ## [0.26.0] 2023-06-16
 ### Changed
 - Match `cargo test` behaviour for --no-fail-fast and report coverage when option is selected

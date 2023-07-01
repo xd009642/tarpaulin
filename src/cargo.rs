@@ -417,11 +417,7 @@ fn convert_to_prefix(p: &Path) -> Option<String> {
     let mut buffer = vec![convert_name(p)];
     let mut parent = p.parent();
     while let Some(path_temp) = parent {
-        if !path_temp.join("Cargo.toml").exists() {
-            buffer.insert(0, convert_name(path_temp));
-        } else {
-            break;
-        }
+        buffer.insert(0, convert_name(path_temp));
         parent = path_temp.parent();
     }
     if buffer.is_empty() {
@@ -446,6 +442,10 @@ fn is_prefix_match(prefix: &str, entry: &Path) -> bool {
 /// each name could potentially map to many files as `src_some_folder_foo_rs_1_1` could go to
 /// `src/some/folder_foo.rs` or `src/some/folder/foo.rs` here we're going to work on a heuristic
 /// that any matching file is good because we can't do any better
+///
+/// As of some point in June 2023 the naming convention has changed to include the package name in
+/// the generated name which reduces collisions. Before it was done relative to the workspace
+/// package folder not the workspace root.
 fn get_attribute_candidates(
     tests: &[DirEntry],
     config: &Config,
