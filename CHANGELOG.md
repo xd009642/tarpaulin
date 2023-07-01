@@ -6,6 +6,7 @@ file.
 ## [Unreleased]
 ### Changed
 - Expand doc test prefix to cover more of the directory tree to work with the new naming structure
+- Handle -A -W and -D flags in the RUSTFLAGS deduplication
 
 ## [0.26.0] 2023-06-16
 ### Changed

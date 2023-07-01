@@ -803,12 +803,18 @@ fn deduplicate_flags(flags: &str) -> String {
         static ref CFG_FLAG: Regex = Regex::new(r#"\--cfg\s+"#).unwrap();
         static ref C_FLAG: Regex = Regex::new(r#"\-C\s+"#).unwrap();
         static ref Z_FLAG: Regex = Regex::new(r#"\-Z\s+"#).unwrap();
+        static ref W_FLAG: Regex = Regex::new(r#"\-W\s+"#).unwrap();
+        static ref A_FLAG: Regex = Regex::new(r#"\-A\s+"#).unwrap();
+        static ref D_FLAG: Regex = Regex::new(r#"\-D\s+"#).unwrap();
     }
 
     // Going to remove the excess spaces to make it easier to filter things.
     let res = CFG_FLAG.replace_all(flags, "--cfg=");
     let res = C_FLAG.replace_all(&res, "-C");
     let res = Z_FLAG.replace_all(&res, "-Z");
+    let res = W_FLAG.replace_all(&res, "-W");
+    let res = A_FLAG.replace_all(&res, "-A");
+    let res = D_FLAG.replace_all(&res, "-D");
 
     let mut flag_set = HashSet::new();
     let mut result = vec![];
