@@ -668,4 +668,9 @@ fn workspace_no_fail_fast() {
     assert!(ret != 0);
 }
 
+#[test]
+fn warning_flags_in_config() {
+    check_percentage("config_warnings", 1.0f64, true);
+}
+
 }

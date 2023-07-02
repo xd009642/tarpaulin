@@ -417,11 +417,7 @@ fn convert_to_prefix(p: &Path) -> Option<String> {
     let mut buffer = vec![convert_name(p)];
     let mut parent = p.parent();
     while let Some(path_temp) = parent {
-        if !path_temp.join("Cargo.toml").exists() {
-            buffer.insert(0, convert_name(path_temp));
-        } else {
-            break;
-        }
+        buffer.insert(0, convert_name(path_temp));
         parent = path_temp.parent();
     }
     if buffer.is_empty() {
@@ -446,6 +442,10 @@ fn is_prefix_match(prefix: &str, entry: &Path) -> bool {
 /// each name could potentially map to many files as `src_some_folder_foo_rs_1_1` could go to
 /// `src/some/folder_foo.rs` or `src/some/folder/foo.rs` here we're going to work on a heuristic
 /// that any matching file is good because we can't do any better
+///
+/// As of some point in June 2023 the naming convention has changed to include the package name in
+/// the generated name which reduces collisions. Before it was done relative to the workspace
+/// package folder not the workspace root.
 fn get_attribute_candidates(
     tests: &[DirEntry],
     config: &Config,
@@ -803,12 +803,18 @@ fn deduplicate_flags(flags: &str) -> String {
         static ref CFG_FLAG: Regex = Regex::new(r#"\--cfg\s+"#).unwrap();
         static ref C_FLAG: Regex = Regex::new(r#"\-C\s+"#).unwrap();
         static ref Z_FLAG: Regex = Regex::new(r#"\-Z\s+"#).unwrap();
+        static ref W_FLAG: Regex = Regex::new(r#"\-W\s+"#).unwrap();
+        static ref A_FLAG: Regex = Regex::new(r#"\-A\s+"#).unwrap();
+        static ref D_FLAG: Regex = Regex::new(r#"\-D\s+"#).unwrap();
     }
 
     // Going to remove the excess spaces to make it easier to filter things.
     let res = CFG_FLAG.replace_all(flags, "--cfg=");
     let res = C_FLAG.replace_all(&res, "-C");
     let res = Z_FLAG.replace_all(&res, "-Z");
+    let res = W_FLAG.replace_all(&res, "-W");
+    let res = A_FLAG.replace_all(&res, "-A");
+    let res = D_FLAG.replace_all(&res, "-D");
 
     let mut flag_set = HashSet::new();
     let mut result = vec![];
@@ -883,6 +889,7 @@ mod tests {
         let list_flags = toml! {
             rustflags = ["--cfg=foo", "--cfg=bar"]
         };
+        let list_flags = toml::Value::Table(list_flags);
 
         assert_eq!(
             look_for_field_in_table(&list_flags, "rustflags"),
@@ -892,6 +899,7 @@ mod tests {
         let string_flags = toml! {
             rustflags = "--cfg=bar --cfg=baz"
         };
+        let string_flags = toml::Value::Table(string_flags);
 
         assert_eq!(
             look_for_field_in_table(&string_flags, "rustflags"),

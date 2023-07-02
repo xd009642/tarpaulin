@@ -1516,3 +1516,37 @@ fn visit_generics() {
     assert!(lines.ignore.contains(&Lines::Line(19)));
     assert!(lines.ignore.contains(&Lines::Line(20)));
 }
+
+#[test]
+fn ignore_comment() {
+    let config = Config::default();
+    let ctx = Context {
+        config: &config,
+        file_contents: "/// I am a doc comment
+        fn foo() -> u32 {
+            let x = 5;
+            // I should be ignored
+            // and me as well
+            x * 2
+        }
+        
+        fn blah() 
+        {
+
+        }",
+        file: Path::new(""),
+        ignore_mods: RefCell::new(HashSet::new()),
+    };
+    let mut analysis = SourceAnalysis::new();
+    analysis.find_ignorable_lines(&ctx);
+    let lines = &analysis.lines[Path::new("")];
+    assert_eq!(lines.ignore.len(), 8);
+    assert!(lines.ignore.contains(&Lines::Line(1)));
+    assert!(lines.ignore.contains(&Lines::Line(4)));
+    assert!(lines.ignore.contains(&Lines::Line(5)));
+    assert!(lines.ignore.contains(&Lines::Line(7)));
+    assert!(lines.ignore.contains(&Lines::Line(8)));
+    assert!(lines.ignore.contains(&Lines::Line(10)));
+    assert!(lines.ignore.contains(&Lines::Line(11)));
+    assert!(lines.ignore.contains(&Lines::Line(12)));
+}

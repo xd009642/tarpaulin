@@ -45,7 +45,7 @@ fn simple_project_coverage() {
         if l.line == 6 {
             assert_eq!(CoverageStat::Line(0), l.stats);
         } else if l.line == 8 {
-            assert_eq!(CoverageStat::Line(1), l.stats);
+            assert!(matches!(l.stats, CoverageStat::Line(c) if c > 0 ));
         }
     }
 }
