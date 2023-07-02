@@ -443,6 +443,7 @@ impl SourceAnalysis {
 
     /// Printout a debug summary of the results of source analysis if debug logging
     /// is enabled
+    #[cfg(not(tarpaulin_include))]
     pub fn debug_printout(&self, config: &Config) {
         if config.debug {
             for (path, analysis) in &self.lines {
