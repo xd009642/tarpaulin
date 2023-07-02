@@ -58,6 +58,20 @@ pub struct LineAnalysis {
     max_line: usize,
 }
 
+/// Provides context to the source analysis stage including the tarpaulin
+/// config and the source code being analysed.
+pub(crate) struct Context<'a> {
+    /// Program config
+    config: &'a Config,
+    /// Contents of the source file
+    file_contents: &'a str,
+    /// path to the file being analysed
+    file: &'a Path,
+    /// Other parts of context are immutable like tarpaulin config and users
+    /// source code. This is discovered during hence use of interior mutability
+    ignore_mods: RefCell<HashSet<PathBuf>>,
+}
+
 /// When the `LineAnalysis` results are mapped to their files there needs to be
 /// an easy way to get the information back. For the container used implement
 /// this trait
@@ -393,10 +407,10 @@ impl SourceAnalysis {
     /// Finds lines from the raw string which are ignorable.
     /// These are often things like close braces, semicolons that may register as
     /// false positives.
-    fn find_ignorable_lines(&mut self, ctx: &Context) {
+    pub(crate) fn find_ignorable_lines(&mut self, ctx: &Context) {
         lazy_static! {
             static ref IGNORABLE: Regex =
-                Regex::new(r"^((\s*///)|([\[\]\{\}\(\)\s;\?,/]*$))").unwrap();
+                Regex::new(r"^((\s*//)|([\[\]\{\}\(\)\s;\?,/]*$))").unwrap();
         }
         let analysis = self.get_line_analysis(ctx.file.to_path_buf());
         let lines = ctx
@@ -429,6 +443,7 @@ impl SourceAnalysis {
 
     /// Printout a debug summary of the results of source analysis if debug logging
     /// is enabled
+    #[cfg(not(tarpaulin_include))]
     pub fn debug_printout(&self, config: &Config) {
         if config.debug {
             for (path, analysis) in &self.lines {
@@ -485,18 +500,4 @@ fn maybe_ignore_first_line(file: &Path, result: &mut HashMap<PathBuf, LineAnalys
             }
         }
     }
-}
-
-/// Provides context to the source analysis stage including the tarpaulin
-/// config and the source code being analysed.
-pub(crate) struct Context<'a> {
-    /// Program config
-    config: &'a Config,
-    /// Contents of the source file
-    file_contents: &'a str,
-    /// path to the file being analysed
-    file: &'a Path,
-    /// Other parts of context are immutable like tarpaulin config and users
-    /// source code. This is discovered during hence use of interior mutability
-    ignore_mods: RefCell<HashSet<PathBuf>>,
 }
