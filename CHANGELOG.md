@@ -3,7 +3,7 @@
 From 2019 onwards, all notable changes to tarpaulin will be documented in this
 file.
 
-## [Unreleased]
+## [0.26.1] 2023-07-02
 ### Changed
 - Expand doc test prefix to cover more of the directory tree to work with the new naming structure
 - Handle -A -W and -D flags in the RUSTFLAGS deduplication
