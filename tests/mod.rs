@@ -145,7 +145,7 @@ pub fn check_percentage_with_config(
 
 pub fn check_percentage(project_name: &str, minimum_coverage: f64, has_lines: bool) -> TraceMap {
     let mut config = Config::default();
-    config.set_ignore_tests(false);
+    config.set_include_tests(true);
     config.set_clean(false);
     check_percentage_with_config(project_name, minimum_coverage, has_lines, config)
 }
@@ -198,7 +198,7 @@ fn llvm_sanity_test() {
     let mut config = Config::default();
     config.set_engine(TraceEngine::Llvm);
     config.follow_exec = true;
-    config.set_ignore_tests(false);
+    config.set_include_tests(true);
     config.set_clean(false);
 
     check_percentage_with_config("structs", 1.0f64, true, config.clone());
@@ -335,7 +335,7 @@ fn examples_coverage() {
     let mut config = Config::default();
     config.run_types = vec![RunType::Examples];
     config.set_clean(false);
-    config.set_ignore_tests(false);
+    config.set_include_tests(true);
     check_percentage_with_config(test, 1.0f64, true, config.clone());
 
     config.run_types.clear();
@@ -442,7 +442,7 @@ fn handle_module_level_exclude_attrs() {
 fn handle_forks() {
     let mut config = Config::default();
     config.set_clean(false);
-    config.set_ignore_tests(false);
+    config.set_include_tests(true);
     config.post_test_delay = Some(Duration::from_secs(10));
     // Some false negatives on more recent compilers so lets just aim for >90% and 0 return code
     check_percentage_with_config("fork-test", 0.85f64, true, config);
@@ -466,7 +466,7 @@ fn dot_rs_in_dir_name() {
     // issue #857
     let mut config = Config::default();
     config.set_clean(false);
-    config.set_ignore_tests(false);
+    config.set_include_tests(true);
 
     let restore_dir = env::current_dir().unwrap();
     let test_dir = get_test_path("not_a_file.rs");
@@ -497,7 +497,7 @@ fn kill_used_in_test() {
 
     config.follow_exec = true;
     config.set_clean(false);
-    config.set_ignore_tests(false);
+    config.set_include_tests(true);
     // Currently 2 false negatives, but if it was only covering the integration test max coverage
     // is 75% so this is high enough to prove it works
     check_percentage_with_config("kill_proc", 0.9f64, true, config);
@@ -532,7 +532,7 @@ fn sanitised_paths() {
     let report_dir = test_dir.join("reports");
     let mut config = Config::default();
     config.set_engine(TraceEngine::Llvm);
-    config.set_ignore_tests(false);
+    config.set_include_tests(true);
     config.set_clean(false);
     config.generate.push(OutputFile::Lcov);
     config.generate.push(OutputFile::Html);
@@ -584,7 +584,7 @@ fn output_dir_workspace() {
     let report_dir = test_dir.join("reports");
     let mut config = Config::default();
     config.set_engine(TraceEngine::Llvm);
-    config.set_ignore_tests(false);
+    config.set_include_tests(true);
     config.set_clean(false);
     config.dump_traces = true;
     config.generate.push(OutputFile::Lcov);
@@ -652,7 +652,7 @@ fn stripped_crate() {
 fn workspace_no_fail_fast() {
     let mut config = Config::default();
     config.set_clean(false);
-    config.set_ignore_tests(false);
+    config.set_include_tests(true);
     config.no_fail_fast = true;
 
     let test_dir = get_test_path("workspace_with_fail_tests");
