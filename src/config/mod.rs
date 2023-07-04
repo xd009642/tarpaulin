@@ -38,9 +38,6 @@ pub struct Config {
     /// Flag to also run tests with the ignored attribute
     #[serde(rename = "ignored")]
     pub run_ignored: bool,
-    /// Flag to ignore test functions in coverage statistics
-    #[serde(rename = "ignore-tests")]
-    ignore_tests: bool,
     /// Ignore panic macros in code.
     #[serde(rename = "ignore-panics")]
     pub ignore_panics: bool,
@@ -178,8 +175,8 @@ pub struct Config {
     engine: RefCell<TraceEngine>,
     /// Specifying per-config rust flags
     pub rustflags: Option<String>,
+    /// Flag to include test functions in coverage statistics
     #[serde(rename = "include-tests")]
-    /// Inverse of ignore_tests
     include_tests: bool,
     #[serde(rename = "post-test-delay")]
     /// Delay after test to collect instrumentation files (LLVM only)
@@ -205,7 +202,6 @@ impl Default for Config {
             config: None,
             root: Default::default(),
             run_ignored: false,
-            ignore_tests: true,
             include_tests: false,
             ignore_panics: false,
             force_clean: true,
@@ -301,7 +297,6 @@ impl<'a> From<&'a ArgMatches<'a>> for ConfigWrapper {
             color: value_t!(args.value_of("color"), Color).unwrap_or(Color::Auto),
             run_types: get_run_types(args),
             run_ignored: args.is_present("ignored"),
-            ignore_tests: !args.is_present("include-tests"),
             include_tests: args.is_present("include-tests"),
             ignore_panics: args.is_present("ignore-panics"),
             no_dead_code: args.is_present("no-dead-code"),
@@ -402,13 +397,12 @@ impl Config {
         self.skip_clean = !clean;
     }
 
-    pub fn set_ignore_tests(&mut self, ignore: bool) {
-        self.ignore_tests = ignore;
-        self.include_tests = !ignore;
+    pub fn set_include_tests(&mut self, include: bool) {
+        self.include_tests = include;
     }
 
-    pub fn ignore_tests(&self) -> bool {
-        self.ignore_tests || !self.include_tests
+    pub fn include_tests(&self) -> bool {
+        self.include_tests
     }
 
     pub fn force_clean(&self) -> bool {
@@ -622,7 +616,6 @@ impl Config {
         self.line_coverage |= other.line_coverage;
         self.branch_coverage |= other.branch_coverage;
         self.dump_traces |= other.dump_traces;
-        self.ignore_tests = self.ignore_tests() && other.ignore_tests();
         self.offline |= other.offline;
         if self.manifest != other.manifest && self.manifest == default_manifest() {
             self.manifest = other.manifest.clone();
@@ -647,7 +640,7 @@ impl Config {
         // non-default
         self.force_clean &= other.force_clean;
         self.skip_clean |= other.skip_clean;
-        self.ignore_tests |= other.ignore_tests;
+        self.include_tests |= other.include_tests;
         self.no_fail_fast |= other.no_fail_fast;
 
         let end_delay = match (self.post_test_delay, other.post_test_delay) {

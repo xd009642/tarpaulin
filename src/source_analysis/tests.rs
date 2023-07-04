@@ -387,9 +387,9 @@ fn filter_macros() {
 #[test]
 fn filter_tests() {
     let mut config = Config::default();
-    config.set_ignore_tests(false);
+    config.set_include_tests(true);
     let mut igconfig = Config::default();
-    igconfig.set_ignore_tests(true);
+    igconfig.set_include_tests(false);
 
     let ctx = Context {
         config: &config,
@@ -452,7 +452,7 @@ fn filter_tests() {
 #[test]
 fn filter_nonstd_tests() {
     let mut igconfig = Config::default();
-    igconfig.set_ignore_tests(true);
+    igconfig.set_include_tests(false);
 
     let ctx = Context {
         config: &igconfig,
@@ -521,7 +521,7 @@ fn filter_nonstd_tests() {
 #[test]
 fn filter_test_utilities() {
     let mut config = Config::default();
-    config.set_ignore_tests(true);
+    config.set_include_tests(false);
 
     let ctx = Context {
         config: &config,
@@ -543,7 +543,7 @@ fn filter_test_utilities() {
     assert!(lines.ignore.contains(&Lines::Line(4)));
 
     let mut config = Config::default();
-    config.set_ignore_tests(false);
+    config.set_include_tests(true);
 
     let ctx = Context {
         config: &config,

@@ -15,7 +15,7 @@ fn mix_test_types() {
     // ran. This test covers against that mistake
     let mut config = Config::default();
     config.set_clean(true);
-    config.set_ignore_tests(false);
+    config.set_include_tests(true);
     config.test_timeout = Duration::from_secs(60);
     config.run_types = vec![RunType::Tests, RunType::Examples];
     config.set_profraw_folder(PathBuf::from("mix_test_types"));
