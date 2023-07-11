@@ -58,20 +58,19 @@ pub(crate) fn check_cfg_attr(attr: &Meta) -> bool {
         ignore_span = true;
     } else if id.is_ident("cfg") {
         if let Meta::List(ml) = attr {
-            'outer: for p in ml.nested.iter() {
-                if let NestedMeta::Meta(Meta::List(ref i)) = p {
-                    if i.path.is_ident("not") {
-                        for n in i.nested.iter() {
-                            if let NestedMeta::Meta(Meta::Path(ref pth)) = n {
-                                if pth.is_ident("tarpaulin_include") || pth.is_ident("tarpaulin") {
-                                    ignore_span = true;
-                                    break 'outer;
-                                }
+            let _ = ml.parse_nested_meta(|nested| {
+                if nested.path.is_ident("not") {
+                    for n in nested.nested.iter() {
+                        if let NestedMeta::Meta(Meta::Path(ref pth)) = n {
+                            if pth.is_ident("tarpaulin_include") || pth.is_ident("tarpaulin") {
+                                ignore_span = true;
+                                break;
                             }
                         }
                     }
                 }
-            }
+                Ok(())
+            });
         }
     } else if id.is_ident("cfg_attr") {
         if let Meta::List(ml) = attr {
