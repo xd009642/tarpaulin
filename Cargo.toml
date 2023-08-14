@@ -32,7 +32,7 @@ humantime-serde = "1"
 indexmap = { version = "~1.8", features = ["serde-1"] }
 lazy_static = "1.0"
 llvm_profparser = { version = "0.3", default-features = false }
-object = "0.31"
+object = "0.32"
 num_cpus = "1.16.0"
 proc-macro2 = { version = "1.0", features = ["span-locations"] }
 quick-xml = "0.30"
