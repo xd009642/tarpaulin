@@ -8,16 +8,18 @@
 [![Coverage Status](https://coveralls.io/repos/github/xd009642/tarpaulin/badge.svg?branch=develop)](https://coveralls.io/github/xd009642/tarpaulin?branch=develop)
 
 Tarpaulin is a code coverage reporting tool for the Cargo build system, named 
-for a waterproof cloth used to cover cargo on a ship. Currently, tarpaulin
-provides working line coverage and while fairly reliable may still contain 
+for a waterproof cloth used to cover cargo on a ship.
+
+Currently, tarpaulin
+provides working line coverage, and while fairly reliable, may still contain 
 minor inaccuracies in the results. A lot of work has been done to get it
-working on a wide range of projects, but often unique combinations of packages
-and build features can cause issues so please report anything
+working on a wide range of projects, but unique combinations of packages
+and build features can cause issues, so please report anything
 you find that's wrong. Also, check out our roadmap for planned features.
 
-On Linux Tarpaulin's default tracing backend is still Ptrace and will only work
+On Linux, Tarpaulin's default tracing backend is still Ptrace and will only work
 on x86\_64 processors. This can be changed to the llvm coverage instrumentation
-with `--engine llvm`, for Mac and Windows this is the default collection
+with `--engine llvm`. For Mac and Windows, this is the default collection
 method.
 
 It can also be run in Docker, which is useful for when you don't use Linux but
