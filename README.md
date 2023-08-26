@@ -30,101 +30,83 @@ available:
 
 ```
 cargo-tarpaulin version: 0.26.1
-Tool to analyse test coverage of cargo projects
+Cargo-Tarpaulin is a tool to determine code coverage achieved via tests
 
-USAGE:
-    cargo tarpaulin [FLAGS] [OPTIONS] [-- <args>...]
+Usage: cargo [OPTIONS] [-- <ARGS>...]
 
-FLAGS:
-        --all                      Alias for --workspace (deprecated)
-        --all-features             Build all available features
-        --all-targets              Test all targets (excluding doctests)
-        --avoid-cfg-tarpaulin      Remove --cfg=tarpaulin from the RUSTFLAG
-        --benches                  Test all benches
-        --bins                     Test all binaries
-    -b, --branch                   Branch coverage: NOT IMPLEMENTED
-        --count                    Counts the number of hits during coverage
-        --debug                    Show debug output - this is used for diagnosing issues with tarpaulin
-        --doc                      Test only this library's documentation
-        --dump-traces              Log tracing events and save to a json file. Also, enabled when --debug is used
-        --examples                 Test all examples
-        --follow-exec              Follow executed processes capturing coverage information if they're part of your
-                                   project.
-        --force-clean              Adds a clean stage to work around cargo bugs that may affect coverage results
-    -f, --forward                  Forwards unexpected signals to test. This is now the default behaviour
-        --frozen                   Do not update Cargo.lock or any caches
-    -h, --help                     Prints help information
-        --ignore-config            Ignore any project config files
-        --ignore-panics            Ignore panic macros in tests
-        --ignore-tests             Ignore lines of test functions when collecting coverage (default)
-    -i, --ignored                  Run ignored tests as well
-        --implicit-test-threads    Don't supply an explicit `--test-threads` argument to test executable. By default
-                                   tarpaulin will infer the default rustc would pick if not ran via tarpaulin and set it
-        --include-tests            Include lines of test functions when collecting coverage
-        --lib                      Test only this package's library unit tests
-    -l, --line                     Line coverage
-        --locked                   Do not update Cargo.lock
-        --no-dead-code             Stops tarpaulin from building projects with -Clink-dead-code
-        --no-default-features      Do not include default features
-        --no-fail-fast             Run all tests regardless of failure
-        --no-run                   Compile tests but don't run coverage
-        --offline                  Run without accessing the network
-        --print-rust-flags         Print the RUSTFLAGS options that tarpaulin will compile your program with and exit
-        --print-rustdoc-flags      Print the RUSTDOCFLAGS options that tarpaulin will compile any doctests with and exit
-        --release                  Build in release mode.
-        --skip-clean               The opposite of --force-clean
-        --tests                    Test all tests
-    -V, --version                  Prints version information
-    -v, --verbose                  Show extra output
-        --workspace                Test all packages in the workspace
+Arguments:
+  [ARGS]...  Arguments to be passed to the test executables can be used to filter or skip certain tests
 
-OPTIONS:
-    -Z <FEATURES>...                   List of unstable nightly only flags
-        --bench <NAME>...              Test only the specified bench target
-        --bin <NAME>...                Test only the specified binary
-        --ciserver <SERVICE>           Name of service, supported services are:
-                                       travis-ci, travis-pro, circle-ci, semaphore, jenkins and codeship.
-                                       If you are interfacing with coveralls.io or another site you can also specify a
-                                       name that they will recognise. Refer to their documentation for this.
-        --color <WHEN>                 Coloring: auto, always, never [possible values: Auto, Always, Never]
-        --command <CMD>                cargo subcommand to run. So far only test and build are supported [possible
-                                       values: Test, Build]
-        --config <FILE>                Path to a toml file specifying a list of options this will override any other
-                                       options set
-        --coveralls <KEY>              Coveralls key, either the repo token, or if you're using travis use
-                                       $TRAVIS_JOB_ID and specify travis-{ci|pro} in --ciserver
-        --engine <ENGINE>              Coverage tracing backend to use [possible values: Auto, Ptrace, Llvm]
-        --example <NAME>...            Test only the specified example
-    -e, --exclude <PACKAGE>...         Package id specifications to exclude from coverage. See cargo help pkgid for more
-                                       info
-        --exclude-files <FILE>...      Exclude given files from coverage results has * wildcard
-        --fail-under <PERCENTAGE>      Sets a percentage threshold for failure ranging from 0-100, if coverage is below
-                                       exit with a non-zero code
-        --features <FEATURES>...       Features to be included in the target project
-    -j, --jobs <N>                     Number of parallel jobs, defaults to # of CPUs
-        --manifest-path <PATH>         Path to Cargo.toml
-        --objects <objects>...         Other object files to load which contain information for llvm coverage - must
-                                       have been compiled with llvm coverage instrumentation (ignored for ptrace)
-    -o, --out <FMT>...                 Output format of coverage report [possible values: Json, Stdout, Xml, Html, Lcov]
-        --output-dir <PATH>            Specify a custom directory to write report files
-    -p, --packages <PACKAGE>...        Package id specifications for which package should be build. See cargo help pkgid
-                                       for more info
-        --post-test-delay <SECONDS>    Delay after test to collect coverage profiles
-        --profile <NAME>               Build artefacts with the specified profile
-        --report-uri <URI>             URI to send report to, only used if the option --coveralls is used
-    -r, --root <DIR>                   Calculates relative paths to root directory. If --manifest-path isn't specified
-                                       it will look for a Cargo.toml in root
-        --run-types <TYPE>...          Type of the coverage run [possible values: Tests, Doctests, Benchmarks, Examples,
-                                       Lib, Bins, AllTargets]
-        --rustflags <FLAGS>            rustflags to add when building project (can also be set via RUSTFLAGS env var)
-        --target <TRIPLE>              Compilation target triple
-        --target-dir <DIR>             Directory for all generated artifacts
-        --test <NAME>...               Test only the specified test target
-    -t, --timeout <SECONDS>            Integer for the maximum time in seconds without response from test before timeout
-                                       (default is 1 minute).
-
-ARGS:
-    <args>...    Arguments to be passed to the test executables can be used to filter or skip certain tests
+Options:
+      --print-rust-flags           Print the RUSTFLAGS options that tarpaulin will compile your program with and exit
+      --print-rustdoc-flags        Print the RUSTDOCFLAGS options that tarpaulin will compile any doctests with and exit
+      --color <WHEN>               Coloring: auto, always, never [possible values: auto, always, never]
+      --debug                      Show debug output - this is used for diagnosing issues with tarpaulin
+      --verbose                    Show extra output
+      --dump-traces                Log tracing events and save to a json file. Also, enabled when --debug is used
+      --run-types <TYPE>           Type of the coverage run [possible values: tests, doctests, benchmarks, examples, lib, bins, all-targets]
+      --benches                    Test all benches
+      --doc                        Test only this library's documentation
+      --all-targets                Test all targets (excluding doctests)
+      --lib                        Test only this package's library unit tests
+      --bins                       Test all binaries
+      --examples                   Test all examples
+      --tests                      Test all tests
+      --config <FILE>              Path to a toml file specifying a list of options this will override any other options set
+      --ignore-config              Ignore any project config files
+      --bin [<NAME>...]            Test only the specified binary
+      --example [<NAME>...]        Test only the specified example
+      --test [<NAME>...]           Test only the specified test target
+      --bench [<NAME>...]          Test only the specified bench target
+      --no-fail-fast               Run all tests regardless of failure
+      --profile <NAME>             Build artefacts with the specified profile
+      --ignore-tests               Ignore lines of test functions when collecting coverage (default)
+      --no-dead-code               Stops tarpaulin from building projects with -Clink-dead-code
+      --include-tests              Include lines of test functions when collecting coverage
+      --ignore-panics              Ignore panic macros in tests
+      --count                      Counts the number of hits during coverage
+  -i, --ignored                    Run ignored tests as well
+  -l, --line                       Line coverage
+      --skip-clean                 The opposite of --force-clean
+      --force-clean                Adds a clean stage to work around cargo bugs that may affect coverage results
+      --fail-under <PERCENTAGE>    Sets a percentage threshold for failure ranging from 0-100, if coverage is below exit with a non-zero code
+  -b, --branch                     Branch coverage: NOT IMPLEMENTED
+  -f, --forward                    Forwards unexpected signals to test. This is now the default behaviour
+      --coveralls <KEY>            Coveralls key, either the repo token, or if you're using travis use $TRAVIS_JOB_ID and specify travis-{ci|pro} in --ciserver
+      --report-uri <URI>           URI to send report to, only used if the option --coveralls is used
+      --no-default-features        Do not include default features
+      --features [<FEATURES>...]   Features to be included in the target project
+      --all-features               Build all available features
+      --all                        Alias for --workspace (deprecated)
+      --workspace                  Test all packages in the workspace
+  -p, --packages [<PACKAGE>...]    Package id specifications for which package should be build. See cargo help pkgid for more info
+  -e, --exclude [<PACKAGE>...]     Package id specifications to exclude from coverage. See cargo help pkgid for more info
+      --exclude-files [<FILE>...]  Exclude given files from coverage results has * wildcard
+  -t, --timeout <SECONDS>          Integer for the maximum time in seconds without response from test before timeout (default is 1 minute)
+      --post-test-delay <SECONDS>  Delay after test to collect coverage profiles
+      --follow-exec                Follow executed processes capturing coverage information if they're part of your project
+      --release                    Build in release mode
+      --no-run                     Compile tests but don't run coverage
+      --implicit-test-threads      'Don't supply an explicit `--test-threads` argument to test executable. By default tarpaulin will infer the default rustc would pick if not ran via tarpaulin and set it
+      --locked                     Do not update Cargo.lock
+      --frozen                     Do not update Cargo.lock or any caches
+      --target <TRIPLE>            Compilation target triple
+      --target-dir <DIR>           Directory for all generated artifacts
+      --offline                    Run without accessing the network
+      --avoid-cfg-tarpaulin        Remove --cfg=tarpaulin from the RUSTFLAG
+  -j, --jobs <N>                   Number of parallel jobs, defaults to # of CPUs
+      --rustflags <FLAGS>          Rustflags to add when building project (can also be set via RUSTFLAGS env var)
+      --objects [<objects>...]     Other object files to load which contain information for llvm coverage - must have been compiled with llvm coverage instrumentation (ignored for ptrace)
+  -Z [<FEATURES>...]               List of unstable nightly only flags
+  -o, --out [<FMT>...]             Output format of coverage report [possible values: json, stdout, xml, html, lcov]
+      --engine <ENGINE>            Coverage tracing backend to use [possible values: auto, ptrace, llvm]
+      --output-dir <PATH>          Specify a custom directory to write report files
+      --command <CMD>              cargo subcommand to run. So far only test and build are supported [possible values: test, build]
+  -r, --root <DIR>                 Calculates relative paths to root directory. If --manifest-path isn't specified it will look for a Cargo.toml in root
+      --manifest-path <PATH>       Path to Cargo.toml
+      --ciserver <SERVICE>         CI server being used, if unspecified tarpaulin may automatically infer for coveralls uploads
+  -h, --help                       Print help
+  -V, --version                    Print version
 ```
 
 ### Note on tests using signals

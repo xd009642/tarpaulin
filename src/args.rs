@@ -238,7 +238,7 @@ pub struct ConfigArgs {
     pub ciserver: Option<Ci>,
 
     /// Arguments to be passed to the test executables can be used to filter or skip certain tests
-    #[arg(long, num_args = 0..)]
+    #[arg(last = true)]
     pub args: Vec<String>,
 }
 
