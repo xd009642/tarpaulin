@@ -7,7 +7,7 @@ use cargo_tarpaulin::{
     config::{Color, Config, ConfigWrapper, Mode, OutputFile, RunType, TraceEngine},
 };
 use cargo_tarpaulin::{launch_tarpaulin, run, setup_logging};
-use clap::{Arg, Parser};
+use clap::Parser;
 #[cfg(windows)]
 use regex::Regex;
 use rusty_fork::rusty_fork_test;
