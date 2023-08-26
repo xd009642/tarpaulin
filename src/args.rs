@@ -34,19 +34,19 @@ pub struct ConfigArgs {
     pub ignore_config: bool,
 
     /// Test only the specified binary
-    #[arg(long, value_name = "NAME")]
+    #[arg(long, value_name = "NAME", num_args = 0..)]
     pub bin: Vec<String>,
 
     /// Test only the specified example
-    #[arg(long, value_name = "NAME")]
+    #[arg(long, value_name = "NAME", num_args = 0..)]
     pub example: Vec<String>,
 
     /// Test only the specified test target
-    #[arg(long, value_name = "NAME")]
+    #[arg(long, value_name = "NAME", num_args = 0..)]
     pub test: Vec<String>,
 
     /// Test only the specified bench target
-    #[arg(long, value_name = "NAME")]
+    #[arg(long, value_name = "NAME", num_args = 0..)]
     pub bench: Vec<String>,
 
     /// Run all tests regardless of failure
@@ -118,7 +118,7 @@ pub struct ConfigArgs {
     pub no_default_features: bool,
 
     /// Features to be included in the target project
-    #[arg(long, value_name = "FEATURES")]
+    #[arg(long, value_name = "FEATURES", num_args = 0..)]
     pub features: Vec<String>,
 
     /// Build all available features
@@ -134,15 +134,15 @@ pub struct ConfigArgs {
     pub workspace: bool,
 
     /// Package id specifications for which package should be build. See cargo help pkgid for more info
-    #[arg(long, short, value_name = "PACKAGE")]
+    #[arg(long, short, value_name = "PACKAGE", num_args = 0..)]
     pub packages: Vec<String>,
 
     /// Package id specifications to exclude from coverage. See cargo help pkgid for more info
-    #[arg(long, short, value_name = "PACKAGE")]
+    #[arg(long, short, value_name = "PACKAGE", num_args = 0..)]
     pub exclude: Vec<String>,
 
     /// Exclude given files from coverage results has * wildcard
-    #[arg(long, value_name = "FILE")]
+    #[arg(long, value_name = "FILE", num_args = 0..)]
     pub exclude_files: Vec<Pattern>,
 
     /// Integer for the maximum time in seconds without response from test before timeout (default is 1 minute).
@@ -202,15 +202,15 @@ pub struct ConfigArgs {
     pub rustflags: Option<String>,
 
     /// Other object files to load which contain information for llvm coverage - must have been compiled with llvm coverage instrumentation (ignored for ptrace)
-    #[arg(long, value_name = "objects")]
+    #[arg(long, value_name = "objects", num_args = 0..)]
     pub objects: Vec<PathBuf>,
 
     /// List of unstable nightly only flags
-    #[arg(short = 'Z', value_name = "FEATURES")]
+    #[arg(short = 'Z', value_name = "FEATURES", num_args = 0..)]
     pub unstable_features: Vec<String>,
 
     /// Output format of coverage report
-    #[arg(long, short, value_enum, value_name = "FMT")]
+    #[arg(long, short, value_enum, value_name = "FMT", num_args = 0..)]
     pub out: Vec<OutputFile>,
 
     /// Coverage tracing backend to use
@@ -238,7 +238,7 @@ pub struct ConfigArgs {
     pub ciserver: Option<Ci>,
 
     /// Arguments to be passed to the test executables can be used to filter or skip certain tests
-    #[arg(long)]
+    #[arg(long, num_args = 0..)]
     pub args: Vec<String>,
 }
 
