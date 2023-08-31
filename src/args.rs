@@ -15,14 +15,13 @@ pub enum CargoTarpaulinCli {
 
 impl CargoTarpaulinCli {
     pub fn from_args() -> TarpaulinCli {
-        CargoTarpaulinCli::try_parse()
-            .map(CargoTarpaulinCli::into_inner)
-            .unwrap_or_else(|_| TarpaulinCli::parse())
-    }
-
-    fn into_inner(self) -> TarpaulinCli {
-        match self {
-            CargoTarpaulinCli::Tarpaulin(args) => args,
+        match TarpaulinCli::try_parse() {
+            Ok(tarpaulin_cli) => tarpaulin_cli,
+            // Skip 'non-error' error results like `--help` and `--version`
+            Err(err) if !err.use_stderr() => err.exit(),
+            Err(_) => match CargoTarpaulinCli::parse() {
+                CargoTarpaulinCli::Tarpaulin(tarpaulin_cli) => tarpaulin_cli,
+            },
         }
     }
 }
