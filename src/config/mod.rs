@@ -1,10 +1,10 @@
 use self::parse::*;
 pub use self::types::*;
-use crate::cargo::supports_llvm_coverage;
 use crate::path_utils::fix_unc_path;
+use crate::{args::ConfigArgs, cargo::supports_llvm_coverage};
 use cargo_metadata::{Metadata, MetadataCommand, Package};
-use clap::{value_t, ArgMatches};
 use coveralls_api::CiService;
+use glob::Pattern;
 use humantime_serde::deserialize as humantime_serde;
 use indexmap::IndexMap;
 use serde::{Deserialize, Serialize};
@@ -259,24 +259,18 @@ impl Default for Config {
     }
 }
 
-impl<'a> From<&'a ArgMatches<'a>> for ConfigWrapper {
-    fn from(args: &'a ArgMatches<'a>) -> Self {
+impl From<ConfigArgs> for ConfigWrapper {
+    fn from(args: ConfigArgs) -> Self {
         info!("Creating config");
-        let debug = args.is_present("debug");
-        let dump_traces = debug || args.is_present("dump-traces");
-        let verbose = args.is_present("verbose") || debug;
-        let excluded_files = get_excluded(args);
-        let excluded_files_raw = get_list(args, "exclude-files");
-        let features = get_list(args, "features");
+
+        let features = args.features;
         let features = if features.is_empty() {
             None
         } else {
             Some(features.join(" "))
         };
-        let force_clean = match (
-            args.is_present("force-clean"),
-            args.is_present("skip-clean"),
-        ) {
+
+        let force_clean = match (args.force_clean, args.skip_clean) {
             (true, false) | (false, false) => true,
             (false, true) => false,
             _ => {
@@ -285,74 +279,71 @@ impl<'a> From<&'a ArgMatches<'a>> for ConfigWrapper {
             }
         };
 
-        let engine = value_t!(args.value_of("engine"), TraceEngine).unwrap_or_default();
-
         let args_config = Config {
             name: String::new(),
-            manifest: get_manifest(args),
+            manifest: process_manifest(args.manifest_path, args.root.clone()),
             config: None,
-            root: get_root(args),
-            engine: RefCell::new(engine),
-            command: value_t!(args.value_of("command"), Mode).unwrap_or(Mode::Test),
-            color: value_t!(args.value_of("color"), Color).unwrap_or(Color::Auto),
-            run_types: get_run_types(args),
-            run_ignored: args.is_present("ignored"),
-            include_tests: args.is_present("include-tests"),
-            ignore_panics: args.is_present("ignore-panics"),
-            no_dead_code: args.is_present("no-dead-code"),
+            root: args.root,
+            engine: RefCell::new(args.engine.unwrap_or_default()),
+            command: args.command.unwrap_or(Mode::Test),
+            verbose: args.logging.verbose || args.logging.debug,
+            debug: args.logging.debug,
+            dump_traces: args.logging.debug || args.logging.dump_traces,
+            color: args.logging.color.unwrap_or(Color::Auto),
+            run_types: args.run_types.collect(),
+            run_ignored: args.ignored,
+            include_tests: args.include_tests,
+            ignore_panics: args.ignore_panics,
+            no_dead_code: args.no_dead_code,
             force_clean,
             skip_clean: !force_clean,
-            no_fail_fast: args.is_present("no-fail-fast"),
-            follow_exec: args.is_present("follow-exec"),
-            verbose,
-            debug,
-            dump_traces,
-            count: args.is_present("count"),
-            line_coverage: get_line_cov(args),
-            branch_coverage: get_branch_cov(args),
-            generate: get_outputs(args),
-            output_directory: get_output_directory(args),
-            coveralls: get_coveralls(args),
-            ci_tool: get_ci(args),
-            report_uri: get_report_uri(args),
+            no_fail_fast: args.no_fail_fast,
+            follow_exec: args.follow_exec,
+            count: args.count,
+            line_coverage: args.line || !args.branch,
+            branch_coverage: args.branch || !args.line,
+            generate: args.out,
+            output_directory: args.output_dir,
+            coveralls: args.coveralls,
+            ci_tool: args.ciserver.map(|c| c.0),
+            report_uri: args.report_uri,
             forward_signals: true, // No longer an option
-            all_features: args.is_present("all-features"),
-            no_default_features: args.is_present("no-default-features"),
+            all_features: args.all_features,
+            no_default_features: args.no_default_features,
             features,
-            unstable_features: get_list(args, "Z"),
-            all: args.is_present("all") | args.is_present("workspace"),
-            packages: get_list(args, "packages"),
-            exclude: get_list(args, "exclude"),
-            excluded_files: RefCell::new(excluded_files),
-            excluded_files_raw,
-            varargs: get_list(args, "args"),
-            test_timeout: get_timeout(args),
-            release: args.is_present("release"),
-            no_run: args.is_present("no-run"),
-            locked: args.is_present("locked"),
-            frozen: args.is_present("frozen"),
-            target: get_target(args),
-            target_dir: get_target_dir(args),
-            offline: args.is_present("offline"),
-            test_names: get_list(args, "test").iter().cloned().collect(),
-            bin_names: get_list(args, "bin").iter().cloned().collect(),
-            bench_names: get_list(args, "bench").iter().cloned().collect(),
-            example_names: get_list(args, "example").iter().cloned().collect(),
-            fail_under: value_t!(args.value_of("fail-under"), f64).ok(),
-            jobs: value_t!(args.value_of("jobs"), usize).ok(),
-            profile: get_profile(args),
+            unstable_features: args.unstable_features,
+            all: args.all | args.workspace,
+            packages: args.packages,
+            exclude: args.exclude,
+            excluded_files_raw: args.exclude_files.iter().map(Pattern::to_string).collect(),
+            excluded_files: RefCell::new(args.exclude_files),
+            varargs: args.args,
+            test_timeout: Duration::from_secs(args.timeout.unwrap_or(60)),
+            release: args.release,
+            no_run: args.no_run,
+            locked: args.locked,
+            frozen: args.frozen,
+            target: args.target,
+            target_dir: process_target_dir(args.target_dir),
+            offline: args.offline,
+            test_names: args.test.into_iter().collect(),
+            bin_names: args.bin.into_iter().collect(),
+            bench_names: args.bench.into_iter().collect(),
+            example_names: args.example.into_iter().collect(),
+            fail_under: args.fail_under,
+            jobs: args.jobs,
+            profile: args.profile,
             metadata: RefCell::new(None),
-            avoid_cfg_tarpaulin: args.is_present("avoid-cfg-tarpaulin"),
-            implicit_test_threads: args.is_present("implicit-test-threads"),
-            rustflags: get_rustflags(args),
-            post_test_delay: get_post_test_delay(args),
-            objects: get_objects(args),
+            avoid_cfg_tarpaulin: args.avoid_cfg_tarpaulin,
+            implicit_test_threads: args.implicit_test_threads,
+            rustflags: args.rustflags,
+            post_test_delay: args.post_test_delay.map(Duration::from_secs),
+            objects: canonicalize_paths(args.objects),
             profraw_folder: PathBuf::from("profraws"),
         };
-        if args.is_present("ignore-config") {
+        if args.ignore_config {
             Self(vec![args_config])
-        } else if args.is_present("config") {
-            let mut path = PathBuf::from(args.value_of("config").unwrap());
+        } else if let Some(mut path) = args.config {
             if path.is_relative() {
                 path = env::current_dir()
                     .unwrap()
@@ -558,7 +549,7 @@ impl Config {
             None => PathBuf::new(),
         };
         if let Ok(cfs) = res.as_mut() {
-            for mut c in cfs.iter_mut() {
+            for c in cfs.iter_mut() {
                 c.config = Some(file.as_ref().to_path_buf());
                 c.manifest = make_absolute_with_parent(&c.manifest, &parent);
                 if let Some(root) = c.root.as_mut() {
@@ -582,7 +573,7 @@ impl Config {
         })?;
 
         let mut result = Vec::new();
-        for (name, mut conf) in map.iter_mut() {
+        for (name, conf) in map.iter_mut() {
             conf.name = name.to_string();
             result.push(conf.clone());
         }
@@ -899,48 +890,37 @@ pub fn path_relative_from(path: &Path, base: &Path) -> Option<PathBuf> {
 
 #[cfg(test)]
 mod tests {
+    use clap::Parser;
+
+    use crate::args::TarpaulinCli;
+
     use super::*;
-    use clap::App;
 
     #[test]
     fn features_args() {
-        let matches = App::new("tarpaulin")
-            .args_from_usage(
-                "--features [FEATURES]... 'Features to be included in the target project'
-                             --ignore-config 'Ignore any project config files'",
-            )
-            .get_matches_from_safe(vec![
-                "tarpaulin",
-                "--ignore-config",
-                "--features",
-                "a",
-                "--features",
-                "b",
-            ])
-            .unwrap();
-        let conf = ConfigWrapper::from(&matches).0;
+        let args = TarpaulinCli::parse_from(vec![
+            "tarpaulin",
+            "--ignore-config",
+            "--features",
+            "a",
+            "--features",
+            "b",
+        ]);
+        let conf = ConfigWrapper::from(args.config).0;
         assert_eq!(conf.len(), 1);
         assert_eq!(conf[0].features, Some("a b".to_string()));
 
-        let matches = App::new("tarpaulin")
-            .args_from_usage(
-                "--features [FEATURES]... 'Features to be included in the target project'
-                             --ignore-config 'Ignore any project config files'",
-            )
-            .get_matches_from_safe(vec!["tarpaulin", "--ignore-config", "--features", "a b"])
-            .unwrap();
-        let conf = ConfigWrapper::from(&matches).0;
+        let args =
+            TarpaulinCli::parse_from(vec!["tarpaulin", "--ignore-config", "--features", "a b"]);
+        let conf = ConfigWrapper::from(args.config).0;
         assert_eq!(conf.len(), 1);
         assert_eq!(conf[0].features, Some("a b".to_string()));
     }
 
     #[test]
     fn exclude_paths() {
-        let matches = App::new("tarpaulin")
-            .args_from_usage("--exclude-files [FILE]... 'Exclude given files from coverage results has * wildcard'")
-            .get_matches_from_safe(vec!["tarpaulin", "--exclude-files", "*module*"])
-            .unwrap();
-        let conf = ConfigWrapper::from(&matches).0;
+        let args = TarpaulinCli::parse_from(vec!["tarpaulin", "--exclude-files", "*module*"]);
+        let conf = ConfigWrapper::from(args.config).0;
         assert_eq!(conf.len(), 1);
         assert!(conf[0].exclude_path(Path::new("src/module/file.rs")));
         assert!(!conf[0].exclude_path(Path::new("src/mod.rs")));
@@ -950,11 +930,13 @@ mod tests {
 
     #[test]
     fn exclude_paths_directory_separators() {
-        let matches = App::new("tarpaulin")
-            .args_from_usage("--exclude-files [FILE]... 'Exclude given files from coverage results has * wildcard'")
-            .get_matches_from_safe(vec!["tarpaulin", "--exclude-files", "src/foo/*", "src\\bar\\*"])
-            .unwrap();
-        let conf = ConfigWrapper::from(&matches).0;
+        let args = TarpaulinCli::parse_from(vec![
+            "tarpaulin",
+            "--exclude-files",
+            "src/foo/*",
+            "src\\bar\\*",
+        ]);
+        let conf = ConfigWrapper::from(args.config).0;
         assert_eq!(conf.len(), 1);
         assert!(conf[0].exclude_path(Path::new("src/foo/file.rs")));
         assert!(conf[0].exclude_path(Path::new("src\\bar\\file.rs")));
@@ -972,11 +954,8 @@ mod tests {
 
     #[test]
     fn no_exclusions() {
-        let matches = App::new("tarpaulin")
-            .args_from_usage("--exclude-files [FILE]... 'Exclude given files from coverage results has * wildcard'")
-            .get_matches_from_safe(vec!["tarpaulin"])
-            .unwrap();
-        let conf = ConfigWrapper::from(&matches).0;
+        let args = TarpaulinCli::parse_from(vec!["tarpaulin"]);
+        let conf = ConfigWrapper::from(args.config).0;
         assert_eq!(conf.len(), 1);
         assert!(!conf[0].exclude_path(Path::new("src/module/file.rs")));
         assert!(!conf[0].exclude_path(Path::new("src/mod.rs")));
@@ -986,11 +965,8 @@ mod tests {
 
     #[test]
     fn exclude_exact_file() {
-        let matches = App::new("tarpaulin")
-            .args_from_usage("--exclude-files [FILE]... 'Exclude given files from coverage results has * wildcard'")
-            .get_matches_from_safe(vec!["tarpaulin", "--exclude-files", "*/lib.rs"])
-            .unwrap();
-        let conf = ConfigWrapper::from(&matches).0;
+        let args = TarpaulinCli::parse_from(vec!["tarpaulin", "--exclude-files", "*/lib.rs"]);
+        let conf = ConfigWrapper::from(args.config).0;
         assert_eq!(conf.len(), 1);
         assert!(conf[0].exclude_path(Path::new("src/lib.rs")));
         assert!(!conf[0].exclude_path(Path::new("src/mod.rs")));

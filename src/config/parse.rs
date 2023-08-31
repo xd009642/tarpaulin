@@ -1,6 +1,5 @@
 use crate::config::types::*;
 use crate::path_utils::fix_unc_path;
-use clap::{value_t, values_t, ArgMatches};
 use coveralls_api::CiService;
 use serde::de::{self, Deserializer};
 use std::env;
@@ -8,161 +7,7 @@ use std::fmt;
 use std::fs::create_dir_all;
 use std::path::PathBuf;
 use std::str::FromStr;
-use std::time::Duration;
 use tracing::error;
-
-pub(super) fn get_list(args: &ArgMatches, key: &str) -> Vec<String> {
-    args.values_of_lossy(key).unwrap_or_default()
-}
-
-pub(super) fn get_line_cov(args: &ArgMatches) -> bool {
-    let cover_lines = args.is_present("line");
-    let cover_branches = args.is_present("branch");
-
-    cover_lines || !cover_branches
-}
-
-pub(super) fn get_branch_cov(args: &ArgMatches) -> bool {
-    let cover_lines = args.is_present("line");
-    let cover_branches = args.is_present("branch");
-
-    cover_branches || !cover_lines
-}
-
-pub(super) fn get_manifest(args: &ArgMatches) -> PathBuf {
-    if let Some(path) = args.value_of("manifest-path") {
-        let path = PathBuf::from(path);
-        if path.is_relative() {
-            return env::current_dir()
-                .unwrap()
-                .join(path)
-                .canonicalize()
-                .unwrap();
-        }
-        return fix_unc_path(&path);
-    }
-
-    let mut manifest = env::current_dir().unwrap();
-
-    if let Some(path) = args.value_of("root") {
-        manifest.push(path);
-    }
-
-    manifest.push("Cargo.toml");
-    fix_unc_path(&manifest.canonicalize().unwrap_or(manifest))
-}
-
-pub(super) fn default_manifest() -> PathBuf {
-    let mut manifest = env::current_dir().unwrap();
-    manifest.push("Cargo.toml");
-    fix_unc_path(&manifest.canonicalize().unwrap_or(manifest))
-}
-
-pub(super) fn get_target(args: &ArgMatches) -> Option<String> {
-    args.value_of("target").map(String::from)
-}
-
-pub(super) fn get_rustflags(args: &ArgMatches) -> Option<String> {
-    args.value_of("rustflags").map(String::from)
-}
-
-pub(super) fn get_target_dir(args: &ArgMatches) -> Option<PathBuf> {
-    let path = if let Some(path) = args.value_of("target-dir") {
-        PathBuf::from(path)
-    } else if let Some(envvar) = env::var_os("CARGO_TARPAULIN_TARGET_DIR") {
-        PathBuf::from(envvar)
-    } else {
-        return None;
-    };
-
-    if !path.exists() {
-        let _ = create_dir_all(&path);
-    }
-    let path = if path.is_relative() {
-        env::current_dir()
-            .unwrap()
-            .join(path)
-            .canonicalize()
-            .unwrap()
-    } else {
-        path
-    };
-    Some(fix_unc_path(&path))
-}
-
-pub(super) fn get_root(args: &ArgMatches) -> Option<PathBuf> {
-    args.value_of("root").map(PathBuf::from)
-}
-
-pub(super) fn get_ci(args: &ArgMatches) -> Option<CiService> {
-    value_t!(args, "ciserver", Ci).map(|x| x.0).ok()
-}
-
-pub(super) fn get_coveralls(args: &ArgMatches) -> Option<String> {
-    args.value_of("coveralls").map(ToString::to_string)
-}
-
-pub(super) fn get_report_uri(args: &ArgMatches) -> Option<String> {
-    args.value_of("report-uri").map(ToString::to_string)
-}
-
-pub(super) fn get_profile(args: &ArgMatches) -> Option<String> {
-    args.value_of("profile").map(ToString::to_string)
-}
-
-pub(super) fn get_outputs(args: &ArgMatches) -> Vec<OutputFile> {
-    values_t!(args.values_of("out"), OutputFile).unwrap_or_else(|_| vec![])
-}
-
-pub(super) fn get_output_directory(args: &ArgMatches) -> Option<PathBuf> {
-    args.value_of("output-dir").map(PathBuf::from)
-}
-
-pub(super) fn get_objects(args: &ArgMatches) -> Vec<PathBuf> {
-    let mut objs = values_t!(args.values_of("objects"), PathBuf).unwrap_or_else(|_| vec![]);
-
-    for obj in objs.iter_mut() {
-        if obj.is_relative() {
-            *obj = env::current_dir()
-                .unwrap()
-                .canonicalize()
-                .unwrap()
-                .join(&obj);
-            *obj = fix_unc_path(obj);
-        }
-    }
-    objs
-}
-
-pub(super) fn get_run_types(args: &ArgMatches) -> Vec<RunType> {
-    let mut res = values_t!(args.values_of("run-types"), RunType).unwrap_or_else(|_| vec![]);
-    if args.is_present("lib") && !res.contains(&RunType::Lib) {
-        res.push(RunType::Lib);
-    }
-    if args.is_present("all-targets") && !res.contains(&RunType::AllTargets) {
-        res.push(RunType::AllTargets);
-    }
-    if args.is_present("benches") && !res.contains(&RunType::Benchmarks) {
-        res.push(RunType::Benchmarks);
-    }
-    if args.is_present("bins") && !res.contains(&RunType::Bins) {
-        res.push(RunType::Bins);
-    }
-    if args.is_present("examples") && !res.contains(&RunType::Examples) {
-        res.push(RunType::Examples);
-    }
-    if args.is_present("doc") && !res.contains(&RunType::Doctests) {
-        res.push(RunType::Doctests);
-    }
-    if args.is_present("tests") && !res.contains(&RunType::Tests) {
-        res.push(RunType::Tests);
-    }
-    res
-}
-
-pub(super) fn get_excluded(args: &ArgMatches) -> Vec<glob::Pattern> {
-    globs_from_excluded(&get_list(args, "exclude-files"))
-}
 
 pub(super) fn globs_from_excluded(strs: &[String]) -> Vec<glob::Pattern> {
     let mut files = vec![];
@@ -176,24 +21,57 @@ pub(super) fn globs_from_excluded(strs: &[String]) -> Vec<glob::Pattern> {
     files
 }
 
-pub(super) fn get_timeout(args: &ArgMatches) -> Duration {
-    if args.is_present("timeout") {
-        let duration = value_t!(args.value_of("timeout"), u64).unwrap_or(60);
-        Duration::from_secs(duration)
-    } else {
-        Duration::from_secs(60)
+pub(super) fn process_manifest(
+    opt_manifest_path: Option<PathBuf>,
+    opt_root: Option<PathBuf>,
+) -> PathBuf {
+    if let Some(path) = opt_manifest_path {
+        return canonicalize_path(path);
     }
+
+    let mut manifest = env::current_dir().unwrap();
+    if let Some(path) = opt_root {
+        manifest.push(path);
+    }
+    manifest.push("Cargo.toml");
+    canonicalize_path(manifest)
 }
 
-pub(super) fn get_post_test_delay(args: &ArgMatches) -> Option<Duration> {
-    if args.is_present("post-test-delay") {
-        value_t!(args.value_of("post-test-delay"), u64)
-            .map(Duration::from_secs)
-            .ok()
-            .or_else(|| Some(Duration::from_secs(1)))
+pub(super) fn default_manifest() -> PathBuf {
+    let mut manifest = env::current_dir().unwrap();
+    manifest.push("Cargo.toml");
+    fix_unc_path(&manifest.canonicalize().unwrap_or(manifest))
+}
+
+pub(super) fn process_target_dir(opt_path: Option<PathBuf>) -> Option<PathBuf> {
+    let path = if let Some(path) = opt_path {
+        path
+    } else if let Some(envvar) = env::var_os("CARGO_TARPAULIN_TARGET_DIR") {
+        PathBuf::from(envvar)
     } else {
-        None
+        return None;
+    };
+
+    if !path.exists() {
+        let _ = create_dir_all(&path);
     }
+    Some(canonicalize_path(path))
+}
+
+pub(super) fn canonicalize_paths(paths: Vec<PathBuf>) -> Vec<PathBuf> {
+    paths.into_iter().map(canonicalize_path).collect()
+}
+
+pub(super) fn canonicalize_path(mut path: PathBuf) -> PathBuf {
+    if path.is_relative() {
+        path = env::current_dir()
+            .unwrap()
+            .canonicalize()
+            .unwrap()
+            .join(&path);
+        path = fix_unc_path(&path);
+    }
+    path
 }
 
 pub fn deserialize_ci_server<'de, D>(d: D) -> Result<Option<CiService>, D::Error>

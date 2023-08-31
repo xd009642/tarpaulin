@@ -1,24 +1,36 @@
-use clap::arg_enum;
+use clap::ValueEnum;
 use coveralls_api::CiService;
+use enum_display::EnumDisplay;
 use serde::{Deserialize, Serialize};
 use std::str::FromStr;
 
-arg_enum! {
-    #[derive(Debug, Copy, Clone, PartialEq, Eq, Hash, Ord, PartialOrd, Deserialize, Serialize)]
-    pub enum Color {
-        Auto,
-        Always,
-        Never,
-    }
+#[derive(
+    Debug,
+    Copy,
+    Clone,
+    PartialEq,
+    Eq,
+    Hash,
+    Ord,
+    PartialOrd,
+    Deserialize,
+    Serialize,
+    ValueEnum,
+    EnumDisplay,
+)]
+pub enum Color {
+    Auto,
+    Always,
+    Never,
 }
 
-arg_enum! {
-    #[derive(Debug, Copy, Clone, PartialEq, Eq, Hash, Ord, PartialOrd, Deserialize, Serialize)]
-    pub enum TraceEngine {
-        Auto,
-        Ptrace,
-        Llvm,
-    }
+#[derive(
+    Debug, Copy, Clone, PartialEq, Eq, Hash, Ord, PartialOrd, Deserialize, Serialize, ValueEnum,
+)]
+pub enum TraceEngine {
+    Auto,
+    Ptrace,
+    Llvm,
 }
 
 impl TraceEngine {
@@ -45,37 +57,37 @@ impl Default for TraceEngine {
     }
 }
 
-arg_enum! {
-    #[derive(Debug, Copy, Clone, PartialEq, Eq, Hash, Ord, PartialOrd, Deserialize, Serialize)]
-    pub enum Mode {
-        Test,
-        Build
-    }
+#[derive(
+    Debug, Copy, Clone, PartialEq, Eq, Hash, Ord, PartialOrd, Deserialize, Serialize, ValueEnum,
+)]
+pub enum Mode {
+    Test,
+    Build,
 }
 
-arg_enum! {
-    #[derive(Debug, Copy, Clone, PartialEq, Eq, Hash, Ord, PartialOrd, Deserialize, Serialize)]
-    pub enum RunType {
-        Tests,
-        Doctests,
-        Benchmarks,
-        Examples,
-        Lib,
-        Bins,
-        AllTargets,
-    }
+#[derive(
+    Debug, Copy, Clone, PartialEq, Eq, Hash, Ord, PartialOrd, Deserialize, Serialize, ValueEnum,
+)]
+pub enum RunType {
+    Tests,
+    Doctests,
+    Benchmarks,
+    Examples,
+    Lib,
+    Bins,
+    AllTargets,
 }
 
-arg_enum! {
-    #[derive(Debug, Copy, Clone, Eq, PartialEq, Ord, PartialOrd, Hash, Deserialize, Serialize)]
-    #[non_exhaustive]
-    pub enum OutputFile {
-        Json,
-        Stdout,
-        Xml,
-        Html,
-        Lcov,
-    }
+#[derive(
+    Debug, Copy, Clone, Eq, PartialEq, Ord, PartialOrd, Hash, Deserialize, Serialize, ValueEnum,
+)]
+#[non_exhaustive]
+pub enum OutputFile {
+    Json,
+    Stdout,
+    Xml,
+    Html,
+    Lcov,
 }
 
 impl Default for OutputFile {
@@ -85,7 +97,7 @@ impl Default for OutputFile {
     }
 }
 
-#[derive(Debug, Eq, PartialEq, Ord, PartialOrd, Deserialize, Serialize)]
+#[derive(Debug, Clone, Eq, PartialEq, Ord, PartialOrd, Deserialize, Serialize)]
 pub struct Ci(pub CiService);
 
 impl FromStr for Ci {

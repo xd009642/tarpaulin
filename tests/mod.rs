@@ -1,12 +1,13 @@
 use crate::utils::get_test_path;
-use cargo_tarpaulin::config::{
-    Color, Config, ConfigWrapper, Mode, OutputFile, RunType, TraceEngine,
-};
 use cargo_tarpaulin::event_log::EventLog;
 use cargo_tarpaulin::path_utils::*;
 use cargo_tarpaulin::traces::TraceMap;
+use cargo_tarpaulin::{
+    args::TarpaulinCli,
+    config::{Color, Config, ConfigWrapper, Mode, OutputFile, RunType, TraceEngine},
+};
 use cargo_tarpaulin::{launch_tarpaulin, run, setup_logging};
-use clap::{App, Arg};
+use clap::Parser;
 #[cfg(windows)]
 use regex::Regex;
 use rusty_fork::rusty_fork_test;
@@ -35,33 +36,9 @@ pub fn check_percentage_with_cli_args(
 ) -> TraceMap {
     setup_logging(Color::Never, false, false);
     let restore_dir = env::current_dir().unwrap();
-    let matches = App::new("tarpaulin")
-        .args_from_usage(
-             "--config [FILE] 'Path to a toml file specifying a list of options this will override any other options set'
-             --ignore-config 'Ignore any project config files'
-             --debug 'Show debug output - this is used for diagnosing issues with tarpaulin'
-             --verbose -v 'Show extra output'
-             --root -r [DIR] 'directory'
-             --include-tests 'include tests in your tests'
-             --post-test-delay [SECONDS] 'Delay after test to collect coverage profiles'
-             --implicit-test-threads 'Don't supply an explicit `--test-threads` argument to tarpaulin. By default tarpaulin will infer the default rustc would pick if not ran via tarpaulin and set it'"
-        ).args(&[
-                Arg::from_usage("--out -o [FMT]   'Output format of coverage report'")
-                    .possible_values(&OutputFile::variants())
-                    .case_insensitive(true)
-                    .multiple(true),
-                Arg::from_usage("--engine [ENGINE] 'Coverage tracing backend to use'")
-                    .possible_values(&TraceEngine::variants())
-                    .case_insensitive(true)
-                    .multiple(false),
-                Arg::from_usage("--output-dir [PATH] 'Specify a custom directory to write report files'"),
-                Arg::from_usage("--color [WHEN] 'Coloring: auto, always, never'")
-                    .case_insensitive(true)
-                    .possible_values(&Color::variants()),
-        ])
-        .get_matches_from(args);
+    let args = TarpaulinCli::parse_from(args);
 
-    let mut configs = ConfigWrapper::from(&matches).0;
+    let mut configs = ConfigWrapper::from(args.config).0;
     let mut res = TraceMap::new();
     for config in &mut configs {
         config.set_clean(false);
