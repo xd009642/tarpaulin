@@ -3,6 +3,11 @@
 From 2019 onwards, all notable changes to tarpaulin will be documented in this
 file.
 
+## [Unreleased]
+### Changed
+- Upgraded from clap v2 to v4. This has a few changes, notably any arguments which can be specified more
+than once require multiple entries so `--run-types doc test` needs to be turned into `--run-types doc --run-types test`
+
 ## [0.26.1] 2023-07-02
 ### Changed
 - Expand doc test prefix to cover more of the directory tree to work with the new naming structure
