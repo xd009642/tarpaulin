@@ -17,7 +17,6 @@ impl CargoTarpaulinCli {
     pub fn from_args() -> TarpaulinCli {
         match TarpaulinCli::try_parse() {
             Ok(tarpaulin_cli) => tarpaulin_cli,
-            // Skip 'non-error' error results like `--help` and `--version`
             Err(err) if !err.use_stderr() => err.exit(),
             Err(_) => match CargoTarpaulinCli::parse() {
                 CargoTarpaulinCli::Tarpaulin(tarpaulin_cli) => tarpaulin_cli,
@@ -301,6 +300,7 @@ mod tests {
     }
 
     #[test]
+    #[ignore = "Manual use only"]
     fn show_help() {
         let help = CargoTarpaulinCli::command().render_help();
         println!("{help}");
