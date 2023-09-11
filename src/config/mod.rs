@@ -186,7 +186,7 @@ pub struct Config {
     objects: Vec<PathBuf>,
     /// Joined to target/tarpaulin to store profraws
     profraw_folder: PathBuf,
-    /// Option to fail immediately after single test fails
+    /// Option to fail immediately after a single test fails
     pub fail_immediately: bool,
 }
 
