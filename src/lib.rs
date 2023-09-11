@@ -300,6 +300,11 @@ pub fn launch_tarpaulin(
                     return_code |= res.1;
                 }
             }
+
+
+            if config.fail_immediately && return_code != 0{
+                return Err(RunError::TestFailed);
+            }
         }
         result.dedup();
     }

@@ -186,6 +186,8 @@ pub struct Config {
     objects: Vec<PathBuf>,
     /// Joined to target/tarpaulin to store profraws
     profraw_folder: PathBuf,
+    /// Option to fail immediately after single test fails
+    pub fail_immediately: bool,
 }
 
 fn default_test_timeout() -> Duration {
@@ -255,6 +257,7 @@ impl Default for Config {
             post_test_delay: Some(Duration::from_secs(1)),
             objects: vec![],
             profraw_folder: PathBuf::from("profraws"),
+            fail_immediately: false,
         }
     }
 }
@@ -340,6 +343,7 @@ impl From<ConfigArgs> for ConfigWrapper {
             post_test_delay: args.post_test_delay.map(Duration::from_secs),
             objects: canonicalize_paths(args.objects),
             profraw_folder: PathBuf::from("profraws"),
+            fail_immediately: args.fail_immediately
         };
         if args.ignore_config {
             Self(vec![args_config])
