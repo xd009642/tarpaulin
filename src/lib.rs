@@ -301,8 +301,7 @@ pub fn launch_tarpaulin(
                 }
             }
 
-
-            if config.fail_immediately && return_code != 0{
+            if config.fail_immediately && return_code != 0 {
                 return Err(RunError::TestFailed);
             }
         }

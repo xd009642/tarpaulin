@@ -343,7 +343,7 @@ impl From<ConfigArgs> for ConfigWrapper {
             post_test_delay: args.post_test_delay.map(Duration::from_secs),
             objects: canonicalize_paths(args.objects),
             profraw_folder: PathBuf::from("profraws"),
-            fail_immediately: args.fail_immediately
+            fail_immediately: args.fail_immediately,
         };
         if args.ignore_config {
             Self(vec![args_config])
