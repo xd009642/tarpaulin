@@ -201,6 +201,9 @@ pub struct ConfigArgs {
     /// CI server being used, if unspecified tarpaulin may automatically infer for coveralls uploads
     #[arg(long, value_name = "SERVICE")]
     pub ciserver: Option<Ci>,
+    /// Option to fail immediately after a single test fails
+    #[arg(long)]
+    pub fail_immediately: bool,
     /// Arguments to be passed to the test executables can be used to filter or skip certain tests
     #[arg(last = true)]
     pub args: Vec<String>,
