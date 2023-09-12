@@ -20,7 +20,7 @@ name = "integration"
 path = "tests/mod.rs"
 
 [dependencies]
-cargo_metadata = "0.17"
+cargo_metadata = "0.18"
 cfg-if = "1.0.0"
 chrono = "0.4"
 clap = { version = "4.4.0", features = ["derive"] }
