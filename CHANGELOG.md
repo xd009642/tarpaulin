@@ -8,9 +8,6 @@ file.
 - Added `--fail-immediately` flag to abort execution the moment the first test failure occurs
 
 ### Changed
-
-## [Unreleased]
-### Changed
 - Upgraded from clap v2 to v4. This has a few changes, notably any arguments which can be specified more
 than once require multiple entries so `--run-types doc test` needs to be turned into `--run-types doc --run-types test`
 
