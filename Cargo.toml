@@ -73,7 +73,7 @@ lcov = "0.8.1"
 rusty-fork = "0.3.0"
 
 [package.metadata.binstall]
-pkg-url = "{ repo }/releases/download/{ version }/cargo-tarpaulin-{ target }.tar.gz"
+pkg-url = "{ repo }/releases/download/{ version }/cargo-tarpaulin-{ target }{ archive-suffix }"
 bin-dir = "cargo-tarpaulin{ binary-ext }"
 pkg-fmt = "tgz"
 
