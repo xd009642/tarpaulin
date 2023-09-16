@@ -1550,3 +1550,45 @@ fn ignore_comment() {
     assert!(lines.ignore.contains(&Lines::Line(11)));
     assert!(lines.ignore.contains(&Lines::Line(12)));
 }
+
+#[test]
+fn py_attr() {
+    let config = Config::default();
+    let ctx = Context {
+        config: &config,
+        file_contents: "use pyo3::prelude::{pyfunction, PyResult};
+
+            #[pyfunction]
+            pub fn print_something() -> PyResult<()> {
+                println!(\"foo\");
+                Ok(())
+            }
+
+            #[cfg(test)]
+            mod mod_test_print_something {
+                use super::print_something;
+
+                #[test]
+                fn test_print_something() {
+                    print_something().ok().unwrap()
+                }
+            }
+        ",
+        file: Path::new(""),
+        ignore_mods: RefCell::new(HashSet::new()),
+    };
+    let parser = parse_file(ctx.file_contents).unwrap();
+    let mut analysis = SourceAnalysis::new();
+    analysis.process_items(&parser.items, &ctx);
+    let lines = &analysis.lines[Path::new("")];
+    assert!(lines.ignore.contains(&Lines::Line(1)));
+    assert!(lines.ignore.contains(&Lines::Line(3)));
+    assert!(lines.ignore.contains(&Lines::Line(10)));
+    assert!(lines.ignore.contains(&Lines::Line(11)));
+    assert!(lines.ignore.contains(&Lines::Line(12)));
+    assert!(lines.ignore.contains(&Lines::Line(13)));
+    assert!(lines.ignore.contains(&Lines::Line(14)));
+    assert!(lines.ignore.contains(&Lines::Line(15)));
+    assert!(lines.ignore.contains(&Lines::Line(16)));
+    assert!(lines.ignore.contains(&Lines::Line(17)));
+}
