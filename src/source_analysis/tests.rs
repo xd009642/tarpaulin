@@ -1550,3 +1550,39 @@ fn ignore_comment() {
     assert!(lines.ignore.contains(&Lines::Line(11)));
     assert!(lines.ignore.contains(&Lines::Line(12)));
 }
+
+#[test]
+fn py_attr() {
+    let config = Config::default();
+    let ctx = Context {
+        config: &config,
+        file_contents: "use pyo3::prelude::{pyfunction, PyResult};
+
+            #[pyfunction]
+            pub fn print_something() -> PyResult<()> {
+                println!(\"foo\");
+                Ok(())
+            }
+            
+            struct Blah;
+            
+            #[pyimpl]
+            impl Blah {
+                #[pyfunction]
+                fn blah() -> Self {
+                    Self
+                }
+            }
+        ",
+        file: Path::new(""),
+        ignore_mods: RefCell::new(HashSet::new()),
+    };
+    let parser = parse_file(ctx.file_contents).unwrap();
+    let mut analysis = SourceAnalysis::new();
+    analysis.process_items(&parser.items, &ctx);
+    let lines = &analysis.lines[Path::new("")];
+    assert!(lines.ignore.contains(&Lines::Line(1)));
+    assert!(lines.ignore.contains(&Lines::Line(3)));
+    assert!(lines.ignore.contains(&Lines::Line(11)));
+    assert!(lines.ignore.contains(&Lines::Line(13)));
+}

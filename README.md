@@ -29,10 +29,9 @@ Below is the help-text for a thorough explanation of the flags and features
 available:
 
 ```
-cargo-tarpaulin version: 0.26.1
 Cargo-Tarpaulin is a tool to determine code coverage achieved via tests
 
-Usage: cargo [OPTIONS] [-- <ARGS>...]
+Usage: cargo tarpaulin [OPTIONS] [-- <ARGS>...]
 
 Arguments:
   [ARGS]...  Arguments to be passed to the test executables can be used to filter or skip certain tests
@@ -105,6 +104,7 @@ Options:
   -r, --root <DIR>                 Calculates relative paths to root directory. If --manifest-path isn't specified it will look for a Cargo.toml in root
       --manifest-path <PATH>       Path to Cargo.toml
       --ciserver <SERVICE>         CI server being used, if unspecified tarpaulin may automatically infer for coveralls uploads
+      --fail-immediately           Option to fail immediately after a single test fails
   -h, --help                       Print help
   -V, --version                    Print version
 ```

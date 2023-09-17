@@ -143,6 +143,13 @@ impl SourceAnalysis {
             self.visit_generics(&func.sig.generics, ctx);
             let analysis = self.get_line_analysis(ctx.file.to_path_buf());
             let line_number = func.sig.fn_token.span().start().line;
+            let mut start_line = line_number;
+            for attr in &func.attrs {
+                start_line = start_line.min(attr.span().start().line);
+            }
+            if start_line < line_number {
+                analysis.add_to_ignore(start_line..line_number);
+            }
             analysis.ignore.remove(&Lines::Line(line_number));
             // Ignore multiple lines of fn decl
             let decl_start = func.sig.fn_token.span().start().line + 1;

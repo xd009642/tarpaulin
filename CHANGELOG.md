@@ -3,13 +3,14 @@
 From 2019 onwards, all notable changes to tarpaulin will be documented in this
 file.
 
-## [Unreleased]
+## [0.27.0] 2023-09-17
 ### Added
 - Added `--fail-immediately` flag to abort execution the moment the first test failure occurs
 
 ### Changed
 - Upgraded from clap v2 to v4. This has a few changes, notably any arguments which can be specified more
 than once require multiple entries so `--run-types doc test` needs to be turned into `--run-types doc --run-types test`
+- Ignore attributes on methods, functions and trait methods
 
 ## [0.26.1] 2023-07-02
 ### Changed
