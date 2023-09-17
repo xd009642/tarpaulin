@@ -1563,14 +1563,14 @@ fn py_attr() {
                 println!(\"foo\");
                 Ok(())
             }
-
-            #[cfg(test)]
-            mod mod_test_print_something {
-                use super::print_something;
-
-                #[test]
-                fn test_print_something() {
-                    print_something().ok().unwrap()
+            
+            struct Blah;
+            
+            #[pyimpl]
+            impl Blah {
+                #[pyfunction]
+                fn blah() -> Self {
+                    Self
                 }
             }
         ",
@@ -1583,12 +1583,6 @@ fn py_attr() {
     let lines = &analysis.lines[Path::new("")];
     assert!(lines.ignore.contains(&Lines::Line(1)));
     assert!(lines.ignore.contains(&Lines::Line(3)));
-    assert!(lines.ignore.contains(&Lines::Line(10)));
     assert!(lines.ignore.contains(&Lines::Line(11)));
-    assert!(lines.ignore.contains(&Lines::Line(12)));
     assert!(lines.ignore.contains(&Lines::Line(13)));
-    assert!(lines.ignore.contains(&Lines::Line(14)));
-    assert!(lines.ignore.contains(&Lines::Line(15)));
-    assert!(lines.ignore.contains(&Lines::Line(16)));
-    assert!(lines.ignore.contains(&Lines::Line(17)));
 }
