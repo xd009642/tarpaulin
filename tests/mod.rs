@@ -1,12 +1,13 @@
 use crate::utils::get_test_path;
-use cargo_tarpaulin::config::{
-    Color, Config, ConfigWrapper, Mode, OutputFile, RunType, TraceEngine,
-};
 use cargo_tarpaulin::event_log::EventLog;
 use cargo_tarpaulin::path_utils::*;
 use cargo_tarpaulin::traces::TraceMap;
+use cargo_tarpaulin::{
+    args::TarpaulinCli,
+    config::{Color, Config, ConfigWrapper, Mode, OutputFile, RunType, TraceEngine},
+};
 use cargo_tarpaulin::{launch_tarpaulin, run, setup_logging};
-use clap::{App, Arg};
+use clap::Parser;
 #[cfg(windows)]
 use regex::Regex;
 use rusty_fork::rusty_fork_test;
@@ -35,33 +36,9 @@ pub fn check_percentage_with_cli_args(
 ) -> TraceMap {
     setup_logging(Color::Never, false, false);
     let restore_dir = env::current_dir().unwrap();
-    let matches = App::new("tarpaulin")
-        .args_from_usage(
-             "--config [FILE] 'Path to a toml file specifying a list of options this will override any other options set'
-             --ignore-config 'Ignore any project config files'
-             --debug 'Show debug output - this is used for diagnosing issues with tarpaulin'
-             --verbose -v 'Show extra output'
-             --root -r [DIR] 'directory'
-             --include-tests 'include tests in your tests'
-             --post-test-delay [SECONDS] 'Delay after test to collect coverage profiles'
-             --implicit-test-threads 'Don't supply an explicit `--test-threads` argument to tarpaulin. By default tarpaulin will infer the default rustc would pick if not ran via tarpaulin and set it'"
-        ).args(&[
-                Arg::from_usage("--out -o [FMT]   'Output format of coverage report'")
-                    .possible_values(&OutputFile::variants())
-                    .case_insensitive(true)
-                    .multiple(true),
-                Arg::from_usage("--engine [ENGINE] 'Coverage tracing backend to use'")
-                    .possible_values(&TraceEngine::variants())
-                    .case_insensitive(true)
-                    .multiple(false),
-                Arg::from_usage("--output-dir [PATH] 'Specify a custom directory to write report files'"),
-                Arg::from_usage("--color [WHEN] 'Coloring: auto, always, never'")
-                    .case_insensitive(true)
-                    .possible_values(&Color::variants()),
-        ])
-        .get_matches_from(args);
+    let args = TarpaulinCli::parse_from(args);
 
-    let mut configs = ConfigWrapper::from(&matches).0;
+    let mut configs = ConfigWrapper::from(args.config).0;
     let mut res = TraceMap::new();
     for config in &mut configs {
         config.set_clean(false);
@@ -145,7 +122,7 @@ pub fn check_percentage_with_config(
 
 pub fn check_percentage(project_name: &str, minimum_coverage: f64, has_lines: bool) -> TraceMap {
     let mut config = Config::default();
-    config.set_ignore_tests(false);
+    config.set_include_tests(true);
     config.set_clean(false);
     check_percentage_with_config(project_name, minimum_coverage, has_lines, config)
 }
@@ -198,7 +175,7 @@ fn llvm_sanity_test() {
     let mut config = Config::default();
     config.set_engine(TraceEngine::Llvm);
     config.follow_exec = true;
-    config.set_ignore_tests(false);
+    config.set_include_tests(true);
     config.set_clean(false);
 
     check_percentage_with_config("structs", 1.0f64, true, config.clone());
@@ -335,7 +312,7 @@ fn examples_coverage() {
     let mut config = Config::default();
     config.run_types = vec![RunType::Examples];
     config.set_clean(false);
-    config.set_ignore_tests(false);
+    config.set_include_tests(true);
     check_percentage_with_config(test, 1.0f64, true, config.clone());
 
     config.run_types.clear();
@@ -442,7 +419,7 @@ fn handle_module_level_exclude_attrs() {
 fn handle_forks() {
     let mut config = Config::default();
     config.set_clean(false);
-    config.set_ignore_tests(false);
+    config.set_include_tests(true);
     config.post_test_delay = Some(Duration::from_secs(10));
     // Some false negatives on more recent compilers so lets just aim for >90% and 0 return code
     check_percentage_with_config("fork-test", 0.85f64, true, config);
@@ -466,7 +443,7 @@ fn dot_rs_in_dir_name() {
     // issue #857
     let mut config = Config::default();
     config.set_clean(false);
-    config.set_ignore_tests(false);
+    config.set_include_tests(true);
 
     let restore_dir = env::current_dir().unwrap();
     let test_dir = get_test_path("not_a_file.rs");
@@ -497,7 +474,7 @@ fn kill_used_in_test() {
 
     config.follow_exec = true;
     config.set_clean(false);
-    config.set_ignore_tests(false);
+    config.set_include_tests(true);
     // Currently 2 false negatives, but if it was only covering the integration test max coverage
     // is 75% so this is high enough to prove it works
     check_percentage_with_config("kill_proc", 0.9f64, true, config);
@@ -532,7 +509,7 @@ fn sanitised_paths() {
     let report_dir = test_dir.join("reports");
     let mut config = Config::default();
     config.set_engine(TraceEngine::Llvm);
-    config.set_ignore_tests(false);
+    config.set_include_tests(true);
     config.set_clean(false);
     config.generate.push(OutputFile::Lcov);
     config.generate.push(OutputFile::Html);
@@ -584,7 +561,7 @@ fn output_dir_workspace() {
     let report_dir = test_dir.join("reports");
     let mut config = Config::default();
     config.set_engine(TraceEngine::Llvm);
-    config.set_ignore_tests(false);
+    config.set_include_tests(true);
     config.set_clean(false);
     config.dump_traces = true;
     config.generate.push(OutputFile::Lcov);
@@ -652,7 +629,7 @@ fn stripped_crate() {
 fn workspace_no_fail_fast() {
     let mut config = Config::default();
     config.set_clean(false);
-    config.set_ignore_tests(false);
+    config.set_include_tests(true);
     config.no_fail_fast = true;
 
     let test_dir = get_test_path("workspace_with_fail_tests");

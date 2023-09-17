@@ -387,9 +387,9 @@ fn filter_macros() {
 #[test]
 fn filter_tests() {
     let mut config = Config::default();
-    config.set_ignore_tests(false);
+    config.set_include_tests(true);
     let mut igconfig = Config::default();
-    igconfig.set_ignore_tests(true);
+    igconfig.set_include_tests(false);
 
     let ctx = Context {
         config: &config,
@@ -452,7 +452,7 @@ fn filter_tests() {
 #[test]
 fn filter_nonstd_tests() {
     let mut igconfig = Config::default();
-    igconfig.set_ignore_tests(true);
+    igconfig.set_include_tests(false);
 
     let ctx = Context {
         config: &igconfig,
@@ -521,7 +521,7 @@ fn filter_nonstd_tests() {
 #[test]
 fn filter_test_utilities() {
     let mut config = Config::default();
-    config.set_ignore_tests(true);
+    config.set_include_tests(false);
 
     let ctx = Context {
         config: &config,
@@ -543,7 +543,7 @@ fn filter_test_utilities() {
     assert!(lines.ignore.contains(&Lines::Line(4)));
 
     let mut config = Config::default();
-    config.set_ignore_tests(false);
+    config.set_include_tests(true);
 
     let ctx = Context {
         config: &config,
@@ -1549,4 +1549,40 @@ fn ignore_comment() {
     assert!(lines.ignore.contains(&Lines::Line(10)));
     assert!(lines.ignore.contains(&Lines::Line(11)));
     assert!(lines.ignore.contains(&Lines::Line(12)));
+}
+
+#[test]
+fn py_attr() {
+    let config = Config::default();
+    let ctx = Context {
+        config: &config,
+        file_contents: "use pyo3::prelude::{pyfunction, PyResult};
+
+            #[pyfunction]
+            pub fn print_something() -> PyResult<()> {
+                println!(\"foo\");
+                Ok(())
+            }
+            
+            struct Blah;
+            
+            #[pyimpl]
+            impl Blah {
+                #[pyfunction]
+                fn blah() -> Self {
+                    Self
+                }
+            }
+        ",
+        file: Path::new(""),
+        ignore_mods: RefCell::new(HashSet::new()),
+    };
+    let parser = parse_file(ctx.file_contents).unwrap();
+    let mut analysis = SourceAnalysis::new();
+    analysis.process_items(&parser.items, &ctx);
+    let lines = &analysis.lines[Path::new("")];
+    assert!(lines.ignore.contains(&Lines::Line(1)));
+    assert!(lines.ignore.contains(&Lines::Line(3)));
+    assert!(lines.ignore.contains(&Lines::Line(11)));
+    assert!(lines.ignore.contains(&Lines::Line(13)));
 }

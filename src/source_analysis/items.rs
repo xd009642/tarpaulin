@@ -59,7 +59,7 @@ impl SourceAnalysis {
                     }
                     check_insides = false;
                     break;
-                } else if ctx.config.ignore_tests() && x.path().is_ident("cfg") {
+                } else if !ctx.config.include_tests() && x.path().is_ident("cfg") {
                     if let Meta::List(ref ml) = x {
                         for nested in &ml.nested {
                             if let NestedMeta::Meta(Meta::Path(ref i)) = *nested {
@@ -119,7 +119,7 @@ impl SourceAnalysis {
             }
         }
         if ignore_span
-            || (test_func && ctx.config.ignore_tests())
+            || (test_func && !ctx.config.include_tests())
             || (ignored_attr && !ctx.config.run_ignored)
         {
             let analysis = self.get_line_analysis(ctx.file.to_path_buf());
@@ -143,6 +143,13 @@ impl SourceAnalysis {
             self.visit_generics(&func.sig.generics, ctx);
             let analysis = self.get_line_analysis(ctx.file.to_path_buf());
             let line_number = func.sig.fn_token.span().start().line;
+            let mut start_line = line_number;
+            for attr in &func.attrs {
+                start_line = start_line.min(attr.span().start().line);
+            }
+            if start_line < line_number {
+                analysis.add_to_ignore(start_line..line_number);
+            }
             analysis.ignore.remove(&Lines::Line(line_number));
             // Ignore multiple lines of fn decl
             let decl_start = func.sig.fn_token.span().start().line + 1;

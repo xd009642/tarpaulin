@@ -13,6 +13,7 @@ use std::fs::{create_dir_all, remove_dir_all};
 use tracing::{debug, error, info, warn};
 use tracing_subscriber::{filter::LevelFilter, EnvFilter};
 
+pub mod args;
 pub mod branching;
 pub mod cargo;
 pub mod config;
@@ -298,6 +299,10 @@ pub fn launch_tarpaulin(
                     result.merge(&res.0);
                     return_code |= res.1;
                 }
+            }
+
+            if config.fail_immediately && return_code != 0 {
+                return Err(RunError::TestFailed);
             }
         }
         result.dedup();
