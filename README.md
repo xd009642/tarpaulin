@@ -418,7 +418,7 @@ after_success: |
     # cargo tarpaulin --ciserver travis-ci --coveralls $TRAVIS_JOB_ID
 
     # Uncomment the following two lines create and upload a report for codecov.io
-    # cargo tarpaulin --out Xml
+    # cargo tarpaulin --out xml
     # bash <(curl -s https://codecov.io/bash)
   fi
 ```
@@ -457,7 +457,7 @@ jobs:
 
       - name:                   Generate code coverage
         run: |
-          cargo +nightly tarpaulin --verbose --all-features --workspace --timeout 120 --out Xml
+          cargo +nightly tarpaulin --verbose --all-features --workspace --timeout 120 --out xml
 
       - name:                   Upload to codecov.io
         uses:                   codecov/codecov-action@v2
@@ -599,7 +599,7 @@ its own report implementations.
 To generate a `cobertura.xml` simply run the following tarpaulin command:
 
 ```text
-cargo tarpaulin --out Xml
+cargo tarpaulin --out xml
 ```
 
 Then install `pycobertura` with pip and execute the desired command.
