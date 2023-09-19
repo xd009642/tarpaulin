@@ -218,7 +218,7 @@ pub struct LoggingArgs {
     #[arg(long)]
     pub debug: bool,
     /// Show extra output
-    #[arg(long)]
+    #[arg(long, short)]
     pub verbose: bool,
     /// Log tracing events and save to a json file. Also, enabled when --debug is used
     #[arg(long)]
