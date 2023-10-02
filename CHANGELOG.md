@@ -3,6 +3,10 @@
 From 2019 onwards, all notable changes to tarpaulin will be documented in this
 file.
 
+## [0.27.1] 2023-10-02
+### Changed
+- Restore casing of enum clap arguments e.g. `--out` so they match old behaviour
+
 ## [0.27.0] 2023-09-17
 ### Added
 - Added `--fail-immediately` flag to abort execution the moment the first test failure occurs
