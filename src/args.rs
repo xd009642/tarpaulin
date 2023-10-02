@@ -181,16 +181,16 @@ pub struct ConfigArgs {
     #[arg(short = 'Z', value_name = "FEATURES", num_args = 0..)]
     pub unstable_features: Vec<String>,
     /// Output format of coverage report
-    #[arg(long, short, value_enum, value_name = "FMT", num_args = 0..)]
+    #[arg(long, short, value_enum, value_name = "FMT", num_args = 0.., ignore_case = true)]
     pub out: Vec<OutputFile>,
     /// Coverage tracing backend to use
-    #[arg(long, value_enum, value_name = "ENGINE")]
+    #[arg(long, value_enum, value_name = "ENGINE", ignore_case = true)]
     pub engine: Option<TraceEngine>,
     /// Specify a custom directory to write report files
     #[arg(long, value_name = "PATH")]
     pub output_dir: Option<PathBuf>,
     /// cargo subcommand to run. So far only test and build are supported
-    #[arg(long, value_enum, value_name = "CMD")]
+    #[arg(long, value_enum, value_name = "CMD", ignore_case = true)]
     pub command: Option<Mode>,
     /// Calculates relative paths to root directory. If --manifest-path isn't specified it will look for a Cargo.toml in root
     #[arg(long, short, value_name = "DIR")]
@@ -212,13 +212,13 @@ pub struct ConfigArgs {
 #[derive(Debug, Clone, Copy, Args)]
 pub struct LoggingArgs {
     /// Coloring: auto, always, never
-    #[arg(long, value_enum, value_name = "WHEN")]
+    #[arg(long, value_enum, value_name = "WHEN", ignore_case = true)]
     pub color: Option<Color>,
     /// Show debug output - this is used for diagnosing issues with tarpaulin
     #[arg(long)]
     pub debug: bool,
     /// Show extra output
-    #[arg(long)]
+    #[arg(long, short)]
     pub verbose: bool,
     /// Log tracing events and save to a json file. Also, enabled when --debug is used
     #[arg(long)]
@@ -238,7 +238,7 @@ pub struct PrintFlagsArgs {
 #[derive(Debug, Clone, Args)]
 pub struct RunTypesArgs {
     /// Type of the coverage run
-    #[arg(long, value_enum, value_name = "TYPE")]
+    #[arg(long, value_enum, value_name = "TYPE", ignore_case = true)]
     pub run_types: Vec<RunType>,
     /// Test all benches
     #[arg(long)]

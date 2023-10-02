@@ -39,11 +39,11 @@ Arguments:
 Options:
       --print-rust-flags           Print the RUSTFLAGS options that tarpaulin will compile your program with and exit
       --print-rustdoc-flags        Print the RUSTDOCFLAGS options that tarpaulin will compile any doctests with and exit
-      --color <WHEN>               Coloring: auto, always, never [possible values: auto, always, never]
+      --color <WHEN>               Coloring: auto, always, never [possible values: Auto, Always, Never]
       --debug                      Show debug output - this is used for diagnosing issues with tarpaulin
-      --verbose                    Show extra output
+  -v, --verbose                    Show extra output
       --dump-traces                Log tracing events and save to a json file. Also, enabled when --debug is used
-      --run-types <TYPE>           Type of the coverage run [possible values: tests, doctests, benchmarks, examples, lib, bins, all-targets]
+      --run-types <TYPE>           Type of the coverage run [possible values: Tests, Doctests, Benchmarks, Examples, Lib, Bins, AllTargets]
       --benches                    Test all benches
       --doc                        Test only this library's documentation
       --all-targets                Test all targets (excluding doctests)
@@ -97,10 +97,10 @@ Options:
       --rustflags <FLAGS>          Rustflags to add when building project (can also be set via RUSTFLAGS env var)
       --objects [<objects>...]     Other object files to load which contain information for llvm coverage - must have been compiled with llvm coverage instrumentation (ignored for ptrace)
   -Z [<FEATURES>...]               List of unstable nightly only flags
-  -o, --out [<FMT>...]             Output format of coverage report [possible values: json, stdout, xml, html, lcov]
-      --engine <ENGINE>            Coverage tracing backend to use [possible values: auto, ptrace, llvm]
+  -o, --out [<FMT>...]             Output format of coverage report [possible values: Json, Stdout, Xml, Html, Lcov]
+      --engine <ENGINE>            Coverage tracing backend to use [possible values: Auto, Ptrace, Llvm]
       --output-dir <PATH>          Specify a custom directory to write report files
-      --command <CMD>              cargo subcommand to run. So far only test and build are supported [possible values: test, build]
+      --command <CMD>              cargo subcommand to run. So far only test and build are supported [possible values: Test, Build]
   -r, --root <DIR>                 Calculates relative paths to root directory. If --manifest-path isn't specified it will look for a Cargo.toml in root
       --manifest-path <PATH>       Path to Cargo.toml
       --ciserver <SERVICE>         CI server being used, if unspecified tarpaulin may automatically infer for coveralls uploads
@@ -418,7 +418,7 @@ after_success: |
     # cargo tarpaulin --ciserver travis-ci --coveralls $TRAVIS_JOB_ID
 
     # Uncomment the following two lines create and upload a report for codecov.io
-    # cargo tarpaulin --out Xml
+    # cargo tarpaulin --out xml
     # bash <(curl -s https://codecov.io/bash)
   fi
 ```
@@ -457,7 +457,7 @@ jobs:
 
       - name:                   Generate code coverage
         run: |
-          cargo +nightly tarpaulin --verbose --all-features --workspace --timeout 120 --out Xml
+          cargo +nightly tarpaulin --verbose --all-features --workspace --timeout 120 --out xml
 
       - name:                   Upload to codecov.io
         uses:                   codecov/codecov-action@v2
@@ -599,7 +599,7 @@ its own report implementations.
 To generate a `cobertura.xml` simply run the following tarpaulin command:
 
 ```text
-cargo tarpaulin --out Xml
+cargo tarpaulin --out xml
 ```
 
 Then install `pycobertura` with pip and execute the desired command.
