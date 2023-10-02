@@ -18,6 +18,7 @@ use std::str::FromStr;
     ValueEnum,
     EnumDisplay,
 )]
+#[value(rename_all = "PascalCase")]
 pub enum Color {
     Auto,
     Always,
@@ -27,6 +28,7 @@ pub enum Color {
 #[derive(
     Debug, Copy, Clone, PartialEq, Eq, Hash, Ord, PartialOrd, Deserialize, Serialize, ValueEnum,
 )]
+#[value(rename_all = "PascalCase")]
 pub enum TraceEngine {
     Auto,
     Ptrace,
@@ -60,6 +62,7 @@ impl Default for TraceEngine {
 #[derive(
     Debug, Copy, Clone, PartialEq, Eq, Hash, Ord, PartialOrd, Deserialize, Serialize, ValueEnum,
 )]
+#[value(rename_all = "PascalCase")]
 pub enum Mode {
     Test,
     Build,
@@ -68,6 +71,7 @@ pub enum Mode {
 #[derive(
     Debug, Copy, Clone, PartialEq, Eq, Hash, Ord, PartialOrd, Deserialize, Serialize, ValueEnum,
 )]
+#[value(rename_all = "PascalCase")]
 pub enum RunType {
     Tests,
     Doctests,
@@ -81,6 +85,7 @@ pub enum RunType {
 #[derive(
     Debug, Copy, Clone, Eq, PartialEq, Ord, PartialOrd, Hash, Deserialize, Serialize, ValueEnum,
 )]
+#[value(rename_all = "PascalCase")]
 #[non_exhaustive]
 pub enum OutputFile {
     Json,
