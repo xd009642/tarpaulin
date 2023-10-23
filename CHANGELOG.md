@@ -7,6 +7,8 @@ file.
 ## [Unreleased]
 ### Changed
 - Don't disable ASLR if it's already disabled
+- Add the `--fail-decreasing` commandline option, which will make tarpaulin return an error
+  if the test coverage has decreased.
 
 ## [0.27.1] 2023-10-02
 ### Changed

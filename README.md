@@ -7,11 +7,11 @@
 [![Developers Wiki](https://img.shields.io/badge/development-wiki-yellowgreen.svg)](https://github.com/xd009642/tarpaulin/wiki/Developers)
 [![Coverage Status](https://coveralls.io/repos/github/xd009642/tarpaulin/badge.svg?branch=develop)](https://coveralls.io/github/xd009642/tarpaulin?branch=develop)
 
-Tarpaulin is a code coverage reporting tool for the Cargo build system, named 
+Tarpaulin is a code coverage reporting tool for the Cargo build system, named
 for a waterproof cloth used to cover cargo on a ship.
 
 Currently, tarpaulin
-provides working line coverage, and while fairly reliable, may still contain 
+provides working line coverage, and while fairly reliable, may still contain
 minor inaccuracies in the results. A lot of work has been done to get it
 working on a wide range of projects, but unique combinations of packages
 and build features can cause issues, so please report anything
@@ -69,6 +69,7 @@ Options:
       --skip-clean                 The opposite of --force-clean
       --force-clean                Adds a clean stage to work around cargo bugs that may affect coverage results
       --fail-under <PERCENTAGE>    Sets a percentage threshold for failure ranging from 0-100, if coverage is below exit with a non-zero code
+      --fail-decreasing            Fail if the covarage percentage is decreasing
   -b, --branch                     Branch coverage: NOT IMPLEMENTED
   -f, --forward                    Forwards unexpected signals to test. This is now the default behaviour
       --coveralls <KEY>            Coveralls key, either the repo token, or if you're using travis use $TRAVIS_JOB_ID and specify travis-{ci|pro} in --ciserver
@@ -120,7 +121,7 @@ caused by SIGSTOP, SIGSEGV or SIGILL to the test binary.
 ### Nuances with LLVM Coverage
 
 Despite generally being far more accurate there are some nuances with the LLVM
-coverage instrumentation. 
+coverage instrumentation.
 
 1. If a test has a non-zero exit code coverage data isn't returned
 2. Some areas of thread unsafety
@@ -175,7 +176,7 @@ cargo binstall cargo-tarpaulin
 
 ### Environment Variables
 
-When tarpaulin runs your tests it strives to run them in the same environment as if they were ran via cargo test. 
+When tarpaulin runs your tests it strives to run them in the same environment as if they were ran via cargo test.
 In order to achieve this it sets the following environment variables when executing the test binaries:
 
 - **RUST_BACKTRACE**      - _When --verbose flag is used_
@@ -235,7 +236,7 @@ Jan 30 21:43:35.563  INFO cargo_tarpaulin::report: Coverage Results:
 || Tested/Total Lines:
 || src/lib.rs: 3/4
 || src/unused.rs: 0/3
-|| 
+||
 42.86% coverage, 3/7 lines covered
 ```
 
@@ -266,7 +267,7 @@ Jan 30 21:45:38.990  INFO cargo_tarpaulin::report: Coverage Results:
 || Tested/Total Lines:
 || src/lib.rs: 3/4 +0.00%
 || src/unused.rs: 3/3 +100.00%
-|| 
+||
 85.71% coverage, 6/7 lines covered, +42.86% change in coverage
 ```
 
@@ -332,7 +333,7 @@ fn ignored_by_tarpaulin() {
 There is also nightly support for using tool attributes with tarpaulin for
 skip. For example:
 
-```Rust 
+```Rust
 #![feature(register_tool)]
 #![register_tool(tarpaulin)]
 
@@ -629,6 +630,6 @@ accuracy. If you see missing lines or files, check your compiler version.
 ## License
 
 Tarpaulin is currently licensed under the terms of both the MIT license and the
-Apache License (Version 2.0). See LICENSE-MIT and LICENSE-APACHE for more 
+Apache License (Version 2.0). See LICENSE-MIT and LICENSE-APACHE for more
 details.
 
