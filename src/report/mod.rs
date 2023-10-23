@@ -56,6 +56,21 @@ pub fn report_coverage(config: &Config, result: &TraceMap) -> Result<(), RunErro
     }
 }
 
+/// Returns the changed test coverage perentage, used in combination with the --fail-decreasing
+/// command line argument
+pub fn report_delta(config: &Config, result: &TraceMap) -> f64 {
+    let last = match get_previous_result(config) {
+        Some(l) => l,
+        None => TraceMap::new(),
+    };
+
+    let last = last.coverage_percentage() * 100.0f64;
+    let current = result.coverage_percentage() * 100.0f64;
+
+    let delta = current - last;
+    delta
+}
+
 fn generate_requested_reports(config: &Config, result: &TraceMap) -> Result<(), RunError> {
     if config.is_coveralls() {
         coveralls::export(result, config)?;

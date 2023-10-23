@@ -35,6 +35,8 @@ pub enum RunError {
     Internal,
     /// Tuple of actual coverage and threshold
     BelowThreshold(f64, f64),
+    /// Coverage is decreasing
+    CoverageDecreasing(f64),
     /// Error relating to tracing engine selected
     Engine(String),
 }
@@ -70,6 +72,7 @@ impl Display for RunError {
                     "Coverage is below the failure threshold {a:.2}% < {e:.2}%"
                 )
             }
+            Self::CoverageDecreasing(d) => write!(f, "The coverage has decreased by {d:.2}"),
             Self::Engine(s) => write!(f, "Engine error: {s}"),
         }
     }

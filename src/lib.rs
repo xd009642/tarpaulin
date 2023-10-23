@@ -4,7 +4,7 @@ use crate::errors::*;
 use crate::event_log::*;
 use crate::path_utils::*;
 use crate::process_handling::*;
-use crate::report::report_coverage;
+use crate::report::{report_coverage, report_delta};
 use crate::source_analysis::{LineAnalysis, SourceAnalysis};
 use crate::test_loader::*;
 use crate::traces::*;
@@ -177,6 +177,18 @@ fn check_fail_threshold(traces: &TraceMap, config: &Config) -> Result<(), RunErr
     }
 }
 
+fn check_fail_decreasing(traces: &TraceMap, config: &Config) -> Result<(), RunError> {
+    if config.fail_decreasing {
+        let delta = report_delta(config, traces);
+        if delta < 0.0f64 {
+            let error = RunError::CoverageDecreasing(delta);
+            error!("{}", error);
+            return Err(error);
+        }
+    }
+    Ok(())
+}
+
 pub fn run(configs: &[Config]) -> Result<(), RunError> {
     if configs.iter().any(|x| x.engine() == TraceEngine::Llvm) {
         let profraw_dir = configs[0].profraw_dir();
@@ -231,7 +243,13 @@ pub fn report_tracemap(configs: &[Config], tracemap: TraceMap) -> Result<(), Run
 
 fn report_coverage_with_check(c: &Config, tracemap: &TraceMap) -> Result<(), RunError> {
     report_coverage(c, tracemap)?;
-    check_fail_threshold(tracemap, c)
+    if let Some(err) = check_fail_threshold(tracemap, c).err() {
+        return Err(err);
+    }
+    if let Some(err) = check_fail_decreasing(tracemap, c).err() {
+        return Err(err);
+    }
+    Ok(())
 }
 
 /// Launches tarpaulin with the given configuration.

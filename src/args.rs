@@ -96,6 +96,9 @@ pub struct ConfigArgs {
     /// Sets a percentage threshold for failure ranging from 0-100, if coverage is below exit with a non-zero code
     #[arg(long, value_name = "PERCENTAGE")]
     pub fail_under: Option<f64>,
+    /// Fail if the covarage percentage is decreasing
+    #[arg(long)]
+    pub fail_decreasing: bool,
     /// Branch coverage: NOT IMPLEMENTED
     #[arg(long, short)]
     pub branch: bool,
