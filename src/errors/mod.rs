@@ -72,7 +72,7 @@ impl Display for RunError {
                     "Coverage is below the failure threshold {a:.2}% < {e:.2}%"
                 )
             }
-            Self::CoverageDecreasing(d) => write!(f, "The coverage has decreased by {d:.2}"),
+            Self::CoverageDecreasing(d) => write!(f, "The coverage has decreased by {d:.2}%"),
             Self::Engine(s) => write!(f, "Engine error: {s}"),
         }
     }

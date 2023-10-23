@@ -4,7 +4,7 @@ use crate::errors::*;
 use crate::event_log::*;
 use crate::path_utils::*;
 use crate::process_handling::*;
-use crate::report::{report_coverage, report_delta};
+use crate::report::report_coverage;
 use crate::source_analysis::{LineAnalysis, SourceAnalysis};
 use crate::test_loader::*;
 use crate::traces::*;
@@ -177,9 +177,8 @@ fn check_fail_threshold(traces: &TraceMap, config: &Config) -> Result<(), RunErr
     }
 }
 
-fn check_fail_decreasing(traces: &TraceMap, config: &Config) -> Result<(), RunError> {
+fn check_fail_decreasing(delta: f64, config: &Config) -> Result<(), RunError> {
     if config.fail_decreasing {
-        let delta = report_delta(config, traces);
         if delta < 0.0f64 {
             let error = RunError::CoverageDecreasing(delta);
             error!("{}", error);
@@ -242,11 +241,12 @@ pub fn report_tracemap(configs: &[Config], tracemap: TraceMap) -> Result<(), Run
 }
 
 fn report_coverage_with_check(c: &Config, tracemap: &TraceMap) -> Result<(), RunError> {
-    report_coverage(c, tracemap)?;
+    let delta = report_coverage(c, tracemap)?.unwrap_or_else(|| 0.0f64);
+
     if let Some(err) = check_fail_threshold(tracemap, c).err() {
         return Err(err);
     }
-    if let Some(err) = check_fail_decreasing(tracemap, c).err() {
+    if let Some(err) = check_fail_decreasing(delta, c).err() {
         return Err(err);
     }
     Ok(())

@@ -33,8 +33,10 @@ fn coverage_report_name(config: &Config) -> String {
 
 /// Reports the test coverage using the users preferred method. See config.rs
 /// or help text for details.
-pub fn report_coverage(config: &Config, result: &TraceMap) -> Result<(), RunError> {
+pub fn report_coverage(config: &Config, result: &TraceMap) -> Result<Option<f64>, RunError> {
     if !result.is_empty() {
+        let delta = report_delta(config, result);
+
         generate_requested_reports(config, result)?;
         let mut report_dir = config.target_dir();
         report_dir.push("tarpaulin");
@@ -46,19 +48,19 @@ pub fn report_coverage(config: &Config, result: &TraceMap) -> Result<(), RunErro
             .map_err(|_| RunError::CovReport("Failed to create run report".to_string()))?;
         serde_json::to_writer(&file, &result)
             .map_err(|_| RunError::CovReport("Failed to save run report".to_string()))?;
-        Ok(())
+        Ok(Some(delta))
     } else if !config.no_run {
         Err(RunError::CovReport(
             "No coverage results collected.".to_string(),
         ))
     } else {
-        Ok(())
+        Ok(None)
     }
 }
 
 /// Returns the changed test coverage perentage, used in combination with the --fail-decreasing
 /// command line argument
-pub fn report_delta(config: &Config, result: &TraceMap) -> f64 {
+fn report_delta(config: &Config, result: &TraceMap) -> f64 {
     let last = match get_previous_result(config) {
         Some(l) => l,
         None => TraceMap::new(),
