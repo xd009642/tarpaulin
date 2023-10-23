@@ -69,7 +69,7 @@ Options:
       --skip-clean                 The opposite of --force-clean
       --force-clean                Adds a clean stage to work around cargo bugs that may affect coverage results
       --fail-under <PERCENTAGE>    Sets a percentage threshold for failure ranging from 0-100, if coverage is below exit with a non-zero code
-      --fail-decreasing            Fail if the covarage percentage is decreasing
+      --fail-decreasing            Fail if the covarage percentage is decreasing, if used in combination with `--fail-under`, then the tests passes under the threshold, as long as the covarage isn't decreasing, above the threshold it may increase or decrease
   -b, --branch                     Branch coverage: NOT IMPLEMENTED
   -f, --forward                    Forwards unexpected signals to test. This is now the default behaviour
       --coveralls <KEY>            Coveralls key, either the repo token, or if you're using travis use $TRAVIS_JOB_ID and specify travis-{ci|pro} in --ciserver

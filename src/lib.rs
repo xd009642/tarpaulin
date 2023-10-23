@@ -4,7 +4,7 @@ use crate::errors::*;
 use crate::event_log::*;
 use crate::path_utils::*;
 use crate::process_handling::*;
-use crate::report::report_coverage;
+use crate::report::{get_previous_result, report_coverage};
 use crate::source_analysis::{LineAnalysis, SourceAnalysis};
 use crate::test_loader::*;
 use crate::traces::*;
@@ -105,8 +105,9 @@ pub fn trace(configs: &[Config]) -> Result<(TraceMap, i32), RunError> {
                     ret |= r;
                 }
                 if configs.len() > 1 {
+                    let delta = get_delta(config, &t);
                     // Otherwise threshold is a global one and we'll let the caller handle it
-                    bad_threshold = check_fail_threshold(&t, config);
+                    bad_threshold = check_coverage(delta, config, &t);
                 }
                 tracemap.merge(&t);
             }
@@ -165,23 +166,33 @@ fn config_name(config: &Config) -> String {
     }
 }
 
+//  Returns the changed test coverage percentage, current vs. last run
+fn get_delta(config: &Config, trace: &TraceMap) -> f64 {
+    let last = get_previous_result(config).unwrap_or(TraceMap::new());
+
+    let last = last.coverage_percentage() * 100.0f64;
+    let current = trace.coverage_percentage() * 100.0f64;
+
+    let delta = current - last;
+    delta
+}
+
 fn check_fail_threshold(traces: &TraceMap, config: &Config) -> Result<(), RunError> {
     let percent = traces.coverage_percentage() * 100.0;
     match config.fail_under.as_ref() {
         Some(limit) if percent < *limit => {
             let error = RunError::BelowThreshold(percent, *limit);
-            error!("{}", error);
             Err(error)
         }
         _ => Ok(()),
     }
 }
 
+// Check if the coverage percentage is decreasing
 fn check_fail_decreasing(delta: f64, config: &Config) -> Result<(), RunError> {
     if config.fail_decreasing {
         if delta < 0.0f64 {
             let error = RunError::CoverageDecreasing(delta);
-            error!("{}", error);
             return Err(error);
         }
     }
@@ -240,16 +251,48 @@ pub fn report_tracemap(configs: &[Config], tracemap: TraceMap) -> Result<(), Run
     Ok(())
 }
 
-fn report_coverage_with_check(c: &Config, tracemap: &TraceMap) -> Result<(), RunError> {
-    let delta = report_coverage(c, tracemap)?.unwrap_or_else(|| 0.0f64);
+fn check_coverage(delta: f64, config: &Config, trace: &TraceMap) -> Result<(), RunError> {
+    let threshold = check_fail_threshold(trace, config);
+    let decreasing = check_fail_decreasing(delta, config);
 
-    if let Some(err) = check_fail_threshold(tracemap, c).err() {
-        return Err(err);
+    // If both (--fail-under & --fail-decreasing) are used together, and we are below the threshold
+    // only allow the coverage to increase, or stay at the same level, else return an error.
+    if threshold.is_err() {
+        let threshold = threshold.unwrap_err();
+
+        if config.fail_decreasing {
+            if decreasing.is_ok() {
+                return Ok(());
+            }
+        }
+        error!("{}", threshold);
+        return Err(threshold);
     }
-    if let Some(err) = check_fail_decreasing(delta, c).err() {
-        return Err(err);
+
+    // If both (--fail-under & --fail-decreasing) are used together, allow the coverage to both
+    // increase and decrease, as long as we are above the threshold.
+    if threshold.is_ok() && config.fail_decreasing {
+        return Ok(());
     }
+
+    // If we are acting alone (no --fail-under) error out when then covage decreaces.
+    if decreasing.is_err() && config.fail_under.is_none() {
+        let decreasing = decreasing.unwrap_err();
+        error!("{}", decreasing);
+        return Err(decreasing);
+    }
+
     Ok(())
+}
+
+fn report_coverage_with_check(config: &Config, tracemap: &TraceMap) -> Result<(), RunError> {
+    // Needed for check_coverage, because after report_coverage below, the new data has been
+    // written, and the old data is lost.
+    let delta = get_delta(config, tracemap);
+
+    report_coverage(config, tracemap)?;
+
+    check_coverage(delta, config, tracemap)
 }
 
 /// Launches tarpaulin with the given configuration.

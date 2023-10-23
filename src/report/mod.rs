@@ -33,10 +33,8 @@ fn coverage_report_name(config: &Config) -> String {
 
 /// Reports the test coverage using the users preferred method. See config.rs
 /// or help text for details.
-pub fn report_coverage(config: &Config, result: &TraceMap) -> Result<Option<f64>, RunError> {
+pub fn report_coverage(config: &Config, result: &TraceMap) -> Result<(), RunError> {
     if !result.is_empty() {
-        let delta = report_delta(config, result);
-
         generate_requested_reports(config, result)?;
         let mut report_dir = config.target_dir();
         report_dir.push("tarpaulin");
@@ -48,29 +46,14 @@ pub fn report_coverage(config: &Config, result: &TraceMap) -> Result<Option<f64>
             .map_err(|_| RunError::CovReport("Failed to create run report".to_string()))?;
         serde_json::to_writer(&file, &result)
             .map_err(|_| RunError::CovReport("Failed to save run report".to_string()))?;
-        Ok(Some(delta))
+        Ok(())
     } else if !config.no_run {
         Err(RunError::CovReport(
             "No coverage results collected.".to_string(),
         ))
     } else {
-        Ok(None)
+        Ok(())
     }
-}
-
-/// Returns the changed test coverage perentage, used in combination with the --fail-decreasing
-/// command line argument
-fn report_delta(config: &Config, result: &TraceMap) -> f64 {
-    let last = match get_previous_result(config) {
-        Some(l) => l,
-        None => TraceMap::new(),
-    };
-
-    let last = last.coverage_percentage() * 100.0f64;
-    let current = result.coverage_percentage() * 100.0f64;
-
-    let delta = current - last;
-    delta
 }
 
 fn generate_requested_reports(config: &Config, result: &TraceMap) -> Result<(), RunError> {
@@ -146,7 +129,7 @@ fn print_missing_lines(config: &Config, result: &TraceMap) {
     }
 }
 
-fn get_previous_result(config: &Config) -> Option<TraceMap> {
+pub fn get_previous_result(config: &Config) -> Option<TraceMap> {
     // Check for previous report
     let mut report_dir = config.target_dir();
     report_dir.push("tarpaulin");
