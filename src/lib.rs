@@ -173,8 +173,7 @@ fn get_delta(config: &Config, trace: &TraceMap) -> f64 {
     let last = last.coverage_percentage() * 100.0f64;
     let current = trace.coverage_percentage() * 100.0f64;
 
-    let delta = current - last;
-    delta
+    current - last
 }
 
 fn check_fail_threshold(traces: &TraceMap, config: &Config) -> Result<(), RunError> {
@@ -263,6 +262,8 @@ fn check_coverage(delta: f64, config: &Config, trace: &TraceMap) -> Result<(), R
         if config.fail_decreasing {
             if decreasing.is_ok() {
                 return Ok(());
+            } else {
+                return decreasing;
             }
         }
         error!("{}", threshold);
@@ -271,7 +272,7 @@ fn check_coverage(delta: f64, config: &Config, trace: &TraceMap) -> Result<(), R
 
     // If both (--fail-under & --fail-decreasing) are used together, allow the coverage to both
     // increase and decrease, as long as we are above the threshold.
-    if threshold.is_ok() && config.fail_decreasing {
+    if threshold.is_ok() && config.fail_under.is_some() {
         return Ok(());
     }
 
