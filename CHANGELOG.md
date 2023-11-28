@@ -4,7 +4,7 @@ From 2019 onwards, all notable changes to tarpaulin will be documented in this
 file.
 
 
-## [Unreleased]
+## [0.27.2] 2023-11-28
 ### Changed
 - Don't disable ASLR if it's already disabled
 
