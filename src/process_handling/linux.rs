@@ -11,6 +11,7 @@ use nix::sys::personality;
 use nix::unistd::*;
 use std::ffi::{CStr, CString};
 use std::path::Path;
+use std::process::Command;
 use tracing::{info, warn};
 
 lazy_static! {
@@ -61,6 +62,20 @@ fn disable_aslr() -> nix::Result<()> {
     personality::set(this | personality::Persona::ADDR_NO_RANDOMIZE).map(|_| ())
 }
 
+fn is_aslr_enabled() -> bool {
+    // Create a Command instance with the 'cat' command and the path to the file as arguments
+    let output = Command::new("cat")
+        .arg("/proc/sys/kernel/random/boot_random")
+        .output()
+        .unwrap();
+
+    // Convert the output to a String and store it in a variable
+    let output_str = String::from_utf8(output.stdout).unwrap();
+
+    // Check if the output string is not '0' (case-insensitive) and return the result
+    output_str.trim().to_lowercase() != "0"
+}
+
 pub fn limit_affinity() -> nix::Result<()> {
     let this = Pid::this();
     // Get current affinity to be able to limit the cores to one of
@@ -84,8 +99,9 @@ pub fn execute(
     envar: &[(String, String)],
 ) -> Result<TestHandle, RunError> {
     let program = CString::new(test.display().to_string()).unwrap_or_default();
-    disable_aslr().map_err(|e| RunError::TestRuntime(format!("ASLR disable failed: {e}")))?;
-
+    if is_aslr_enabled() {
+        disable_aslr().map_err(|e| RunError::TestRuntime(format!("ASLR disable failed: {e}")))?;
+    }
     request_trace().map_err(|e| RunError::Trace(e.to_string()))?;
 
     let envar = envar

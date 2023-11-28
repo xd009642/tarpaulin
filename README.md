@@ -441,29 +441,29 @@ Example how to run coverage within `docker` with `seccomp` in GitHub Actions and
 to <codecov.io>.
 
 ```yml
-name:                           coverage
+name: coverage
 
-on:                             [push]
+on: [push]
 jobs:
   test:
-    name:                       coverage
-    runs-on:                    ubuntu-latest
+    name: coverage
+    runs-on: ubuntu-latest
     container:
-      image:                    xd009642/tarpaulin:develop-nightly
-      options:                  --security-opt seccomp=unconfined
+      image: xd009642/tarpaulin:develop-nightly
+      options: --security-opt seccomp=unconfined
     steps:
-      - name:                   Checkout repository
-        uses:                   actions/checkout@v2
+      - name: Checkout repository
+        uses: actions/checkout@v2
 
-      - name:                   Generate code coverage
+      - name: Generate code coverage
         run: |
           cargo +nightly tarpaulin --verbose --all-features --workspace --timeout 120 --out xml
 
-      - name:                   Upload to codecov.io
-        uses:                   codecov/codecov-action@v2
+      - name: Upload to codecov.io
+        uses: codecov/codecov-action@v2
         with:
-          # token:                ${{secrets.CODECOV_TOKEN}} # not required for public repos
-          fail_ci_if_error:     true
+          # token: ${{secrets.CODECOV_TOKEN}} # not required for public repos
+          fail_ci_if_error: true
 ```
 
 #### CircleCI

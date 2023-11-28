@@ -3,6 +3,11 @@
 From 2019 onwards, all notable changes to tarpaulin will be documented in this
 file.
 
+
+## [0.27.2] 2023-11-28
+### Changed
+- Don't disable ASLR if it's already disabled
+
 ## [0.27.1] 2023-10-02
 ### Changed
 - Restore casing of enum clap arguments e.g. `--out` so they match old behaviour
