@@ -44,7 +44,7 @@ serde_json = "1.0"
 syn = { version = "1.0", features = ["full"] }
 toml = "0.8"
 tracing = { version = "0.1", default-features = false }
-tracing-subscriber = { version = "0.2.25", default-features = false, features = [
+tracing-subscriber = { version = "0.3.18", default-features = false, features = [
     "env-filter",
     "fmt",
     "chrono",
