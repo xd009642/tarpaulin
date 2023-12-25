@@ -58,6 +58,8 @@ html, body {
   display: flex;
   justify-content: space-between;
   align-items: center;
+  position: sticky;
+  top: 0;
 }
 
 .file-header__back {
