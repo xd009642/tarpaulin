@@ -218,12 +218,12 @@ function FileHeader({file, onBack}) {
 }
 
 function FileContent({file}) {
-  return e('div', {className: 'file-content'},
+  return e('pre', {className: 'file-content'},
     file.content.split(/\r?\n/).map((line, index) => {
       const trace = file.traces.find(trace => trace.line === index + 1);
       const covered = trace && trace.stats.Line;
       const uncovered = trace && !trace.stats.Line;
-      return e('pre', {
+      return e('code', {
           className: 'code-line'
             + (covered ? ' code-line_covered' : '')
             + (uncovered ? ' code-line_uncovered' : ''),
