@@ -89,6 +89,8 @@ html, body {
   border: 1px solid #999;
   padding: 10px;
   counter-reset: line;
+  display: flex;
+  flex-direction: column;
 }
 
 .code-line::before {
