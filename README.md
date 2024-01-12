@@ -505,7 +505,7 @@ job: ...
 
 and generate a `cobertura.xml` as described under [Pycobertura](#pycobertura).
 
-  [show coverage information]: https://docs.gitlab.com/ee/user/project/merge_requests/test_coverage_visualization.html
+  [show coverage information]: https://docs.gitlab.com/ee/ci/testing/test_coverage_visualization.html
 
 For installation add `cargo install cargo-tarpaulin -f` to the script section.
 
