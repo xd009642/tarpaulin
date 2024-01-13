@@ -58,6 +58,9 @@ html, body {
   display: flex;
   justify-content: space-between;
   align-items: center;
+  position: sticky;
+  top: 0;
+  background: white;
 }
 
 .file-header__back {
@@ -85,12 +88,20 @@ html, body {
   margin: 10px 0 0;
   border: 1px solid #999;
   padding: 10px;
+  counter-reset: line;
+  display: flex;
+  flex-direction: column;
 }
 
+.code-line::before {
+    content: counter(line);
+    margin-right: 10px;
+}
 .code-line {
   margin: 0;
   padding: 0.3em;
   height: 1em;
+  counter-increment: line;
 }
 .code-line_covered {
   background: #cfc;

@@ -3,6 +3,10 @@
 From 2019 onwards, all notable changes to tarpaulin will be documented in this
 file.
 
+## [0.27.3] 2024-01-13
+### Changed
+- Add line reports and make file name float in HTML report
+- Make coverallss report path match linux path format on windows
 
 ## [0.27.2] 2023-11-28
 ### Changed

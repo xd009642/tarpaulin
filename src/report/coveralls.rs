@@ -4,7 +4,7 @@ use crate::traces::{CoverageStat, TraceMap};
 use coveralls_api::*;
 use std::collections::HashMap;
 use std::fs;
-use std::path::Path;
+use std::path::{Path, PathBuf};
 use tracing::{info, trace, warn};
 
 fn get_git_info(manifest_path: &Path) -> Result<GitInfo, String> {
@@ -84,7 +84,7 @@ pub fn export(coverage_data: &TraceMap, config: &Config) -> Result<(), RunError>
 
         let mut report = CoverallsReport::new(id);
         for file in &coverage_data.files() {
-            let rel_path = config.strip_base_dir(file);
+            let rel_path = get_rel_path(config, file);
             let mut lines: HashMap<usize, usize> = HashMap::new();
             let fcov = coverage_data.get_child_traces(file);
 
@@ -143,10 +143,24 @@ pub fn export(coverage_data: &TraceMap, config: &Config) -> Result<(), RunError>
     }
 }
 
+fn get_rel_path(config: &Config, file: &&PathBuf) -> PathBuf {
+    if cfg!(windows) {
+        let rel_path_with_windows_path_separator = config.strip_base_dir(file);
+        let rel_path_with_windows_path_separator_as_str =
+            String::from(rel_path_with_windows_path_separator.to_str().unwrap());
+        let rel_path_with_linux_path_separator =
+            rel_path_with_windows_path_separator_as_str.replace("\\", "/");
+
+        PathBuf::from(rel_path_with_linux_path_separator)
+    } else {
+        config.strip_base_dir(file)
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
-    use std::process::Command;
+    use std::{path::PathBuf, process::Command};
 
     #[test]
     fn git_info_correct() {
@@ -176,5 +190,25 @@ mod tests {
         );
 
         assert_eq!(output, expected);
+    }
+
+    #[test]
+    #[cfg_attr(target_family = "windows", ignore)]
+    fn get_rel_path_coveralls_friendly_on_linux() {
+        let config = Config::default();
+        let file = PathBuf::from("src/report/coveralls.rs");
+        let rel_path = get_rel_path(&config, &&file);
+
+        assert_eq!(rel_path, PathBuf::from("src/report/coveralls.rs"));
+    }
+
+    #[test]
+    #[cfg_attr(not(target_family = "windows"), ignore)]
+    fn get_rel_path_coveralls_friendly_on_windows() {
+        let config = Config::default();
+        let file = PathBuf::from("src\\report\\coveralls.rs");
+        let rel_path = get_rel_path(&config, &&file);
+
+        assert_eq!(rel_path, PathBuf::from("src/report/coveralls.rs"));
     }
 }
