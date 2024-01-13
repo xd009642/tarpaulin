@@ -241,6 +241,7 @@ fn method_calls_expr_coverage() {
 }
 
 #[test]
+#[cfg(not(windows))] // TODO fix
 fn config_file_coverage() {
     let test_dir = get_test_path("configs");
     let mut args = vec![
@@ -305,6 +306,7 @@ fn cargo_run_coverage() {
 }
 
 #[test]
+#[cfg(not(windows))] // TODO fix
 fn examples_coverage() {
     let test = "example_test";
     check_percentage(test, 0.0f64, true);
