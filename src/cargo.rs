@@ -517,7 +517,7 @@ fn create_command(manifest_path: &str, config: &Config, ty: Option<RunType>) -> 
             .filter(|t| t.starts_with("nightly") || bootstrap)
         {
             test_cmd.args([format!("+{toolchain}").as_str()]);
-        } else if !bootstrap && override_toolchain {
+        } else if !bootstrap && override_toolchain && !is_nightly() {
             test_cmd.args(["+nightly"]);
         }
         test_cmd.args(["test"]);
@@ -849,6 +849,16 @@ fn setup_environment(cmd: &mut Command, config: &Config) {
     cmd.env(rustdoc, value);
     if let Ok(bootstrap) = env::var("RUSTC_BOOTSTRAP") {
         cmd.env("RUSTC_BOOTSTRAP", bootstrap);
+    }
+}
+
+/// Taking the output of cargo version command return true if it's known to be a nightly channel
+/// false otherwise.
+fn is_nightly() -> bool {
+    if let Some(version) = CARGO_VERSION_INFO.as_ref() {
+        version.channel == Channel::Nightly
+    } else {
+        false
     }
 }
 
