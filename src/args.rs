@@ -124,7 +124,7 @@ pub struct ConfigArgs {
     #[arg(long)]
     pub workspace: bool,
     /// Package id specifications for which package should be build. See cargo help pkgid for more info
-    #[arg(long, short, value_name = "PACKAGE", num_args = 0..)]
+    #[arg(long, short, alias = "package", value_name = "PACKAGE", num_args = 0..)]
     pub packages: Vec<String>,
     /// Package id specifications to exclude from coverage. See cargo help pkgid for more info
     #[arg(long, short, value_name = "PACKAGE", num_args = 0..)]
