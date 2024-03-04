@@ -58,7 +58,7 @@ enum-display = "0.1.4"
 
 [target.'cfg(all(target_os = "linux", target_arch = "x86_64"))'.dependencies]
 libc = "0.2.94"
-nix = {version = "0.27.1", default-features = false, features = ["sched", "signal", "ptrace", "personality"]}
+nix = {version = "0.28.0", default-features = false, features = ["sched", "signal", "ptrace", "personality"]}
 procfs = "0.16"
 
 [features]
