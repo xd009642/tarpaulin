@@ -129,7 +129,7 @@ fn print_missing_lines(config: &Config, result: &TraceMap) {
     }
 }
 
-fn get_previous_result(config: &Config) -> Option<TraceMap> {
+pub fn get_previous_result(config: &Config) -> Option<TraceMap> {
     // Check for previous report
     let mut report_dir = config.target_dir();
     report_dir.push("tarpaulin");

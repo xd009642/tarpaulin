@@ -156,6 +156,9 @@ pub struct Config {
     /// returns a non-zero code if coverage is below the threshold
     #[serde(rename = "fail-under")]
     pub fail_under: Option<f64>,
+    /// returns a non-zero code if coverage is decreasing
+    #[serde(rename = "fail-decreasing")]
+    pub fail_decreasing: bool,
     /// Result of cargo_metadata ran on the crate
     #[serde(skip_deserializing, skip_serializing)]
     pub metadata: RefCell<Option<Metadata>>,
@@ -248,6 +251,7 @@ impl Default for Config {
             no_fail_fast: false,
             profile: None,
             fail_under: None,
+            fail_decreasing: false,
             metadata: RefCell::new(None),
             avoid_cfg_tarpaulin: false,
             jobs: None,
@@ -334,6 +338,7 @@ impl From<ConfigArgs> for ConfigWrapper {
             bench_names: args.bench.into_iter().collect(),
             example_names: args.example.into_iter().collect(),
             fail_under: args.fail_under,
+            fail_decreasing: args.fail_decreasing,
             jobs: args.jobs,
             profile: args.profile,
             metadata: RefCell::new(None),
@@ -670,6 +675,10 @@ impl Config {
             || other.fail_under.is_some() && other.fail_under.unwrap() < self.fail_under.unwrap()
         {
             self.fail_under = other.fail_under;
+        }
+
+        if !self.fail_decreasing || other.fail_decreasing {
+            self.fail_decreasing = other.fail_decreasing;
         }
 
         if other.test_timeout != default_test_timeout() {

@@ -15,6 +15,11 @@ file.
 ## [0.27.2] 2023-11-28
 ### Changed
 - Don't disable ASLR if it's already disabled
+- Add the `--fail-decreasing` commandline option, which will make tarpaulin return an error
+  if the test coverage has decreased.
+  If used in combination with `--fail-under`, and the coverage percentage is increasing,
+  pass the run, if we are above the threshold specified, allow the coverage percentage to
+  increase and decrease within that window.
 
 ## [0.27.1] 2023-10-02
 ### Changed
