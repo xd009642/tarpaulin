@@ -759,7 +759,7 @@ pub fn rust_flags(config: &Config) -> String {
     const RUSTFLAGS: &str = "RUSTFLAGS";
     let mut value = config.rustflags.clone().unwrap_or_default();
     value.push_str(" -Cdebuginfo=2 ");
-    value.push_str("-Cstrip=none");
+    value.push_str("-Cstrip=none ");
     if !config.avoid_cfg_tarpaulin {
         value.push_str("--cfg=tarpaulin ");
     }
@@ -781,7 +781,7 @@ pub fn rust_flags(config: &Config) -> String {
 
 pub fn rustdoc_flags(config: &Config) -> String {
     const RUSTDOC: &str = "RUSTDOCFLAGS";
-    let common_opts = " -Cdebuginfo=2 --cfg=tarpaulin -Cstrip=none";
+    let common_opts = " -Cdebuginfo=2 --cfg=tarpaulin -Cstrip=none ";
     let mut value = format!(
         "{} --persist-doctests {} -Zunstable-options ",
         common_opts,
