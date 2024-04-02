@@ -6,6 +6,7 @@ file.
 ## [Unreleased]
 ### Changed
 - No longer add `+nightly` if cargo version is already nightly
+- Adds `-Cstrip=None` to the rustflags to prevent default stripping
 
 ## [0.27.3] 2024-01-13
 ### Changed
