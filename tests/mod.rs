@@ -610,19 +610,6 @@ fn stripped_crate() {
     config.test_timeout = Duration::from_secs(60);
     let test_dir = get_test_path("stripped");
 
-    cfg_if::cfg_if! {
-        if #[cfg(ptrace_supported)] {
-            env::set_current_dir(&test_dir).unwrap();
-            let mut manifest = test_dir;
-            manifest.push("Cargo.toml");
-            config.set_manifest(manifest);
-
-            let res = launch_tarpaulin(&config, &None);
-            assert!(res.is_err());
-        }
-    }
-
-    config.set_engine(TraceEngine::Llvm);
     check_percentage_with_config("stripped", 0.9, true, config);
 }
 
