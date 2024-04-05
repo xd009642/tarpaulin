@@ -519,6 +519,60 @@ fn filter_nonstd_tests() {
 }
 
 #[test]
+fn include_nonstd_tests() {
+    let mut config = Config::default();
+    config.set_include_tests(true);
+
+    let ctx = Context {
+        config: &config,
+        file_contents: "#[cfg(test)]
+            mod tests {
+                #[tokio::test(worker_threads = 1)]
+                fn boo(){
+                    assert!(true);
+                }
+            }",
+        file: Path::new(""),
+        ignore_mods: RefCell::new(HashSet::new()),
+    };
+    let parser = parse_file(ctx.file_contents).unwrap();
+    let mut analysis = SourceAnalysis::new();
+    analysis.process_items(&parser.items, &ctx);
+    let lines = analysis.get_line_analysis(ctx.file.to_path_buf());
+    assert!(!lines.ignore.contains(&Lines::Line(5)));
+
+    let ctx = Context {
+        config: &config,
+        file_contents: "#[tokio::test(worker_threads = 1)]
+                fn boo(){
+                    assert!(true);
+                }",
+        file: Path::new(""),
+        ignore_mods: RefCell::new(HashSet::new()),
+    };
+    let parser = parse_file(ctx.file_contents).unwrap();
+    let mut analysis = SourceAnalysis::new();
+    analysis.process_items(&parser.items, &ctx);
+    let lines = analysis.get_line_analysis(ctx.file.to_path_buf());
+    assert!(!lines.ignore.contains(&Lines::Line(3)));
+
+    let ctx = Context {
+        config: &config,
+        file_contents: "#[some_fancy_crate::test]
+                fn boo(){
+                    assert!(true);
+                }",
+        file: Path::new(""),
+        ignore_mods: RefCell::new(HashSet::new()),
+    };
+    let parser = parse_file(ctx.file_contents).unwrap();
+    let mut analysis = SourceAnalysis::new();
+    analysis.process_items(&parser.items, &ctx);
+    let lines = analysis.get_line_analysis(ctx.file.to_path_buf());
+    assert!(!lines.ignore.contains(&Lines::Line(3)));
+}
+
+#[test]
 fn filter_test_utilities() {
     let mut config = Config::default();
     config.set_include_tests(false);

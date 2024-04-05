@@ -103,7 +103,8 @@ impl SourceAnalysis {
         for attr in &func.attrs {
             if let Ok(x) = attr.parse_meta() {
                 let id = x.path();
-                if id.is_ident("test") {
+                if id.is_ident("test") || id.segments.last().is_some_and(|seg| seg.ident == "test")
+                {
                     test_func = true;
                 } else if id.is_ident("derive") {
                     let analysis = self.get_line_analysis(ctx.file.to_path_buf());
