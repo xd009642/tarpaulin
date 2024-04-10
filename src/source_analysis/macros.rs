@@ -1,10 +1,8 @@
 use crate::source_analysis::prelude::*;
-use proc_macro2::{TokenStream, TokenTree};
-use quote::ToTokens;
+use proc_macro2::TokenTree;
 use std::cmp::{max, min};
-use std::collections::HashSet;
 use std::ops::Range;
-use syn::{spanned::Spanned, *};
+use syn::*;
 
 impl SourceAnalysis {
     pub(crate) fn visit_macro_call(&mut self, mac: &Macro, ctx: &Context) -> SubResult {
