@@ -217,9 +217,9 @@ where
     Ok(())
 }
 
-fn get_line_addresses<'data: 'file, 'file>(
+fn get_line_addresses<'data>(
     endian: RunTimeEndian,
-    obj: &'file impl object::read::Object<'data, 'file>,
+    obj: &'data impl object::read::Object<'data>,
     analysis: &HashMap<PathBuf, LineAnalysis>,
     config: &Config,
 ) -> Result<TraceMap> {
