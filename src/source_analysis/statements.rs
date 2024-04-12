@@ -1,5 +1,5 @@
 use crate::source_analysis::prelude::*;
-use syn::{spanned::Spanned, *};
+use syn::*;
 
 impl SourceAnalysis {
     pub(crate) fn process_statements(&mut self, stmts: &[Stmt], ctx: &Context) -> SubResult {

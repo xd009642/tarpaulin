@@ -149,7 +149,7 @@ fn get_rel_path(config: &Config, file: &&PathBuf) -> PathBuf {
         let rel_path_with_windows_path_separator_as_str =
             String::from(rel_path_with_windows_path_separator.to_str().unwrap());
         let rel_path_with_linux_path_separator =
-            rel_path_with_windows_path_separator_as_str.replace("\\", "/");
+            rel_path_with_windows_path_separator_as_str.replace('\\', "/");
 
         PathBuf::from(rel_path_with_linux_path_separator)
     } else {

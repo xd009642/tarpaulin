@@ -254,7 +254,7 @@ fn run_cargo(
     if ty != Some(RunType::Doctests) {
         cmd.stdout(Stdio::piped());
     } else {
-        clean_doctest_folder(&config.doctest_dir());
+        clean_doctest_folder(config.doctest_dir());
         cmd.stdout(Stdio::null());
     }
     trace!("Running command {:?}", cmd);
@@ -356,7 +356,7 @@ fn run_cargo(
             error!("Building doctests failed");
             return Err(RunError::Cargo("Building doctest failed".to_string()));
         }
-        let walker = WalkDir::new(&config.doctest_dir()).into_iter();
+        let walker = WalkDir::new(config.doctest_dir()).into_iter();
         let dir_entries = walker
             .filter_map(Result::ok)
             .filter(|e| matches!(e.metadata(), Ok(ref m) if m.is_file() && m.len() != 0))

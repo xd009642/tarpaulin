@@ -1,14 +1,8 @@
 #![allow(dead_code)]
-use crate::config::Config;
-use crate::errors::RunError;
 use crate::path_utils::{get_profile_walker, get_source_walker};
 use crate::process_handling::RunningProcessHandle;
-use crate::source_analysis::LineAnalysis;
 use crate::statemachine::*;
-use crate::TestHandle;
 use llvm_profparser::*;
-use std::collections::HashMap;
-use std::path::PathBuf;
 use std::thread::sleep;
 use tracing::{info, warn};
 

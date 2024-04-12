@@ -63,7 +63,7 @@ fn generate_requested_reports(config: &Config, result: &TraceMap) -> Result<(), 
     }
     info!("Coverage Results:");
 
-    if !config.is_default_output_dir() && create_dir_all(&config.output_dir()).is_err() {
+    if !config.is_default_output_dir() && create_dir_all(config.output_dir()).is_err() {
         return Err(RunError::OutFormat(format!(
             "Failed to create or locate custom output directory: {:?}",
             config.output_directory,
@@ -111,11 +111,8 @@ fn print_missing_lines(config: &Config, result: &TraceMap) {
         let path = config.strip_base_dir(key);
         let mut uncovered_lines = vec![];
         for v in value.iter() {
-            match v.stats {
-                CoverageStat::Line(count) if count == 0 => {
-                    uncovered_lines.push(v.line);
-                }
-                _ => (),
+            if let CoverageStat::Line(0) = v.stats {
+                uncovered_lines.push(v.line);
             }
         }
         uncovered_lines.sort_unstable();

@@ -608,7 +608,6 @@ fn stripped_crate() {
     config.verbose = true;
     config.set_clean(false);
     config.test_timeout = Duration::from_secs(60);
-    let test_dir = get_test_path("stripped");
 
     check_percentage_with_config("stripped", 0.9, true, config);
 }
