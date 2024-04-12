@@ -26,12 +26,25 @@ pub enum Color {
 }
 
 #[derive(
-    Debug, Copy, Clone, PartialEq, Eq, Hash, Ord, PartialOrd, Deserialize, Serialize, ValueEnum,
+    Debug,
+    Default,
+    Copy,
+    Clone,
+    PartialEq,
+    Eq,
+    Hash,
+    Ord,
+    PartialOrd,
+    Deserialize,
+    Serialize,
+    ValueEnum,
 )]
 #[value(rename_all = "PascalCase")]
 pub enum TraceEngine {
     Auto,
+    #[cfg_attr(ptrace_supported, default)]
     Ptrace,
+    #[cfg_attr(not(ptrace_supported), default)]
     Llvm,
 }
 
@@ -42,18 +55,6 @@ impl TraceEngine {
                 &[TraceEngine::Ptrace, TraceEngine::Llvm]
             } else {
                 &[TraceEngine::Llvm]
-            }
-        }
-    }
-}
-
-impl Default for TraceEngine {
-    fn default() -> Self {
-        cfg_if::cfg_if! {
-            if #[cfg(ptrace_supported)] {
-                TraceEngine::Ptrace
-            } else {
-                TraceEngine::Llvm
             }
         }
     }

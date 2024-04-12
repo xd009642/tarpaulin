@@ -277,7 +277,7 @@ impl SourceAnalysis {
         if u_line != blk.brace_token.span.start().line || blk.stmts.is_empty() {
             let analysis = self.get_line_analysis(ctx.file.to_path_buf());
             analysis.ignore_tokens(unsafe_expr.unsafe_token);
-        } else if let Some(first_stmt) = blk.stmts.get(0) {
+        } else if let Some(first_stmt) = blk.stmts.first() {
             let s = match first_stmt {
                 Stmt::Local(l) => l.span(),
                 Stmt::Item(i) => i.span(),

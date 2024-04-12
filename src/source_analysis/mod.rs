@@ -277,9 +277,7 @@ impl SourceAnalysis {
     }
 
     pub fn get_branch_analysis(&mut self, path: PathBuf) -> &mut BranchAnalysis {
-        self.branches
-            .entry(path)
-            .or_insert_with(BranchAnalysis::new)
+        self.branches.entry(path).or_default()
     }
 
     fn is_ignored_module(&self, path: &Path) -> bool {

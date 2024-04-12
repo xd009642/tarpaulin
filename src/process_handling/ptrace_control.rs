@@ -51,7 +51,7 @@ pub fn current_instruction_pointer(pid: Pid) -> Result<c_long> {
             Request::PTRACE_PEEKUSER as RequestType,
             libc::pid_t::from(pid),
             (PC_INDEX * std::mem::size_of::<usize>()) as *mut c_void,
-            ptr::null_mut() as *mut c_void,
+            ptr::null_mut::<c_void>(),
         )
     };
     match Errno::result(ret) {
