@@ -3,7 +3,7 @@
 From 2019 onwards, all notable changes to tarpaulin will be documented in this
 file.
 
-## [Unreleased]
+## [0.28.0] 2024-04-13
 ### Changed
 - No longer add `+nightly` if cargo version is already nightly
 - Adds `-Cstrip=None` to the rustflags to prevent default stripping
