@@ -3,6 +3,12 @@
 From 2019 onwards, all notable changes to tarpaulin will be documented in this
 file.
 
+## [0.28.0] 2024-04-13
+### Changed
+- No longer add `+nightly` if cargo version is already nightly
+- Adds `-Cstrip=None` to the rustflags to prevent default stripping
+- Update profparsers for llvm 17 and 18 support
+
 ## [0.27.3] 2024-01-13
 ### Changed
 - Add line reports and make file name float in HTML report

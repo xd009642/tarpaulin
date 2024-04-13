@@ -1,6 +1,5 @@
 use serde_json::ser::CharEscape;
 use serde_json::ser::CompactFormatter;
-use std::default::Default;
 use std::io;
 
 struct SafeFormatter(CompactFormatter);

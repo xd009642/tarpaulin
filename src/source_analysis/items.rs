@@ -1,6 +1,5 @@
 use crate::source_analysis::prelude::*;
-use std::path::PathBuf;
-use syn::{spanned::Spanned, *};
+use syn::*;
 
 impl SourceAnalysis {
     pub(crate) fn process_items(&mut self, items: &[Item], ctx: &Context) -> SubResult {
@@ -103,7 +102,8 @@ impl SourceAnalysis {
         for attr in &func.attrs {
             if let Ok(x) = attr.parse_meta() {
                 let id = x.path();
-                if id.is_ident("test") {
+                if id.is_ident("test") || id.segments.last().is_some_and(|seg| seg.ident == "test")
+                {
                     test_func = true;
                 } else if id.is_ident("derive") {
                     let analysis = self.get_line_analysis(ctx.file.to_path_buf());

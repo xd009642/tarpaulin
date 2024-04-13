@@ -2,7 +2,6 @@ use crate::config::{types::TraceEngine, Config};
 use crate::path_utils::{fix_unc_path, is_coverable_file_path};
 use crate::source_analysis::*;
 use crate::traces::*;
-use gimli::read::Error;
 use gimli::*;
 use object::{read::ObjectSection, Object};
 use rustc_demangle::demangle;
@@ -218,9 +217,9 @@ where
     Ok(())
 }
 
-fn get_line_addresses<'data: 'file, 'file>(
+fn get_line_addresses<'data>(
     endian: RunTimeEndian,
-    obj: &'file impl object::read::Object<'data, 'file>,
+    obj: &'data impl object::read::Object<'data>,
     analysis: &HashMap<PathBuf, LineAnalysis>,
     config: &Config,
 ) -> Result<TraceMap> {
@@ -285,7 +284,7 @@ fn get_line_addresses<'data: 'file, 'file>(
                 let temp_map = temp_map
                     .into_iter()
                     .filter(|(ref k, _)| {
-                        !(!config.include_tests() && k.path.starts_with(project.join("tests")))
+                        config.include_tests() || !k.path.starts_with(project.join("tests"))
                     })
                     .filter(|(ref k, _)| !(config.exclude_path(&k.path)))
                     .filter(|(ref k, _)| {

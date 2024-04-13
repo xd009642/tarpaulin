@@ -254,7 +254,7 @@ fn run_cargo(
     if ty != Some(RunType::Doctests) {
         cmd.stdout(Stdio::piped());
     } else {
-        clean_doctest_folder(&config.doctest_dir());
+        clean_doctest_folder(config.doctest_dir());
         cmd.stdout(Stdio::null());
     }
     trace!("Running command {:?}", cmd);
@@ -356,7 +356,7 @@ fn run_cargo(
             error!("Building doctests failed");
             return Err(RunError::Cargo("Building doctest failed".to_string()));
         }
-        let walker = WalkDir::new(&config.doctest_dir()).into_iter();
+        let walker = WalkDir::new(config.doctest_dir()).into_iter();
         let dir_entries = walker
             .filter_map(Result::ok)
             .filter(|e| matches!(e.metadata(), Ok(ref m) if m.is_file() && m.len() != 0))
@@ -517,7 +517,7 @@ fn create_command(manifest_path: &str, config: &Config, ty: Option<RunType>) -> 
             .filter(|t| t.starts_with("nightly") || bootstrap)
         {
             test_cmd.args([format!("+{toolchain}").as_str()]);
-        } else if !bootstrap && override_toolchain {
+        } else if !bootstrap && override_toolchain && !is_nightly() {
             test_cmd.args(["+nightly"]);
         }
         test_cmd.args(["test"]);
@@ -759,6 +759,7 @@ pub fn rust_flags(config: &Config) -> String {
     const RUSTFLAGS: &str = "RUSTFLAGS";
     let mut value = config.rustflags.clone().unwrap_or_default();
     value.push_str(" -Cdebuginfo=2 ");
+    value.push_str("-Cstrip=none ");
     if !config.avoid_cfg_tarpaulin {
         value.push_str("--cfg=tarpaulin ");
     }
@@ -780,7 +781,7 @@ pub fn rust_flags(config: &Config) -> String {
 
 pub fn rustdoc_flags(config: &Config) -> String {
     const RUSTDOC: &str = "RUSTDOCFLAGS";
-    let common_opts = " -Cdebuginfo=2 --cfg=tarpaulin ";
+    let common_opts = " -Cdebuginfo=2 --cfg=tarpaulin -Cstrip=none ";
     let mut value = format!(
         "{} --persist-doctests {} -Zunstable-options ",
         common_opts,
@@ -849,6 +850,16 @@ fn setup_environment(cmd: &mut Command, config: &Config) {
     cmd.env(rustdoc, value);
     if let Ok(bootstrap) = env::var("RUSTC_BOOTSTRAP") {
         cmd.env("RUSTC_BOOTSTRAP", bootstrap);
+    }
+}
+
+/// Taking the output of cargo version command return true if it's known to be a nightly channel
+/// false otherwise.
+fn is_nightly() -> bool {
+    if let Some(version) = CARGO_VERSION_INFO.as_ref() {
+        version.channel == Channel::Nightly
+    } else {
+        false
     }
 }
 

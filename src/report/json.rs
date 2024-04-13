@@ -2,7 +2,6 @@ use crate::config::Config;
 use crate::errors::*;
 use crate::traces::{Trace, TraceMap};
 use serde::Serialize;
-use std::convert::From;
 use std::{fs, io::Write};
 
 #[derive(Serialize)]
