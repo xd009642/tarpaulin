@@ -638,4 +638,27 @@ fn warning_flags_in_config() {
     check_percentage("config_warnings", 1.0f64, true);
 }
 
+#[test]
+fn workspace_default_members() {
+    let mut config = Config::default();
+    config.set_clean(false);
+    config.set_include_tests(true);
+
+    let only_default = check_percentage_with_config("default_members", 1.0f64, true, config.clone());
+
+    let files = only_default.files();
+    assert_eq!(files.len(), 1);
+    assert!(files[0].ends_with(Path::new("workspace_1/src/lib.rs")));
+
+    config.all= true;
+
+    let all = check_percentage_with_config("default_members", 1.0f64, true, config);
+
+    let files = all.files();
+    assert_eq!(files.len(), 2);
+    // We use a BTreeMap so they'll be alphabetically ordered
+    assert!(files[0].ends_with(Path::new("workspace_1/src/lib.rs")));
+    assert!(files[1].ends_with(Path::new("workspace_2/src/lib.rs")));
+}
+
 }
