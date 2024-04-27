@@ -29,6 +29,7 @@ jobs:
         with:
           toolchain: ${{ matrix.version }}
           components: rustfmt
+          targets: [ ${{ matrix.target }} ]
       - name: cache
         uses: Swatinem/rust-cache@v2
       - name: test
