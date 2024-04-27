@@ -16,6 +16,9 @@ struct SourceFile {
 #[derive(Serialize)]
 pub struct CoverageReport {
     files: Vec<SourceFile>,
+    coverage: f64,
+    covered: usize,
+    coverable: usize,
 }
 
 impl From<&TraceMap> for Vec<SourceFile> {
@@ -44,6 +47,9 @@ impl From<&TraceMap> for CoverageReport {
     fn from(coverage_data: &TraceMap) -> Self {
         CoverageReport {
             files: Vec::<SourceFile>::from(coverage_data),
+            coverage: 100.0 * coverage_data.coverage_percentage(),
+            covered: coverage_data.total_covered(),
+            coverable: coverage_data.total_coverable(),
         }
     }
 }
