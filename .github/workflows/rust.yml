@@ -33,10 +33,7 @@ jobs:
       - name: cache
         uses: Swatinem/rust-cache@v2
       - name: test
-        run: cargo test --target ${{ matrix.target }}
-      - name: ignored test
-        run: cargo test --target ${{ matrix.target }} -- --ignored || true
-        if: matrix.version == 'nightly'
+        run: cargo test --target ${{ matrix.target }} --features vendored-openssl
       - uses: actions/upload-artifact@v3
         if: failure()
         with:
