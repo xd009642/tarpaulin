@@ -6,6 +6,7 @@ file.
 ## Unreleased
 ### Changed
 - Now override toolchain less-eagerly in windows #1494
+- Fixed build for x86
 
 ## [0.28.0] 2024-04-13
 ### Changed
