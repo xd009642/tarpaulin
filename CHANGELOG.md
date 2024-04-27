@@ -3,6 +3,10 @@
 From 2019 onwards, all notable changes to tarpaulin will be documented in this
 file.
 
+## Unreleased
+### Changed
+- Now override toolchain less-eagerly in windows #1494
+
 ## [0.28.0] 2024-04-13
 ### Changed
 - No longer add `+nightly` if cargo version is already nightly

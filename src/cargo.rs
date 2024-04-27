@@ -512,18 +512,22 @@ fn create_command(manifest_path: &str, config: &Config, ty: Option<RunType>) -> 
         true
     };
     if ty == Some(RunType::Doctests) {
-        if let Some(toolchain) = env::var("RUSTUP_TOOLCHAIN")
-            .ok()
-            .filter(|t| t.starts_with("nightly") || bootstrap)
-        {
-            test_cmd.args([format!("+{toolchain}").as_str()]);
-        } else if !bootstrap && override_toolchain && !is_nightly() {
-            test_cmd.args(["+nightly"]);
+        if override_toolchain {
+            if let Some(toolchain) = env::var("RUSTUP_TOOLCHAIN")
+                .ok()
+                .filter(|t| t.starts_with("nightly") || bootstrap)
+            {
+                test_cmd.args([format!("+{toolchain}").as_str()]);
+            } else if !bootstrap && !is_nightly() {
+                test_cmd.args(["+nightly"]);
+            }
         }
         test_cmd.args(["test"]);
     } else {
-        if let Ok(toolchain) = env::var("RUSTUP_TOOLCHAIN") {
-            test_cmd.arg(format!("+{toolchain}"));
+        if override_toolchain {
+            if let Ok(toolchain) = env::var("RUSTUP_TOOLCHAIN") {
+                test_cmd.arg(format!("+{toolchain}"));
+            }
         }
         if config.command == Mode::Test {
             test_cmd.args(["test", "--no-run"]);
