@@ -29,12 +29,13 @@ jobs:
         with:
           toolchain: ${{ matrix.version }}
           components: rustfmt
+          targets: [ "${{ matrix.target }}" ]
       - name: cache
         uses: Swatinem/rust-cache@v2
       - name: test
-        run: cargo test
+        run: cargo test --target ${{ matrix.target }}
       - name: ignored test
-        run: cargo test -- --ignored || true
+        run: cargo test --target ${{ matrix.target }} -- --ignored || true
         if: matrix.version == 'nightly'
       - uses: actions/upload-artifact@v3
         if: failure()
@@ -65,7 +66,7 @@ jobs:
       - name: cache
         uses: Swatinem/rust-cache@v2
       - name: test
-        run: cargo test
+        run: cargo test --target ${{ matrix.target }}
       - uses: actions/upload-artifact@v3
         if: failure()
         with:
@@ -92,7 +93,7 @@ jobs:
       - name: cache
         uses: Swatinem/rust-cache@v2
       - name: test
-        run: cargo test
+        run: cargo test --target ${{ matrix.target }}
       - uses: actions/upload-artifact@v3
         #if: failure()
         with:
