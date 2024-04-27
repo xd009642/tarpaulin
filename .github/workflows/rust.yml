@@ -29,13 +29,11 @@ jobs:
         with:
           toolchain: ${{ matrix.version }}
           components: rustfmt
+          target: ${{ matrix.target }}
       - name: cache
         uses: Swatinem/rust-cache@v2
       - name: test
-        run: cargo test
-      - name: ignored test
-        run: cargo test -- --ignored || true
-        if: matrix.version == 'nightly'
+        run: cargo test --target ${{ matrix.target }} --features vendored-openssl
       - uses: actions/upload-artifact@v3
         if: failure()
         with:
@@ -65,7 +63,7 @@ jobs:
       - name: cache
         uses: Swatinem/rust-cache@v2
       - name: test
-        run: cargo test
+        run: cargo test --target ${{ matrix.target }}
       - uses: actions/upload-artifact@v3
         if: failure()
         with:
@@ -92,7 +90,7 @@ jobs:
       - name: cache
         uses: Swatinem/rust-cache@v2
       - name: test
-        run: cargo test
+        run: cargo test --target ${{ matrix.target }}
       - uses: actions/upload-artifact@v3
         #if: failure()
         with:
