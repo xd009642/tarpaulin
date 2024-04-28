@@ -31,7 +31,8 @@ git2 = "0.18"
 humantime-serde = "1"
 indexmap = { version = "~1.8", features = ["serde-1"] }
 lazy_static = "1.0"
-llvm_profparser = "0.4.0"
+#llvm_profparser = "0.4.0"
+llvm_profparser = {  git = "https://github.com/xd009642/llvm-profparser", branch = "fix/integration-pains" }
 object = "0.35"
 num_cpus = "1.16.0"
 proc-macro2 = { version = "1.0", features = ["span-locations"] }

@@ -1,4 +1,5 @@
 use crate::config::Color;
+use crate::cargo::rust_flags;
 use crate::generate_tracemap;
 use crate::path_utils::get_profile_walker;
 use crate::statemachine::{create_state_machine, TestState};
@@ -180,7 +181,7 @@ fn get_env_vars(test: &TestBinary, config: &Config) -> Vec<(String, String)> {
 
     for (key, value) in env::vars() {
         // Avoid adding it twice
-        if key == "LD_LIBRARY_PATH" && test.has_linker_paths() {
+        if key == "LD_LIBRARY_PATH" && test.has_linker_paths() || key == "RUSTFLAGS" {
             continue;
         }
         envars.push((key.to_string(), value.to_string()));
@@ -203,6 +204,7 @@ fn get_env_vars(test: &TestBinary, config: &Config) -> Vec<(String, String)> {
     if test.has_linker_paths() {
         envars.push(("LD_LIBRARY_PATH".to_string(), test.ld_library_path()));
     }
+    envars.push(("RUSTFLAGS".to_string(), rust_flags(config)));
 
     envars
 }
