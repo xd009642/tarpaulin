@@ -1,5 +1,5 @@
-use crate::config::Color;
 use crate::cargo::rust_flags;
+use crate::config::Color;
 use crate::generate_tracemap;
 use crate::path_utils::get_profile_walker;
 use crate::statemachine::{create_state_machine, TestState};
