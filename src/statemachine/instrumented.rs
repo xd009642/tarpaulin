@@ -131,7 +131,7 @@ impl<'a> StateData for LlvmInstrumentedData<'a> {
                     binaries.push(binary_path);
                     info!("Mapping coverage data to source");
                     let mapping =
-                        CoverageMapping::new(&binaries, &instrumentation).map_err(|e| {
+                        CoverageMapping::new(&binaries, &instrumentation, true).map_err(|e| {
                             error!("Failed to get coverage: {}", e);
                             RunError::TestCoverage(e.to_string())
                         })?;

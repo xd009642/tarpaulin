@@ -34,7 +34,7 @@ pub fn check_percentage_with_cli_args(
     has_lines: bool,
     args: &[String],
 ) -> TraceMap {
-    setup_logging(Color::Never, false, false);
+    setup_logging(Color::Never, true, true);
     let restore_dir = env::current_dir().unwrap();
     let args = TarpaulinCli::parse_from(args);
 
@@ -60,7 +60,7 @@ pub fn check_percentage_with_cli_args(
 }
 
 pub fn run_config(project_name: &str, mut config: Config) {
-    setup_logging(Color::Never, false, false);
+    setup_logging(Color::Never, true, true);
     config.test_timeout = Duration::from_secs(60);
     let restore_dir = env::current_dir().unwrap();
     let test_dir = get_test_path(project_name);
@@ -81,7 +81,7 @@ pub fn check_percentage_with_config(
     has_lines: bool,
     mut config: Config,
 ) -> TraceMap {
-    setup_logging(Color::Never, false, false);
+    setup_logging(Color::Never, true, true);
     config.test_timeout = Duration::from_secs(60);
     let restore_dir = env::current_dir().unwrap();
     let test_dir = get_test_path(project_name);

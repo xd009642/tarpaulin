@@ -8,6 +8,7 @@ file.
 - Now override toolchain less-eagerly in windows #1494
 - Fixed build for x86
 - Add summary coverage, covered and coverable to json report #1415
+- Pass RUSTFLAGS to the binary under test for any project bins compiled during test
 
 ## [0.28.0] 2024-04-13
 ### Changed
