@@ -149,6 +149,16 @@ a repo and the commit containing your project and paste the verbose output).
 * Excluding irrelevant files from coverage
 * Config file for mutually exclusive coverage settings (see `Config file` section for details)
 
+## Issues and Contributing
+
+Issues, feature requests and pull requests are always welcome! For a guide on
+how to approach bugs found in Tarpaulin and adding features please check
+[CONTRIBUTING](CONTRIBUTING.md). If you're having any troubles also look to our 
+[TROUBLESHOOTING.md](./TROUBLESHOOTING.md)
+
+Rust 1.23 introduced a regression in the compiler affecting tarpaulin's
+accuracy. If you see missing lines or files, check your compiler version.
+
 ## Usage
 
 ### Installation
@@ -606,15 +616,6 @@ Then install `pycobertura` with pip and execute the desired command.
 
 As tarpaulin doesn't allow you to change the name of the generated cobertura
 report be mindful of this if diffing reports between multiple commits.
-
-## Issues and Contributing
-
-Issues, feature requests and pull requests are always welcome! For a guide on
-how to approach bugs found in Tarpaulin and adding features please check
-[CONTRIBUTING](CONTRIBUTING.md).
-
-Rust 1.23 introduced a regression in the compiler affecting tarpaulin's
-accuracy. If you see missing lines or files, check your compiler version.
 
 ## Roadmap
 
