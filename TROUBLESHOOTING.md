@@ -48,9 +48,16 @@ Inaccurate coverage can be caused by:
 
 Here are some tips to avoid these issues:
 
-Minimising the use of `include!()` macros to add in code, docs or other
-content as these are added to the line count in the debug info but tarpaulin
-can't reason about.
+Avoid inlining - this can be a tarpaulin only configuration, but inline
+functions won't end up with representative debug information and may be
+shown as lines that should be covered.
+
+With highly generic code unused generics won't be represented in debug
+information. To avoid this impacting results tarpaulin aims to reason about
+it and which lines _should_ be in the results. Minimising generic use can
+improve results. Although, you shouldn't be shaping your code to get better
+coverage results unless you have a regulatory reason to do so (and then maybe
+don't consider tarpaulin without reaching out first).
 
 Avoid large amounts of macros or macros with branching behaviour in them.
 Unfortunately being overly allowing on macro coverage would make tarpaulin's
@@ -58,6 +65,43 @@ coverage statistics less trustworthy and the current approach is it's better
 to report too low than too high.
 
 Preventing inlining during tarpaulin runs would also aid in accuracy.
+
+### Doctest Coverage
+
+This is a nightly only feature! So if you're not running in nightly that will
+be your first issue.
+
+Retaining the doctests to gain coverage is mildly tricky, the executable
+generated uses the location of the doc test to generate the file name and
+isn't a clear one-to-one mapping. This means some heuristics have to be used.
+
+There are some steps you can do to avoid clashes in generated file names.
+
+1. Avoid adding doctests in your README or other markdown included like 
+`#![doc = include_str!("../README.md")]` 
+2. Avoid name overlap if you replace all path separators with `_` so no
+files like `src/bar_foo.rs` and `src/bar/foo.rs` 
+
+This would _generally_ not be a big problem, but if there are doc tests which
+should panic then tarpaulin has to catch the exit code for the doc test and
+ensure that it is not zero to make sure the test pass/fail is reported
+correctly and coverage continues on.
+
+### Cannot open libssl.so
+
+Tarpaulin by default will attempt to use a system libssl for uploading coverage
+reports or general interfacing with the network. If you have an issue running
+tarpaulin due to an error like:
+
+```
+cargo-tarpaulin: error while loading shared libraries: libssl.so.1.1: cannot open shared object file: No such file or directory
+```
+
+It may be solved by installing using the `vendored-openssl` feature like so:
+
+```
+cargo install --features vendored-openssl cargo-tarpaulin
+```
 
 ## Ptrace Engine
 
@@ -70,6 +114,15 @@ mitigate some of these issues. Also if you use a lot of process spawns
 
 Unfortunately, ptrace is a complicated API and signal handling further
 complicates it so switching to `--engine llvm` may be the best solution.
+
+### EPERM Operation not Permitted
+
+The ptrace engine needs to use the `personality` syscall to disable ASLR. If
+this operation is not allowed then the ptrace engine will fail.
+
+Either use `--engine llvm` or allow the syscall. In docker this would involve
+setting the `personality` syscall to `SCMP_ACT_ALLOW` or using
+`--seccomp=unconfined`
 
 ## LLVM Instrumentation
 
