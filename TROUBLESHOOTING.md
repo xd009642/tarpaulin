@@ -4,7 +4,7 @@ As much as we hope everything goes smoothly, sometimes things don't quite work
 out of the box. This guide aims to help troubleshoot a wide array of potential
 issues!
 
-On linux the default engine is ptrace so it's always worthwhile trying
+On Linux the default engine is ptrace so it's always worthwhile trying
 `--engine llvm` on Linux if a project doesn't quite work and steps aren't covered
 below.
 
@@ -30,8 +30,8 @@ when ran via `cargo test`. This will fail with tarpaulin because we use
 `cargo test --no-run` internally and then run the tests afterwards. 
 
 To solve this, ensure that you recreate an environment so that you can run your
-tests directly calling the test binary in the target folder directly and not
-just via `cargo test`.
+tests calling the test binary in the target folder directly and not just via
+`cargo test`.
 
 ### Inaccurate Coverage Results
 
@@ -65,7 +65,7 @@ Preventing inlining during tarpaulin runs would also aid in accuracy.
 
 If your test uses unix signals tarpaulin using ptrace may steal them and cause
 tarpaulin to exit with a failure. `--forward-signals` is a useful flag here to
-mitigate some of these issues. Also if you use a lot of process exec's
+mitigate some of these issues. Also if you use a lot of process spawns
 `--follow-exec` may be of use.
 
 Unfortunately, ptrace is a complicated API and signal handling further
@@ -75,11 +75,11 @@ complicates it so switching to `--engine llvm` may be the best solution.
 
 ### Coverage not Collecting from Applications
 
-If a process segfaults or exits with a panic llvm instrumentation won't write
+If a process segfaults or exits with a panic LLVM instrumentation won't write
 out the profraw files with coverage data. For tests or applications that do this
 (i.e. `should_panic` doctests) you will have to use the ptrace engine or make 
 them not panic and find an alternative testing method.
 
 As tests need to exit 0 to pass, this typically only impacts doctests and 
-spawned processes not the actual tests themselves. For spawned processes this
+spawned processes, not the actual tests themselves. For spawned processes this
 would result in a decrease in coverage.
