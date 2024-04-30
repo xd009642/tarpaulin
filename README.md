@@ -154,7 +154,7 @@ a repo and the commit containing your project and paste the verbose output).
 Issues, feature requests and pull requests are always welcome! For a guide on
 how to approach bugs found in Tarpaulin and adding features please check
 [CONTRIBUTING](CONTRIBUTING.md). If you're having any troubles also look to our 
-[TROUBLESHOOTING.md](./TROUBLESHOOTING.md)
+[TROUBLESHOOTING.md](TROUBLESHOOTING.md)
 
 Rust 1.23 introduced a regression in the compiler affecting tarpaulin's
 accuracy. If you see missing lines or files, check your compiler version.

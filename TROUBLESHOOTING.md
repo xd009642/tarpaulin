@@ -61,4 +61,25 @@ Preventing inlining during tarpaulin runs would also aid in accuracy.
 
 ## Ptrace Engine
 
+### Unix Signals
+
+If your test uses unix signals tarpaulin using ptrace may steal them and cause
+tarpaulin to exit with a failure. `--forward-signals` is a useful flag here to
+mitigate some of these issues. Also if you use a lot of process exec's
+`--follow-exec` may be of use.
+
+Unfortunately, ptrace is a complicated API and signal handling further
+complicates it so switching to `--engine llvm` may be the best solution.
+
 ## LLVM Instrumentation
+
+### Coverage not Collecting from Applications
+
+If a process segfaults or exits with a panic llvm instrumentation won't write
+out the profraw files with coverage data. For tests or applications that do this
+(i.e. `should_panic` doctests) you will have to use the ptrace engine or make 
+them not panic and find an alternative testing method.
+
+As tests need to exit 0 to pass, this typically only impacts doctests and 
+spawned processes not the actual tests themselves. For spawned processes this
+would result in a decrease in coverage.
