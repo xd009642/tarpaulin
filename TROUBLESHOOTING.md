@@ -50,7 +50,11 @@ Here are some tips to avoid these issues:
 
 Avoid inlining - this can be a tarpaulin only configuration, but inline
 functions won't end up with representative debug information and may be
-shown as lines that should be covered.
+shown as lines that should be covered. You could do this as so:
+
+```
+#[cfg_attr(tarpaulin, inline(never))]
+```
 
 With highly generic code unused generics won't be represented in debug
 information. To avoid this impacting results tarpaulin aims to reason about
@@ -63,8 +67,6 @@ Avoid large amounts of macros or macros with branching behaviour in them.
 Unfortunately being overly allowing on macro coverage would make tarpaulin's
 coverage statistics less trustworthy and the current approach is it's better
 to report too low than too high.
-
-Preventing inlining during tarpaulin runs would also aid in accuracy.
 
 ### Doctest Coverage
 
