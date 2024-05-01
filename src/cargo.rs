@@ -772,14 +772,21 @@ pub fn rust_flags(config: &Config) -> String {
     }
     handle_llvm_flags(&mut value, config);
     lazy_static! {
-        static ref DEBUG_INFO: Regex = Regex::new(r#"\-C\s*debuginfo=\d"#).unwrap();
+        static ref DEBUG_INFO: Regex = Regex::new(r"\-C\s*debuginfo=\d").unwrap();
+        static ref DEAD_CODE: Regex = Regex::new(r"\-C\s*link-dead-code").unwrap();
     }
     if let Ok(vtemp) = env::var(RUSTFLAGS) {
-        value.push_str(&DEBUG_INFO.replace_all(&vtemp, " "));
+        let temp = DEBUG_INFO.replace_all(&vtemp, " ");
+        if config.no_dead_code {
+            value.push_str(&DEAD_CODE.replace_all(&temp, " "));
+        } else {
+            value.push_str(&temp);
+        }
     } else {
         let vtemp = gather_config_field_from_section(config, "build", "rustflags");
         value.push_str(&DEBUG_INFO.replace_all(&vtemp, " "));
     }
+
     deduplicate_flags(&value)
 }
 
