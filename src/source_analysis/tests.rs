@@ -788,6 +788,25 @@ fn cover_default_trait_methods() {
 }
 
 #[test]
+fn cover_impl_trait_generic_fns() {
+    let config = Config::default();
+    let ctx = Context {
+        config: &config,
+        file_contents: "fn bloop(t: impl std::io::Read) -> usize {
+                t.bytes().count()
+            }",
+        file: Path::new(""),
+        ignore_mods: RefCell::new(HashSet::new()),
+    };
+    let parser = parse_file(ctx.file_contents).unwrap();
+    let mut analysis = SourceAnalysis::new();
+    analysis.process_items(&parser.items, &ctx);
+    let lines = analysis.get_line_analysis(ctx.file.to_path_buf());
+    assert!(lines.cover.contains(&1));
+    assert!(lines.cover.contains(&2));
+}
+
+#[test]
 fn filter_method_args() {
     let config = Config::default();
     let ctx = Context {

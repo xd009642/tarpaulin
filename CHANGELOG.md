@@ -12,6 +12,7 @@ file.
 - Fixed build for x86
 - Add summary coverage, covered and coverable to json report #1415
 - Pass RUSTFLAGS to the binary under test for any project bins compiled during test
+- Force coverage of generic functions/methods using `impl Trait` args
 
 ## [0.28.0] 2024-04-13
 ### Changed
