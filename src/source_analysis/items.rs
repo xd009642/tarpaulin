@@ -98,7 +98,7 @@ impl SourceAnalysis {
         let mut ignored_attr = false;
         let mut is_inline = false;
         let mut ignore_span = false;
-        let is_generic = !func.sig.generics.params.is_empty();
+        let is_generic = is_sig_generic(&func.sig);
         for attr in &func.attrs {
             if let Ok(x) = attr.parse_meta() {
                 let id = x.path();
@@ -222,4 +222,19 @@ impl SourceAnalysis {
             analysis.ignore_tokens(impl_blk);
         }
     }
+}
+
+fn has_generic_arg<'a>(args: impl Iterator<Item = &'a FnArg>) -> bool {
+    for arg in args {
+        if let FnArg::Typed(pat) = arg {
+            if matches!(*pat.ty, Type::ImplTrait(_)) {
+                return true;
+            }
+        }
+    }
+    false
+}
+
+fn is_sig_generic(sig: &Signature) -> bool {
+    !sig.generics.params.is_empty() || has_generic_arg(sig.inputs.iter())
 }
