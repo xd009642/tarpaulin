@@ -58,10 +58,10 @@ shown as lines that should be covered. You could do this as so:
 
 With highly generic code unused generics won't be represented in debug
 information. To avoid this impacting results tarpaulin aims to reason about
-it and which lines _should_ be in the results. Minimising generic use can
-improve results. Although, you shouldn't be shaping your code to get better
-coverage results unless you have a regulatory reason to do so (and then maybe
-don't consider tarpaulin without reaching out first).
+which lines _should_ be in the results. As this uses some manner of heuristics,
+minimising generic use can improve results. Although, you shouldn't be shaping
+your code to get better coverage results unless you have a regulatory reason to
+do so (and then maybe don't consider tarpaulin without reaching out first).
 
 Avoid large amounts of macros or macros with branching behaviour in them.
 Unfortunately being overly allowing on macro coverage would make tarpaulin's
