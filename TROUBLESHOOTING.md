@@ -12,7 +12,7 @@ below.
 
 ### Compilation Failures
 
-If you're project compiles fine outside of tarpaulin but fails when running
+If your project compiles fine outside of tarpaulin but fails when running
 via tarpaulin the issue may be related to dead-code linking. For projects
 that link to native libraries `-Clink-dead-code` will cause a compilation
 error [rustc issue](https://github.com/rust-lang/rust/issues/64685). To solve
