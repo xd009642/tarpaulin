@@ -381,6 +381,7 @@ fn cargo_home_filtering() {
 
 #[test]
 fn rustflags_handling() {
+    env::remove_var("RUSTFLAGS");
     check_percentage("rustflags", 1.0f64, true);
     env::set_var("RUSTFLAGS", "--cfg=foo");
     let mut config = Config::default();
