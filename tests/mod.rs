@@ -34,7 +34,7 @@ pub fn check_percentage_with_cli_args(
     has_lines: bool,
     args: &[String],
 ) -> TraceMap {
-    setup_logging(Color::Never, false, false);
+    setup_logging(Color::Never, true, true);
     let restore_dir = env::current_dir().unwrap();
     let args = TarpaulinCli::parse_from(args);
 
@@ -60,7 +60,7 @@ pub fn check_percentage_with_cli_args(
 }
 
 pub fn run_config(project_name: &str, mut config: Config) {
-    setup_logging(Color::Never, false, false);
+    setup_logging(Color::Never, true, true);
     config.test_timeout = Duration::from_secs(60);
     let restore_dir = env::current_dir().unwrap();
     let test_dir = get_test_path(project_name);
@@ -81,7 +81,7 @@ pub fn check_percentage_with_config(
     has_lines: bool,
     mut config: Config,
 ) -> TraceMap {
-    setup_logging(Color::Never, false, false);
+    setup_logging(Color::Never, true, true);
     config.test_timeout = Duration::from_secs(60);
     let restore_dir = env::current_dir().unwrap();
     let test_dir = get_test_path(project_name);
@@ -381,6 +381,7 @@ fn cargo_home_filtering() {
 
 #[test]
 fn rustflags_handling() {
+    env::remove_var("RUSTFLAGS");
     check_percentage("rustflags", 1.0f64, true);
     env::set_var("RUSTFLAGS", "--cfg=foo");
     let mut config = Config::default();
@@ -636,6 +637,29 @@ fn workspace_no_fail_fast() {
 #[test]
 fn warning_flags_in_config() {
     check_percentage("config_warnings", 1.0f64, true);
+}
+
+#[test]
+fn workspace_default_members() {
+    let mut config = Config::default();
+    config.set_clean(false);
+    config.set_include_tests(true);
+
+    let only_default = check_percentage_with_config("default_members", 1.0f64, true, config.clone());
+
+    let files = only_default.files();
+    assert_eq!(files.len(), 1);
+    assert!(files[0].ends_with(Path::new("workspace_1/src/lib.rs")));
+
+    config.all= true;
+
+    let all = check_percentage_with_config("default_members", 1.0f64, true, config);
+
+    let files = all.files();
+    assert_eq!(files.len(), 2);
+    // We use a BTreeMap so they'll be alphabetically ordered
+    assert!(files[0].ends_with(Path::new("workspace_1/src/lib.rs")));
+    assert!(files[1].ends_with(Path::new("workspace_2/src/lib.rs")));
 }
 
 }

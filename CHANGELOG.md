@@ -3,6 +3,17 @@
 From 2019 onwards, all notable changes to tarpaulin will be documented in this
 file.
 
+## [0.29.0] 2024-05-01
+### Added 
+- Troubleshooting guide 
+
+### Changed
+- Now override toolchain less-eagerly in windows #1494
+- Fixed build for x86
+- Add summary coverage, covered and coverable to json report #1415
+- Pass RUSTFLAGS to the binary under test for any project bins compiled during test
+- Force coverage of generic functions/methods using `impl Trait` args
+
 ## [0.28.0] 2024-04-13
 ### Changed
 - No longer add `+nightly` if cargo version is already nightly

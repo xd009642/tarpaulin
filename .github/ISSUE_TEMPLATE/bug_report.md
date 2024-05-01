@@ -14,6 +14,8 @@ Here are some common things you can try:
 * For accuracy of results `--engine llvm` to try the llvm coverage instrumentation if you're on Linux
 * Linker issues `--no-dead-code` dead code linking can cause issues so disable it. This will significantly reduce the accuracy of results with ptrace so you should also use `--engine llvm` if it's not the default on your OS
 
+Check the troubleshooting guide in the repo!
+
 **Describe the bug**
 A clear and concise description of what the bug is and if you're using the ptrace coverage engine (default on x64 Linux) or the llvm instrumentation.
 

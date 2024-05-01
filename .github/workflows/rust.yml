@@ -33,9 +33,6 @@ jobs:
         uses: Swatinem/rust-cache@v2
       - name: test
         run: cargo test
-      - name: ignored test
-        run: cargo test -- --ignored || true
-        if: matrix.version == 'nightly'
       - uses: actions/upload-artifact@v3
         if: failure()
         with:
@@ -94,7 +91,7 @@ jobs:
       - name: test
         run: cargo test
       - uses: actions/upload-artifact@v3
-        #if: failure()
+        if: failure()
         with:
           name: mac ${{ matrix.version }}
           retention-days: 3
