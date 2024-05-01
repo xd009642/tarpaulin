@@ -4,6 +4,9 @@ From 2019 onwards, all notable changes to tarpaulin will be documented in this
 file.
 
 ## Unreleased
+### Added 
+- Troubleshooting guide 
+
 ### Changed
 - Now override toolchain less-eagerly in windows #1494
 - Fixed build for x86
