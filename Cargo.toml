@@ -71,7 +71,7 @@ rustc_version = "0.4"
 [dev-dependencies]
 lcov = "0.8.1"
 rusty-fork = "0.3.0"
-tracing-test = "0.2.4"
+tracing-test = { version = "0.2.4", features = ["no-env-filter"] }
 
 [package.metadata.binstall]
 pkg-url = "{ repo }/releases/download/{ version }/cargo-tarpaulin-{ target }{ archive-suffix }"
