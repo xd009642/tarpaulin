@@ -1,16 +1,17 @@
 use crate::utils::get_test_path;
-use cargo_tarpaulin::config::{types::RunType, Color, Config};
-use cargo_tarpaulin::{launch_tarpaulin, setup_logging};
+use cargo_tarpaulin::config::{types::RunType, Config};
+use cargo_tarpaulin::launch_tarpaulin;
 use rusty_fork::rusty_fork_test;
 use std::env;
 use std::path::PathBuf;
 use std::time::Duration;
+use tracing_test::traced_test;
 
 rusty_fork_test! {
 
 #[test]
+#[traced_test]
 fn mix_test_types() {
-    setup_logging(Color::Never, false, false);
     // Issue 747 the clean would delete old tests leaving to only one run type effectively being
     // ran. This test covers against that mistake
     let mut config = Config::default();
@@ -45,8 +46,8 @@ fn mix_test_types() {
 }
 
 #[test]
+#[traced_test]
 fn only_test_coverage() {
-    setup_logging(Color::Never, false, false);
     let mut config = Config::default();
     config.set_clean(false);
     config.test_timeout = Duration::from_secs(60);
@@ -77,8 +78,8 @@ fn only_test_coverage() {
 }
 
 #[test]
+#[traced_test]
 fn all_targets_coverage() {
-    setup_logging(Color::Never, false, false);
     let mut config = Config::default();
     config.set_clean(false);
     config.test_timeout = Duration::from_secs(60);
@@ -110,8 +111,8 @@ fn all_targets_coverage() {
 
 
 #[test]
+#[traced_test]
 fn only_example_coverage() {
-    setup_logging(Color::Never, false, false);
     let mut config = Config::default();
     config.set_clean(false);
     config.test_timeout = Duration::from_secs(60);
@@ -142,9 +143,9 @@ fn only_example_coverage() {
 }
 
 #[test]
+#[traced_test]
 #[ignore]
 fn only_bench_coverage() {
-    setup_logging(Color::Never, false, false);
     let mut config = Config::default();
     config.set_clean(false);
     config.test_timeout = Duration::from_secs(60);
@@ -175,9 +176,9 @@ fn only_bench_coverage() {
 }
 
 #[test]
+#[traced_test]
 #[cfg(feature = "nightly")]
 fn only_doctest_coverage() {
-    setup_logging(Color::Never, false, false);
     let mut config = Config::default();
     config.set_clean(false);
     config.test_timeout = Duration::from_secs(60);
