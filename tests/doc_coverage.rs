@@ -1,14 +1,15 @@
 use crate::utils::get_test_path;
 use cargo_tarpaulin::config::{Color, Config, RunType};
-use cargo_tarpaulin::{launch_tarpaulin, setup_logging};
+use cargo_tarpaulin::launch_tarpaulin;
 use rusty_fork::rusty_fork_test;
 use std::time::Duration;
 use std::{env, path::PathBuf};
+use tracing_test::traced_test;
 
 rusty_fork_test! {
 #[test]
+#[traced_test]
 fn doc_test_env() {
-    setup_logging(Color::Never, false, false);
     let mut config = Config::default();
     config.set_clean(false);
     config.test_timeout = Duration::from_secs(60);
@@ -29,8 +30,8 @@ fn doc_test_env() {
 }
 
 #[test]
+#[traced_test]
 fn doc_test_coverage() {
-    setup_logging(Color::Never, false, false);
     let mut config = Config::default();
     config.verbose = true;
     config.set_clean(false);
@@ -60,8 +61,8 @@ fn doc_test_coverage() {
 }
 
 #[test]
+#[traced_test]
 fn doc_test_panics() {
-    setup_logging(Color::Never, false, false);
     let mut config = Config::default();
     config.verbose = true;
     config.set_clean(false);
@@ -91,8 +92,8 @@ fn doc_test_panics() {
 }
 
 #[test]
+#[traced_test]
 fn doc_test_panics_workspace() {
-    setup_logging(Color::Never, false, false);
     let mut config = Config::default();
     config.verbose = true;
     config.set_clean(false);
@@ -122,8 +123,8 @@ fn doc_test_panics_workspace() {
 }
 
 #[test]
+#[traced_test]
 fn doc_test_compile_fail() {
-    setup_logging(Color::Never, false, false);
     let mut config = Config::default();
     config.verbose = true;
     config.set_clean(false);
@@ -140,8 +141,8 @@ fn doc_test_compile_fail() {
 }
 
 #[test]
+#[traced_test]
 fn doc_test_no_run() {
-    setup_logging(Color::Never, false, false);
     let mut config = Config::default();
     config.verbose = true;
     config.set_clean(false);
@@ -159,6 +160,7 @@ fn doc_test_no_run() {
 }
 
 #[test]
+#[traced_test]
 fn rustdocflags_handling() {
     env::set_var("RUSTDOCFLAGS", "--cfg=foo");
     let mut config = Config::default();
