@@ -500,7 +500,8 @@ fn create_command(manifest_path: &str, config: &Config, ty: Option<RunType>) -> 
     let mut test_cmd = Command::new("cargo");
     let bootstrap = matches!(env::var("RUSTC_BOOTSTRAP").as_deref(), Ok("1"));
     let override_toolchain = if cfg!(windows) {
-        if env::var("PATH").unwrap_or_default().contains(".rustup") {
+        let rustup_home = env::var("RUSTUP_HOME").unwrap_or(".rustup".into());
+        if env::var("PATH").unwrap_or_default().contains(&rustup_home) {
             // So the specific cargo we're using is in the path var so rustup toolchains won't
             // work. This only started happening recently so special casing it for older versions
             env::remove_var("RUSTUP_TOOLCHAIN");
