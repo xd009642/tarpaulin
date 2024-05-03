@@ -1,17 +1,18 @@
 use crate::utils::get_test_path;
 use cargo_tarpaulin::{
-    config::{Color, Config, Mode},
+    config::{Config, Mode},
     errors::RunError,
 };
-use cargo_tarpaulin::{launch_tarpaulin, run, setup_logging};
+use cargo_tarpaulin::{launch_tarpaulin, run};
 use rusty_fork::rusty_fork_test;
 use std::env;
+use tracing_test::traced_test;
 
 rusty_fork_test! {
 
 #[test]
+#[traced_test]
 fn error_if_build_script_fails() {
-    setup_logging(Color::Never, false, false);
     let mut config = Config::default();
     let test_dir = get_test_path("build_script_fail");
     env::set_current_dir(&test_dir).unwrap();
@@ -31,8 +32,8 @@ fn error_if_build_script_fails() {
 }
 
 #[test]
+#[traced_test]
 fn error_if_compilation_fails() {
-    setup_logging(Color::Never, false, false);
     let mut config = Config::default();
     let test_dir = get_test_path("compile_fail");
     env::set_current_dir(&test_dir).unwrap();
@@ -52,8 +53,8 @@ fn error_if_compilation_fails() {
 }
 
 #[test]
+#[traced_test]
 fn error_if_test_fails() {
-    setup_logging(Color::Never, false, false);
     let mut config = Config::default();
     let test_dir = get_test_path("failing_test");
     env::set_current_dir(&test_dir).unwrap();
@@ -73,8 +74,8 @@ fn error_if_test_fails() {
 }
 
 #[test]
+#[traced_test]
 fn issue_610() {
-    setup_logging(Color::Never, false, false);
     let mut config = Config::default();
     let test_dir = get_test_path("issue_610");
     config.test_names.insert("foo".to_string());

@@ -4,10 +4,12 @@ use cargo_tarpaulin::launch_tarpaulin;
 use rusty_fork::rusty_fork_test;
 use std::env;
 use std::path::PathBuf;
+use tracing_test::traced_test;
 
 rusty_fork_test! {
 
 #[test]
+#[traced_test]
 fn package_exclude() {
     let mut config = Config::default();
     let test_dir = get_test_path("workspace");
@@ -44,6 +46,7 @@ fn package_exclude() {
 }
 
 #[test]
+#[traced_test]
 fn specify_package() {
     let mut config = Config::default();
     config.set_clean(false);
@@ -77,6 +80,7 @@ fn specify_package() {
 }
 
 #[test]
+#[traced_test]
 fn config_relative_pathing() {
     let mut test_dir = PathBuf::from(env::var("CARGO_MANIFEST_DIR").unwrap());
     test_dir.push("tests");

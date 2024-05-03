@@ -3,6 +3,10 @@
 From 2019 onwards, all notable changes to tarpaulin will be documented in this
 file.
 
+## [0.29.1] 2024-05-03
+### Added
+- Use `RUSTUP_HOME` to handle rustup being installed in non-standard directories
+
 ## [0.29.0] 2024-05-01
 ### Added 
 - Troubleshooting guide 
