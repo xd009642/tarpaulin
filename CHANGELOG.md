@@ -3,6 +3,10 @@
 From 2019 onwards, all notable changes to tarpaulin will be documented in this
 file.
 
+## [0.29.2] 2024-05-08
+### Changed
+- Update jobserver crate to allow building on alpine
+
 ## [0.29.1] 2024-05-03
 ### Added
 - Use `RUSTUP_HOME` to handle rustup being installed in non-standard directories
