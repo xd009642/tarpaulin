@@ -14,7 +14,6 @@ use tracing::{debug, error, info, warn};
 use tracing_subscriber::{filter::LevelFilter, EnvFilter};
 
 pub mod args;
-pub mod branching;
 pub mod cargo;
 pub mod config;
 pub mod errors;

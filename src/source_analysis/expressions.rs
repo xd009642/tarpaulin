@@ -3,10 +3,6 @@ use syn::{punctuated::Pair, punctuated::Punctuated, token::Comma, *};
 
 impl SourceAnalysis {
     pub(crate) fn process_expr(&mut self, expr: &Expr, ctx: &Context) -> SubResult {
-        if ctx.config.branch_coverage {
-            let branches = self.get_branch_analysis(ctx.file.to_path_buf());
-            branches.register_expr(expr);
-        }
         let res = match expr {
             Expr::Macro(m) => self.visit_macro_call(&m.mac, ctx),
             Expr::Struct(s) => self.visit_struct_expr(s, ctx),
