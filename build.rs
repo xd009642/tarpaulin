@@ -2,6 +2,9 @@ use rustc_version::{version, version_meta, Channel};
 use std::env;
 
 fn main() {
+    println!("cargo::rustc-check-cfg=cfg(ptrace_supported)");
+    println!("cargo::rustc-check-cfg=cfg(tarpaulin_include)");
+
     assert!(version().expect("Couldn't get compiler version").major >= 1);
 
     let channel = version_meta()
