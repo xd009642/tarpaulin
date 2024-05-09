@@ -23,23 +23,11 @@ impl SourceAnalysis {
             } else if attr.meta.path().is_ident("cfg") {
                 let mut skip = false;
                 attr.parse_nested_meta(|meta| {
-                    skip |= meta.path.is_ident("test") && ctx.config.ignore_tests();
+                    skip |= meta.path.is_ident("test") && !ctx.config.include_tests();
                     Ok(())
                 });
                 if skip {
                     check_cover = false;
-                } else if x.path().is_ident("cfg") {
-                    if let Meta::List(ref ml) = x {
-                        let mut skip = false;
-                        for c in &ml.nested {
-                            if let NestedMeta::Meta(Meta::Path(ref i)) = c {
-                                skip |= i.is_ident("test") && !ctx.config.include_tests();
-                            }
-                        }
-                        if skip {
-                            check_cover = false;
-                        }
-                    }
                 }
             }
             if !check_cover {
@@ -58,16 +46,13 @@ pub(crate) fn check_cfg_attr(attr: &Meta) -> bool {
         ignore_span = true;
     } else if id.is_ident("cfg") {
         if let Meta::List(ml) = attr {
+            let mut is_not = false;
             let _ = ml.parse_nested_meta(|nested| {
-                if nested.path.is_ident("not") {
-                    for n in nested.nested.iter() {
-                        if let NestedMeta::Meta(Meta::Path(ref pth)) = n {
-                            if pth.is_ident("tarpaulin_include") || pth.is_ident("tarpaulin") {
-                                ignore_span = true;
-                                break;
-                            }
-                        }
-                    }
+                if is_not {
+                    ignore_span |= nested.path.is_ident("tarpaulin_include")
+                        || nested.path.is_ident("tarpaulin");
+                } else {
+                    is_not = nested.path.is_ident("not");
                 }
                 Ok(())
             });
@@ -75,18 +60,17 @@ pub(crate) fn check_cfg_attr(attr: &Meta) -> bool {
     } else if id.is_ident("cfg_attr") {
         if let Meta::List(ml) = attr {
             let tarp_cfged_ignores = &["no_coverage"];
-            if let NestedMeta::Meta(Meta::Path(ref i)) = ml.nested[0] {
-                if i.is_ident("tarpaulin") {
-                    for p in ml.nested.iter().skip(1) {
-                        if let NestedMeta::Meta(Meta::Path(ref path)) = p {
-                            if tarp_cfged_ignores.iter().any(|x| path.is_ident(x)) {
-                                ignore_span = true;
-                                break;
-                            }
-                        }
-                    }
+            let mut first = true;
+            let mut is_tarpaulin = false;
+            ml.parse_nested_meta(|nested| {
+                if first && nested.path.is_ident("tarpaulin") {
+                    first = false;
+                    is_tarpaulin = true;
+                } else if !first && is_tarpaulin {
+                    ignore_span |= tarp_cfged_ignores.iter().any(|x| nested.path.is_ident(x));
                 }
-            }
+                Ok(())
+            });
         }
     } else if predicates::is_test_attribute(id) {
         ignore_span = true;

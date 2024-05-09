@@ -48,37 +48,16 @@ impl SourceAnalysis {
     fn visit_mod(&mut self, module: &ItemMod, ctx: &Context) {
         let analysis = self.get_line_analysis(ctx.file.to_path_buf());
         analysis.ignore_tokens(module.mod_token);
-        let mut check_insides = true;
-        for attr in &module.attrs {
-            if let Ok(x) = attr.parse_meta() {
-                if check_cfg_attr(&x) {
-                    analysis.ignore_tokens(module);
-                    if let Some((ref braces, _)) = module.content {
-                        analysis.ignore_span(braces.span.join());
-                    }
-                    check_insides = false;
-                    break;
-                } else if !ctx.config.include_tests() && x.path().is_ident("cfg") {
-                    if let Meta::List(ref ml) = x {
-                        ml.parse_nested_meta(|nested| {
-                            if nested.path.is_ident("test") {
-                                check_insides = false;
-                                analysis.ignore_tokens(module.mod_token);
-                                if let Some((ref braces, _)) = module.content {
-                                    analysis.ignore_span(braces.span.join());
-                                }
-                            }
-                            Ok(())
-                        });
-                    }
-                }
-            }
-        }
+        let check_insides = self.check_attr_list(&module.attrs, ctx);
         if check_insides {
             if let Some((_, ref items)) = module.content {
                 self.process_items(items, ctx);
             }
         } else {
+            if let Some((ref braces, _)) = module.content {
+                let analysis = self.get_line_analysis(ctx.file.to_path_buf());
+                analysis.ignore_span(braces.span.join());
+            }
             // Get the file or directory name of the module
             let mut p = if let Some(parent) = ctx.file.parent() {
                 parent.join(module.ident.to_string())
@@ -99,8 +78,9 @@ impl SourceAnalysis {
         let mut ignore_span = false;
         let is_generic = is_sig_generic(&func.sig);
         for attr in &func.attrs {
-            if let Ok(x) = attr.parse_meta() {
-                let id = x.path();
+            let mut should_break = false;
+            attr.parse_nested_meta(|nested| {
+                let id = nested.path;
                 if id.is_ident("test") || id.segments.last().is_some_and(|seg| seg.ident == "test")
                 {
                     test_func = true;
@@ -111,10 +91,14 @@ impl SourceAnalysis {
                     is_inline = true;
                 } else if id.is_ident("ignore") {
                     ignored_attr = true;
-                } else if check_cfg_attr(&x) {
+                } else if check_cfg_attr(&attr.meta) {
                     ignore_span = true;
-                    break;
+                    should_break = true;
                 }
+                Ok(())
+            });
+            if should_break {
+                break;
             }
         }
         if ignore_span

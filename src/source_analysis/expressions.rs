@@ -282,6 +282,7 @@ impl SourceAnalysis {
                 Stmt::Local(l) => l.span(),
                 Stmt::Item(i) => i.span(),
                 Stmt::Expr(e, _) => e.span(),
+                Stmt::Macro(m) => m.span(),
             };
             if u_line != s.start().line {
                 let analysis = self.get_line_analysis(ctx.file.to_path_buf());

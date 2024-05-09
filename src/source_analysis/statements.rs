@@ -12,6 +12,7 @@ impl SourceAnalysis {
                 Stmt::Item(i) => self.process_items(&[i.clone()], ctx),
                 Stmt::Expr(i, _) => self.process_expr(i, ctx),
                 Stmt::Local(i) => self.process_local(i, ctx),
+                Stmt::Macro(i) => self.process_macro(i, ctx),
             };
             unreachable |= res.is_unreachable();
             if SubResult::Definite == res {
@@ -24,6 +25,26 @@ impl SourceAnalysis {
         } else if definite {
             SubResult::Definite
         } else {
+            SubResult::Ok
+        }
+    }
+
+    fn process_macro(&mut self, mac: &StmtMacro, ctx: &Context) -> SubResult {
+        let check_cover = self.check_attr_list(&mac.attrs, ctx);
+        if check_cover {
+            if let Some(macro_name) = mac.mac.path.segments.last() {
+                let (sub, should_ignore) = ignore_macro_name(&macro_name.ident, ctx);
+                if should_ignore {
+                    let analysis = self.get_line_analysis(ctx.file.to_path_buf());
+                    analysis.ignore_tokens(mac);
+                }
+                sub
+            } else {
+                SubResult::Ok
+            }
+        } else {
+            let analysis = self.get_line_analysis(ctx.file.to_path_buf());
+            analysis.ignore_tokens(mac);
             SubResult::Ok
         }
     }
@@ -56,8 +77,8 @@ impl SourceAnalysis {
                             .logical_lines
                             .insert(init.expr.span().start().line, base_line);
                     }
-                    result += self.process_expr(expr, ctx);
-                    if let Some((_, expr)) = init.diverge {
+                    result += self.process_expr(&init.expr, ctx);
+                    if let Some((_, expr)) = &init.diverge {
                         self.process_expr(&expr, ctx);
                     }
                 }
