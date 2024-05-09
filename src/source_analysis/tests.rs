@@ -1,7 +1,9 @@
 use crate::source_analysis::prelude::*;
 use syn::parse_file;
+use tracing_test::traced_test;
 
 #[test]
+#[traced_test]
 fn logical_lines_let_bindings() {
     let config = Config::default();
     let mut analysis = SourceAnalysis::new();
@@ -54,6 +56,7 @@ fn logical_lines_let_bindings() {
 }
 
 #[test]
+#[traced_test]
 fn match_pattern_logical_lines() {
     let config = Config::default();
     let ctx = Context {
@@ -86,6 +89,7 @@ fn match_pattern_logical_lines() {
 }
 
 #[test]
+#[traced_test]
 fn line_analysis_works() {
     let mut la = LineAnalysis::new();
     assert!(!la.should_ignore(0));
@@ -99,6 +103,7 @@ fn line_analysis_works() {
 }
 
 #[test]
+#[traced_test]
 fn filter_str_literals() {
     let config = Config::default();
     let ctx = Context {
@@ -159,6 +164,7 @@ fn filter_str_literals() {
 }
 
 #[test]
+#[traced_test]
 fn filter_struct_members() {
     let config = Config::default();
     let ctx = Context {
@@ -193,6 +199,7 @@ fn filter_struct_members() {
 }
 
 #[test]
+#[traced_test]
 fn filter_enum_members() {
     let config = Config::default();
     let ctx = Context {
@@ -215,6 +222,7 @@ fn filter_enum_members() {
 }
 
 #[test]
+#[traced_test]
 fn filter_struct_consts() {
     let config = Config::default();
     let ctx = Context {
@@ -238,6 +246,7 @@ fn filter_struct_consts() {
 }
 
 #[test]
+#[traced_test]
 fn filter_unreachable_unchecked() {
     let config = Config::default();
     let ctx = Context {
@@ -256,6 +265,7 @@ fn filter_unreachable_unchecked() {
 }
 
 #[test]
+#[traced_test]
 fn filter_loop_attr() {
     let config = Config::default();
     let ctx = Context {
@@ -284,6 +294,7 @@ fn filter_loop_attr() {
 }
 
 #[test]
+#[traced_test]
 fn filter_mods() {
     let config = Config::default();
     let ctx = Context {
@@ -324,6 +335,7 @@ fn filter_mods() {
 }
 
 #[test]
+#[traced_test]
 fn filter_macros() {
     let config = Config::default();
     let ctx = Context {
@@ -385,6 +397,7 @@ fn filter_macros() {
 }
 
 #[test]
+#[traced_test]
 fn filter_tests() {
     let mut config = Config::default();
     config.set_include_tests(true);
@@ -450,6 +463,7 @@ fn filter_tests() {
 }
 
 #[test]
+#[traced_test]
 fn filter_nonstd_tests() {
     let mut igconfig = Config::default();
     igconfig.set_include_tests(false);
@@ -519,6 +533,7 @@ fn filter_nonstd_tests() {
 }
 
 #[test]
+#[traced_test]
 fn include_nonstd_tests() {
     let mut config = Config::default();
     config.set_include_tests(true);
@@ -573,6 +588,7 @@ fn include_nonstd_tests() {
 }
 
 #[test]
+#[traced_test]
 fn filter_test_utilities() {
     let mut config = Config::default();
     config.set_include_tests(false);
@@ -619,6 +635,7 @@ fn filter_test_utilities() {
 }
 
 #[test]
+#[traced_test]
 fn filter_where() {
     let config = Config::default();
     let ctx = Context {
@@ -669,6 +686,7 @@ fn filter_where() {
 }
 
 #[test]
+#[traced_test]
 fn filter_derives() {
     let config = Config::default();
     let ctx = Context {
@@ -697,6 +715,7 @@ fn filter_derives() {
 }
 
 #[test]
+#[traced_test]
 fn filter_unsafe() {
     let config = Config::default();
     let ctx = Context {
@@ -726,6 +745,7 @@ fn filter_unsafe() {
 }
 
 #[test]
+#[traced_test]
 fn cover_generic_impl_methods() {
     let config = Config::default();
     let ctx = Context {
@@ -767,6 +787,7 @@ fn cover_generic_impl_methods() {
 }
 
 #[test]
+#[traced_test]
 fn cover_default_trait_methods() {
     let config = Config::default();
     let ctx = Context {
@@ -788,6 +809,7 @@ fn cover_default_trait_methods() {
 }
 
 #[test]
+#[traced_test]
 fn cover_impl_trait_generic_fns() {
     let config = Config::default();
     let ctx = Context {
@@ -807,6 +829,7 @@ fn cover_impl_trait_generic_fns() {
 }
 
 #[test]
+#[traced_test]
 fn filter_method_args() {
     let config = Config::default();
     let ctx = Context {
@@ -844,6 +867,7 @@ fn filter_method_args() {
 }
 
 #[test]
+#[traced_test]
 fn filter_use_statements() {
     let config = Config::default();
     let ctx = Context {
@@ -862,6 +886,7 @@ fn filter_use_statements() {
 }
 
 #[test]
+#[traced_test]
 fn include_inline_fns() {
     let config = Config::default();
     let ctx = Context {
@@ -891,6 +916,7 @@ fn include_inline_fns() {
 }
 
 #[test]
+#[traced_test]
 fn cover_callable_noargs() {
     let config = Config::default();
     let ctx = Context {
@@ -909,6 +935,7 @@ fn cover_callable_noargs() {
 }
 
 #[test]
+#[traced_test]
 fn filter_closure_contents() {
     let config = Config::default();
     let ctx = Context {
@@ -929,6 +956,7 @@ fn filter_closure_contents() {
 }
 
 #[test]
+#[traced_test]
 fn tarpaulin_skip_attr() {
     let config = Config::default();
     let ctx = Context {
@@ -1010,6 +1038,7 @@ fn tarpaulin_skip_attr() {
 }
 
 #[test]
+#[traced_test]
 fn tarpaulin_skip_trait_attrs() {
     let config = Config::default();
     let ctx = Context {
@@ -1065,6 +1094,7 @@ fn tarpaulin_skip_trait_attrs() {
 }
 
 #[test]
+#[traced_test]
 fn tarpaulin_skip_impl_attrs() {
     let config = Config::default();
     let ctx = Context {
@@ -1123,6 +1153,7 @@ fn tarpaulin_skip_impl_attrs() {
 }
 
 #[test]
+#[traced_test]
 fn filter_block_contents() {
     let config = Config::default();
     let ctx = Context {
@@ -1149,6 +1180,7 @@ fn filter_block_contents() {
 }
 
 #[test]
+#[traced_test]
 fn filter_consts() {
     let config = Config::default();
     let ctx = Context {
@@ -1167,6 +1199,7 @@ fn filter_consts() {
 }
 
 #[test]
+#[traced_test]
 fn optional_panic_ignore() {
     let config = Config::default();
     let ctx = Context {
@@ -1218,6 +1251,7 @@ fn optional_panic_ignore() {
 }
 
 #[test]
+#[traced_test]
 fn filter_nested_blocks() {
     let config = Config::default();
     let ctx = Context {
@@ -1250,6 +1284,7 @@ fn filter_nested_blocks() {
 }
 
 #[test]
+#[traced_test]
 fn filter_multi_line_decls() {
     let config = Config::default();
     let ctx = Context {
@@ -1310,6 +1345,7 @@ fn filter_multi_line_decls() {
 }
 
 #[test]
+#[traced_test]
 fn unreachable_propagate() {
     let config = Config::default();
     let ctx = Context {
@@ -1385,6 +1421,7 @@ fn unreachable_propagate() {
 }
 
 #[test]
+#[traced_test]
 fn unreachable_include_returns() {
     let config = Config::default();
     let ctx = Context {
@@ -1444,6 +1481,7 @@ fn unreachable_include_returns() {
 }
 
 #[test]
+#[traced_test]
 fn unreachable_include_loops() {
     let config = Config::default();
     let ctx = Context {
@@ -1511,6 +1549,7 @@ fn unreachable_include_loops() {
 }
 
 #[test]
+#[traced_test]
 fn single_line_callables() {
     let config = Config::default();
     let ctx = Context {
@@ -1545,6 +1584,7 @@ fn single_line_callables() {
 }
 
 #[test]
+#[traced_test]
 fn visit_generics() {
     let config = Config::default();
     let ctx = Context {
@@ -1591,6 +1631,7 @@ fn visit_generics() {
 }
 
 #[test]
+#[traced_test]
 fn ignore_comment() {
     let config = Config::default();
     let ctx = Context {
@@ -1625,6 +1666,7 @@ fn ignore_comment() {
 }
 
 #[test]
+#[traced_test]
 fn py_attr() {
     let config = Config::default();
     let ctx = Context {
