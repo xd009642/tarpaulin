@@ -120,9 +120,8 @@ fn filter_str_literals() {
     let mut analysis = SourceAnalysis::new();
     analysis.process_items(&parser.items, &ctx);
     let lines = analysis.get_line_analysis(ctx.file.to_path_buf());
-    assert!(lines.ignore.len() > 1);
-    assert!(lines.ignore.contains(&Lines::Line(3)));
-    assert!(lines.ignore.contains(&Lines::Line(4)));
+    assert_eq!(lines.logical_lines[&3], 2);
+    assert_eq!(lines.logical_lines[&4], 2);
 
     let ctx = Context {
         config: &config,
@@ -160,7 +159,8 @@ fn filter_str_literals() {
     let mut analysis = SourceAnalysis::new();
     analysis.process_items(&parser.items, &ctx);
     let lines = analysis.get_line_analysis(ctx.file.to_path_buf());
-    assert!(lines.ignore.contains(&Lines::Line(5)));
+    assert_eq!(lines.logical_lines[&5], 4);
+    assert_eq!(lines.logical_lines[&6], 4);
 }
 
 #[test]
@@ -449,6 +449,7 @@ fn filter_tests() {
     assert!(!lines.ignore.contains(&Lines::Line(2)));
     assert!(!lines.ignore.contains(&Lines::Line(3)));
 
+    tracing::trace!("Starting new analyis");
     let ctx = Context {
         config: &igconfig,
         file_contents: "#[test]\nfn mytest() { \n assert!(true);\n}",

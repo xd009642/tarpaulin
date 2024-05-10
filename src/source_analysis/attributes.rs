@@ -1,7 +1,7 @@
 use crate::source_analysis::prelude::*;
 use syn::*;
 
-mod predicates {
+pub(crate) mod predicates {
     pub fn is_test_attribute(id: &syn::Path) -> bool {
         id.segments
             .last()
@@ -22,8 +22,9 @@ impl SourceAnalysis {
                 check_cover = false;
             } else if attr.meta.path().is_ident("cfg") {
                 let mut skip = false;
-                attr.parse_nested_meta(|meta| {
-                    skip |= meta.path.is_ident("test") && !ctx.config.include_tests();
+                let _ = attr.parse_nested_meta(|meta| {
+                    skip |=
+                        predicates::is_test_attribute(&meta.path) && !ctx.config.include_tests();
                     Ok(())
                 });
                 if skip {
@@ -39,6 +40,7 @@ impl SourceAnalysis {
 }
 
 pub(crate) fn check_cfg_attr(attr: &Meta) -> bool {
+    tracing::trace!("cfg attr: {}", attr.to_token_stream());
     let mut ignore_span = false;
     let id = attr.path();
 
@@ -46,15 +48,16 @@ pub(crate) fn check_cfg_attr(attr: &Meta) -> bool {
         ignore_span = true;
     } else if id.is_ident("cfg") {
         if let Meta::List(ml) = attr {
-            let mut is_not = false;
             let _ = ml.parse_nested_meta(|nested| {
-                if is_not {
-                    ignore_span |= nested.path.is_ident("tarpaulin_include")
-                        || nested.path.is_ident("tarpaulin");
+                if nested.path.is_ident("not") {
+                    nested.parse_nested_meta(|meta| {
+                        ignore_span |= meta.path.is_ident("tarpaulin_include")
+                            || meta.path.is_ident("tarpaulin");
+                        Ok(())
+                    })
                 } else {
-                    is_not = nested.path.is_ident("not");
+                    Ok(())
                 }
-                Ok(())
             });
         }
     } else if id.is_ident("cfg_attr") {
@@ -62,7 +65,7 @@ pub(crate) fn check_cfg_attr(attr: &Meta) -> bool {
             let tarp_cfged_ignores = &["no_coverage"];
             let mut first = true;
             let mut is_tarpaulin = false;
-            ml.parse_nested_meta(|nested| {
+            let _ = ml.parse_nested_meta(|nested| {
                 if first && nested.path.is_ident("tarpaulin") {
                     first = false;
                     is_tarpaulin = true;

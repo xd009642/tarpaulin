@@ -34,9 +34,15 @@ impl SourceAnalysis {
         if check_cover {
             if let Some(macro_name) = mac.mac.path.segments.last() {
                 let (sub, should_ignore) = ignore_macro_name(&macro_name.ident, ctx);
+                let analysis = self.get_line_analysis(ctx.file.to_path_buf());
                 if should_ignore {
-                    let analysis = self.get_line_analysis(ctx.file.to_path_buf());
                     analysis.ignore_tokens(mac);
+                } else {
+                    // lets just merge the macros into one big logical line
+                    let start = mac.span().start().line;
+                    for i in start..mac.span().end().line {
+                        analysis.logical_lines.insert(i + 1, start);
+                    }
                 }
                 sub
             } else {

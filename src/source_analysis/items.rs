@@ -78,26 +78,18 @@ impl SourceAnalysis {
         let mut ignore_span = false;
         let is_generic = is_sig_generic(&func.sig);
         for attr in &func.attrs {
-            let mut should_break = false;
-            attr.parse_nested_meta(|nested| {
-                let id = nested.path;
-                if id.is_ident("test") || id.segments.last().is_some_and(|seg| seg.ident == "test")
-                {
-                    test_func = true;
-                } else if id.is_ident("derive") {
-                    let analysis = self.get_line_analysis(ctx.file.to_path_buf());
-                    analysis.ignore_span(attr.span());
-                } else if id.is_ident("inline") {
-                    is_inline = true;
-                } else if id.is_ident("ignore") {
-                    ignored_attr = true;
-                } else if check_cfg_attr(&attr.meta) {
-                    ignore_span = true;
-                    should_break = true;
-                }
-                Ok(())
-            });
-            if should_break {
+            let id = attr.path();
+            if id.is_ident("test") || id.segments.last().is_some_and(|seg| seg.ident == "test") {
+                test_func = true;
+            } else if id.is_ident("derive") {
+                let analysis = self.get_line_analysis(ctx.file.to_path_buf());
+                analysis.ignore_span(attr.span());
+            } else if id.is_ident("inline") {
+                is_inline = true;
+            } else if id.is_ident("ignore") {
+                ignored_attr = true;
+            } else if check_cfg_attr(&attr.meta) {
+                ignore_span = true;
                 break;
             }
         }
