@@ -1702,3 +1702,20 @@ fn py_attr() {
     assert!(lines.ignore.contains(&Lines::Line(11)));
     assert!(lines.ignore.contains(&Lines::Line(13)));
 }
+
+#[test]
+#[traced_test]
+fn handle_c_strs() {
+    let config = Config::default();
+    let ctx = Context {
+        config: &config,
+        file_contents: r#"fn main() {
+            const some_c_string: &CStr = c"foo";
+        }"#,
+        file: Path::new(""),
+        ignore_mods: RefCell::new(HashSet::new()),
+    };
+    let parser = parse_file(ctx.file_contents).unwrap();
+    let mut analysis = SourceAnalysis::new();
+    analysis.process_items(&parser.items, &ctx);
+}
