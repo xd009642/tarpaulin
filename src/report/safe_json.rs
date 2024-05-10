@@ -11,7 +11,7 @@ impl Default for SafeFormatter {
 }
 
 impl serde_json::ser::Formatter for SafeFormatter {
-    fn write_string_fragment<W: ?Sized>(
+    fn write_string_fragment<W: ?Sized + io::Write>(
         &mut self,
         writer: &mut W,
         fragment: &str,
