@@ -176,19 +176,26 @@ impl SourceAnalysis {
         let check_cover = self.check_attr_list(&impl_blk.attrs, ctx);
         if check_cover {
             for item in &impl_blk.items {
-                if let ImplItem::Fn(ref i) = *item {
-                    let item = i.clone();
-                    let item_fn = ItemFn {
-                        attrs: item.attrs,
-                        vis: item.vis,
-                        sig: item.sig,
-                        block: Box::new(item.block),
-                    };
+                match *item {
+                    ImplItem::Fn(ref i) => {
+                        let item = i.clone();
+                        let item_fn = ItemFn {
+                            attrs: item.attrs,
+                            vis: item.vis,
+                            sig: item.sig,
+                            block: Box::new(item.block),
+                        };
 
-                    // If the impl is on a generic, we need to force cover
-                    let force_cover = !impl_blk.generics.params.is_empty();
+                        // If the impl is on a generic, we need to force cover
+                        let force_cover = !impl_blk.generics.params.is_empty();
 
-                    self.visit_fn(&item_fn, ctx, force_cover);
+                        self.visit_fn(&item_fn, ctx, force_cover);
+                    }
+                    ImplItem::Type(_) => {
+                        let analysis = self.get_line_analysis(ctx.file.to_path_buf());
+                        analysis.ignore_span(item.span());
+                    }
+                    _ => {}
                 }
             }
             self.visit_generics(&impl_blk.generics, ctx);

@@ -1719,3 +1719,26 @@ fn handle_c_strs() {
     let mut analysis = SourceAnalysis::new();
     analysis.process_items(&parser.items, &ctx);
 }
+
+#[test]
+#[traced_test]
+fn ignore_trait_types() {
+    let config = Config::default();
+    let ctx = Context {
+        config: &config,
+        file_contents: "pub trait Foo { type X; }
+            struct Bar;
+
+            impl Foo for Bar {
+                type X = i32;
+            }
+        ",
+        file: Path::new(""),
+        ignore_mods: RefCell::new(HashSet::new()),
+    };
+    let parser = parse_file(ctx.file_contents).unwrap();
+    let mut analysis = SourceAnalysis::new();
+    analysis.process_items(&parser.items, &ctx);
+    let lines = &analysis.lines[Path::new("")];
+    assert!(lines.ignore.contains(&Lines::Line(5)));
+}
