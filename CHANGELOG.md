@@ -3,9 +3,10 @@
 From 2019 onwards, all notable changes to tarpaulin will be documented in this
 file.
 
-## [Unreleased]
+## [0.30.0] 2024-05-10
 ### Changed
 - Upgraded to syn2 and removed branch coverage module. This only had impact in debug dumps so shouldn't impact users
+- Ignore type definitions in trait implementations
 
 ## [0.29.2] 2024-05-08
 ### Changed
