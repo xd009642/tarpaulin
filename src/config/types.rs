@@ -1,28 +1,27 @@
 use clap::ValueEnum;
 use coveralls_api::CiService;
-use enum_display::EnumDisplay;
 use serde::{Deserialize, Serialize};
+use std::fmt;
 use std::str::FromStr;
 
 #[derive(
-    Debug,
-    Copy,
-    Clone,
-    PartialEq,
-    Eq,
-    Hash,
-    Ord,
-    PartialOrd,
-    Deserialize,
-    Serialize,
-    ValueEnum,
-    EnumDisplay,
+    Debug, Copy, Clone, PartialEq, Eq, Hash, Ord, PartialOrd, Deserialize, Serialize, ValueEnum,
 )]
 #[value(rename_all = "PascalCase")]
 pub enum Color {
     Auto,
     Always,
     Never,
+}
+
+impl fmt::Display for Color {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        match self {
+            Color::Auto => write!(f, "Auto"),
+            Color::Always => write!(f, "Always"),
+            Color::Never => write!(f, "Never"),
+        }
+    }
 }
 
 #[derive(

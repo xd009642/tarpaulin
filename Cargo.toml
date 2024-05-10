@@ -54,7 +54,6 @@ tracing-subscriber = { version = "0.3.18", default-features = false, features = 
 ] }
 walkdir = "2.5.0"
 glob = "0.3.1"
-enum-display = "0.1.4"
 
 [target.'cfg(all(target_os = "linux", any(target_arch = "x86_64", target_arch = "x86")))'.dependencies]
 libc = "0.2.94"
