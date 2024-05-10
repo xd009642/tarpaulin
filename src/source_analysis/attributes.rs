@@ -1,7 +1,7 @@
 use crate::source_analysis::prelude::*;
 use syn::*;
 
-pub(crate) mod predicates {
+pub mod predicates {
     pub fn is_test_attribute(id: &syn::Path) -> bool {
         id.segments
             .last()
