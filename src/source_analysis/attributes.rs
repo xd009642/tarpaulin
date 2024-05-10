@@ -1,7 +1,7 @@
 use crate::source_analysis::prelude::*;
 use syn::*;
 
-mod predicates {
+pub mod predicates {
     pub fn is_test_attribute(id: &syn::Path) -> bool {
         id.segments
             .last()
@@ -18,21 +18,17 @@ impl SourceAnalysis {
         let mut check_cover = true;
         for attr in attrs {
             analysis.ignore_tokens(attr);
-            if let Ok(x) = attr.parse_meta() {
-                if check_cfg_attr(&x) {
+            if check_cfg_attr(&attr.meta) {
+                check_cover = false;
+            } else if attr.meta.path().is_ident("cfg") {
+                let mut skip = false;
+                let _ = attr.parse_nested_meta(|meta| {
+                    skip |=
+                        predicates::is_test_attribute(&meta.path) && !ctx.config.include_tests();
+                    Ok(())
+                });
+                if skip {
                     check_cover = false;
-                } else if x.path().is_ident("cfg") {
-                    if let Meta::List(ref ml) = x {
-                        let mut skip = false;
-                        for c in &ml.nested {
-                            if let NestedMeta::Meta(Meta::Path(ref i)) = c {
-                                skip |= i.is_ident("test") && !ctx.config.include_tests();
-                            }
-                        }
-                        if skip {
-                            check_cover = false;
-                        }
-                    }
                 }
             }
             if !check_cover {
@@ -44,6 +40,7 @@ impl SourceAnalysis {
 }
 
 pub(crate) fn check_cfg_attr(attr: &Meta) -> bool {
+    tracing::trace!("cfg attr: {}", attr.to_token_stream());
     let mut ignore_span = false;
     let id = attr.path();
 
@@ -51,36 +48,32 @@ pub(crate) fn check_cfg_attr(attr: &Meta) -> bool {
         ignore_span = true;
     } else if id.is_ident("cfg") {
         if let Meta::List(ml) = attr {
-            'outer: for p in ml.nested.iter() {
-                if let NestedMeta::Meta(Meta::List(ref i)) = p {
-                    if i.path.is_ident("not") {
-                        for n in i.nested.iter() {
-                            if let NestedMeta::Meta(Meta::Path(ref pth)) = n {
-                                if pth.is_ident("tarpaulin_include") || pth.is_ident("tarpaulin") {
-                                    ignore_span = true;
-                                    break 'outer;
-                                }
-                            }
-                        }
-                    }
+            let _ = ml.parse_nested_meta(|nested| {
+                if nested.path.is_ident("not") {
+                    nested.parse_nested_meta(|meta| {
+                        ignore_span |= meta.path.is_ident("tarpaulin_include")
+                            || meta.path.is_ident("tarpaulin");
+                        Ok(())
+                    })
+                } else {
+                    Ok(())
                 }
-            }
+            });
         }
     } else if id.is_ident("cfg_attr") {
         if let Meta::List(ml) = attr {
             let tarp_cfged_ignores = &["no_coverage"];
-            if let NestedMeta::Meta(Meta::Path(ref i)) = ml.nested[0] {
-                if i.is_ident("tarpaulin") {
-                    for p in ml.nested.iter().skip(1) {
-                        if let NestedMeta::Meta(Meta::Path(ref path)) = p {
-                            if tarp_cfged_ignores.iter().any(|x| path.is_ident(x)) {
-                                ignore_span = true;
-                                break;
-                            }
-                        }
-                    }
+            let mut first = true;
+            let mut is_tarpaulin = false;
+            let _ = ml.parse_nested_meta(|nested| {
+                if first && nested.path.is_ident("tarpaulin") {
+                    first = false;
+                    is_tarpaulin = true;
+                } else if !first && is_tarpaulin {
+                    ignore_span |= tarp_cfged_ignores.iter().any(|x| nested.path.is_ident(x));
                 }
-            }
+                Ok(())
+            });
         }
     } else if predicates::is_test_attribute(id) {
         ignore_span = true;
