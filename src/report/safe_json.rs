@@ -11,10 +11,11 @@ impl Default for SafeFormatter {
 }
 
 impl serde_json::ser::Formatter for SafeFormatter {
-    fn write_string_fragment<W: ?Sized>(&mut self, writer: &mut W, fragment: &str) -> io::Result<()>
-    where
-        W: io::Write,
-    {
+    fn write_string_fragment<W: ?Sized + io::Write>(
+        &mut self,
+        writer: &mut W,
+        fragment: &str,
+    ) -> io::Result<()> {
         let mut start = 0;
         let mut code_length = 0;
         for ch in fragment.chars() {

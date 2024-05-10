@@ -1,4 +1,3 @@
-use crate::branching::BranchAnalysis;
 use crate::config::{Config, RunType};
 use crate::path_utils::{get_source_walker, is_source_file};
 use lazy_static::lazy_static;
@@ -261,7 +260,6 @@ impl LineAnalysis {
 #[derive(Default)]
 pub struct SourceAnalysis {
     pub lines: HashMap<PathBuf, LineAnalysis>,
-    pub branches: HashMap<PathBuf, BranchAnalysis>,
     ignored_modules: Vec<PathBuf>,
 }
 
@@ -274,10 +272,6 @@ impl SourceAnalysis {
         self.lines
             .entry(path.clone())
             .or_insert_with(|| LineAnalysis::new_from_file(&path).unwrap_or_default())
-    }
-
-    pub fn get_branch_analysis(&mut self, path: PathBuf) -> &mut BranchAnalysis {
-        self.branches.entry(path).or_default()
     }
 
     fn is_ignored_module(&self, path: &Path) -> bool {
@@ -475,10 +469,6 @@ impl SourceAnalysis {
                     lines.sort();
                     trace!("Coverable lines: {:?}", lines);
                 }
-            }
-            if config.branch_coverage {
-                trace!("Branch analysis");
-                trace!("{:?}", self.branches);
             }
         }
     }

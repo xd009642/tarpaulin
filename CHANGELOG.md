@@ -3,6 +3,10 @@
 From 2019 onwards, all notable changes to tarpaulin will be documented in this
 file.
 
+## [Unreleased]
+### Changed
+- Upgraded to syn2 and removed branch coverage module. This only had impact in debug dumps so shouldn't impact users
+
 ## [0.29.2] 2024-05-08
 ### Changed
 - Update jobserver crate to allow building on alpine
