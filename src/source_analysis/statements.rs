@@ -85,7 +85,7 @@ impl SourceAnalysis {
                     }
                     result += self.process_expr(&init.expr, ctx);
                     if let Some((_, expr)) = &init.diverge {
-                        self.process_expr(&expr, ctx);
+                        self.process_expr(expr, ctx);
                     }
                 }
             } else {
