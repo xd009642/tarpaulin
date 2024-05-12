@@ -212,6 +212,9 @@ impl Default for Config {
             verbose: false,
             debug: false,
             follow_exec: false,
+            #[cfg(not(test))]
+            dump_traces: false,
+            #[cfg(test)]
             dump_traces: false,
             count: false,
             line_coverage: true,
