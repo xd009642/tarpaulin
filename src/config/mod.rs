@@ -215,7 +215,7 @@ impl Default for Config {
             #[cfg(not(test))]
             dump_traces: false,
             #[cfg(test)]
-            dump_traces: false,
+            dump_traces: true,
             count: false,
             line_coverage: true,
             branch_coverage: false,
