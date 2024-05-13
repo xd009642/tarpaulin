@@ -101,3 +101,17 @@ where
 
     d.deserialize_any(CiServerVisitor)
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn path_canonicalization() {
+        let path = PathBuf::from("src/lib.rs");
+        assert_eq!(
+            canonicalize_path(path),
+            PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("src/lib.rs")
+        );
+    }
+}

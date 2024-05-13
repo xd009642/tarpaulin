@@ -193,6 +193,13 @@ mod tests {
     }
 
     #[test]
+    fn error_if_no_git() {
+        let manifest = Path::new(env!("CARGO_MANIFEST_DIR")).join("../Cargo.toml");
+        println!("{:?}", manifest);
+        assert!(get_git_info(&manifest).is_err());
+    }
+
+    #[test]
     #[cfg_attr(target_family = "windows", ignore)]
     fn get_rel_path_coveralls_friendly_on_linux() {
         let config = Config::default();
