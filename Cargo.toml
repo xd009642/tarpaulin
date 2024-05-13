@@ -8,7 +8,6 @@ readme = "README.md"
 license = "MIT OR Apache-2.0"
 categories = ["development-tools"]
 keywords = ["cargo", "cargo-subcommand", "testing"]
-exclude = ["tests/*", ".github/*"]
 edition = "2018"
 autotests = false
 build = "build.rs"
