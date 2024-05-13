@@ -83,23 +83,28 @@ pub enum RunType {
 }
 
 #[derive(
-    Debug, Copy, Clone, Eq, PartialEq, Ord, PartialOrd, Hash, Deserialize, Serialize, ValueEnum,
+    Debug,
+    Default,
+    Copy,
+    Clone,
+    Eq,
+    PartialEq,
+    Ord,
+    PartialOrd,
+    Hash,
+    Deserialize,
+    Serialize,
+    ValueEnum,
 )]
 #[value(rename_all = "PascalCase")]
 #[non_exhaustive]
 pub enum OutputFile {
     Json,
+    #[default]
     Stdout,
     Xml,
     Html,
     Lcov,
-}
-
-impl Default for OutputFile {
-    #[inline]
-    fn default() -> Self {
-        OutputFile::Stdout
-    }
 }
 
 #[derive(Debug, Clone, Eq, PartialEq, Ord, PartialOrd, Deserialize, Serialize)]
