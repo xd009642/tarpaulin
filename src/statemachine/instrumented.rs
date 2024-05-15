@@ -137,13 +137,17 @@ impl<'a> StateData for LlvmInstrumentedData<'a> {
                             RunError::TestCoverage(e.to_string())
                         })?;
 
-                    let file_set = self
-                        .traces
-                        .files()
-                        .iter()
-                        .map(|x| x.as_path())
-                        .collect::<HashSet<_>>();
-                    let report = mapping.generate_subreport(Some(file_set));
+                    let mut allowed = HashMap::new();
+
+                    let report = mapping.generate_subreport(|files| {
+                        for file in files { 
+                            let found = allowed.entry(file.clone()).or_insert_with(|| self.traces.contains_file(&self.config.strip_base_dir(file)));
+                            if *found {
+                                return true;
+                            }
+                        }
+                        false
+                    });
 
                     if self.traces.is_empty() {
                         for source_file in get_source_walker(self.config) {

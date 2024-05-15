@@ -848,7 +848,7 @@ checksum = "01cda141df6706de531b6c46c3a33ecca755538219bd484262fa09410c13539c"
 [[package]]
 name = "llvm_profparser"
 version = "0.5.0"
-source = "git+https://github.com/xd009642/llvm-profparser?branch=feat/path-filtering#b0e43bab21a77c224e06706428f0c4e701bd33ac"
+source = "git+https://github.com/xd009642/llvm-profparser?branch=feat/path-filtering#cfbb0aaf761d1e1d45d3f0124958d04c12b34003"
 dependencies = [
  "anyhow",
  "flate2",
