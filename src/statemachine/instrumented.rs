@@ -3,6 +3,7 @@ use crate::path_utils::{get_profile_walker, get_source_walker};
 use crate::process_handling::RunningProcessHandle;
 use crate::statemachine::*;
 use llvm_profparser::*;
+use std::collections::HashSet;
 use std::thread::sleep;
 use tracing::{info, warn};
 
@@ -135,7 +136,14 @@ impl<'a> StateData for LlvmInstrumentedData<'a> {
                             error!("Failed to get coverage: {}", e);
                             RunError::TestCoverage(e.to_string())
                         })?;
-                    let report = mapping.generate_report();
+
+                    let file_set = self
+                        .traces
+                        .files()
+                        .iter()
+                        .map(|x| x.as_path())
+                        .collect::<HashSet<_>>();
+                    let report = mapping.generate_subreport(Some(file_set));
 
                     if self.traces.is_empty() {
                         for source_file in get_source_walker(self.config) {

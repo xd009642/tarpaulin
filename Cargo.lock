@@ -848,8 +848,7 @@ checksum = "01cda141df6706de531b6c46c3a33ecca755538219bd484262fa09410c13539c"
 [[package]]
 name = "llvm_profparser"
 version = "0.5.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "e147b07c8b99a460652903e0cefc82cea62588355a469769a44130dd68e0b896"
+source = "git+https://github.com/xd009642/llvm-profparser?branch=feat/path-filtering#b0e43bab21a77c224e06706428f0c4e701bd33ac"
 dependencies = [
  "anyhow",
  "flate2",
@@ -858,6 +857,7 @@ dependencies = [
  "md5",
  "nom",
  "object 0.26.2",
+ "rustc-hash",
  "thiserror",
  "tracing",
 ]
@@ -1269,6 +1269,12 @@ name = "rustc-demangle"
 version = "0.1.24"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "719b953e2095829ee67db738b3bfa9fa368c94900df327b3f07fe6e794d2fe1f"
+
+[[package]]
+name = "rustc-hash"
+version = "1.1.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "08d43f7aa6b08d49f382cde6a7982047c3426db949b1424bc4b7ec9ae12c6ce2"
 
 [[package]]
 name = "rustc_version"
