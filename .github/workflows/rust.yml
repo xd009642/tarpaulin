@@ -6,6 +6,7 @@ on:
   pull_request:
 env:
   RUST_BACKTRACE: 1
+  RUST_LOG: "cargo_tarpaulin=trace,llvm_profparser=trace"
 
 jobs:
   linux:

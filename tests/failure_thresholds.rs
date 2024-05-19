@@ -3,12 +3,11 @@ use cargo_tarpaulin::run;
 use cargo_tarpaulin::{config::Config, errors::RunError};
 use rusty_fork::rusty_fork_test;
 use std::{env, path::PathBuf};
-use tracing_test::traced_test;
+use test_log::test;
 
 rusty_fork_test! {
 
 #[test]
-#[traced_test]
 fn coverage_below_threshold() {
     let mut config = Config::default();
     let test_dir = get_test_path("simple_project");
@@ -32,7 +31,6 @@ fn coverage_below_threshold() {
 }
 
 #[test]
-#[traced_test]
 fn coverage_above_threshold() {
     let mut config = Config::default();
     let test_dir = get_test_path("simple_project");
@@ -50,7 +48,6 @@ fn coverage_above_threshold() {
 }
 
 #[test]
-#[traced_test]
 fn report_coverage_fail() {
     let mut config = Config::default();
     let test_dir = get_test_path("simple_project");

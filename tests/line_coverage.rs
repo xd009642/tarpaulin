@@ -5,12 +5,11 @@ use cargo_tarpaulin::traces::CoverageStat;
 use rusty_fork::rusty_fork_test;
 use std::env;
 use std::time::Duration;
-use tracing_test::traced_test;
+use test_log::test;
 
 rusty_fork_test! {
 
 #[test]
-#[traced_test]
 fn simple_project_coverage() {
     let mut config = Config::default();
     config.set_clean(false);
@@ -52,7 +51,6 @@ fn simple_project_coverage() {
 }
 
 #[test]
-#[traced_test]
 fn debug_info_0() {
     // From issue #601
     let mut config = Config::default();
@@ -76,7 +74,6 @@ fn debug_info_0() {
 }
 
 #[test]
-#[traced_test]
 fn test_threads_1() {
     let mut config = Config::default();
     config.set_clean(false);
