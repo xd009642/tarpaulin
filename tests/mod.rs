@@ -182,6 +182,15 @@ fn llvm_sanity_test() {
     check_percentage_with_config("follow_exe", 1.0f64, true, config);
 }
 
+#[cfg_attr(not(ptrace_supported), test)]
+#[should_panic]
+fn ptrace_not_unsupported_system() {
+    let config = Config::default();
+    config.set_engine(TraceEngine::Ptrace);
+
+    run_config("simple_project", config);
+}
+
 #[test]
 fn struct_expr_coverage() {
     check_percentage("structs", 1.0f64, true);

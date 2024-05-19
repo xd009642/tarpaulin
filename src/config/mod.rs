@@ -2,7 +2,7 @@ use self::parse::*;
 pub use self::types::*;
 use crate::path_utils::fix_unc_path;
 use crate::{args::ConfigArgs, cargo::supports_llvm_coverage};
-use cargo_metadata::{Metadata, MetadataCommand, Package};
+use cargo_metadata::{Metadata, MetadataCommand};
 use coveralls_api::CiService;
 use glob::Pattern;
 use humantime_serde::deserialize as humantime_serde;
@@ -485,13 +485,6 @@ impl Config {
 
     pub fn set_manifest(&mut self, manifest: PathBuf) {
         self.manifest = manifest;
-    }
-
-    pub fn get_packages(&self) -> Vec<Package> {
-        match *self.get_metadata() {
-            Some(ref meta) => meta.packages.clone(),
-            None => vec![],
-        }
     }
 
     pub fn output_dir(&self) -> PathBuf {
