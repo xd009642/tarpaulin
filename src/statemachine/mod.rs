@@ -31,7 +31,7 @@ pub fn create_state_machine<'a>(
                     (state, Box::new(machine))
                 } else {
                     error!("The ptrace backend is not supported on this system");
-                    (TestState::End(1), Box::new(()))
+                    panic!()
                 }
             }
         }
