@@ -7,6 +7,7 @@ file.
 ### Changed
 - Upgraded to syn2 and removed branch coverage module. This only had impact in debug dumps so shouldn't impact users
 - Ignore type definitions in trait implementations
+- Upgrade llvm-profparsers crate and now use sub-report filtering to skip dependency only coverage stats
 
 ## [0.29.2] 2024-05-08
 ### Changed

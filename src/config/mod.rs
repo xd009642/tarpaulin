@@ -904,6 +904,13 @@ mod tests {
     use super::*;
 
     #[test]
+    fn is_root_absolute() {
+        let args = TarpaulinCli::parse_from(vec!["tarpaulin", "-r", "."]);
+        let conf = ConfigWrapper::from(args.config).0;
+        assert!(conf[0].root().is_absolute());
+    }
+
+    #[test]
     fn features_args() {
         let args = TarpaulinCli::parse_from(vec![
             "tarpaulin",
