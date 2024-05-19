@@ -35,7 +35,8 @@ pub fn create_state_machine<'a>(
                 }
             }
         }
-        TraceEngine::Llvm => {
+        // Should never be auto so ignore our normal rules
+        TraceEngine::Llvm | TraceEngine::Auto => {
             let (state, machine) = instrumented::create_state_machine(
                 test,
                 traces,
@@ -44,10 +45,6 @@ pub fn create_state_machine<'a>(
                 event_log,
             );
             (state, Box::new(machine))
-        }
-        _ => {
-            error!("Tarpaulin is not currently supported on this system");
-            (TestState::End(1), Box::new(()))
         }
     }
 }
@@ -113,34 +110,6 @@ pub trait StateData {
     /// Handle a stop in the test executable. Coverage data will
     /// be collected here as well as other OS specific functions
     fn stop(&mut self) -> Result<TestState, RunError>;
-}
-
-impl StateData for () {
-    fn start(&mut self) -> Result<Option<TestState>, RunError> {
-        Err(RunError::StateMachine(
-            "No valid coverage collector".to_string(),
-        ))
-    }
-    fn init(&mut self) -> Result<TestState, RunError> {
-        Err(RunError::StateMachine(
-            "No valid coverage collector".to_string(),
-        ))
-    }
-    fn wait(&mut self) -> Result<Option<TestState>, RunError> {
-        Err(RunError::StateMachine(
-            "No valid coverage collector".to_string(),
-        ))
-    }
-    fn last_wait_attempt(&mut self) -> Result<Option<TestState>, RunError> {
-        Err(RunError::StateMachine(
-            "No valid coverage collector".to_string(),
-        ))
-    }
-    fn stop(&mut self) -> Result<TestState, RunError> {
-        Err(RunError::StateMachine(
-            "No valid coverage collector".to_string(),
-        ))
-    }
 }
 
 impl<'a> StateData for Box<dyn StateData + 'a> {
@@ -218,5 +187,54 @@ impl TestState {
             TestState::Stopped => data.stop(),
             TestState::End(e) => Ok(TestState::End(e)),
         }
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use std::time::Duration;
+
+    impl StateData for () {
+        fn start(&mut self) -> Result<Option<TestState>, RunError> {
+            Ok(None)
+        }
+
+        fn init(&mut self) -> Result<TestState, RunError> {
+            Err(RunError::StateMachine(
+                "No valid coverage collector".to_string(),
+            ))
+        }
+
+        fn wait(&mut self) -> Result<Option<TestState>, RunError> {
+            Ok(None)
+        }
+
+        fn last_wait_attempt(&mut self) -> Result<Option<TestState>, RunError> {
+            Err(RunError::StateMachine(
+                "No valid coverage collector".to_string(),
+            ))
+        }
+        fn stop(&mut self) -> Result<TestState, RunError> {
+            Err(RunError::StateMachine(
+                "No valid coverage collector".to_string(),
+            ))
+        }
+    }
+
+    #[test]
+    fn hits_timeouts() {
+        let mut config = Config::default();
+        config.test_timeout = Duration::from_secs(5);
+
+        let start_time = Instant::now() - Duration::from_secs(6);
+
+        let state = TestState::Start { start_time };
+
+        assert!(state.step(&mut (), &config).is_err());
+
+        let state = TestState::Waiting { start_time };
+
+        assert!(state.step(&mut (), &config).is_err());
     }
 }

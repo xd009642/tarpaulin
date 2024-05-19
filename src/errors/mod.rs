@@ -1,3 +1,4 @@
+#![cfg(not(tarpaulin_include))]
 use crate::report::cobertura;
 use std::fmt::{self, Display, Formatter};
 
