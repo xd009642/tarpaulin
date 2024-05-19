@@ -5,12 +5,11 @@ use rusty_fork::rusty_fork_test;
 use std::env;
 use std::path::PathBuf;
 use std::time::Duration;
-use tracing_test::traced_test;
+use test_log::test;
 
 rusty_fork_test! {
 
 #[test]
-#[traced_test]
 fn mix_test_types() {
     // Issue 747 the clean would delete old tests leaving to only one run type effectively being
     // ran. This test covers against that mistake
@@ -46,7 +45,6 @@ fn mix_test_types() {
 }
 
 #[test]
-#[traced_test]
 fn only_test_coverage() {
     let mut config = Config::default();
     config.set_clean(false);
@@ -78,7 +76,6 @@ fn only_test_coverage() {
 }
 
 #[test]
-#[traced_test]
 fn all_targets_coverage() {
     let mut config = Config::default();
     config.set_clean(false);
@@ -111,7 +108,6 @@ fn all_targets_coverage() {
 
 
 #[test]
-#[traced_test]
 fn only_example_coverage() {
     let mut config = Config::default();
     config.set_clean(false);
@@ -143,7 +139,6 @@ fn only_example_coverage() {
 }
 
 #[test]
-#[traced_test]
 #[ignore]
 fn only_bench_coverage() {
     let mut config = Config::default();
@@ -176,7 +171,6 @@ fn only_bench_coverage() {
 }
 
 #[test]
-#[traced_test]
 #[cfg(feature = "nightly")]
 fn only_doctest_coverage() {
     let mut config = Config::default();
