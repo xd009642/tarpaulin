@@ -3,6 +3,10 @@
 From 2019 onwards, all notable changes to tarpaulin will be documented in this
 file.
 
+## [Unreleased] 
+### Changed
+- No longer print rustflags for report configs with `--print-rust-flags` 
+
 ## [0.30.0] 2024-05-10
 ### Changed
 - Upgraded to syn2 and removed branch coverage module. This only had impact in debug dumps so shouldn't impact users

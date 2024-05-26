@@ -60,6 +60,10 @@ where
 {
     let mut seen_flags = HashMap::new();
     for config in &config.0 {
+        if config.name == "report" {
+            continue;
+        }
+
         let flags = flags_fn(config);
         seen_flags
             .entry(flags)
