@@ -293,16 +293,17 @@ fn main() {
     println!("I won't be included in results");
 }
 
-// Also supports the rustc `no_coverage` attribute.
+// Also supports the nightly rustc `no_coverage` attribute.
 #[no_coverage]
 fn not_included() {
 
 }
 ```
 
-Due to the unexpected cfg warnings cargo now emits you will likely want
-to prefer `#[no_coverage]` when possible to avoid clutter in your `Cargo.toml`
-or any present build scripts.
+Unfortunately, due to the unexpected cfg warnings cargo now emits you will
+likely want to add the recommended lints to your `Cargo.toml`, or utilise any
+existing build scripts. If you're using a nightly compiler then making use of
+unstable coverage attributes may be preferable.
 
 However, the skip attribute only allows you to exclude code from coverage
 it doesn't change the code present in the binaries or what tests are run.
