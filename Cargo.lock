@@ -187,7 +187,7 @@ dependencies = [
  "clap",
  "coveralls-api",
  "fallible-iterator",
- "gimli 0.29.0",
+ "gimli 0.30.0",
  "git2",
  "glob",
  "humantime-serde",
@@ -528,9 +528,9 @@ checksum = "4271d37baee1b8c7e4b708028c57d816cf9d2434acb33a549475f78c181f6253"
 
 [[package]]
 name = "gimli"
-version = "0.29.0"
+version = "0.30.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "40ecd4077b5ae9fd2e9e169b102c6c330d0605168eb0e8bf79952b256dbefffd"
+checksum = "e2e1d97fbe9722ba9bbd0c97051c2956e726562b61f86a25a4360398a40edfc9"
 dependencies = [
  "fallible-iterator",
  "indexmap 2.2.6",
