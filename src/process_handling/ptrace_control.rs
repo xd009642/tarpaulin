@@ -40,7 +40,7 @@ pub fn read_address(pid: Pid, address: u64) -> Result<c_long> {
 }
 
 pub fn write_to_address(pid: Pid, address: u64, data: i64) -> Result<()> {
-    unsafe { write(pid, address as AddressType, data as *mut c_void) }
+    write(pid, address as AddressType, data)
 }
 
 #[allow(deprecated)]
