@@ -55,6 +55,7 @@ pub struct LineAnalysis {
     pub logical_lines: HashMap<usize, usize>,
     /// Shows the line length of the provided file
     max_line: usize,
+    pub functions: HashMap<(usize, usize), String>,
 }
 
 /// Provides context to the source analysis stage including the tarpaulin
@@ -69,6 +70,23 @@ pub(crate) struct Context<'a> {
     /// Other parts of context are immutable like tarpaulin config and users
     /// source code. This is discovered during hence use of interior mutability
     ignore_mods: RefCell<HashSet<PathBuf>>,
+    /// As we traverse the structures we want to grab module names etc so we can get proper names
+    /// for our functions etc
+    pub(crate) symbol_stack: RefCell<Vec<String>>,
+}
+
+impl<'a> Context<'a> {
+    pub(crate) fn get_qualified_name(&self, ident: &Ident) -> String {
+        let stack = self.symbol_stack.borrow();
+        if stack.is_empty() {
+            ident.to_string()
+        } else {
+            let mut name = stack.join("::");
+            name.push_str("::");
+            name.push_str(&ident.to_string());
+            name
+        }
+    }
 }
 
 /// When the `LineAnalysis` results are mapped to their files there needs to be
@@ -298,7 +316,6 @@ impl SourceAnalysis {
             analysis.ignore_all();
             result.lines.insert(e.clone(), analysis);
         }
-
         result.debug_printout(config);
 
         result
@@ -339,6 +356,7 @@ impl SourceAnalysis {
                             file_contents: &content,
                             file: path,
                             ignore_mods: RefCell::new(HashSet::new()),
+                            symbol_stack: RefCell::new(vec![]),
                         };
                         if self.check_attr_list(&file.attrs, &ctx) {
                             self.find_ignorable_lines(&ctx);

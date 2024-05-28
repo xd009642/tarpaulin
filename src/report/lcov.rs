@@ -27,7 +27,7 @@ fn write_lcov(mut file: impl Write, coverage_data: &TraceMap) -> Result<(), RunE
         let mut da: Vec<(u64, u64)> = vec![];
 
         for trace in traces {
-            if trace.fn_name.is_some() {
+            /*if trace.fn_name.is_some() {
                 let fn_name = trace.fn_name.clone().unwrap();
                 let fn_hits = match trace.stats {
                     CoverageStat::Line(hits) => hits,
@@ -40,7 +40,7 @@ fn write_lcov(mut file: impl Write, coverage_data: &TraceMap) -> Result<(), RunE
 
                 fns.push(format!("FN:{},{}", trace.line, fn_name));
                 fnda.push(format!("FNDA:{fn_hits},{fn_name}"));
-            }
+            }*/
 
             if let CoverageStat::Line(hits) = trace.stats {
                 da.push((trace.line, hits));

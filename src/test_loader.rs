@@ -328,7 +328,7 @@ fn get_line_addresses<'data>(
                             k.line
                         );
                     }
-                    tracemap.add_trace(&k.path, Trace::new(k.line, address, 1, fn_name));
+                    tracemap.add_trace(&k.path, Trace::new(k.line, address, 1));
                 }
                 result.merge(&tracemap);
             }

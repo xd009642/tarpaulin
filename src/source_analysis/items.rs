@@ -46,6 +46,7 @@ impl SourceAnalysis {
     }
 
     fn visit_mod(&mut self, module: &ItemMod, ctx: &Context) {
+        ctx.symbol_stack.borrow_mut().push(module.ident.to_string());
         let analysis = self.get_line_analysis(ctx.file.to_path_buf());
         analysis.ignore_tokens(module.mod_token);
         let check_insides = self.check_attr_list(&module.attrs, ctx);
@@ -69,9 +70,18 @@ impl SourceAnalysis {
             }
             ctx.ignore_mods.borrow_mut().insert(p);
         }
+        ctx.symbol_stack.borrow_mut().pop();
     }
 
     fn visit_fn(&mut self, func: &ItemFn, ctx: &Context, force_cover: bool) {
+        {
+            let span = func.span();
+            let analysis = self.get_line_analysis(ctx.file.to_path_buf());
+            analysis.functions.insert(
+                (span.start().line, span.end().line),
+                ctx.get_qualified_name(&func.sig.ident),
+            );
+        }
         let mut test_func = false;
         let mut ignored_attr = false;
         let mut is_inline = false;
@@ -173,6 +183,9 @@ impl SourceAnalysis {
     }
 
     fn visit_impl(&mut self, impl_blk: &ItemImpl, ctx: &Context) {
+        ctx.symbol_stack
+            .borrow_mut()
+            .push(impl_blk.self_ty.to_token_stream().to_string());
         let check_cover = self.check_attr_list(&impl_blk.attrs, ctx);
         if check_cover {
             for item in &impl_blk.items {
@@ -203,6 +216,7 @@ impl SourceAnalysis {
             let analysis = self.get_line_analysis(ctx.file.to_path_buf());
             analysis.ignore_tokens(impl_blk);
         }
+        ctx.symbol_stack.borrow_mut().pop();
     }
 }
 

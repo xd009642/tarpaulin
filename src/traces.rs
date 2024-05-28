@@ -71,8 +71,6 @@ pub struct Trace {
     pub length: usize,
     /// Coverage stats
     pub stats: CoverageStat,
-    /// Function name
-    pub fn_name: Option<String>,
 }
 
 #[derive(Clone, Debug, Eq, PartialEq, PartialOrd, Ord, Hash, Serialize, Deserialize)]
@@ -84,13 +82,12 @@ pub struct Location {
 }
 
 impl Trace {
-    pub fn new(line: u64, address: HashSet<u64>, length: usize, fn_name: Option<String>) -> Self {
+    pub fn new(line: u64, address: HashSet<u64>, length: usize) -> Self {
         Self {
             line,
             address,
             length,
             stats: CoverageStat::Line(0),
-            fn_name,
         }
     }
 
@@ -100,7 +97,6 @@ impl Trace {
             address: HashSet::new(),
             length: 0,
             stats: CoverageStat::Line(0),
-            fn_name: None,
         }
     }
 }
@@ -164,6 +160,13 @@ pub fn amount_covered<'a>(traces: impl Iterator<Item = &'a Trace>) -> usize {
 pub fn coverage_percentage<'a>(traces: impl Iterator<Item = &'a Trace>) -> f64 {
     let t: Vec<_> = traces.collect();
     (amount_covered(t.iter().copied()) as f64) / (amount_coverable(t.iter().copied()) as f64)
+}
+
+#[derive(Debug, Clone)]
+pub struct FunctionDesc {
+    // So here we probably want to add a fully qualified name?
+    start: usize,
+    end: usize,
 }
 
 /// Stores all the program traces mapped to files and provides an interface to
@@ -461,7 +464,6 @@ mod tests {
             address,
             length: 0,
             stats: CoverageStat::Line(1),
-            fn_name: Some(String::from("f")),
         };
         t1.add_trace(Path::new("file.rs"), trace_1);
 
@@ -483,7 +485,6 @@ mod tests {
             address,
             length: 0,
             stats: CoverageStat::Line(1),
-            fn_name: Some(String::from("f")),
         };
         t1.add_trace(Path::new("file.rs"), a_trace.clone());
         t2.add_trace(
@@ -493,7 +494,6 @@ mod tests {
                 address: HashSet::new(),
                 length: 0,
                 stats: CoverageStat::Line(2),
-                fn_name: Some(String::from("f")),
             },
         );
 
@@ -518,7 +518,6 @@ mod tests {
             address,
             length: 0,
             stats: CoverageStat::Line(1),
-            fn_name: Some(String::from("f1")),
         };
         t1.add_trace(Path::new("file.rs"), a_trace.clone());
         t2.add_trace(
@@ -528,7 +527,6 @@ mod tests {
                 address: HashSet::new(),
                 length: 0,
                 stats: CoverageStat::Line(2),
-                fn_name: Some(String::from("f2")),
             },
         );
 
@@ -554,7 +552,6 @@ mod tests {
                 address: address.clone(),
                 length: 0,
                 stats: CoverageStat::Line(5),
-                fn_name: Some(String::from("f")),
             },
         );
         t2.add_trace(
@@ -564,7 +561,6 @@ mod tests {
                 address: address.clone(),
                 length: 0,
                 stats: CoverageStat::Line(2),
-                fn_name: Some(String::from("f")),
             },
         );
         t1.merge(&t2);
@@ -576,7 +572,6 @@ mod tests {
                 address: address.clone(),
                 length: 0,
                 stats: CoverageStat::Line(7),
-                fn_name: Some(String::from("f")),
             })
         );
         // Deduplicating should have no effect.
@@ -589,7 +584,6 @@ mod tests {
                 address,
                 length: 0,
                 stats: CoverageStat::Line(7),
-                fn_name: Some(String::from("f")),
             })
         );
     }
