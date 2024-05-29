@@ -1,3 +1,4 @@
+use crate::source_analysis::Function;
 use serde::{Deserialize, Serialize};
 use std::cmp::{Ord, Ordering};
 use std::collections::btree_map::Iter;
@@ -162,27 +163,24 @@ pub fn coverage_percentage<'a>(traces: impl Iterator<Item = &'a Trace>) -> f64 {
     (amount_covered(t.iter().copied()) as f64) / (amount_coverable(t.iter().copied()) as f64)
 }
 
-#[derive(Debug, Clone)]
-pub struct FunctionDesc {
-    // So here we probably want to add a fully qualified name?
-    start: usize,
-    end: usize,
-}
-
 /// Stores all the program traces mapped to files and provides an interface to
 /// add, query and change traces.
 #[derive(Debug, Default, Deserialize, Serialize)]
 pub struct TraceMap {
-    /// Traces in the program mapped to the given file
+    ///rTraces in the program mapped to the given file
     traces: BTreeMap<PathBuf, Vec<Trace>>,
+    functions: HashMap<PathBuf, Vec<Function>>,
 }
 
 impl TraceMap {
     /// Create a new TraceMap
     pub fn new() -> TraceMap {
-        TraceMap {
-            traces: BTreeMap::new(),
-        }
+        Self::default()
+    }
+
+    pub fn set_functions(&mut self, functions: HashMap<PathBuf, Vec<Function>>) {
+        println!("{:?}", functions);
+        self.functions = functions;
     }
 
     /// Returns true if there are no traces
@@ -199,6 +197,8 @@ impl TraceMap {
     /// This adds records which are missing and adds the statistics gathered to
     /// existing records
     pub fn merge(&mut self, other: &TraceMap) {
+        self.functions
+            .extend(other.functions.iter().map(|(k, v)| (k.clone(), v.clone())));
         for (k, values) in other.iter() {
             if !self.traces.contains_key(k) {
                 self.traces.insert(k.clone(), values.clone());

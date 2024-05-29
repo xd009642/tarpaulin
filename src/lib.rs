@@ -253,6 +253,7 @@ pub fn launch_tarpaulin(
     let executables = cargo::get_tests(config)?;
     if !config.no_run {
         let project_analysis = SourceAnalysis::get_analysis(config);
+        result.set_functions(project_analysis.create_function_map());
         let project_analysis = project_analysis.lines;
         let mut other_bins = config.objects().to_vec();
         other_bins.extend(executables.binaries.iter().cloned());

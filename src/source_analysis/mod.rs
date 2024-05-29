@@ -4,6 +4,7 @@ use lazy_static::lazy_static;
 use proc_macro2::{Span, TokenStream};
 use quote::ToTokens;
 use regex::Regex;
+use serde::{Deserialize, Serialize};
 use std::cell::RefCell;
 use std::collections::{HashMap, HashSet};
 use std::ffi::OsStr;
@@ -12,7 +13,7 @@ use std::io::{self, BufRead, BufReader, Read};
 use std::path::{Path, PathBuf};
 use syn::spanned::Spanned;
 use syn::*;
-use tracing::{trace, warn};
+use tracing::{debug, trace, warn};
 use walkdir::WalkDir;
 
 mod attributes;
@@ -55,7 +56,7 @@ pub struct LineAnalysis {
     pub logical_lines: HashMap<usize, usize>,
     /// Shows the line length of the provided file
     max_line: usize,
-    pub functions: HashMap<(usize, usize), String>,
+    pub functions: HashMap<String, (usize, usize)>,
 }
 
 /// Provides context to the source analysis stage including the tarpaulin
@@ -75,17 +76,26 @@ pub(crate) struct Context<'a> {
     pub(crate) symbol_stack: RefCell<Vec<String>>,
 }
 
+pub(crate) struct StackGuard<'a>(&'a RefCell<Vec<String>>);
+
+impl<'a> Drop for StackGuard<'a> {
+    fn drop(&mut self) {
+        self.0.borrow_mut().pop();
+    }
+}
+
 impl<'a> Context<'a> {
-    pub(crate) fn get_qualified_name(&self, ident: &Ident) -> String {
+    pub(crate) fn push_to_symbol_stack(&self, ident: String) -> StackGuard<'_> {
+        let ident = ident.replace(' ', "");
+        self.symbol_stack.borrow_mut().push(ident);
+        StackGuard(&self.symbol_stack)
+    }
+
+    pub(crate) fn get_qualified_name(&self) -> String {
         let stack = self.symbol_stack.borrow();
-        if stack.is_empty() {
-            ident.to_string()
-        } else {
-            let mut name = stack.join("::");
-            name.push_str("::");
-            name.push_str(&ident.to_string());
-            name
-        }
+        let name = stack.join("::");
+        debug!("Found function: {}", name);
+        name
     }
 }
 
@@ -275,6 +285,23 @@ impl LineAnalysis {
     }
 }
 
+impl Function {
+    fn new(name: &str, span: (usize, usize)) -> Self {
+        Self {
+            name: name.to_string(),
+            start: span.0,
+            end: span.1,
+        }
+    }
+}
+
+#[derive(Clone, Debug, Default, Deserialize, Serialize)]
+pub struct Function {
+    pub name: String,
+    pub start: usize,
+    pub end: usize,
+}
+
 #[derive(Default)]
 pub struct SourceAnalysis {
     pub lines: HashMap<PathBuf, LineAnalysis>,
@@ -284,6 +311,21 @@ pub struct SourceAnalysis {
 impl SourceAnalysis {
     pub fn new() -> Self {
         Default::default()
+    }
+
+    pub fn create_function_map(&self) -> HashMap<PathBuf, Vec<Function>> {
+        self.lines
+            .iter()
+            .map(|(file, analysis)| {
+                let mut functions: Vec<Function> = analysis
+                    .functions
+                    .iter()
+                    .map(|(function, span)| Function::new(function, *span))
+                    .collect();
+                functions.sort_unstable_by(|a, b| a.start.cmp(&b.start));
+                (file.to_path_buf(), functions)
+            })
+            .collect()
     }
 
     pub fn get_line_analysis(&mut self, path: PathBuf) -> &mut LineAnalysis {
