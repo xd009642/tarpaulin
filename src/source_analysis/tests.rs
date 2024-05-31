@@ -1775,3 +1775,134 @@ fn ignore_trait_types() {
     let lines = &analysis.lines[Path::new("")];
     assert!(lines.ignore.contains(&Lines::Line(5)));
 }
+
+#[test]
+fn get_function_names() {
+    let config = Config::default();
+    let ctx = Context {
+        config: &config,
+        file_contents: r#"use std::fmt;
+
+            pub fn add(left: usize, right: usize) -> usize { // 3
+                left + right
+            }
+
+            struct Wrapper<T>(T);
+
+            pub trait Foo {
+                fn five() -> u32 { // 10
+                    5
+                }
+                fn four() -> u32;
+            }
+
+            struct Marker;
+
+            impl Foo for Marker {
+                fn four() -> u32 { //19
+                    3
+                }
+            }
+
+            impl<T> fmt::Display for Wrapper<T> {
+                fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result { // 25
+                    writeln!(f, "Wrapped")
+                }
+            }
+
+            impl<T> Wrapper<T> {
+                fn unwrap(self) -> T { //31
+                    self.0
+                }
+            }
+
+            impl Marker {
+                fn marked() -> bool { //37
+                    true
+                }
+            }
+
+            fn nonsense() { //42
+                fn inner() { //43
+                    println!("yay?");
+                }
+                let x = |y| println!("{}", y); //46
+                println!("yabadabadoo");
+                inner();
+                x(6);
+            }
+
+
+            mod beep {
+                use super::*;
+
+
+                fn it_works() { //57
+                    let result = add(2, 2);
+                    assert_eq!(result, 4);
+                }
+            }
+        "#,
+        file: Path::new("src.rs"),
+        ignore_mods: RefCell::new(HashSet::new()),
+        symbol_stack: RefCell::new(Vec::new()),
+    };
+
+    let parser = parse_file(ctx.file_contents).unwrap();
+    let mut analysis = SourceAnalysis::new();
+    analysis.process_items(&parser.items, &ctx);
+
+    let function_map = analysis.create_function_map();
+
+    let functions = &function_map[Path::new("src.rs")];
+
+    let expected_fns = vec![
+        Function {
+            name: "add".to_string(),
+            start: 3,
+            end: 5,
+        },
+        Function {
+            name: "Foo::five".to_string(),
+            start: 10,
+            end: 12,
+        },
+        Function {
+            name: "Marker::four".to_string(),
+            start: 19,
+            end: 21,
+        },
+        Function {
+            name: "Wrapper<T>::fmt".to_string(),
+            start: 25,
+            end: 27,
+        },
+        Function {
+            name: "Wrapper<T>::unwrap".to_string(),
+            start: 31,
+            end: 33,
+        },
+        Function {
+            name: "Marker::marked".to_string(),
+            start: 37,
+            end: 39,
+        },
+        Function {
+            name: "nonsense".to_string(),
+            start: 42,
+            end: 50,
+        },
+        Function {
+            name: "nonsense::inner".to_string(),
+            start: 43,
+            end: 45,
+        },
+        Function {
+            name: "beep::it_works".to_string(),
+            start: 57,
+            end: 60,
+        },
+    ];
+
+    assert_eq!(functions, &expected_fns);
+}

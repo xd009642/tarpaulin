@@ -79,7 +79,7 @@ impl SourceAnalysis {
             let span = func.span();
             analysis.functions.insert(
                 ctx.get_qualified_name(),
-                (span.start().line, span.end().line),
+                (func.sig.span().start().line, span.end().line),
             );
         }
         let mut test_func = false;
@@ -145,6 +145,7 @@ impl SourceAnalysis {
     }
 
     fn visit_trait(&mut self, trait_item: &ItemTrait, ctx: &Context) {
+        let _guard = ctx.push_to_symbol_stack(trait_item.ident.to_string());
         let check_cover = self.check_attr_list(&trait_item.attrs, ctx);
         if check_cover {
             for item in &trait_item.items {

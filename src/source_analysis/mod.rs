@@ -295,7 +295,7 @@ impl Function {
     }
 }
 
-#[derive(Clone, Debug, Default, Deserialize, Serialize)]
+#[derive(Clone, Debug, Default, Eq, PartialEq, Ord, PartialOrd, Deserialize, Serialize)]
 pub struct Function {
     pub name: String,
     pub start: u64,
