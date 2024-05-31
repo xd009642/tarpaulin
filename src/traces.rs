@@ -3,7 +3,6 @@ use serde::{Deserialize, Serialize};
 use std::cmp::{Ord, Ordering};
 use std::collections::btree_map::Iter;
 use std::collections::{BTreeMap, HashMap, HashSet};
-use std::fmt::{Display, Formatter, Result};
 use std::ops::Add;
 use std::path::{Path, PathBuf};
 use tracing::trace;
@@ -49,15 +48,6 @@ impl Add for CoverageStat {
                 CoverageStat::Branch(l + r)
             }
             t => t.0,
-        }
-    }
-}
-
-impl Display for CoverageStat {
-    fn fmt(&self, f: &mut Formatter) -> Result {
-        match *self {
-            CoverageStat::Line(x) => write!(f, "hits: {x}"),
-            _ => write!(f, ""),
         }
     }
 }
@@ -301,13 +291,6 @@ impl TraceMap {
         }
     }
 
-    /// Gets a mutable reference to a trace at a given address
-    /// Returns None if there is no trace at that address
-    pub fn get_trace_mut(&mut self, address: u64) -> Option<&mut Trace> {
-        self.all_traces_mut()
-            .find(|val| val.address.contains(&address))
-    }
-
     pub fn get_location(&self, address: u64) -> Option<Location> {
         for (k, v) in &self.traces {
             if let Some(s) = v
@@ -343,23 +326,6 @@ impl TraceMap {
             .iter()
             .filter(move |&(k, _)| k.starts_with(root))
             .flat_map(|(_, v)| v.iter())
-    }
-
-    /// Gets all traces in folder, doesn't go into other folders for that you
-    /// want get_child_traces
-    pub fn get_traces<'a>(&'a self, root: &'a Path) -> impl Iterator<Item = &'a Trace> + 'a {
-        let i: Box<dyn Iterator<Item = &'a Trace> + 'a> = if root.is_file() {
-            Box::new(self.get_child_traces(root))
-        } else {
-            Box::new(
-                self.traces
-                    .iter()
-                    .filter(move |&(k, _)| k.parent() == Some(root))
-                    .flat_map(|(_, v)| v.iter()),
-            )
-        };
-
-        i
     }
 
     pub fn get_functions(&self, file: &Path) -> impl Iterator<Item = &Function> {
