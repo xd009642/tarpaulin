@@ -1842,6 +1842,16 @@ fn get_function_names() {
                     assert_eq!(result, 4);
                 }
             }
+
+            trait Foo2 {
+                fn five() -> u32;
+            }
+
+            impl Foo2 for Marker {
+                fn five() -> u32 { // 68
+                    10
+                }
+            }
         "#,
         file: Path::new("src.rs"),
         ignore_mods: RefCell::new(HashSet::new()),
@@ -1868,12 +1878,12 @@ fn get_function_names() {
             end: 12,
         },
         Function {
-            name: "Marker::four".to_string(),
+            name: "<impl Foo for Marker>::four".to_string(),
             start: 19,
             end: 21,
         },
         Function {
-            name: "Wrapper<T>::fmt".to_string(),
+            name: "<impl Display for Wrapper<T>>::fmt".to_string(),
             start: 25,
             end: 27,
         },
@@ -1901,6 +1911,11 @@ fn get_function_names() {
             name: "beep::it_works".to_string(),
             start: 57,
             end: 60,
+        },
+        Function {
+            name: "<impl Foo2 for Marker>::five".to_string(),
+            start: 68,
+            end: 70,
         },
     ];
 

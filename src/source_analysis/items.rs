@@ -184,7 +184,23 @@ impl SourceAnalysis {
     }
 
     fn visit_impl(&mut self, impl_blk: &ItemImpl, ctx: &Context) {
-        let _guard = ctx.push_to_symbol_stack(impl_blk.self_ty.to_token_stream().to_string());
+        let self_ty_name = impl_blk
+            .self_ty
+            .to_token_stream()
+            .to_string()
+            .replace(' ', "");
+        let _guard = match &impl_blk.trait_ {
+            Some((_, path, _)) => {
+                let trait_name = path
+                    .segments
+                    .last()
+                    .map(|x| x.ident.to_string())
+                    .unwrap_or_else(|| path.to_token_stream().to_string());
+                let name = format!("<impl {} for {}>", trait_name, self_ty_name);
+                ctx.push_to_symbol_stack(name)
+            }
+            None => ctx.push_to_symbol_stack(self_ty_name),
+        };
         let check_cover = self.check_attr_list(&impl_blk.attrs, ctx);
         if check_cover {
             for item in &impl_blk.items {

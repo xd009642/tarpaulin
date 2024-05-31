@@ -85,8 +85,10 @@ impl<'a> Drop for StackGuard<'a> {
 }
 
 impl<'a> Context<'a> {
-    pub(crate) fn push_to_symbol_stack(&self, ident: String) -> StackGuard<'_> {
-        let ident = ident.replace(' ', "");
+    pub(crate) fn push_to_symbol_stack(&self, mut ident: String) -> StackGuard<'_> {
+        if !(ident.starts_with("<") && ident.ends_with(">")) {
+            ident = ident.replace(' ', "");
+        }
         self.symbol_stack.borrow_mut().push(ident);
         StackGuard(&self.symbol_stack)
     }
