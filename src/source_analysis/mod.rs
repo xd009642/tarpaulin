@@ -289,8 +289,8 @@ impl Function {
     fn new(name: &str, span: (usize, usize)) -> Self {
         Self {
             name: name.to_string(),
-            start: span.0,
-            end: span.1,
+            start: span.0 as u64,
+            end: span.1 as u64,
         }
     }
 }
@@ -298,8 +298,8 @@ impl Function {
 #[derive(Clone, Debug, Default, Deserialize, Serialize)]
 pub struct Function {
     pub name: String,
-    pub start: usize,
-    pub end: usize,
+    pub start: u64,
+    pub end: u64,
 }
 
 #[derive(Default)]

@@ -362,6 +362,14 @@ impl TraceMap {
         i
     }
 
+    pub fn get_functions(&self, file: &Path) -> impl Iterator<Item = &Function> {
+        let i: Box<dyn Iterator<Item = &Function>> = match self.functions.get(file) {
+            Some(f) => Box::new(f.iter()),
+            None => Box::new(std::iter::empty()),
+        };
+        i
+    }
+
     pub fn file_traces_mut(&mut self, file: &Path) -> Option<&mut Vec<Trace>> {
         self.traces.get_mut(file)
     }
