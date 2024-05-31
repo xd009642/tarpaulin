@@ -108,8 +108,10 @@ fn write_lcov(mut file: impl Write, coverage_data: &TraceMap) -> Result<(), RunE
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::source_analysis::Function;
     use crate::traces::*;
     use lcov::{record::Record, Reader};
+    use std::collections::HashMap;
     use std::io::Cursor;
     use std::path::{Path, PathBuf};
 
@@ -123,7 +125,6 @@ mod tests {
                 stats: CoverageStat::Line(1),
                 address: Default::default(),
                 length: 0,
-                fn_name: None,
             },
         );
         traces.add_trace(
@@ -133,7 +134,6 @@ mod tests {
                 stats: CoverageStat::Line(0),
                 address: Default::default(),
                 length: 0,
-                fn_name: None,
             },
         );
 
@@ -144,9 +144,19 @@ mod tests {
                 stats: CoverageStat::Line(9),
                 address: Default::default(),
                 length: 0,
-                fn_name: Some("baz".to_string()),
             },
         );
+
+        let mut functions = HashMap::new();
+        functions.insert(
+            PathBuf::from("bar.rs"),
+            vec![Function {
+                name: "baz".to_string(),
+                start: 14,
+                end: 20,
+            }],
+        );
+        traces.set_functions(functions);
 
         let mut data = vec![];
         let cursor = Cursor::new(&mut data);

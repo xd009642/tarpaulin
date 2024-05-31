@@ -441,7 +441,7 @@ mod tests {
         let empty_trace = Trace::new_stub(2);
         let mut address = HashSet::new();
         address.insert(2);
-        let hit_trace = Trace::new(3, address, 1, None);
+        let hit_trace = Trace::new(3, address, 1);
 
         let source_file = PathBuf::from("fake/src/lib.rs");
 
