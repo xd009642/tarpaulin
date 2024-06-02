@@ -1,6 +1,7 @@
 use crate::config::Config;
 use crate::errors::RunError;
 use crate::traces::{CoverageStat, TraceMap};
+use std::collections::BTreeMap;
 use std::fs::File;
 use std::io::Write;
 
@@ -26,20 +27,31 @@ fn write_lcov(mut file: impl Write, coverage_data: &TraceMap) -> Result<(), RunE
         let mut fnda: Vec<String> = vec![];
         let mut da: Vec<(u64, u64)> = vec![];
 
-        for trace in traces {
-            if trace.fn_name.is_some() {
-                let fn_name = trace.fn_name.clone().unwrap();
-                let fn_hits = match trace.stats {
-                    CoverageStat::Line(hits) => hits,
-                    _ => {
-                        return Err(RunError::Lcov(
-                            "Function doesn't have hits number".to_string(),
-                        ))
-                    }
-                };
+        let mut fn_locs = coverage_data
+            .get_functions(&path)
+            .map(|x| ((x.start, x.end), &x.name))
+            .collect::<BTreeMap<_, _>>();
 
-                fns.push(format!("FN:{},{}", trace.line, fn_name));
-                fnda.push(format!("FNDA:{fn_hits},{fn_name}"));
+        let mut first_fn = fn_locs.pop_first();
+
+        for trace in traces {
+            match &first_fn {
+                Some(((start, end), name)) if (*start..=*end).contains(&trace.line) => {
+                    let fn_hits = match trace.stats {
+                        CoverageStat::Line(hits) => hits,
+                        _ => {
+                            return Err(RunError::Lcov(
+                                "Function doesn't have hits number".to_string(),
+                            ))
+                        }
+                    };
+
+                    fns.push(format!("FN:{},{}", trace.line, name));
+                    fnda.push(format!("FNDA:{fn_hits},{name}"));
+
+                    first_fn = fn_locs.pop_first();
+                }
+                _ => {}
             }
 
             if let CoverageStat::Line(hits) = trace.stats {
@@ -82,8 +94,10 @@ fn write_lcov(mut file: impl Write, coverage_data: &TraceMap) -> Result<(), RunE
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::source_analysis::Function;
     use crate::traces::*;
     use lcov::{record::Record, Reader};
+    use std::collections::HashMap;
     use std::io::Cursor;
     use std::path::{Path, PathBuf};
 
@@ -97,7 +111,6 @@ mod tests {
                 stats: CoverageStat::Line(1),
                 address: Default::default(),
                 length: 0,
-                fn_name: None,
             },
         );
         traces.add_trace(
@@ -107,7 +120,6 @@ mod tests {
                 stats: CoverageStat::Line(0),
                 address: Default::default(),
                 length: 0,
-                fn_name: None,
             },
         );
 
@@ -118,9 +130,19 @@ mod tests {
                 stats: CoverageStat::Line(9),
                 address: Default::default(),
                 length: 0,
-                fn_name: Some("baz".to_string()),
             },
         );
+
+        let mut functions = HashMap::new();
+        functions.insert(
+            PathBuf::from("bar.rs"),
+            vec![Function {
+                name: "baz".to_string(),
+                start: 14,
+                end: 20,
+            }],
+        );
+        traces.set_functions(functions);
 
         let mut data = vec![];
         let cursor = Cursor::new(&mut data);

@@ -4,6 +4,7 @@ use lazy_static::lazy_static;
 use proc_macro2::{Span, TokenStream};
 use quote::ToTokens;
 use regex::Regex;
+use serde::{Deserialize, Serialize};
 use std::cell::RefCell;
 use std::collections::{HashMap, HashSet};
 use std::ffi::OsStr;
@@ -12,7 +13,7 @@ use std::io::{self, BufRead, BufReader, Read};
 use std::path::{Path, PathBuf};
 use syn::spanned::Spanned;
 use syn::*;
-use tracing::{trace, warn};
+use tracing::{debug, trace, warn};
 use walkdir::WalkDir;
 
 mod attributes;
@@ -55,6 +56,7 @@ pub struct LineAnalysis {
     pub logical_lines: HashMap<usize, usize>,
     /// Shows the line length of the provided file
     max_line: usize,
+    pub functions: HashMap<String, (usize, usize)>,
 }
 
 /// Provides context to the source analysis stage including the tarpaulin
@@ -69,6 +71,34 @@ pub(crate) struct Context<'a> {
     /// Other parts of context are immutable like tarpaulin config and users
     /// source code. This is discovered during hence use of interior mutability
     ignore_mods: RefCell<HashSet<PathBuf>>,
+    /// As we traverse the structures we want to grab module names etc so we can get proper names
+    /// for our functions etc
+    pub(crate) symbol_stack: RefCell<Vec<String>>,
+}
+
+pub(crate) struct StackGuard<'a>(&'a RefCell<Vec<String>>);
+
+impl<'a> Drop for StackGuard<'a> {
+    fn drop(&mut self) {
+        self.0.borrow_mut().pop();
+    }
+}
+
+impl<'a> Context<'a> {
+    pub(crate) fn push_to_symbol_stack(&self, mut ident: String) -> StackGuard<'_> {
+        if !(ident.starts_with("<") && ident.ends_with(">")) {
+            ident = ident.replace(' ', "");
+        }
+        self.symbol_stack.borrow_mut().push(ident);
+        StackGuard(&self.symbol_stack)
+    }
+
+    pub(crate) fn get_qualified_name(&self) -> String {
+        let stack = self.symbol_stack.borrow();
+        let name = stack.join("::");
+        debug!("Found function: {}", name);
+        name
+    }
 }
 
 /// When the `LineAnalysis` results are mapped to their files there needs to be
@@ -257,6 +287,23 @@ impl LineAnalysis {
     }
 }
 
+impl Function {
+    fn new(name: &str, span: (usize, usize)) -> Self {
+        Self {
+            name: name.to_string(),
+            start: span.0 as u64,
+            end: span.1 as u64,
+        }
+    }
+}
+
+#[derive(Clone, Debug, Default, Eq, PartialEq, Ord, PartialOrd, Deserialize, Serialize)]
+pub struct Function {
+    pub name: String,
+    pub start: u64,
+    pub end: u64,
+}
+
 #[derive(Default)]
 pub struct SourceAnalysis {
     pub lines: HashMap<PathBuf, LineAnalysis>,
@@ -266,6 +313,21 @@ pub struct SourceAnalysis {
 impl SourceAnalysis {
     pub fn new() -> Self {
         Default::default()
+    }
+
+    pub fn create_function_map(&self) -> HashMap<PathBuf, Vec<Function>> {
+        self.lines
+            .iter()
+            .map(|(file, analysis)| {
+                let mut functions: Vec<Function> = analysis
+                    .functions
+                    .iter()
+                    .map(|(function, span)| Function::new(function, *span))
+                    .collect();
+                functions.sort_unstable_by(|a, b| a.start.cmp(&b.start));
+                (file.to_path_buf(), functions)
+            })
+            .collect()
     }
 
     pub fn get_line_analysis(&mut self, path: PathBuf) -> &mut LineAnalysis {
@@ -298,7 +360,6 @@ impl SourceAnalysis {
             analysis.ignore_all();
             result.lines.insert(e.clone(), analysis);
         }
-
         result.debug_printout(config);
 
         result
@@ -339,6 +400,7 @@ impl SourceAnalysis {
                             file_contents: &content,
                             file: path,
                             ignore_mods: RefCell::new(HashSet::new()),
+                            symbol_stack: RefCell::new(vec![]),
                         };
                         if self.check_attr_list(&file.attrs, &ctx) {
                             self.find_ignorable_lines(&ctx);

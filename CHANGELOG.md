@@ -6,6 +6,7 @@ file.
 ## [Unreleased] 
 ### Changed
 - No longer print rustflags for report configs with `--print-rust-flags` 
+- Now use source code to get function names and locations instead of debug information
 
 ## [0.30.0] 2024-05-10
 ### Changed
