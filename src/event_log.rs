@@ -123,19 +123,19 @@ impl TraceEvent {
                     PTRACE_EVENT_CLONE => {
                         event.description = "Ptrace Clone".to_string();
                         if *sig == Signal::SIGTRAP {
-                            event.child = get_event_data(*pid).ok();
+                            event.child = get_event_data(*pid).ok().map(|x| x as i64);
                         }
                     }
                     PTRACE_EVENT_FORK => {
                         event.description = "Ptrace fork".to_string();
                         if *sig == Signal::SIGTRAP {
-                            event.child = get_event_data(*pid).ok();
+                            event.child = get_event_data(*pid).ok().map(|x| x as i64);
                         }
                     }
                     PTRACE_EVENT_VFORK => {
                         event.description = "Ptrace vfork".to_string();
                         if *sig == Signal::SIGTRAP {
-                            event.child = get_event_data(*pid).ok();
+                            event.child = get_event_data(*pid).ok().map(|x| x as i64);
                         }
                     }
                     PTRACE_EVENT_EXEC => {

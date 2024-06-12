@@ -1,5 +1,6 @@
 use crate::ptrace_control::*;
 use crate::statemachine::*;
+use nix::libc::{c_long, c_ulong};
 use nix::unistd::Pid;
 use nix::{Error, Result};
 use std::collections::HashMap;
@@ -9,7 +10,7 @@ use std::collections::HashMap;
 /// architectures the equivalent instructions will have to be found and also the architectures
 /// added to the CI.
 #[cfg(any(target_arch = "x86", target_arch = "x86_64"))]
-const INT: u64 = 0xCC;
+const INT: c_long = 0xCC;
 
 /// Breakpoint construct used to monitor program execution. As tarpaulin is an
 /// automated process, this will likely have less functionality than most
@@ -17,13 +18,13 @@ const INT: u64 = 0xCC;
 #[derive(Debug)]
 pub struct Breakpoint {
     /// Program counter
-    pub pc: u64,
+    pub pc: c_ulong,
     /// Bottom byte of address data.
     /// This is replaced to enable the interrupt. Rest of data is never changed.
     data: u8,
     /// Reading from memory with ptrace gives addresses aligned to bytes.
     /// We therefore need to know the shift to place the breakpoint in the right place
-    shift: u64,
+    shift: c_ulong,
     /// Map of the state of the breakpoint on each thread/process
     is_running: HashMap<Pid, bool>,
 }
@@ -33,7 +34,7 @@ impl Breakpoint {
     pub fn new(pid: Pid, pc: u64) -> Result<Self> {
         let aligned = align_address(pc);
         let data = read_address(pid, aligned)?;
-        let shift = 8 * (pc - aligned);
+        let shift = 8 * (pc as c_ulong - aligned);
         let data = ((data >> shift) & 0xFF) as u8;
 
         let mut b = Breakpoint {
@@ -56,8 +57,8 @@ impl Breakpoint {
     pub fn enable(&mut self, pid: Pid) -> Result<()> {
         let data = read_address(pid, self.aligned_address())?;
         self.is_running.insert(pid, true);
-        let mut intdata = data & (!(0xFFu64 << self.shift) as i64);
-        intdata |= (INT << self.shift) as i64;
+        let mut intdata = data & (!(0xFFu64 << self.shift) as c_long);
+        intdata |= (INT << self.shift) as c_long;
         if data == intdata {
             Err(Error::UnknownErrno)
         } else {
@@ -68,8 +69,8 @@ impl Breakpoint {
     pub fn disable(&self, pid: Pid) -> Result<()> {
         // I require the bit fiddlin this end.
         let data = read_address(pid, self.aligned_address())?;
-        let mut orgdata = data & (!(0xFFu64 << self.shift) as i64);
-        orgdata |= i64::from(self.data) << self.shift;
+        let mut orgdata = data & (!(0xFFu64 << self.shift) as c_long);
+        orgdata |= c_long::from(self.data) << self.shift;
         write_to_address(pid, self.aligned_address(), orgdata)
     }
 
