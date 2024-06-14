@@ -27,7 +27,7 @@ clap = { version = "4.4.0", features = ["derive"] }
 coveralls-api = "0.6.0"
 fallible-iterator = "0.3.0"
 gimli = "0.30.0"
-git2 = "0.18"
+git2 = "0.19"
 humantime-serde = "1"
 indexmap = { version = "~1.8", features = ["serde-1"] }
 lazy_static = "1.0"
