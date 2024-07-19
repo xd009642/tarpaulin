@@ -314,6 +314,7 @@ impl From<ConfigArgs> for ConfigWrapper {
             generate: args.out,
             output_directory: args.output_dir,
             coveralls: args.coveralls,
+            #[cfg(feature = "coveralls")]
             ci_tool: args.ciserver.map(|c| c.0),
             report_uri: args.report_uri,
             forward_signals: true, // No longer an option
@@ -621,7 +622,13 @@ impl Config {
         }
         self.root = Config::pick_optional_config(&self.root, &other.root);
         self.coveralls = Config::pick_optional_config(&self.coveralls, &other.coveralls);
-        self.ci_tool = Config::pick_optional_config(&self.ci_tool, &other.ci_tool);
+
+        cfg_if::cfg_if! {
+            if #[cfg(feature = "coveralls")] {
+                self.ci_tool = Config::pick_optional_config(&self.ci_tool, &other.ci_tool);
+            }
+        }
+
         self.report_uri = Config::pick_optional_config(&self.report_uri, &other.report_uri);
         self.target = Config::pick_optional_config(&self.target, &other.target);
         self.target_dir = Config::pick_optional_config(&self.target_dir, &other.target_dir);
@@ -1147,6 +1154,7 @@ mod tests {
         assert_eq!(b.exclude, vec![String::from("b"), String::from("c")]);
     }
 
+    #[cfg(feature = "coveralls")]
     #[test]
     fn coveralls_merge() {
         let toml = r#"[a]
