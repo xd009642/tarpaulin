@@ -3,6 +3,7 @@ pub use self::types::*;
 use crate::path_utils::fix_unc_path;
 use crate::{args::ConfigArgs, cargo::supports_llvm_coverage};
 use cargo_metadata::{Metadata, MetadataCommand};
+#[cfg(feature = "coveralls")]
 use coveralls_api::CiService;
 use glob::Pattern;
 use humantime_serde::deserialize as humantime_serde;
@@ -69,6 +70,7 @@ pub struct Config {
     pub coveralls: Option<String>,
     /// Enum representing CI tool used.
     #[serde(rename = "ciserver", deserialize_with = "deserialize_ci_server")]
+    #[cfg(feature = "coveralls")]
     pub ci_tool: Option<CiService>,
     /// Only valid if coveralls option is set. If coveralls option is set,
     /// as well as report_uri, then the report will be sent to this endpoint
@@ -222,6 +224,7 @@ impl Default for Config {
             generate: vec![],
             output_directory: Default::default(),
             coveralls: None,
+            #[cfg(feature = "coveralls")]
             ci_tool: None,
             report_uri: None,
             forward_signals: true,

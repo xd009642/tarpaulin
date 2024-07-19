@@ -1,4 +1,5 @@
 use clap::ValueEnum;
+#[cfg(feature = "coveralls")]
 use coveralls_api::CiService;
 use serde::{Deserialize, Serialize};
 use std::fmt;
@@ -107,9 +108,11 @@ pub enum OutputFile {
     Lcov,
 }
 
+#[cfg(feature = "coveralls")]
 #[derive(Debug, Clone, Eq, PartialEq, Ord, PartialOrd, Deserialize, Serialize)]
 pub struct Ci(pub CiService);
 
+#[cfg(feature = "coveralls")]
 impl FromStr for Ci {
     /// This can never fail, so the error type is uninhabited.
     type Err = std::convert::Infallible;
