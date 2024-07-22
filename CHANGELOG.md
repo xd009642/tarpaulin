@@ -3,7 +3,10 @@
 From 2019 onwards, all notable changes to tarpaulin will be documented in this
 file.
 
-## [Unreleased] 
+## [0.31.0] 2024-07-22 
+### Added
+- Ability to remove coveralls from the build making openssl optional.
+
 ### Changed
 - No longer print rustflags for report configs with `--print-rust-flags` 
 - Now use source code to get function names and locations instead of debug information
