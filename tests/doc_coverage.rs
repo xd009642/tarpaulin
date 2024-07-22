@@ -4,11 +4,10 @@ use cargo_tarpaulin::launch_tarpaulin;
 use rusty_fork::rusty_fork_test;
 use std::time::Duration;
 use std::{env, path::PathBuf};
-use tracing_test::traced_test;
+use test_log::test;
 
 rusty_fork_test! {
 #[test]
-#[traced_test]
 fn doc_test_env() {
     let mut config = Config::default();
     config.set_clean(false);
@@ -30,7 +29,6 @@ fn doc_test_env() {
 }
 
 #[test]
-#[traced_test]
 fn doc_test_coverage() {
     let mut config = Config::default();
     config.verbose = true;
@@ -61,7 +59,6 @@ fn doc_test_coverage() {
 }
 
 #[test]
-#[traced_test]
 fn doc_test_panics() {
     let mut config = Config::default();
     config.verbose = true;
@@ -92,7 +89,6 @@ fn doc_test_panics() {
 }
 
 #[test]
-#[traced_test]
 fn doc_test_panics_workspace() {
     let mut config = Config::default();
     config.verbose = true;
@@ -123,7 +119,6 @@ fn doc_test_panics_workspace() {
 }
 
 #[test]
-#[traced_test]
 fn doc_test_compile_fail() {
     let mut config = Config::default();
     config.verbose = true;
@@ -141,7 +136,6 @@ fn doc_test_compile_fail() {
 }
 
 #[test]
-#[traced_test]
 fn doc_test_no_run() {
     let mut config = Config::default();
     config.verbose = true;
@@ -160,7 +154,6 @@ fn doc_test_no_run() {
 }
 
 #[test]
-#[traced_test]
 fn rustdocflags_handling() {
     env::set_var("RUSTDOCFLAGS", "--cfg=foo");
     let mut config = Config::default();

@@ -6,6 +6,7 @@ on:
   pull_request:
 env:
   RUST_BACKTRACE: 1
+  RUST_LOG: "cargo_tarpaulin=trace,llvm_profparser=trace"
 
 jobs:
   linux:
@@ -31,6 +32,8 @@ jobs:
           components: rustfmt
       - name: cache
         uses: Swatinem/rust-cache@v2
+      - name: check_non_default
+        run: cargo check --no-default-features
       - name: test
         run: cargo test
       - uses: actions/upload-artifact@v3

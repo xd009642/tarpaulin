@@ -1,6 +1,6 @@
 [package]
 name = "cargo-tarpaulin"
-version = "0.30.0"
+version = "0.31.0"
 authors = ["Daniel McKenna <danielmckenna93@gmail.com>"]
 description = "Cargo-Tarpaulin is a tool to determine code coverage achieved via tests"
 repository = "https://github.com/xd009642/tarpaulin"
@@ -24,18 +24,18 @@ cargo_metadata = "0.18"
 cfg-if = "1.0.0"
 chrono = "0.4"
 clap = { version = "4.4.0", features = ["derive"] }
-coveralls-api = "0.6.0"
+coveralls-api = { version = "0.6.0", optional = true }
 fallible-iterator = "0.3.0"
-gimli = "0.29.0"
-git2 = "0.18"
+gimli = "0.31.0"
+git2 =  { version = "0.19", optional = true }
 humantime-serde = "1"
 indexmap = { version = "~1.8", features = ["serde-1"] }
-lazy_static = "1.0"
-llvm_profparser = { version = "0.5.0", default-features = false }
-object = "0.35"
+lazy_static = "1.5"
+llvm_profparser = { version = "0.6", default-features = false }
+object = "0.36"
 num_cpus = "1.16.0"
 proc-macro2 = { version = "1.0", features = ["span-locations"] }
-quick-xml = "0.31"
+quick-xml = "0.36"
 quote = "1.0"
 regex = "1.10"
 rustc-demangle = "0.1.24"
@@ -57,12 +57,13 @@ glob = "0.3.1"
 
 [target.'cfg(all(target_os = "linux", any(target_arch = "x86_64", target_arch = "x86")))'.dependencies]
 libc = "0.2.94"
-nix = {version = "0.28.0", default-features = false, features = ["sched", "signal", "ptrace", "personality"]}
+nix = {version = "0.29.0", default-features = false, features = ["sched", "signal", "ptrace", "personality"]}
 procfs = "0.16"
 
 [features]
-default = []
-vendored-openssl = ["git2/vendored-openssl"]
+default = ["coveralls"]
+coveralls = ["coveralls-api", "git2"]
+vendored-openssl = ["git2/vendored-openssl", "coveralls"]
 
 [build-dependencies]
 rustc_version = "0.4"
@@ -70,7 +71,7 @@ rustc_version = "0.4"
 [dev-dependencies]
 lcov = "0.8.1"
 rusty-fork = "0.3.0"
-tracing-test = { version = "0.2.4", features = ["no-env-filter"] }
+test-log = { version = "0.2.16", features = ["trace"] }
 
 [package.metadata.binstall]
 pkg-url = "{ repo }/releases/download/{ version }/cargo-tarpaulin-{ target }{ archive-suffix }"

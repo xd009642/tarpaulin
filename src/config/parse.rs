@@ -1,5 +1,6 @@
 use crate::config::types::*;
 use crate::path_utils::fix_unc_path;
+#[cfg(feature = "coveralls")]
 use coveralls_api::CiService;
 use serde::de::{self, Deserializer};
 use std::env;
@@ -74,6 +75,7 @@ pub(super) fn canonicalize_path(mut path: PathBuf) -> PathBuf {
     path
 }
 
+#[cfg(feature = "coveralls")]
 pub fn deserialize_ci_server<'de, D>(d: D) -> Result<Option<CiService>, D::Error>
 where
     D: Deserializer<'de>,
@@ -100,4 +102,18 @@ where
     }
 
     d.deserialize_any(CiServerVisitor)
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn path_canonicalization() {
+        let path = PathBuf::from("src/lib.rs");
+        assert_eq!(
+            canonicalize_path(path),
+            PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("src/lib.rs")
+        );
+    }
 }

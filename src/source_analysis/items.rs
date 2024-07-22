@@ -46,6 +46,7 @@ impl SourceAnalysis {
     }
 
     fn visit_mod(&mut self, module: &ItemMod, ctx: &Context) {
+        let _guard = ctx.push_to_symbol_stack(module.ident.to_string());
         let analysis = self.get_line_analysis(ctx.file.to_path_buf());
         analysis.ignore_tokens(module.mod_token);
         let check_insides = self.check_attr_list(&module.attrs, ctx);
@@ -72,6 +73,15 @@ impl SourceAnalysis {
     }
 
     fn visit_fn(&mut self, func: &ItemFn, ctx: &Context, force_cover: bool) {
+        let _guard = ctx.push_to_symbol_stack(func.sig.ident.to_string());
+        {
+            let analysis = self.get_line_analysis(ctx.file.to_path_buf());
+            let span = func.span();
+            analysis.functions.insert(
+                ctx.get_qualified_name(),
+                (func.sig.span().start().line, span.end().line),
+            );
+        }
         let mut test_func = false;
         let mut ignored_attr = false;
         let mut is_inline = false;
@@ -135,6 +145,7 @@ impl SourceAnalysis {
     }
 
     fn visit_trait(&mut self, trait_item: &ItemTrait, ctx: &Context) {
+        let _guard = ctx.push_to_symbol_stack(trait_item.ident.to_string());
         let check_cover = self.check_attr_list(&trait_item.attrs, ctx);
         if check_cover {
             for item in &trait_item.items {
@@ -173,6 +184,23 @@ impl SourceAnalysis {
     }
 
     fn visit_impl(&mut self, impl_blk: &ItemImpl, ctx: &Context) {
+        let self_ty_name = impl_blk
+            .self_ty
+            .to_token_stream()
+            .to_string()
+            .replace(' ', "");
+        let _guard = match &impl_blk.trait_ {
+            Some((_, path, _)) => {
+                let trait_name = path
+                    .segments
+                    .last()
+                    .map(|x| x.ident.to_string())
+                    .unwrap_or_else(|| path.to_token_stream().to_string());
+                let name = format!("<impl {} for {}>", trait_name, self_ty_name);
+                ctx.push_to_symbol_stack(name)
+            }
+            None => ctx.push_to_symbol_stack(self_ty_name),
+        };
         let check_cover = self.check_attr_list(&impl_blk.attrs, ctx);
         if check_cover {
             for item in &impl_blk.items {

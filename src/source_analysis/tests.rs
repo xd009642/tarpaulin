@@ -1,9 +1,8 @@
 use crate::source_analysis::prelude::*;
 use syn::parse_file;
-use tracing_test::traced_test;
+use test_log::test;
 
 #[test]
-#[traced_test]
 fn logical_lines_let_bindings() {
     let config = Config::default();
     let mut analysis = SourceAnalysis::new();
@@ -16,6 +15,7 @@ fn logical_lines_let_bindings() {
         }",
         file: Path::new(""),
         ignore_mods: RefCell::new(HashSet::new()),
+        symbol_stack: RefCell::new(Vec::new()),
     };
     let parser = parse_file(ctx.file_contents).unwrap();
     analysis.process_items(&parser.items, &ctx);
@@ -39,6 +39,7 @@ fn logical_lines_let_bindings() {
         }",
         file: Path::new(""),
         ignore_mods: RefCell::new(HashSet::new()),
+        symbol_stack: RefCell::new(Vec::new()),
     };
 
     let parser = parse_file(ctx.file_contents).unwrap();
@@ -56,7 +57,6 @@ fn logical_lines_let_bindings() {
 }
 
 #[test]
-#[traced_test]
 fn match_pattern_logical_lines() {
     let config = Config::default();
     let ctx = Context {
@@ -75,6 +75,7 @@ fn match_pattern_logical_lines() {
         }",
         file: Path::new(""),
         ignore_mods: RefCell::new(HashSet::new()),
+        symbol_stack: RefCell::new(Vec::new()),
     };
 
     let parser = parse_file(ctx.file_contents).unwrap();
@@ -89,7 +90,6 @@ fn match_pattern_logical_lines() {
 }
 
 #[test]
-#[traced_test]
 fn line_analysis_works() {
     let mut la = LineAnalysis::new();
     assert!(!la.should_ignore(0));
@@ -103,7 +103,6 @@ fn line_analysis_works() {
 }
 
 #[test]
-#[traced_test]
 fn filter_str_literals() {
     let config = Config::default();
     let ctx = Context {
@@ -115,6 +114,7 @@ fn filter_str_literals() {
         }",
         file: Path::new(""),
         ignore_mods: RefCell::new(HashSet::new()),
+        symbol_stack: RefCell::new(Vec::new()),
     };
     let parser = parse_file(ctx.file_contents).unwrap();
     let mut analysis = SourceAnalysis::new();
@@ -133,6 +133,7 @@ fn filter_str_literals() {
         fn write(s:&str){}",
         file: Path::new(""),
         ignore_mods: RefCell::new(HashSet::new()),
+        symbol_stack: RefCell::new(Vec::new()),
     };
     let parser = parse_file(ctx.file_contents).unwrap();
     let mut analysis = SourceAnalysis::new();
@@ -154,6 +155,7 @@ fn filter_str_literals() {
         ",
         file: Path::new(""),
         ignore_mods: RefCell::new(HashSet::new()),
+        symbol_stack: RefCell::new(Vec::new()),
     };
     let parser = parse_file(ctx.file_contents).unwrap();
     let mut analysis = SourceAnalysis::new();
@@ -164,7 +166,6 @@ fn filter_str_literals() {
 }
 
 #[test]
-#[traced_test]
 fn filter_struct_members() {
     let config = Config::default();
     let ctx = Context {
@@ -172,6 +173,7 @@ fn filter_struct_members() {
         file_contents: "#[derive(Debug)]\npub struct Struct {\npub i: i32,\nj:String,\n}",
         file: Path::new(""),
         ignore_mods: RefCell::new(HashSet::new()),
+        symbol_stack: RefCell::new(Vec::new()),
     };
     let parser = parse_file(ctx.file_contents).unwrap();
     let mut analysis = SourceAnalysis::new();
@@ -188,6 +190,7 @@ fn filter_struct_members() {
         file_contents: "#[derive(Debug)]\npub struct Struct (\n i32\n);",
         file: Path::new(""),
         ignore_mods: RefCell::new(HashSet::new()),
+        symbol_stack: RefCell::new(Vec::new()),
     };
     let parser = parse_file(ctx.file_contents).unwrap();
     let mut analysis = SourceAnalysis::new();
@@ -199,7 +202,6 @@ fn filter_struct_members() {
 }
 
 #[test]
-#[traced_test]
 fn filter_enum_members() {
     let config = Config::default();
     let ctx = Context {
@@ -207,6 +209,7 @@ fn filter_enum_members() {
         file_contents: "#[derive(Debug)]\npub enum E {\nI1,\nI2(u32),\nI3{\nx:u32,\n},\n}",
         file: Path::new(""),
         ignore_mods: RefCell::new(HashSet::new()),
+        symbol_stack: RefCell::new(Vec::new()),
     };
     let parser = parse_file(ctx.file_contents).unwrap();
     let mut analysis = SourceAnalysis::new();
@@ -222,7 +225,6 @@ fn filter_enum_members() {
 }
 
 #[test]
-#[traced_test]
 fn filter_struct_consts() {
     let config = Config::default();
     let ctx = Context {
@@ -236,6 +238,7 @@ fn filter_struct_consts() {
             }",
         file: Path::new(""),
         ignore_mods: RefCell::new(HashSet::new()),
+        symbol_stack: RefCell::new(Vec::new()),
     };
     let parser = parse_file(ctx.file_contents).unwrap();
     let mut analysis = SourceAnalysis::new();
@@ -246,7 +249,6 @@ fn filter_struct_consts() {
 }
 
 #[test]
-#[traced_test]
 fn filter_unreachable_unchecked() {
     let config = Config::default();
     let ctx = Context {
@@ -256,6 +258,7 @@ fn filter_unreachable_unchecked() {
             }",
         file: Path::new(""),
         ignore_mods: RefCell::new(HashSet::new()),
+        symbol_stack: RefCell::new(Vec::new()),
     };
     let parser = parse_file(ctx.file_contents).unwrap();
     let mut analysis = SourceAnalysis::new();
@@ -265,7 +268,6 @@ fn filter_unreachable_unchecked() {
 }
 
 #[test]
-#[traced_test]
 fn filter_loop_attr() {
     let config = Config::default();
     let ctx = Context {
@@ -283,6 +285,7 @@ fn filter_loop_attr() {
             }",
         file: Path::new(""),
         ignore_mods: RefCell::new(HashSet::new()),
+        symbol_stack: RefCell::new(Vec::new()),
     };
     let parser = parse_file(ctx.file_contents).unwrap();
     let mut analysis = SourceAnalysis::new();
@@ -294,7 +297,6 @@ fn filter_loop_attr() {
 }
 
 #[test]
-#[traced_test]
 fn filter_mods() {
     let config = Config::default();
     let ctx = Context {
@@ -302,6 +304,7 @@ fn filter_mods() {
         file_contents: "mod foo {\nfn double(x:i32)->i32 {\n x*2\n}\n}",
         file: Path::new(""),
         ignore_mods: RefCell::new(HashSet::new()),
+        symbol_stack: RefCell::new(Vec::new()),
     };
     let parser = parse_file(ctx.file_contents).unwrap();
     let mut analysis = SourceAnalysis::new();
@@ -314,6 +317,7 @@ fn filter_mods() {
         file_contents: "mod foo;",
         file: Path::new(""),
         ignore_mods: RefCell::new(HashSet::new()),
+        symbol_stack: RefCell::new(Vec::new()),
     };
     let parser = parse_file(ctx.file_contents).unwrap();
     let mut analysis = SourceAnalysis::new();
@@ -326,6 +330,7 @@ fn filter_mods() {
         file_contents: "mod foo{}",
         file: Path::new(""),
         ignore_mods: RefCell::new(HashSet::new()),
+        symbol_stack: RefCell::new(Vec::new()),
     };
     let parser = parse_file(ctx.file_contents).unwrap();
     let mut analysis = SourceAnalysis::new();
@@ -335,7 +340,6 @@ fn filter_mods() {
 }
 
 #[test]
-#[traced_test]
 fn filter_macros() {
     let config = Config::default();
     let ctx = Context {
@@ -343,6 +347,7 @@ fn filter_macros() {
         file_contents: "\n\nfn unused() {\nunimplemented!();\n}",
         file: Path::new(""),
         ignore_mods: RefCell::new(HashSet::new()),
+        symbol_stack: RefCell::new(Vec::new()),
     };
     let parser = parse_file(ctx.file_contents).unwrap();
     let mut analysis = SourceAnalysis::new();
@@ -357,6 +362,7 @@ fn filter_macros() {
         file_contents: "\n\nfn unused() {\nunreachable!();\n}",
         file: Path::new(""),
         ignore_mods: RefCell::new(HashSet::new()),
+        symbol_stack: RefCell::new(Vec::new()),
     };
     let parser = parse_file(ctx.file_contents).unwrap();
     let mut analysis = SourceAnalysis::new();
@@ -376,6 +382,7 @@ fn filter_macros() {
         }",
         file: Path::new(""),
         ignore_mods: RefCell::new(HashSet::new()),
+        symbol_stack: RefCell::new(Vec::new()),
     };
     let parser = parse_file(ctx.file_contents).unwrap();
     let mut analysis = SourceAnalysis::new();
@@ -388,6 +395,7 @@ fn filter_macros() {
         file_contents: "fn unused() {\nprintln!(\"text\");\n}",
         file: Path::new(""),
         ignore_mods: RefCell::new(HashSet::new()),
+        symbol_stack: RefCell::new(Vec::new()),
     };
     let parser = parse_file(ctx.file_contents).unwrap();
     let mut analysis = SourceAnalysis::new();
@@ -397,7 +405,6 @@ fn filter_macros() {
 }
 
 #[test]
-#[traced_test]
 fn filter_tests() {
     let mut config = Config::default();
     config.set_include_tests(true);
@@ -413,6 +420,7 @@ fn filter_tests() {
                 }\n}",
         file: Path::new(""),
         ignore_mods: RefCell::new(HashSet::new()),
+        symbol_stack: RefCell::new(Vec::new()),
     };
     let parser = parse_file(ctx.file_contents).unwrap();
     let mut analysis = SourceAnalysis::new();
@@ -429,6 +437,7 @@ fn filter_tests() {
                 }\n}",
         file: Path::new(""),
         ignore_mods: RefCell::new(HashSet::new()),
+        symbol_stack: RefCell::new(Vec::new()),
     };
 
     let mut analysis = SourceAnalysis::new();
@@ -441,6 +450,7 @@ fn filter_tests() {
         file_contents: "#[test]\nfn mytest() { \n assert!(true);\n}",
         file: Path::new(""),
         ignore_mods: RefCell::new(HashSet::new()),
+        symbol_stack: RefCell::new(Vec::new()),
     };
     let parser = parse_file(ctx.file_contents).unwrap();
     let mut analysis = SourceAnalysis::new();
@@ -455,6 +465,7 @@ fn filter_tests() {
         file_contents: "#[test]\nfn mytest() { \n assert!(true);\n}",
         file: Path::new(""),
         ignore_mods: RefCell::new(HashSet::new()),
+        symbol_stack: RefCell::new(Vec::new()),
     };
     let mut analysis = SourceAnalysis::new();
     analysis.process_items(&parser.items, &ctx);
@@ -464,7 +475,6 @@ fn filter_tests() {
 }
 
 #[test]
-#[traced_test]
 fn filter_nonstd_tests() {
     let mut igconfig = Config::default();
     igconfig.set_include_tests(false);
@@ -480,6 +490,7 @@ fn filter_nonstd_tests() {
             }",
         file: Path::new(""),
         ignore_mods: RefCell::new(HashSet::new()),
+        symbol_stack: RefCell::new(Vec::new()),
     };
     let parser = parse_file(ctx.file_contents).unwrap();
     let mut analysis = SourceAnalysis::new();
@@ -495,6 +506,7 @@ fn filter_nonstd_tests() {
                 }",
         file: Path::new(""),
         ignore_mods: RefCell::new(HashSet::new()),
+        symbol_stack: RefCell::new(Vec::new()),
     };
     let parser = parse_file(ctx.file_contents).unwrap();
     let mut analysis = SourceAnalysis::new();
@@ -510,6 +522,7 @@ fn filter_nonstd_tests() {
                 }",
         file: Path::new(""),
         ignore_mods: RefCell::new(HashSet::new()),
+        symbol_stack: RefCell::new(Vec::new()),
     };
     let parser = parse_file(ctx.file_contents).unwrap();
     let mut analysis = SourceAnalysis::new();
@@ -525,6 +538,7 @@ fn filter_nonstd_tests() {
                 }",
         file: Path::new(""),
         ignore_mods: RefCell::new(HashSet::new()),
+        symbol_stack: RefCell::new(Vec::new()),
     };
     let parser = parse_file(ctx.file_contents).unwrap();
     let mut analysis = SourceAnalysis::new();
@@ -534,7 +548,6 @@ fn filter_nonstd_tests() {
 }
 
 #[test]
-#[traced_test]
 fn include_nonstd_tests() {
     let mut config = Config::default();
     config.set_include_tests(true);
@@ -550,6 +563,7 @@ fn include_nonstd_tests() {
             }",
         file: Path::new(""),
         ignore_mods: RefCell::new(HashSet::new()),
+        symbol_stack: RefCell::new(Vec::new()),
     };
     let parser = parse_file(ctx.file_contents).unwrap();
     let mut analysis = SourceAnalysis::new();
@@ -565,6 +579,7 @@ fn include_nonstd_tests() {
                 }",
         file: Path::new(""),
         ignore_mods: RefCell::new(HashSet::new()),
+        symbol_stack: RefCell::new(Vec::new()),
     };
     let parser = parse_file(ctx.file_contents).unwrap();
     let mut analysis = SourceAnalysis::new();
@@ -580,6 +595,7 @@ fn include_nonstd_tests() {
                 }",
         file: Path::new(""),
         ignore_mods: RefCell::new(HashSet::new()),
+        symbol_stack: RefCell::new(Vec::new()),
     };
     let parser = parse_file(ctx.file_contents).unwrap();
     let mut analysis = SourceAnalysis::new();
@@ -589,7 +605,6 @@ fn include_nonstd_tests() {
 }
 
 #[test]
-#[traced_test]
 fn filter_test_utilities() {
     let mut config = Config::default();
     config.set_include_tests(false);
@@ -604,6 +619,7 @@ fn filter_test_utilities() {
         }",
         file: Path::new(""),
         ignore_mods: RefCell::new(HashSet::new()),
+        symbol_stack: RefCell::new(Vec::new()),
     };
     let parser = parse_file(ctx.file_contents).unwrap();
     let mut analysis = SourceAnalysis::new();
@@ -626,6 +642,7 @@ fn filter_test_utilities() {
         }",
         file: Path::new(""),
         ignore_mods: RefCell::new(HashSet::new()),
+        symbol_stack: RefCell::new(Vec::new()),
     };
     let parser = parse_file(ctx.file_contents).unwrap();
     let mut analysis = SourceAnalysis::new();
@@ -636,7 +653,6 @@ fn filter_test_utilities() {
 }
 
 #[test]
-#[traced_test]
 fn filter_where() {
     let config = Config::default();
     let ctx = Context {
@@ -646,6 +662,7 @@ fn filter_where() {
         }",
         file: Path::new(""),
         ignore_mods: RefCell::new(HashSet::new()),
+        symbol_stack: RefCell::new(Vec::new()),
     };
     let parser = parse_file(ctx.file_contents).unwrap();
     let mut analysis = SourceAnalysis::new();
@@ -661,6 +678,7 @@ fn filter_where() {
             }",
         file: Path::new(""),
         ignore_mods: RefCell::new(HashSet::new()),
+        symbol_stack: RefCell::new(Vec::new()),
     };
     let parser = parse_file(ctx.file_contents).unwrap();
     let mut analysis = SourceAnalysis::new();
@@ -678,6 +696,7 @@ fn filter_where() {
         }",
         file: Path::new(""),
         ignore_mods: RefCell::new(HashSet::new()),
+        symbol_stack: RefCell::new(Vec::new()),
     };
     let parser = parse_file(ctx.file_contents).unwrap();
     let mut analysis = SourceAnalysis::new();
@@ -687,7 +706,6 @@ fn filter_where() {
 }
 
 #[test]
-#[traced_test]
 fn filter_derives() {
     let config = Config::default();
     let ctx = Context {
@@ -695,6 +713,7 @@ fn filter_derives() {
         file_contents: "#[derive(Debug)]\nstruct T;",
         file: Path::new(""),
         ignore_mods: RefCell::new(HashSet::new()),
+        symbol_stack: RefCell::new(Vec::new()),
     };
     let parser = parse_file(ctx.file_contents).unwrap();
     let mut analysis = SourceAnalysis::new();
@@ -707,6 +726,7 @@ fn filter_derives() {
         file_contents: "\n#[derive(Copy, Eq)]\nunion x { x:i32, y:f32}",
         file: Path::new(""),
         ignore_mods: RefCell::new(HashSet::new()),
+        symbol_stack: RefCell::new(Vec::new()),
     };
     let parser = parse_file(ctx.file_contents).unwrap();
     let mut analysis = SourceAnalysis::new();
@@ -716,7 +736,6 @@ fn filter_derives() {
 }
 
 #[test]
-#[traced_test]
 fn filter_unsafe() {
     let config = Config::default();
     let ctx = Context {
@@ -724,6 +743,7 @@ fn filter_unsafe() {
         file_contents: "fn unsafe_fn() {\n let x=1;\nunsafe {\nprintln!(\"{}\", x);\n}\n}",
         file: Path::new(""),
         ignore_mods: RefCell::new(HashSet::new()),
+        symbol_stack: RefCell::new(Vec::new()),
     };
     let parser = parse_file(ctx.file_contents).unwrap();
     let mut analysis = SourceAnalysis::new();
@@ -737,6 +757,7 @@ fn filter_unsafe() {
         file_contents: "fn unsafe_fn() {\n let x=1;\nunsafe {println!(\"{}\", x);}\n}",
         file: Path::new(""),
         ignore_mods: RefCell::new(HashSet::new()),
+        symbol_stack: RefCell::new(Vec::new()),
     };
     let parser = parse_file(ctx.file_contents).unwrap();
     let mut analysis = SourceAnalysis::new();
@@ -746,7 +767,6 @@ fn filter_unsafe() {
 }
 
 #[test]
-#[traced_test]
 fn cover_generic_impl_methods() {
     let config = Config::default();
     let ctx = Context {
@@ -759,6 +779,7 @@ fn cover_generic_impl_methods() {
         }",
         file: Path::new(""),
         ignore_mods: RefCell::new(HashSet::new()),
+        symbol_stack: RefCell::new(Vec::new()),
     };
     let parser = parse_file(ctx.file_contents).unwrap();
     let mut analysis = SourceAnalysis::new();
@@ -779,6 +800,7 @@ fn cover_generic_impl_methods() {
         }",
         file: Path::new(""),
         ignore_mods: RefCell::new(HashSet::new()),
+        symbol_stack: RefCell::new(Vec::new()),
     };
     let parser = parse_file(ctx.file_contents).unwrap();
     let mut analysis = SourceAnalysis::new();
@@ -788,7 +810,6 @@ fn cover_generic_impl_methods() {
 }
 
 #[test]
-#[traced_test]
 fn cover_default_trait_methods() {
     let config = Config::default();
     let ctx = Context {
@@ -800,6 +821,7 @@ fn cover_default_trait_methods() {
             }",
         file: Path::new(""),
         ignore_mods: RefCell::new(HashSet::new()),
+        symbol_stack: RefCell::new(Vec::new()),
     };
     let parser = parse_file(ctx.file_contents).unwrap();
     let mut analysis = SourceAnalysis::new();
@@ -810,7 +832,6 @@ fn cover_default_trait_methods() {
 }
 
 #[test]
-#[traced_test]
 fn cover_impl_trait_generic_fns() {
     let config = Config::default();
     let ctx = Context {
@@ -820,6 +841,7 @@ fn cover_impl_trait_generic_fns() {
             }",
         file: Path::new(""),
         ignore_mods: RefCell::new(HashSet::new()),
+        symbol_stack: RefCell::new(Vec::new()),
     };
     let parser = parse_file(ctx.file_contents).unwrap();
     let mut analysis = SourceAnalysis::new();
@@ -830,7 +852,6 @@ fn cover_impl_trait_generic_fns() {
 }
 
 #[test]
-#[traced_test]
 fn filter_method_args() {
     let config = Config::default();
     let ctx = Context {
@@ -858,6 +879,7 @@ fn filter_method_args() {
         }",
         file: Path::new(""),
         ignore_mods: RefCell::new(HashSet::new()),
+        symbol_stack: RefCell::new(Vec::new()),
     };
     let parser = parse_file(ctx.file_contents).unwrap();
     let mut analysis = SourceAnalysis::new();
@@ -868,7 +890,6 @@ fn filter_method_args() {
 }
 
 #[test]
-#[traced_test]
 fn filter_use_statements() {
     let config = Config::default();
     let ctx = Context {
@@ -877,6 +898,7 @@ fn filter_use_statements() {
         use std::{ffi::CString, os::raw::c_char};",
         file: Path::new(""),
         ignore_mods: RefCell::new(HashSet::new()),
+        symbol_stack: RefCell::new(Vec::new()),
     };
     let parser = parse_file(ctx.file_contents).unwrap();
     let mut analysis = SourceAnalysis::new();
@@ -887,7 +909,6 @@ fn filter_use_statements() {
 }
 
 #[test]
-#[traced_test]
 fn include_inline_fns() {
     let config = Config::default();
     let ctx = Context {
@@ -903,6 +924,7 @@ fn include_inline_fns() {
             }",
         file: Path::new(""),
         ignore_mods: RefCell::new(HashSet::new()),
+        symbol_stack: RefCell::new(Vec::new()),
     };
     let parser = parse_file(ctx.file_contents).unwrap();
     let mut analysis = SourceAnalysis::new();
@@ -917,7 +939,6 @@ fn include_inline_fns() {
 }
 
 #[test]
-#[traced_test]
 fn cover_callable_noargs() {
     let config = Config::default();
     let ctx = Context {
@@ -927,6 +948,7 @@ fn cover_callable_noargs() {
             }",
         file: Path::new(""),
         ignore_mods: RefCell::new(HashSet::new()),
+        symbol_stack: RefCell::new(Vec::new()),
     };
     let parser = parse_file(ctx.file_contents).unwrap();
     let mut analysis = SourceAnalysis::new();
@@ -936,7 +958,6 @@ fn cover_callable_noargs() {
 }
 
 #[test]
-#[traced_test]
 fn filter_closure_contents() {
     let config = Config::default();
     let ctx = Context {
@@ -948,6 +969,7 @@ fn filter_closure_contents() {
             }",
         file: Path::new(""),
         ignore_mods: RefCell::new(HashSet::new()),
+        symbol_stack: RefCell::new(Vec::new()),
     };
     let parser = parse_file(ctx.file_contents).unwrap();
     let mut analysis = SourceAnalysis::new();
@@ -957,7 +979,6 @@ fn filter_closure_contents() {
 }
 
 #[test]
-#[traced_test]
 fn tarpaulin_skip_attr() {
     let config = Config::default();
     let ctx = Context {
@@ -994,6 +1015,7 @@ fn tarpaulin_skip_attr() {
         ",
         file: Path::new(""),
         ignore_mods: RefCell::new(HashSet::new()),
+        symbol_stack: RefCell::new(Vec::new()),
     };
     let parser = parse_file(ctx.file_contents).unwrap();
     let mut analysis = SourceAnalysis::new();
@@ -1027,6 +1049,7 @@ fn tarpaulin_skip_attr() {
         ",
         file: Path::new(""),
         ignore_mods: RefCell::new(HashSet::new()),
+        symbol_stack: RefCell::new(Vec::new()),
     };
     let parser = parse_file(ctx.file_contents).unwrap();
     let mut analysis = SourceAnalysis::new();
@@ -1039,7 +1062,6 @@ fn tarpaulin_skip_attr() {
 }
 
 #[test]
-#[traced_test]
 fn tarpaulin_skip_trait_attrs() {
     let config = Config::default();
     let ctx = Context {
@@ -1058,6 +1080,7 @@ fn tarpaulin_skip_trait_attrs() {
         ",
         file: Path::new(""),
         ignore_mods: RefCell::new(HashSet::new()),
+        symbol_stack: RefCell::new(Vec::new()),
     };
     let parser = parse_file(ctx.file_contents).unwrap();
     let mut analysis = SourceAnalysis::new();
@@ -1083,6 +1106,7 @@ fn tarpaulin_skip_trait_attrs() {
         ",
         file: Path::new(""),
         ignore_mods: RefCell::new(HashSet::new()),
+        symbol_stack: RefCell::new(Vec::new()),
     };
     let parser = parse_file(ctx.file_contents).unwrap();
     let mut analysis = SourceAnalysis::new();
@@ -1095,7 +1119,6 @@ fn tarpaulin_skip_trait_attrs() {
 }
 
 #[test]
-#[traced_test]
 fn tarpaulin_skip_impl_attrs() {
     let config = Config::default();
     let ctx = Context {
@@ -1115,6 +1138,7 @@ fn tarpaulin_skip_impl_attrs() {
         ",
         file: Path::new(""),
         ignore_mods: RefCell::new(HashSet::new()),
+        symbol_stack: RefCell::new(Vec::new()),
     };
     let parser = parse_file(ctx.file_contents).unwrap();
     let mut analysis = SourceAnalysis::new();
@@ -1142,6 +1166,7 @@ fn tarpaulin_skip_impl_attrs() {
         ",
         file: Path::new(""),
         ignore_mods: RefCell::new(HashSet::new()),
+        symbol_stack: RefCell::new(Vec::new()),
     };
     let parser = parse_file(ctx.file_contents).unwrap();
     let mut analysis = SourceAnalysis::new();
@@ -1154,7 +1179,6 @@ fn tarpaulin_skip_impl_attrs() {
 }
 
 #[test]
-#[traced_test]
 fn filter_block_contents() {
     let config = Config::default();
     let ctx = Context {
@@ -1171,6 +1195,7 @@ fn filter_block_contents() {
         }",
         file: Path::new(""),
         ignore_mods: RefCell::new(HashSet::new()),
+        symbol_stack: RefCell::new(Vec::new()),
     };
     let parser = parse_file(ctx.file_contents).unwrap();
     let mut analysis = SourceAnalysis::new();
@@ -1181,7 +1206,6 @@ fn filter_block_contents() {
 }
 
 #[test]
-#[traced_test]
 fn filter_consts() {
     let config = Config::default();
     let ctx = Context {
@@ -1191,6 +1215,7 @@ fn filter_consts() {
         }",
         file: Path::new(""),
         ignore_mods: RefCell::new(HashSet::new()),
+        symbol_stack: RefCell::new(Vec::new()),
     };
     let parser = parse_file(ctx.file_contents).unwrap();
     let mut analysis = SourceAnalysis::new();
@@ -1200,7 +1225,6 @@ fn filter_consts() {
 }
 
 #[test]
-#[traced_test]
 fn optional_panic_ignore() {
     let config = Config::default();
     let ctx = Context {
@@ -1216,6 +1240,7 @@ fn optional_panic_ignore() {
         }",
         file: Path::new(""),
         ignore_mods: RefCell::new(HashSet::new()),
+        symbol_stack: RefCell::new(Vec::new()),
     };
     let parser = parse_file(ctx.file_contents).unwrap();
     let mut analysis = SourceAnalysis::new();
@@ -1240,6 +1265,7 @@ fn optional_panic_ignore() {
         }",
         file: Path::new(""),
         ignore_mods: RefCell::new(HashSet::new()),
+        symbol_stack: RefCell::new(Vec::new()),
     };
 
     let parser = parse_file(ctx.file_contents).unwrap();
@@ -1252,7 +1278,6 @@ fn optional_panic_ignore() {
 }
 
 #[test]
-#[traced_test]
 fn filter_nested_blocks() {
     let config = Config::default();
     let ctx = Context {
@@ -1276,6 +1301,7 @@ fn filter_nested_blocks() {
         }",
         file: Path::new(""),
         ignore_mods: RefCell::new(HashSet::new()),
+        symbol_stack: RefCell::new(Vec::new()),
     };
     let parser = parse_file(ctx.file_contents).unwrap();
     let mut analysis = SourceAnalysis::new();
@@ -1285,7 +1311,6 @@ fn filter_nested_blocks() {
 }
 
 #[test]
-#[traced_test]
 fn filter_multi_line_decls() {
     let config = Config::default();
     let ctx = Context {
@@ -1297,6 +1322,7 @@ fn filter_multi_line_decls() {
         }",
         file: Path::new(""),
         ignore_mods: RefCell::new(HashSet::new()),
+        symbol_stack: RefCell::new(Vec::new()),
     };
     let parser = parse_file(ctx.file_contents).unwrap();
     let mut analysis = SourceAnalysis::new();
@@ -1317,6 +1343,7 @@ fn filter_multi_line_decls() {
         }",
         file: Path::new(""),
         ignore_mods: RefCell::new(HashSet::new()),
+        symbol_stack: RefCell::new(Vec::new()),
     };
     let parser = parse_file(ctx.file_contents).unwrap();
     let mut analysis = SourceAnalysis::new();
@@ -1336,6 +1363,7 @@ fn filter_multi_line_decls() {
         }",
         file: Path::new(""),
         ignore_mods: RefCell::new(HashSet::new()),
+        symbol_stack: RefCell::new(Vec::new()),
     };
     let parser = parse_file(ctx.file_contents).unwrap();
     let mut analysis = SourceAnalysis::new();
@@ -1346,7 +1374,6 @@ fn filter_multi_line_decls() {
 }
 
 #[test]
-#[traced_test]
 fn unreachable_propagate() {
     let config = Config::default();
     let ctx = Context {
@@ -1358,6 +1385,7 @@ fn unreachable_propagate() {
         }",
         file: Path::new(""),
         ignore_mods: RefCell::new(HashSet::new()),
+        symbol_stack: RefCell::new(Vec::new()),
     };
     let parser = parse_file(ctx.file_contents).unwrap();
     let mut analysis = SourceAnalysis::new();
@@ -1384,6 +1412,7 @@ fn unreachable_propagate() {
         }",
         file: Path::new(""),
         ignore_mods: RefCell::new(HashSet::new()),
+        symbol_stack: RefCell::new(Vec::new()),
     };
     let parser = parse_file(ctx.file_contents).unwrap();
     let mut analysis = SourceAnalysis::new();
@@ -1407,6 +1436,7 @@ fn unreachable_propagate() {
         }",
         file: Path::new(""),
         ignore_mods: RefCell::new(HashSet::new()),
+        symbol_stack: RefCell::new(Vec::new()),
     };
     let parser = parse_file(ctx.file_contents).unwrap();
     let mut analysis = SourceAnalysis::new();
@@ -1422,7 +1452,6 @@ fn unreachable_propagate() {
 }
 
 #[test]
-#[traced_test]
 fn unreachable_include_returns() {
     let config = Config::default();
     let ctx = Context {
@@ -1438,6 +1467,7 @@ fn unreachable_include_returns() {
         }",
         file: Path::new(""),
         ignore_mods: RefCell::new(HashSet::new()),
+        symbol_stack: RefCell::new(Vec::new()),
     };
     let parser = parse_file(ctx.file_contents).unwrap();
     let mut analysis = SourceAnalysis::new();
@@ -1466,6 +1496,7 @@ fn unreachable_include_returns() {
         ",
         file: Path::new(""),
         ignore_mods: RefCell::new(HashSet::new()),
+        symbol_stack: RefCell::new(Vec::new()),
     };
     let parser = parse_file(ctx.file_contents).unwrap();
     let mut analysis = SourceAnalysis::new();
@@ -1482,7 +1513,6 @@ fn unreachable_include_returns() {
 }
 
 #[test]
-#[traced_test]
 fn unreachable_include_loops() {
     let config = Config::default();
     let ctx = Context {
@@ -1495,6 +1525,7 @@ fn unreachable_include_loops() {
         }",
         file: Path::new(""),
         ignore_mods: RefCell::new(HashSet::new()),
+        symbol_stack: RefCell::new(Vec::new()),
     };
     let parser = parse_file(ctx.file_contents).unwrap();
     let mut analysis = SourceAnalysis::new();
@@ -1516,6 +1547,7 @@ fn unreachable_include_loops() {
         }",
         file: Path::new(""),
         ignore_mods: RefCell::new(HashSet::new()),
+        symbol_stack: RefCell::new(Vec::new()),
     };
     let parser = parse_file(ctx.file_contents).unwrap();
     let mut analysis = SourceAnalysis::new();
@@ -1537,6 +1569,7 @@ fn unreachable_include_loops() {
         }",
         file: Path::new(""),
         ignore_mods: RefCell::new(HashSet::new()),
+        symbol_stack: RefCell::new(Vec::new()),
     };
     let parser = parse_file(ctx.file_contents).unwrap();
     let mut analysis = SourceAnalysis::new();
@@ -1550,7 +1583,6 @@ fn unreachable_include_loops() {
 }
 
 #[test]
-#[traced_test]
 fn single_line_callables() {
     let config = Config::default();
     let ctx = Context {
@@ -1573,6 +1605,7 @@ fn single_line_callables() {
         ",
         file: Path::new(""),
         ignore_mods: RefCell::new(HashSet::new()),
+        symbol_stack: RefCell::new(Vec::new()),
     };
     let parser = parse_file(ctx.file_contents).unwrap();
     let mut analysis = SourceAnalysis::new();
@@ -1585,7 +1618,6 @@ fn single_line_callables() {
 }
 
 #[test]
-#[traced_test]
 fn visit_generics() {
     let config = Config::default();
     let ctx = Context {
@@ -1614,6 +1646,7 @@ fn visit_generics() {
         ",
         file: Path::new(""),
         ignore_mods: RefCell::new(HashSet::new()),
+        symbol_stack: RefCell::new(Vec::new()),
     };
     let parser = parse_file(ctx.file_contents).unwrap();
     let mut analysis = SourceAnalysis::new();
@@ -1632,7 +1665,6 @@ fn visit_generics() {
 }
 
 #[test]
-#[traced_test]
 fn ignore_comment() {
     let config = Config::default();
     let ctx = Context {
@@ -1651,6 +1683,7 @@ fn ignore_comment() {
         }",
         file: Path::new(""),
         ignore_mods: RefCell::new(HashSet::new()),
+        symbol_stack: RefCell::new(Vec::new()),
     };
     let mut analysis = SourceAnalysis::new();
     analysis.find_ignorable_lines(&ctx);
@@ -1667,7 +1700,6 @@ fn ignore_comment() {
 }
 
 #[test]
-#[traced_test]
 fn py_attr() {
     let config = Config::default();
     let ctx = Context {
@@ -1692,6 +1724,7 @@ fn py_attr() {
         ",
         file: Path::new(""),
         ignore_mods: RefCell::new(HashSet::new()),
+        symbol_stack: RefCell::new(Vec::new()),
     };
     let parser = parse_file(ctx.file_contents).unwrap();
     let mut analysis = SourceAnalysis::new();
@@ -1704,7 +1737,6 @@ fn py_attr() {
 }
 
 #[test]
-#[traced_test]
 fn handle_c_strs() {
     let config = Config::default();
     let ctx = Context {
@@ -1714,6 +1746,7 @@ fn handle_c_strs() {
         }"#,
         file: Path::new(""),
         ignore_mods: RefCell::new(HashSet::new()),
+        symbol_stack: RefCell::new(Vec::new()),
     };
     let parser = parse_file(ctx.file_contents).unwrap();
     let mut analysis = SourceAnalysis::new();
@@ -1721,7 +1754,6 @@ fn handle_c_strs() {
 }
 
 #[test]
-#[traced_test]
 fn ignore_trait_types() {
     let config = Config::default();
     let ctx = Context {
@@ -1735,10 +1767,157 @@ fn ignore_trait_types() {
         ",
         file: Path::new(""),
         ignore_mods: RefCell::new(HashSet::new()),
+        symbol_stack: RefCell::new(Vec::new()),
     };
     let parser = parse_file(ctx.file_contents).unwrap();
     let mut analysis = SourceAnalysis::new();
     analysis.process_items(&parser.items, &ctx);
     let lines = &analysis.lines[Path::new("")];
     assert!(lines.ignore.contains(&Lines::Line(5)));
+}
+
+#[test]
+fn get_function_names() {
+    let config = Config::default();
+    let ctx = Context {
+        config: &config,
+        file_contents: r#"use std::fmt;
+
+            pub fn add(left: usize, right: usize) -> usize { // 3
+                left + right
+            }
+
+            struct Wrapper<T>(T);
+
+            pub trait Foo {
+                fn five() -> u32 { // 10
+                    5
+                }
+                fn four() -> u32;
+            }
+
+            struct Marker;
+
+            impl Foo for Marker {
+                fn four() -> u32 { //19
+                    3
+                }
+            }
+
+            impl<T> fmt::Display for Wrapper<T> {
+                fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result { // 25
+                    writeln!(f, "Wrapped")
+                }
+            }
+
+            impl<T> Wrapper<T> {
+                fn unwrap(self) -> T { //31
+                    self.0
+                }
+            }
+
+            impl Marker {
+                fn marked() -> bool { //37
+                    true
+                }
+            }
+
+            fn nonsense() { //42
+                fn inner() { //43
+                    println!("yay?");
+                }
+                let x = |y| println!("{}", y); //46
+                println!("yabadabadoo");
+                inner();
+                x(6);
+            }
+
+
+            mod beep {
+                use super::*;
+
+
+                fn it_works() { //57
+                    let result = add(2, 2);
+                    assert_eq!(result, 4);
+                }
+            }
+
+            trait Foo2 {
+                fn five() -> u32;
+            }
+
+            impl Foo2 for Marker {
+                fn five() -> u32 { // 68
+                    10
+                }
+            }
+        "#,
+        file: Path::new("src.rs"),
+        ignore_mods: RefCell::new(HashSet::new()),
+        symbol_stack: RefCell::new(Vec::new()),
+    };
+
+    let parser = parse_file(ctx.file_contents).unwrap();
+    let mut analysis = SourceAnalysis::new();
+    analysis.process_items(&parser.items, &ctx);
+
+    let function_map = analysis.create_function_map();
+
+    let functions = &function_map[Path::new("src.rs")];
+
+    let expected_fns = vec![
+        Function {
+            name: "add".to_string(),
+            start: 3,
+            end: 5,
+        },
+        Function {
+            name: "Foo::five".to_string(),
+            start: 10,
+            end: 12,
+        },
+        Function {
+            name: "<impl Foo for Marker>::four".to_string(),
+            start: 19,
+            end: 21,
+        },
+        Function {
+            name: "<impl Display for Wrapper<T>>::fmt".to_string(),
+            start: 25,
+            end: 27,
+        },
+        Function {
+            name: "Wrapper<T>::unwrap".to_string(),
+            start: 31,
+            end: 33,
+        },
+        Function {
+            name: "Marker::marked".to_string(),
+            start: 37,
+            end: 39,
+        },
+        Function {
+            name: "nonsense".to_string(),
+            start: 42,
+            end: 50,
+        },
+        Function {
+            name: "nonsense::inner".to_string(),
+            start: 43,
+            end: 45,
+        },
+        Function {
+            name: "beep::it_works".to_string(),
+            start: 57,
+            end: 60,
+        },
+        Function {
+            name: "<impl Foo2 for Marker>::five".to_string(),
+            start: 68,
+            end: 70,
+        },
+    ];
+
+    assert_eq!(functions, &expected_fns);
 }

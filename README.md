@@ -10,11 +10,10 @@
 Tarpaulin is a code coverage reporting tool for the Cargo build system, named 
 for a waterproof cloth used to cover cargo on a ship.
 
-Currently, tarpaulin
-provides working line coverage, and while fairly reliable, may still contain 
-minor inaccuracies in the results. A lot of work has been done to get it
-working on a wide range of projects, but unique combinations of packages
-and build features can cause issues, so please report anything
+Currently, Tarpaulin provides working line coverage, and while fairly reliable, 
+may still contain  minor inaccuracies in the results. A lot of work has been 
+done to get it working on a wide range of projects, but unique combinations of
+packages and build features can cause issues, so please report anything
 you find that's wrong. Also, check out our roadmap for planned features.
 
 On Linux, Tarpaulin's default tracing backend is still Ptrace and will only work
@@ -112,7 +111,7 @@ Options:
 ### Note on tests using signals
 
 If your tests or application make use of unix signals they may not work with
-ptrace instrumentation in tarpaulin. This is because tarpaulin relies on the
+ptrace instrumentation in Tarpaulin. This is because Tarpaulin relies on the
 sigtrap signal to catch when the instrumentation points are hit. The
 `--forward` option results in forwarding the signals from process stops not
 caused by SIGSTOP, SIGSEGV or SIGILL to the test binary.
@@ -124,7 +123,7 @@ coverage instrumentation.
 
 1. If a test has a non-zero exit code coverage data isn't returned
 2. Some areas of thread unsafety
-3. Unable to handle fork and similar syscalls (one process will overwrite anothers
+3. Unable to handle fork and similar syscalls (one process will overwrite another's
 profraw file)
 
 In these cases coverage results may differ a lot between ptrace and llvm and llvm
@@ -152,30 +151,26 @@ a repo and the commit containing your project and paste the verbose output).
 ## Issues and Contributing
 
 Issues, feature requests and pull requests are always welcome! For a guide on
-how to approach bugs found in Tarpaulin and adding features please check
+how to approach bugs found in Tarpaulin and add features please check
 [CONTRIBUTING](CONTRIBUTING.md). If you're having any troubles also look to our 
 [TROUBLESHOOTING](TROUBLESHOOTING.md)
 
-Rust 1.23 introduced a regression in the compiler affecting tarpaulin's
+Rust 1.23 introduced a regression in the compiler affecting Tarpaulin's
 accuracy. If you see missing lines or files, check your compiler version.
 
 ## Usage
 
 ### Installation
 
-Tarpaulin is a command-line program, you install it into your linux development
+Tarpaulin is a command-line program, you install it into your development
 environment with cargo install:
 
 ```text
 cargo install cargo-tarpaulin
 ```
 
-Tarpaulin used to rely on Cargo as a dependency and then require an ssl install
-as well as other libraries but now it uses your system cargo simplifying the
-installation and massively reducing the install time on CI.
-
 When using the [Nix](https://nixos.org/nix) package manager, the `nixpkgs.cargo-tarpaulin` package can be used.
-This ensures that tarpaulin will be built with the same rust version as the rest of your packages.
+This ensures that Tarpaulin will be built with the same rust version as the rest of your packages.
 
 You can also use [cargo-binstall](https://github.com/ryankurte/cargo-binstall):
 
@@ -185,8 +180,8 @@ cargo binstall cargo-tarpaulin
 
 ### Environment Variables
 
-When tarpaulin runs your tests it strives to run them in the same environment as if they were ran via cargo test. 
-In order to achieve this it sets the following environment variables when executing the test binaries:
+When Tarpaulin runs your tests it strives to run them in the same environment as if they were run via cargo test. 
+To achieve this it sets the following environment variables when executing the test binaries:
 
 - **RUST_BACKTRACE**      - _When --verbose flag is used_
 - **CARGO_MANIFEST_DIR**  - _Path to Cargo.toml From --root | --manifest-path or guessed from the current or parent directory_
@@ -197,25 +192,25 @@ In order to achieve this it sets the following environment variables when execut
 
 ### Cargo Manifest
 
-In order for tarpaulin to construct the Cargo environment correctly, tarpaulin needs to find Cargo.toml by either:
+For Tarpaulin to construct the Cargo environment correctly, Tarpaulin needs to find Cargo.toml by either:
 
 - Using *--root* or *--manifest-path* or
 - By invoking Cargo from the current working directory within the project holding Cargo.toml manifest or
 - By invoking Cargo from a sub-directory within the project
 
-If Cargo does not find any Cargo.toml from using either of above methods the run will error "cargo metadata" and exit.
+If Cargo does not find any Cargo.toml from using either of the above methods the run will error "cargo metadata" and exit.
 
 Several RFCs are open in rust-lang to expose [more of these](https://doc.rust-lang.org/cargo/reference/environment-variables.html#environment-variables-cargo-sets-for-3rd-party-subcommands) directly in order to avoid the issues arising out of this.
 
 ### Command line
 
-To get detailed help on available arguments when running tarpaulin call:
+To get detailed help on available arguments when running Tarpaulin call:
 
 ```bash
 cargo tarpaulin --help
 ```
 
-Currently no options are required, if no root directory is defined Tarpaulin
+Currently, no options are required, if no root directory is defined Tarpaulin
 will run in the current working directory.
 
 Below is a Tarpaulin run utilising one of our example projects. This is a
@@ -289,14 +284,6 @@ my crate [keygraph-rs](https://github.com/xd009642/keygraph-rs).
 
 ### Ignoring code in files
 
-Before tarpaulin 0.13.4 you could ignore code in blocks with
-`#[cfg_attr(tarpaulin, skip)]` this has changed with 0.13.4 and onwards
-and the new instructions are described below. If you get compiler errors
-mentioning unknown attribute skip use the `--avoid-cfg-tarpaulin` flag, this
-affects a small number of users as it wasn't a largely adopted feature so also
-look to updating your code or seeing if any of your dependencies are out of
-date.
-
 Tarpaulin allows you to ignore modules or functions using attributes.
 Below is an example of ignoring the main function in a project:
 
@@ -306,19 +293,24 @@ fn main() {
     println!("I won't be included in results");
 }
 
-// Also supports the rustc `no_coverage` attribute.
+// Also supports the nightly rustc `no_coverage` attribute.
 #[no_coverage]
 fn not_included() {
 
 }
 ```
 
+Unfortunately, due to the unexpected cfg warnings cargo now emits you will
+likely want to add the recommended lints to your `Cargo.toml`, or utilise any
+existing build scripts. If you're using a nightly compiler then making use of
+unstable coverage attributes may be preferable.
+
 However, the skip attribute only allows you to exclude code from coverage
-it doesn't change the code present in the binaries or what tests are ran.
+it doesn't change the code present in the binaries or what tests are run.
 Because of this, `--cfg=tarpaulin` is used when building your project for
 Tarpaulin allowing you to also conditionally include/exclude code from
 compilation entirely. For example to have a test that isn't included in
-the test binaries when built with tarpaulin and cannot be ran just do:
+the test binaries when built with Tarpaulin and cannot be run just do:
 
 ```Rust
 #[test]
@@ -328,7 +320,7 @@ fn big_test_not_for_tarpaulin() {
 }
 ```
 
-If you still want the test included in the binary just ignored by default
+If you still want the test included in the binary and ignored by default
 you can use:
 
 ```Rust
@@ -339,7 +331,7 @@ fn ignored_by_tarpaulin() {
 }
 ```
 
-There is also nightly support for using tool attributes with tarpaulin for
+There is also nightly support for using tool attributes with Tarpaulin for
 skip. For example:
 
 ```Rust 
@@ -362,11 +354,11 @@ unnecessary recompilation attempting to add the `--skip-clean` flag should be
 the first step. After that you can either:
 
 1. Use `cargo tarpaulin --print-rust-flags` and use those flags for dev and coverage
-2. Use `--target-dir` when running tarpaulin and have a coverage build and dev build
+2. Use `--target-dir` when running Tarpaulin and have a coverage build and dev build
 
 ### Continuous Integration Services
 
-Tarpaulin aims to be easy to add to your CI workflow. With well tested support
+Tarpaulin aims to be easy to add to your CI workflow. With well-tested support
 for Travis-CI it also supports sending CI specific meta-data to coveralls.io for
 Circle, Semaphore, Jenkins and Codeship (though only Jenkins has been tested).
 
@@ -376,23 +368,23 @@ example config.
 
 #### Travis-ci and Coverage Sites
 
-The expected most common usecase is launching coverage via a CI service to
-upload to a site like codecov or coveralls. Given the built in support and
+The expected most common use case is launching coverage via a CI service to
+upload to a site like codecov or coveralls. Given the built-in support and
 ubiquity of travis-ci it seems prudent to document the required steps here for
 new users. To follow these steps you'll first need a travis-ci and a project setup
 for your coverage reporting site of choice.
 
 We recommend taking the minimal rust .travis.yml, installing the libssl-dev
-dependency tarpaulin has and then running Tarpaulin with the version of
+dependency Tarpaulin has and then running Tarpaulin with the version of
 rustc you require. Tarpaulin is installed in `before_cache` to allow it to be cached
 and prevent having to reinstall every Travis run. You can also replace `cargo test`
-with a verbose run of tarpaulin to see the test results as well as coverage output.
+with a verbose run of Tarpaulin to see the test results as well as coverage output.
 
-Tarpaulin is ran after success as there are still some unstable features which could
+Tarpaulin is run after success as there are still some unstable features which could
 cause coverage runs to fail. If you don't rely on any of these features you can
 alternatively replace `cargo test` with a call to `cargo tarpaulin`.
 
-For codecov.io you'll need to export CODECOV_TOKEN are instructions on this in
+For codecov.io you'll need to export `CODECOV_TOKEN` there are instructions on this in
 the settings of your codecov project.
 
 ```yml
@@ -434,7 +426,7 @@ after_success: |
 ```
 
 If you rely on certain nightly features you may need to change the `before_script` to
-`before_cache` to force tarpaulin to reinstall each time. However, if it can be avoided it
+`before_cache` to force Tarpaulin to reinstall each time. However, if it can be avoided it
 will speed up your CI runs.
 
 Alternatively, there are the prebuilt docker images or you can use
@@ -478,7 +470,7 @@ jobs:
 
 #### CircleCI
 
-To run tarpaulin on CircleCI you need to run tarpaulin in docker and set the
+To run Tarpaulin on CircleCI you need to run Tarpaulin in docker and set the
 machine flag to true as shown below:
 
 ```yml
@@ -570,18 +562,18 @@ out = ["Html", "Xml"]
 ```
 
 Here we'd create three configurations, one would run your tests with
-`feature_a` enabled, and the other with the tests built in release and
+`feature_a` enabled, and the other with the tests built-in release and
 both `feature_a` and `feature_b` enabled. The last configuration uses a reserved
 configuration name `report` and this doesn't result in a coverage run but
 affects the report output. This is a reserved feature name and any non-reporting
-based options chosen will have no effect on the output of tarpaulin.
+based options chosen will not affect the output of Tarpaulin.
 
 For reference on available keys and their types refer to the CLI help text
 at the start of the readme or `src/config/mod.rs` for the concrete types
 if anything is unclear. For arguments to be passed into the test binary that
-follow `--` in tarpaulin use `args` in the toml file.
+follow `--` in Tarpaulin use `args` in the toml file.
 
-Setting the field `config` will have no effect on the run as it won't be parsed
+Setting the field `config` will not affect the run as it won't be parsed
 for additional configuration.
 
 For the flags `--lib`, `--examples`, `--benches`, `--tests`, `--all-targets`,
@@ -589,14 +581,14 @@ For the flags `--lib`, `--examples`, `--benches`, `--tests`, `--all-targets`,
 
 ## Extending Tarpaulin
 
-There are some tools available which can extend tarpaulin functionality for
+There are some tools available which can extend Tarpaulin functionality for
 other potential user needs.
 
 ### Procedural Macros
 
 Normally, Tarpaulin can't report on code coverage within the code for a
 procedural macro. You'll need to add a test that expands the macro at run-time
-in order to get those stats. The
+to get those stats. The
 [`runtime-macros` crate](https://crates.io/crates/runtime-macros) was made for
 this purpose, and its documentation describes how to use it with Tarpaulin.
 
@@ -606,7 +598,7 @@ this purpose, and its documentation describes how to use it with Tarpaulin.
 for working with cobertura reports. It offers a report diffing tool as well as
 its own report implementations.
 
-To generate a `cobertura.xml` simply run the following tarpaulin command:
+To generate a `cobertura.xml` simply run the following Tarpaulin command:
 
 ```text
 cargo tarpaulin --out xml
@@ -614,7 +606,7 @@ cargo tarpaulin --out xml
 
 Then install `pycobertura` with pip and execute the desired command.
 
-As tarpaulin doesn't allow you to change the name of the generated cobertura
+As Tarpaulin doesn't allow you to change the name of the generated cobertura
 report be mindful of this if diffing reports between multiple commits.
 
 ## Roadmap

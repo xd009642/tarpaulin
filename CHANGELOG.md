@@ -3,10 +3,19 @@
 From 2019 onwards, all notable changes to tarpaulin will be documented in this
 file.
 
+## [0.31.0] 2024-07-22 
+### Added
+- Ability to remove coveralls from the build making openssl optional.
+
+### Changed
+- No longer print rustflags for report configs with `--print-rust-flags` 
+- Now use source code to get function names and locations instead of debug information
+
 ## [0.30.0] 2024-05-10
 ### Changed
 - Upgraded to syn2 and removed branch coverage module. This only had impact in debug dumps so shouldn't impact users
 - Ignore type definitions in trait implementations
+- Upgrade llvm-profparsers crate and now use sub-report filtering to skip dependency only coverage stats
 
 ## [0.29.2] 2024-05-08
 ### Changed

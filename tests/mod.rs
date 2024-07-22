@@ -19,7 +19,7 @@ use std::path::Path;
 use std::path::PathBuf;
 use std::time::Duration;
 use std::{env, fs};
-use tracing_test::traced_test;
+use test_log::test;
 
 #[cfg(nightly)]
 mod doc_coverage;
@@ -128,7 +128,6 @@ pub fn check_percentage(project_name: &str, minimum_coverage: f64, has_lines: bo
 rusty_fork_test! {
 
 #[test]
-#[traced_test]
 fn incorrect_manifest_path() {
     let mut config = Config::default();
     let mut invalid = config.manifest();
@@ -140,7 +139,6 @@ fn incorrect_manifest_path() {
 }
 
 #[test]
-#[traced_test]
 fn proc_macro_link() {
     let mut config = Config::default();
     config.test_timeout = Duration::from_secs(60);
@@ -151,19 +149,16 @@ fn proc_macro_link() {
 }
 
 #[test]
-#[traced_test]
 fn array_coverage() {
     check_percentage("arrays", 1.0f64, true);
 }
 
 #[test]
-#[traced_test]
 fn lets_coverage() {
     check_percentage("lets", 1.0f64, true);
 }
 
 #[test]
-#[traced_test]
 #[cfg_attr(not(target_os="linux"), ignore)] // TODO So there are linker issues I can't adequately diagnose myself in windows
 #[cfg(not(tarpaulin))]
 fn picking_up_shared_objects() {
@@ -174,7 +169,6 @@ fn picking_up_shared_objects() {
 
 // Just for linux if we have ptrace as default
 #[test]
-#[traced_test]
 fn llvm_sanity_test() {
     let mut config = Config::default();
     config.set_engine(TraceEngine::Llvm);
@@ -188,75 +182,72 @@ fn llvm_sanity_test() {
     check_percentage_with_config("follow_exe", 1.0f64, true, config);
 }
 
+#[cfg_attr(not(ptrace_supported), test)]
+#[should_panic]
+fn ptrace_not_unsupported_system() {
+    let config = Config::default();
+    config.set_engine(TraceEngine::Ptrace);
+
+    run_config("simple_project", config);
+}
+
 #[test]
-#[traced_test]
 fn struct_expr_coverage() {
     check_percentage("structs", 1.0f64, true);
 }
 
 #[test]
-#[traced_test]
 fn ifelse_expr_coverage() {
     check_percentage("ifelse", 1.0f64, true);
 }
 
 #[test]
-#[traced_test]
 fn returns_expr_coverage() {
     check_percentage("returns", 1.0f64, true);
 }
 
 #[test]
-#[traced_test]
 fn loops_expr_coverage() {
     check_percentage("loops", 1.0f64, true);
 }
 
 #[test]
-#[traced_test]
 fn loops_assigns_coverage() {
     check_percentage("assigns", 1.0f64, true);
 }
 
 #[test]
-#[traced_test]
 fn paths_coverage() {
     check_percentage("paths", 1.0f64, true);
 }
 
 #[test]
-#[traced_test]
 fn futures_coverage() {
     check_percentage("futures", 1.0f64, true);
 }
 
 #[test]
-#[traced_test]
 fn breaks_expr_coverage() {
     check_percentage("breaks", 0.95f64, true);
 }
 
 #[test]
-#[traced_test]
 fn continues_expr_coverage() {
     check_percentage("continues", 1.0f64, true);
 }
 
 #[test]
-#[traced_test]
 fn boxes_coverage() {
     check_percentage("boxes", 1.0f64, true);
 }
 
 #[test]
-#[traced_test]
 #[ignore]
 fn method_calls_expr_coverage() {
     check_percentage("method_calls", 1.0f64, true);
 }
 
 #[test]
-#[traced_test]
 #[cfg(not(windows))] // TODO fix
 fn config_file_coverage() {
     let test_dir = get_test_path("configs");
@@ -271,7 +262,6 @@ fn config_file_coverage() {
 }
 
 #[test]
-#[traced_test]
 fn issue_966_follow_exec() {
     let test_dir = get_test_path("follow_exec_issue966");
     let args = vec![
@@ -285,7 +275,6 @@ fn issue_966_follow_exec() {
 }
 
 #[test]
-#[traced_test]
 fn rustflags_config_coverage() {
     let test_dir = get_test_path("multiple_rustflags");
     let mut args = vec![
@@ -299,13 +288,11 @@ fn rustflags_config_coverage() {
 }
 
 #[test]
-#[traced_test]
 fn match_expr_coverage() {
     check_percentage("matches", 1.0f64, true);
 }
 
 #[test]
-#[traced_test]
 #[ignore]
 fn benchmark_coverage() {
     let test = "benchmark_coverage";
@@ -318,7 +305,6 @@ fn benchmark_coverage() {
 }
 
 #[test]
-#[traced_test]
 fn cargo_run_coverage() {
     let mut config = Config::default();
     config.command = Mode::Build;
@@ -327,7 +313,6 @@ fn cargo_run_coverage() {
 }
 
 #[test]
-#[traced_test]
 #[cfg(not(windows))] // TODO fix
 fn examples_coverage() {
     let test = "example_test";
@@ -345,7 +330,6 @@ fn examples_coverage() {
 }
 
 #[test]
-#[traced_test]
 fn access_env_var() {
     // This test is mainly to check that expected environment variables are present
     // using `CARGO_BIN_EXE_<name>` to test
@@ -354,27 +338,23 @@ fn access_env_var() {
 }
 
 #[test]
-#[traced_test]
 fn tarpaulin_attrs() {
     check_percentage("tarpaulin_attrs", 0.0f64, true);
 }
 
 #[test]
-#[traced_test]
 #[cfg(nightly)]
 fn tarpaulin_tool_attr() {
     check_percentage("tool_attr", 0.0f64, false);
 }
 
 #[test]
-#[traced_test]
 #[cfg(nightly)]
 fn filter_with_inner_attributes() {
     check_percentage("filter_inner_modules", 0.0f64, false);
 }
 
 #[test]
-#[traced_test]
 fn cargo_home_filtering() {
     let new_home =
         Path::new(env!("CARGO_MANIFEST_DIR")).join("tests/data/HttptestAndReqwest/new_home");
@@ -407,7 +387,6 @@ fn cargo_home_filtering() {
 }
 
 #[test]
-#[traced_test]
 fn rustflags_handling() {
     env::remove_var("RUSTFLAGS");
     check_percentage("rustflags", 1.0f64, true);
@@ -433,7 +412,6 @@ fn rustflags_handling() {
 }
 
 #[test]
-#[traced_test]
 fn follow_exes_down() {
     let mut config = Config::default();
     config.follow_exec = true;
@@ -442,13 +420,11 @@ fn follow_exes_down() {
 }
 
 #[test]
-#[traced_test]
 fn handle_module_level_exclude_attrs() {
     check_percentage("crate_level_ignores", 1.0f64, true);
 }
 
 #[test]
-#[traced_test]
 #[cfg(unix)]
 fn handle_forks() {
     let mut config = Config::default();
@@ -460,7 +436,6 @@ fn handle_forks() {
 }
 
 #[test]
-#[traced_test]
 fn no_test_args() {
     let test_dir = get_test_path("no_test_args");
     let args = vec![
@@ -474,7 +449,6 @@ fn no_test_args() {
 }
 
 #[test]
-#[traced_test]
 fn dot_rs_in_dir_name() {
     // issue #857
     let mut config = Config::default();
@@ -499,7 +473,6 @@ fn dot_rs_in_dir_name() {
 }
 
 #[test]
-#[traced_test]
 #[cfg(unix)]
 #[cfg(not(tarpaulin))]
 fn kill_used_in_test() {
@@ -519,7 +492,6 @@ fn kill_used_in_test() {
 
 
 #[test]
-#[traced_test]
 fn doc_test_bootstrap() {
     let mut config = Config::default();
     config.verbose = true;
@@ -540,7 +512,6 @@ fn doc_test_bootstrap() {
 }
 
 #[test]
-#[traced_test]
 #[cfg(windows)]
 fn sanitised_paths() {
     let test_dir = get_test_path("assigns");
@@ -593,7 +564,6 @@ fn sanitised_paths() {
 }
 
 #[test]
-#[traced_test]
 fn output_dir_workspace() {
     let test_dir = get_test_path("workspace");
     let report_dir = test_dir.join("reports");
@@ -639,7 +609,6 @@ fn output_dir_workspace() {
 
 
 #[test]
-#[traced_test]
 fn stripped_crate() {
     let mut config = Config::default();
     config.verbose = true;
@@ -651,7 +620,6 @@ fn stripped_crate() {
 
 
 #[test]
-#[traced_test]
 fn workspace_no_fail_fast() {
     let mut config = Config::default();
     config.set_clean(false);
@@ -672,13 +640,11 @@ fn workspace_no_fail_fast() {
 }
 
 #[test]
-#[traced_test]
 fn warning_flags_in_config() {
     check_percentage("config_warnings", 1.0f64, true);
 }
 
 #[test]
-#[traced_test]
 fn workspace_default_members() {
     let mut config = Config::default();
     config.set_clean(false);

@@ -3,7 +3,9 @@ use std::path::PathBuf;
 use clap::{Args, Parser};
 use glob::Pattern;
 
-use crate::config::{Ci, Color, Mode, OutputFile, RunType, TraceEngine};
+#[cfg(feature = "coveralls")]
+use crate::config::Ci;
+use crate::config::{Color, Mode, OutputFile, RunType, TraceEngine};
 
 #[derive(Debug, Parser)]
 #[command(name = "cargo-tarpaulin")]
@@ -198,6 +200,7 @@ pub struct ConfigArgs {
     /// Path to Cargo.toml
     #[arg(long, value_name = "PATH")]
     pub manifest_path: Option<PathBuf>,
+    #[cfg(feature = "coveralls")]
     /// CI server being used, if unspecified tarpaulin may automatically infer for coveralls uploads
     #[arg(long, value_name = "SERVICE")]
     pub ciserver: Option<Ci>,

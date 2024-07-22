@@ -4,6 +4,8 @@ use std::env;
 fn main() {
     println!("cargo::rustc-check-cfg=cfg(ptrace_supported)");
     println!("cargo::rustc-check-cfg=cfg(tarpaulin_include)");
+    println!("cargo::rustc-check-cfg=cfg(tarpaulin)");
+    println!("cargo::rustc-check-cfg=cfg(nightly)");
 
     assert!(version().expect("Couldn't get compiler version").major >= 1);
 

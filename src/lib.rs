@@ -28,6 +28,7 @@ pub mod traces;
 
 const RUST_LOG_ENV: &str = "RUST_LOG";
 
+#[cfg(not(tarpaulin_include))]
 pub fn setup_logging(color: Color, debug: bool, verbose: bool) {
     //By default, we set tarpaulin to info,debug,trace while all dependencies stay at INFO
     let base_exceptions = |env: EnvFilter| {
@@ -252,6 +253,7 @@ pub fn launch_tarpaulin(
     let executables = cargo::get_tests(config)?;
     if !config.no_run {
         let project_analysis = SourceAnalysis::get_analysis(config);
+        result.set_functions(project_analysis.create_function_map());
         let project_analysis = project_analysis.lines;
         let mut other_bins = config.objects().to_vec();
         other_bins.extend(executables.binaries.iter().cloned());

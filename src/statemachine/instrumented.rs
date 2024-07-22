@@ -135,7 +135,10 @@ impl<'a> StateData for LlvmInstrumentedData<'a> {
                             error!("Failed to get coverage: {}", e);
                             RunError::TestCoverage(e.to_string())
                         })?;
-                    let report = mapping.generate_report();
+                    let root = self.config.root();
+                    let report = mapping.generate_subreport(|paths| {
+                        paths.iter().any(|path| path.starts_with(&root))
+                    });
 
                     if self.traces.is_empty() {
                         for source_file in get_source_walker(self.config) {
