@@ -3,6 +3,7 @@ pub use self::types::*;
 use crate::path_utils::fix_unc_path;
 use crate::{args::ConfigArgs, cargo::supports_llvm_coverage};
 use cargo_metadata::{Metadata, MetadataCommand};
+#[cfg(feature = "coveralls")]
 use coveralls_api::CiService;
 use glob::Pattern;
 use humantime_serde::deserialize as humantime_serde;
@@ -69,6 +70,7 @@ pub struct Config {
     pub coveralls: Option<String>,
     /// Enum representing CI tool used.
     #[serde(rename = "ciserver", deserialize_with = "deserialize_ci_server")]
+    #[cfg(feature = "coveralls")]
     pub ci_tool: Option<CiService>,
     /// Only valid if coveralls option is set. If coveralls option is set,
     /// as well as report_uri, then the report will be sent to this endpoint
@@ -222,6 +224,7 @@ impl Default for Config {
             generate: vec![],
             output_directory: Default::default(),
             coveralls: None,
+            #[cfg(feature = "coveralls")]
             ci_tool: None,
             report_uri: None,
             forward_signals: true,
@@ -311,6 +314,7 @@ impl From<ConfigArgs> for ConfigWrapper {
             generate: args.out,
             output_directory: args.output_dir,
             coveralls: args.coveralls,
+            #[cfg(feature = "coveralls")]
             ci_tool: args.ciserver.map(|c| c.0),
             report_uri: args.report_uri,
             forward_signals: true, // No longer an option
@@ -618,7 +622,13 @@ impl Config {
         }
         self.root = Config::pick_optional_config(&self.root, &other.root);
         self.coveralls = Config::pick_optional_config(&self.coveralls, &other.coveralls);
-        self.ci_tool = Config::pick_optional_config(&self.ci_tool, &other.ci_tool);
+
+        cfg_if::cfg_if! {
+            if #[cfg(feature = "coveralls")] {
+                self.ci_tool = Config::pick_optional_config(&self.ci_tool, &other.ci_tool);
+            }
+        }
+
         self.report_uri = Config::pick_optional_config(&self.report_uri, &other.report_uri);
         self.target = Config::pick_optional_config(&self.target, &other.target);
         self.target_dir = Config::pick_optional_config(&self.target_dir, &other.target_dir);
@@ -1144,6 +1154,7 @@ mod tests {
         assert_eq!(b.exclude, vec![String::from("b"), String::from("c")]);
     }
 
+    #[cfg(feature = "coveralls")]
     #[test]
     fn coveralls_merge() {
         let toml = r#"[a]
