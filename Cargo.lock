@@ -198,7 +198,7 @@ dependencies = [
  "llvm_profparser",
  "nix",
  "num_cpus",
- "object 0.36.1",
+ "object 0.36.2",
  "proc-macro2",
  "procfs",
  "quick-xml",
@@ -1032,9 +1032,9 @@ dependencies = [
 
 [[package]]
 name = "object"
-version = "0.36.1"
+version = "0.36.2"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "081b846d1d56ddfc18fdf1a922e4f6e07a11768ea1b92dec44e42b72712ccfce"
+checksum = "3f203fa8daa7bb185f760ae12bd8e097f63d17041dcdcaf675ac54cdf863170e"
 dependencies = [
  "flate2",
  "memchr",
