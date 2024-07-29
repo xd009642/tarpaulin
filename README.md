@@ -293,8 +293,8 @@ fn main() {
     println!("I won't be included in results");
 }
 
-// Also supports the nightly rustc `no_coverage` attribute.
-#[no_coverage]
+// Also supports the nightly rustc `coverage(off)` attribute.
+#[coverage(off)]
 fn not_included() {
 
 }
