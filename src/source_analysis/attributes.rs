@@ -44,6 +44,8 @@ pub(crate) fn check_cfg_attr(attr: &Meta) -> bool {
     let mut ignore_span = false;
     let id = attr.path();
 
+    // no coverage is now deprecated in the compiler, so in future we can remove this just to
+    // minimise some of this code
     if id.is_ident("no_coverage") {
         ignore_span = true;
     } else if id.is_ident("coverage") {
