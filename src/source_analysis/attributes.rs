@@ -44,8 +44,17 @@ pub(crate) fn check_cfg_attr(attr: &Meta) -> bool {
     let mut ignore_span = false;
     let id = attr.path();
 
+    // no coverage is now deprecated in the compiler, so in future we can remove this just to
+    // minimise some of this code
     if id.is_ident("no_coverage") {
         ignore_span = true;
+    } else if id.is_ident("coverage") {
+        if let Meta::List(ml) = attr {
+            let _ = ml.parse_nested_meta(|nested| {
+                ignore_span |= nested.path.is_ident("off");
+                Ok(())
+            });
+        }
     } else if id.is_ident("cfg") {
         if let Meta::List(ml) = attr {
             let _ = ml.parse_nested_meta(|nested| {
@@ -62,7 +71,6 @@ pub(crate) fn check_cfg_attr(attr: &Meta) -> bool {
         }
     } else if id.is_ident("cfg_attr") {
         if let Meta::List(ml) = attr {
-            let tarp_cfged_ignores = &["no_coverage"];
             let mut first = true;
             let mut is_tarpaulin = false;
             let _ = ml.parse_nested_meta(|nested| {
@@ -70,7 +78,14 @@ pub(crate) fn check_cfg_attr(attr: &Meta) -> bool {
                     first = false;
                     is_tarpaulin = true;
                 } else if !first && is_tarpaulin {
-                    ignore_span |= tarp_cfged_ignores.iter().any(|x| nested.path.is_ident(x));
+                    if nested.path.is_ident("no_coverage") {
+                        ignore_span = true;
+                    } else if nested.path.is_ident("coverage") {
+                        let _ = nested.parse_nested_meta(|nested| {
+                            ignore_span |= nested.path.is_ident("off");
+                            Ok(())
+                        });
+                    }
                 }
                 Ok(())
             });

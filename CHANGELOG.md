@@ -3,6 +3,11 @@
 From 2019 onwards, all notable changes to tarpaulin will be documented in this
 file.
 
+## [0.31.1] 2024-08-05
+### Added
+- Support for `#[coverage(off)]` to exclude expressions from coverage results
+- Updated llvm_profparsers to llvm-19 version
+
 ## [0.31.0] 2024-07-22 
 ### Added
 - Ability to remove coveralls from the build making openssl optional.
