@@ -179,7 +179,7 @@ dependencies = [
 
 [[package]]
 name = "cargo-tarpaulin"
-version = "0.31.0"
+version = "0.31.1"
 dependencies = [
  "cargo_metadata",
  "cfg-if",
@@ -857,9 +857,9 @@ checksum = "01cda141df6706de531b6c46c3a33ecca755538219bd484262fa09410c13539c"
 
 [[package]]
 name = "llvm_profparser"
-version = "0.6.0"
+version = "0.7.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "fd541091965933763b1b06057086c5cbeff209c99e1af81154564570929a86b8"
+checksum = "98658087d4c3f1e03b6fd3474251bbb9353b2470cc0f03d81a46fd39077d0060"
 dependencies = [
  "anyhow",
  "flate2",
