@@ -169,7 +169,6 @@ impl TraceMap {
     }
 
     pub fn set_functions(&mut self, functions: HashMap<PathBuf, Vec<Function>>) {
-        println!("{:?}", functions);
         self.functions = functions;
     }
 
