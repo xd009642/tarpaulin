@@ -3,6 +3,10 @@
 From 2019 onwards, all notable changes to tarpaulin will be documented in this
 file.
 
+## [0.31.2] 2024-08-20
+### Changed
+- Removed debug printout of function map
+
 ## [0.31.1] 2024-08-05
 ### Added
 - Support for `#[coverage(off)]` to exclude expressions from coverage results
