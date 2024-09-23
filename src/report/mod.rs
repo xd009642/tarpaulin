@@ -178,7 +178,9 @@ fn print_summary(config: &Config, result: &TraceMap) {
         }
     }
     let percent = result.coverage_percentage() * 100.0f64;
-    if last.is_empty() {
+    if result.total_coverable() == 0 {
+        println!("No coverable lines found");
+    } else if last.is_empty() {
         println!(
             "|| \n{:.2}% coverage, {}/{} lines covered",
             percent,
