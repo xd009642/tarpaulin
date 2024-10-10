@@ -522,7 +522,9 @@ impl Config {
 
     /// Taking an existing config look for any relevant config files
     pub fn check_for_configs(&self) -> Option<PathBuf> {
-        if let Some(root) = &self.root {
+        if let Some(config_file) = env::var_os("CARGO_TARPAULIN_CONFIG_FILE") {
+            Some(config_file.into())
+        } else if let Some(root) = &self.root {
             Self::check_path_for_configs(root)
         } else if let Some(root) = self.manifest.clone().parent() {
             Self::check_path_for_configs(root)
