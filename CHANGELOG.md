@@ -3,6 +3,12 @@
 From 2019 onwards, all notable changes to tarpaulin will be documented in this
 file.
 
+## [0.31.3] 2024-10-10
+### Added
+- The `CARGO_TARPAULIN_CONFIG_FILE` environment variable may be used to set the
+  path to the configuration file. The command line argument has precedence,
+  but this environment variable has precedence over `tarpaulin.toml` and `.tarpaulin.toml`.
+
 ## [0.31.2] 2024-08-20
 ### Changed
 - Removed debug printout of function map
