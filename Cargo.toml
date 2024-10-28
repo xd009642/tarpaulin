@@ -35,7 +35,7 @@ llvm_profparser = { version = "0.7.0", default-features = false }
 object = "0.36"
 num_cpus = "1.16.0"
 proc-macro2 = { version = "1.0", features = ["span-locations"] }
-quick-xml = "0.36"
+quick-xml = "0.37"
 quote = "1.0"
 regex = "1.11"
 rustc-demangle = "0.1.24"
