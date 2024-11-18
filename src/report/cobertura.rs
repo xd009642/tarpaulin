@@ -44,7 +44,6 @@ use std::fmt;
 use std::fs::File;
 use std::io::{Cursor, Write};
 use std::path::{Path, PathBuf};
-use std::sync::Arc;
 use std::time::{SystemTime, UNIX_EPOCH};
 
 use quick_xml::{
@@ -65,7 +64,7 @@ pub fn report(traces: &TraceMap, config: &Config) -> Result<(), Error> {
 #[derive(Debug)]
 pub enum Error {
     Unknown,
-    ExportError(quick_xml::Error),
+    ExportError(std::io::Error),
 }
 
 impl error::Error for Error {}
@@ -121,8 +120,7 @@ impl Report {
 
     pub fn export(&self, config: &Config) -> Result<(), Error> {
         let file_path = config.output_dir().join("cobertura.xml");
-        let mut file = File::create(file_path)
-            .map_err(|e| Error::ExportError(quick_xml::Error::Io(Arc::new(e))))?;
+        let mut file = File::create(file_path).map_err(|e| Error::ExportError(e))?;
 
         let mut writer = Writer::new(Cursor::new(vec![]));
         writer
@@ -164,11 +162,10 @@ impl Report {
             .map_err(Error::ExportError)?;
 
         let result = writer.into_inner().into_inner();
-        file.write_all(&result)
-            .map_err(|e| Error::ExportError(quick_xml::Error::Io(Arc::new(e))))
+        file.write_all(&result).map_err(|e| Error::ExportError(e))
     }
 
-    fn export_header<T: Write>(&self, writer: &mut Writer<T>) -> Result<(), quick_xml::Error> {
+    fn export_header<T: Write>(&self, writer: &mut Writer<T>) -> Result<(), std::io::Error> {
         let sources_tag = "sources";
         let source_tag = "source";
         writer.write_event(Event::Start(BytesStart::new(sources_tag)))?;
@@ -184,7 +181,7 @@ impl Report {
             .map(|_| ())
     }
 
-    fn export_packages<T: Write>(&self, writer: &mut Writer<T>) -> Result<(), quick_xml::Error> {
+    fn export_packages<T: Write>(&self, writer: &mut Writer<T>) -> Result<(), std::io::Error> {
         let packages_tag = "packages";
         let pack_tag = "package";
 
@@ -211,7 +208,7 @@ impl Report {
         &self,
         classes: &[Class],
         writer: &mut Writer<T>,
-    ) -> Result<(), quick_xml::Error> {
+    ) -> Result<(), std::io::Error> {
         let classes_tag = "classes";
         let class_tag = "class";
         let methods_tag = "methods";
@@ -239,7 +236,7 @@ impl Report {
         &self,
         lines: &[Line],
         writer: &mut Writer<T>,
-    ) -> Result<(), quick_xml::Error> {
+    ) -> Result<(), std::io::Error> {
         let lines_tag = "lines";
         let line_tag = "line";
 
