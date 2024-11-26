@@ -293,7 +293,7 @@ fn run_cargo(
                     _ => {}
                 },
                 Ok(Message::BuildScriptExecuted(bs))
-                    if !(bs.linked_libs.is_empty() || bs.linked_paths.is_empty()) =>
+                    if !(bs.linked_libs.is_empty() && bs.linked_paths.is_empty()) =>
                 {
                     let temp_paths = bs.linked_paths.iter().filter_map(|x| {
                         if x.as_std_path().exists() {
