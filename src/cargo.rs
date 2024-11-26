@@ -108,7 +108,13 @@ impl TestBinary {
     }
 
     pub fn has_linker_paths(&self) -> bool {
-        !self.linker_paths.is_empty()
+        cfg_if::cfg_if! {
+            if #[cfg(any(windows, macos))] {
+                false
+            } else {
+                !self.linker_paths.is_empty()
+            }
+        }
     }
 
     pub fn is_test_type(&self) -> bool {
