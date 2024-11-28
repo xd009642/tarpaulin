@@ -171,7 +171,7 @@ fn only_bench_coverage() {
 }
 
 #[test]
-#[cfg(feature = "nightly")]
+#[cfg(nightly)]
 fn only_doctest_coverage() {
     let mut config = Config::default();
     config.set_clean(false);
