@@ -1,4 +1,4 @@
-use crate::cargo::rust_flags;
+use crate::cargo::{rust_flags, LD_PATH_VAR};
 use crate::config::Color;
 use crate::generate_tracemap;
 use crate::path_utils::get_profile_walker;
@@ -181,7 +181,7 @@ fn get_env_vars(test: &TestBinary, config: &Config) -> Vec<(String, String)> {
 
     for (key, value) in env::vars() {
         // Avoid adding it twice
-        if key == "LD_LIBRARY_PATH" && test.has_linker_paths() || key == "RUSTFLAGS" {
+        if key == LD_PATH_VAR && test.has_linker_paths() || key == "RUSTFLAGS" {
             continue;
         }
         envars.push((key.to_string(), value.to_string()));
@@ -202,7 +202,7 @@ fn get_env_vars(test: &TestBinary, config: &Config) -> Vec<(String, String)> {
         envars.push(("CARGO_MANIFEST_DIR".to_string(), s.display().to_string()));
     }
     if test.has_linker_paths() {
-        envars.push(("LD_LIBRARY_PATH".to_string(), test.ld_library_path()));
+        envars.push((LD_PATH_VAR.to_string(), test.ld_library_path()));
     }
     envars.push(("RUSTFLAGS".to_string(), rust_flags(config)));
 
@@ -299,10 +299,10 @@ mod tests {
 
         if let Some(ld) = vars
             .iter()
-            .find(|(key, _)| key == "LD_LIBRARY_PATH")
+            .find(|(key, _)| key == LD_PATH_VAR)
             .map(|(_, val)| val)
         {
-            let sys = env::var("LD_LIBRARY_PATH").unwrap();
+            let sys = env::var(LD_PATH_VAR).unwrap();
             assert_eq!(ld, &sys);
         }
 
@@ -313,7 +313,7 @@ mod tests {
         let vars = get_env_vars(&binary, &default_config);
         let res = vars
             .iter()
-            .find(|(key, _)| key == "LD_LIBRARY_PATH")
+            .find(|(key, _)| key == LD_PATH_VAR)
             .map(|(_, val)| val);
 
         assert!(res.is_some());

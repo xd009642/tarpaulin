@@ -154,6 +154,12 @@ fn array_coverage() {
 }
 
 #[test]
+fn dependency_build_script() {
+    // From issue #1297
+    check_percentage("metatensor", 1.0f64, true);
+}
+
+#[test]
 fn lets_coverage() {
     check_percentage("lets", 1.0f64, true);
 }
