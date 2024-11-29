@@ -30,6 +30,7 @@ fn main() -> Result<(), String> {
         logging_args.color.unwrap_or(Color::Auto),
         logging_args.debug,
         logging_args.verbose,
+        logging_args.stderr,
     );
 
     let config = ConfigWrapper::from(args.config);

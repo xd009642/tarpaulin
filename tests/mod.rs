@@ -91,7 +91,7 @@ pub fn check_percentage_with_config(
 
     // Note to contributors. If an integration test fails, uncomment this to be able to see the
     // tarpaulin logs
-    //cargo_tarpaulin::setup_logging(true, true);
+    //cargo_tarpaulin::setup_logging(true, true, false);
     let event_log = if config.dump_traces {
         let mut paths = HashSet::new();
         paths.insert(config.manifest());
