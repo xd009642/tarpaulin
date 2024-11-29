@@ -7,6 +7,7 @@ file.
 ### Changed
 - For `LD_LIBRARY_PATH` get all link paths from build script outputs
 - Use `PATH` on windows and `DYLIB_LIBRARY_PATH` for mac instead of `LD_LIBRARY_PATH`
+- Add `--stderr` flag to print tarpaulin logs to stderr
 
 ## [0.31.3] 2024-10-10
 ### Added

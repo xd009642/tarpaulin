@@ -6,7 +6,7 @@ use crate::traces::*;
 use cargo_metadata::Metadata;
 use serde::Serialize;
 use std::fs::{create_dir_all, File};
-use std::io::BufReader;
+use std::io::{self, BufReader, Write};
 use tracing::{error, info};
 
 pub mod cobertura;
@@ -108,7 +108,12 @@ fn generate_requested_reports(config: &Config, result: &TraceMap) -> Result<(), 
 }
 
 fn print_missing_lines(config: &Config, result: &TraceMap) {
-    println!("|| Uncovered Lines:");
+    let mut w: Box<dyn Write> = if config.stderr {
+        Box::new(io::stderr().lock())
+    } else {
+        Box::new(io::stdout().lock())
+    };
+    writeln!(w, "|| Uncovered Lines:").unwrap();
     for (key, value) in result.iter() {
         let path = config.strip_base_dir(key);
         let mut uncovered_lines = vec![];
@@ -123,7 +128,7 @@ fn print_missing_lines(config: &Config, result: &TraceMap) {
             .fold((vec![], vec![]), accumulate_lines);
         let (groups, _) = accumulate_lines((groups, last_group), u64::max_value());
         if !groups.is_empty() {
-            println!("|| {}: {}", path.display(), groups.join(", "));
+            writeln!(w, "|| {}: {}", path.display(), groups.join(", ")).unwrap();
         }
     }
 }
@@ -147,11 +152,17 @@ fn get_previous_result(config: &Config) -> Option<TraceMap> {
 }
 
 fn print_summary(config: &Config, result: &TraceMap) {
+    let mut w: Box<dyn Write> = if config.stderr {
+        Box::new(io::stderr().lock())
+    } else {
+        Box::new(io::stdout().lock())
+    };
     let last = match get_previous_result(config) {
         Some(l) => l,
         None => TraceMap::new(),
     };
-    println!("|| Tested/Total Lines:");
+    // All the `writeln` unwraps are fine, it's basically what the `println` macro does
+    writeln!(w, "|| Tested/Total Lines:").unwrap();
     for file in result.files() {
         if result.coverable_in_path(file) == 0 {
             continue;
@@ -161,41 +172,49 @@ fn print_summary(config: &Config, result: &TraceMap) {
             let last_percent = coverage_percentage(last.get_child_traces(file));
             let current_percent = coverage_percentage(result.get_child_traces(file));
             let delta = 100.0f64 * (current_percent - last_percent);
-            println!(
+            writeln!(
+                w,
                 "|| {}: {}/{} {:+.2}%",
                 path.display(),
                 result.covered_in_path(file),
                 result.coverable_in_path(file),
                 delta
-            );
+            )
+            .unwrap();
         } else {
-            println!(
+            writeln!(
+                w,
                 "|| {}: {}/{}",
                 path.display(),
                 result.covered_in_path(file),
                 result.coverable_in_path(file)
-            );
+            )
+            .unwrap();
         }
     }
     let percent = result.coverage_percentage() * 100.0f64;
     if result.total_coverable() == 0 {
-        println!("No coverable lines found");
+        writeln!(w, "No coverable lines found").unwrap();
     } else if last.is_empty() {
-        println!(
+        writeln!(
+            w,
             "|| \n{:.2}% coverage, {}/{} lines covered",
             percent,
             result.total_covered(),
             result.total_coverable()
-        );
+        )
+        .unwrap();
     } else {
         let delta = percent - 100.0f64 * last.coverage_percentage();
-        println!(
+        writeln!(
+            w,
             "|| \n{:.2}% coverage, {}/{} lines covered, {:+.2}% change in coverage",
             percent,
             result.total_covered(),
             result.total_coverable(),
             delta
-        );
+        )
+        .unwrap();
     }
 }
 

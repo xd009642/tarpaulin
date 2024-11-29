@@ -226,6 +226,9 @@ pub struct LoggingArgs {
     /// Log tracing events and save to a json file. Also, enabled when --debug is used
     #[arg(long)]
     pub dump_traces: bool,
+    /// Log to stderr instead
+    #[arg(long)]
+    pub stderr: bool,
 }
 
 #[derive(Debug, Clone, Copy, Args)]
