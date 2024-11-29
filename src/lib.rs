@@ -10,6 +10,7 @@ use crate::test_loader::*;
 use crate::traces::*;
 use std::ffi::OsString;
 use std::fs::{create_dir_all, remove_dir_all};
+use std::io;
 use tracing::{debug, error, info, warn};
 use tracing_subscriber::{filter::LevelFilter, EnvFilter};
 
@@ -29,7 +30,7 @@ pub mod traces;
 const RUST_LOG_ENV: &str = "RUST_LOG";
 
 #[cfg(not(tarpaulin_include))]
-pub fn setup_logging(color: Color, debug: bool, verbose: bool) {
+pub fn setup_logging(color: Color, debug: bool, verbose: bool, stderr: bool) {
     //By default, we set tarpaulin to info,debug,trace while all dependencies stay at INFO
     let base_exceptions = |env: EnvFilter| {
         if debug {
@@ -66,11 +67,16 @@ pub fn setup_logging(color: Color, debug: bool, verbose: bool) {
 
     let with_ansi = color != Color::Never;
 
-    let res = tracing_subscriber::FmtSubscriber::builder()
+    let builder = tracing_subscriber::FmtSubscriber::builder()
         .with_max_level(tracing::Level::ERROR)
         .with_env_filter(filter)
-        .with_ansi(with_ansi)
-        .try_init();
+        .with_ansi(with_ansi);
+
+    let res = if stderr {
+        builder.with_writer(io::stderr).try_init()
+    } else {
+        builder.try_init()
+    };
 
     if let Err(e) = res {
         eprintln!("Logging may be misconfigured: {e}");

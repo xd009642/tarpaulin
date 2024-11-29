@@ -19,6 +19,16 @@ use walkdir::{DirEntry, WalkDir};
 
 const BUILD_PROFRAW: &str = "build_rs_cov.profraw";
 
+cfg_if::cfg_if! {
+    if #[cfg(target_os = "windows")] {
+        pub const LD_PATH_VAR: &'static str ="PATH";
+    } else if #[cfg(any(target_os = "macos", target_os = "ios"))] {
+        pub const LD_PATH_VAR: &'static str = "DYLD_LIBRARY_PATH";
+    } else {
+        pub const LD_PATH_VAR: &'static str =  "LD_LIBRARY_PATH";
+    }
+}
+
 #[derive(Copy, Clone, Debug, Eq, PartialEq, Hash, Ord, PartialOrd)]
 enum Channel {
     Stable,
@@ -118,14 +128,22 @@ impl TestBinary {
     /// Convert linker paths to an LD_LIBRARY_PATH.
     /// TODO this won't work for windows when it's implemented
     pub fn ld_library_path(&self) -> String {
+        cfg_if::cfg_if! {
+            if #[cfg(windows)] {
+                const PATH_SEP: &str = ";";
+            } else {
+                const PATH_SEP: &str  = ":";
+            }
+        }
+
         let mut new_vals = self
             .linker_paths
             .iter()
             .map(|x| x.display().to_string())
             .collect::<Vec<String>>()
-            .join(":");
-        if let Ok(ld) = env::var("LD_LIBRARY_PATH") {
-            new_vals.push(':');
+            .join(PATH_SEP);
+        if let Ok(ld) = env::var(LD_PATH_VAR) {
+            new_vals.push_str(PATH_SEP);
             new_vals.push_str(ld.as_str());
         }
         new_vals
@@ -293,7 +311,7 @@ fn run_cargo(
                     _ => {}
                 },
                 Ok(Message::BuildScriptExecuted(bs))
-                    if !(bs.linked_libs.is_empty() || bs.linked_paths.is_empty()) =>
+                    if !(bs.linked_libs.is_empty() && bs.linked_paths.is_empty()) =>
                 {
                     let temp_paths = bs.linked_paths.iter().filter_map(|x| {
                         if x.as_std_path().exists() {

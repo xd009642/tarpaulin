@@ -3,6 +3,17 @@
 From 2019 onwards, all notable changes to tarpaulin will be documented in this
 file.
 
+## [0.31.3] 2024-11-29
+### Added
+- The `CARGO_TARPAULIN_CONFIG_FILE` environment variable may be used to set the
+  path to the configuration file. The command line argument has precedence,
+  but this environment variable has precedence over `tarpaulin.toml` and `.tarpaulin.toml`.
+
+### Changed
+- For `LD_LIBRARY_PATH` get all link paths from build script outputs
+- Use `PATH` on windows and `DYLIB_LIBRARY_PATH` for mac instead of `LD_LIBRARY_PATH`
+- Add `--stderr` flag to print tarpaulin logs to stderr
+
 ## [0.31.2] 2024-08-20
 ### Changed
 - Removed debug printout of function map

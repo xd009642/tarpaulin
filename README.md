@@ -42,6 +42,7 @@ Options:
       --debug                      Show debug output - this is used for diagnosing issues with tarpaulin
   -v, --verbose                    Show extra output
       --dump-traces                Log tracing events and save to a json file. Also, enabled when --debug is used
+      --stderr                     Print tarpaulin logs to stderr instead - test output will still be printed to stdout
       --run-types <TYPE>           Type of the coverage run [possible values: Tests, Doctests, Benchmarks, Examples, Lib, Bins, AllTargets]
       --benches                    Test all benches
       --doc                        Test only this library's documentation
@@ -543,7 +544,8 @@ the seccomp policies for Docker.
 ### Config file
 
 Tarpaulin has a config file setting where multiple coverage setups can be
-encoded in a toml file. This can be provided by an argument or if a
+encoded in a toml file. This can be provided by an argument,
+by the environment variable `CARGO_TARPAULIN_CONFIG_FILE` or if a
 `.tarpaulin.toml` or `tarpaulin.toml` is present in the same directory as
 the projects manifest or in the root directory that will be used unless
 `--ignore-config` is passed. Below is an example file:

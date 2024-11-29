@@ -190,6 +190,8 @@ pub struct Config {
     profraw_folder: PathBuf,
     /// Option to fail immediately after a single test fails
     pub fail_immediately: bool,
+    /// Log to stderr instead
+    pub stderr: bool,
 }
 
 fn default_test_timeout() -> Duration {
@@ -264,6 +266,7 @@ impl Default for Config {
             objects: vec![],
             profraw_folder: PathBuf::from("profraws"),
             fail_immediately: false,
+            stderr: false,
         }
     }
 }
@@ -351,6 +354,7 @@ impl From<ConfigArgs> for ConfigWrapper {
             objects: canonicalize_paths(args.objects),
             profraw_folder: PathBuf::from("profraws"),
             fail_immediately: args.fail_immediately,
+            stderr: args.logging.stderr,
         };
         if args.ignore_config {
             Self(vec![args_config])
@@ -522,7 +526,9 @@ impl Config {
 
     /// Taking an existing config look for any relevant config files
     pub fn check_for_configs(&self) -> Option<PathBuf> {
-        if let Some(root) = &self.root {
+        if let Some(config_file) = env::var_os("CARGO_TARPAULIN_CONFIG_FILE") {
+            Some(config_file.into())
+        } else if let Some(root) = &self.root {
             Self::check_path_for_configs(root)
         } else if let Some(root) = self.manifest.clone().parent() {
             Self::check_path_for_configs(root)
@@ -612,6 +618,7 @@ impl Config {
         self.branch_coverage |= other.branch_coverage;
         self.dump_traces |= other.dump_traces;
         self.offline |= other.offline;
+        self.stderr |= other.stderr;
         if self.manifest != other.manifest && self.manifest == default_manifest() {
             self.manifest = other.manifest.clone();
         }

@@ -1,6 +1,6 @@
 [package]
 name = "cargo-tarpaulin"
-version = "0.31.2"
+version = "0.31.3"
 authors = ["Daniel McKenna <danielmckenna93@gmail.com>"]
 description = "Cargo-Tarpaulin is a tool to determine code coverage achieved via tests"
 repository = "https://github.com/xd009642/tarpaulin"
@@ -20,13 +20,13 @@ name = "integration"
 path = "tests/mod.rs"
 
 [dependencies]
-cargo_metadata = "0.18"
+cargo_metadata = "0.19"
 cfg-if = "1.0.0"
 chrono = "0.4"
 clap = { version = "4.4.0", features = ["derive"] }
 coveralls-api = { version = "0.6.0", optional = true }
 fallible-iterator = "0.3.0"
-gimli = "0.31.0"
+gimli = "0.31.1"
 git2 =  { version = "0.19", optional = true }
 humantime-serde = "1"
 indexmap = { version = "~1.8", features = ["serde-1"] }
@@ -35,9 +35,9 @@ llvm_profparser = { version = "0.7.0", default-features = false }
 object = "0.36"
 num_cpus = "1.16.0"
 proc-macro2 = { version = "1.0", features = ["span-locations"] }
-quick-xml = "0.36"
+quick-xml = "0.37"
 quote = "1.0"
-regex = "1.10"
+regex = "1.11"
 rustc-demangle = "0.1.24"
 serde = { version = "1.0", features = ["derive"] }
 serde_json = "1.0"
@@ -58,7 +58,7 @@ glob = "0.3.1"
 [target.'cfg(all(target_os = "linux", any(target_arch = "x86_64", target_arch = "x86")))'.dependencies]
 libc = "0.2.94"
 nix = {version = "0.29.0", default-features = false, features = ["sched", "signal", "ptrace", "personality"]}
-procfs = "0.16"
+procfs = "0.17"
 
 [features]
 default = ["coveralls"]

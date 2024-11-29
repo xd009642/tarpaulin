@@ -1,0 +1,7 @@
+[package]
+name = "tarpaulin-metatensor"
+version = "0.1.0"
+edition = "2021"
+
+[dependencies]
+metatensor = "0.2"
