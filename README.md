@@ -42,6 +42,7 @@ Options:
       --debug                      Show debug output - this is used for diagnosing issues with tarpaulin
   -v, --verbose                    Show extra output
       --dump-traces                Log tracing events and save to a json file. Also, enabled when --debug is used
+      --stderr                     Print tarpaulin logs to stderr instead - test output will still be printed to stdout
       --run-types <TYPE>           Type of the coverage run [possible values: Tests, Doctests, Benchmarks, Examples, Lib, Bins, AllTargets]
       --benches                    Test all benches
       --doc                        Test only this library's documentation

@@ -226,7 +226,7 @@ pub struct LoggingArgs {
     /// Log tracing events and save to a json file. Also, enabled when --debug is used
     #[arg(long)]
     pub dump_traces: bool,
-    /// Log to stderr instead
+    /// Print tarpaulin logs to stderr instead - test output will still be printed to stdout
     #[arg(long)]
     pub stderr: bool,
 }
