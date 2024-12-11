@@ -571,7 +571,7 @@ affects the report output. This is a reserved feature name and any non-reporting
 based options chosen will not affect the output of Tarpaulin.
 
 For reference on available keys and their types refer to the CLI help text
-at the start of the readme or `src/config/mod.rs` for the concrete types
+at the start of the readme or [`src/config/mod.rs`](https://github.com/xd009642/tarpaulin/blob/develop/src/config/mod.rs) for the concrete types
 if anything is unclear. For arguments to be passed into the test binary that
 follow `--` in Tarpaulin use `args` in the toml file. Find an example `tarpaulin.toml` file below.
 
