@@ -576,6 +576,7 @@ if anything is unclear. For arguments to be passed into the test binary that
 follow `--` in Tarpaulin use `args` in the toml file. Find an example `tarpaulin.toml` file below.
 
 ```toml
+[all]
 # The name of the project or the configuration.
 name = "my_project"
 
