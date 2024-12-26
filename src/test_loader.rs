@@ -287,6 +287,7 @@ fn get_line_addresses<'data>(
                         config.include_tests() || !k.path.starts_with(project.join("tests"))
                     })
                     .filter(|(ref k, _)| !(config.exclude_path(&k.path)))
+                    .filter(|(ref k, _)| (config.include_path(&k.path)))
                     .filter(|(ref k, _)| {
                         !analysis.should_ignore(k.path.as_ref(), &(k.line as usize))
                     })
@@ -335,13 +336,20 @@ fn get_line_addresses<'data>(
         }
     }
 
+    let trace_analysis = add_line_analysis(analysis, config, &result);
+    result.merge(&trace_analysis);
+    Ok(result)
+}
+
+fn add_line_analysis(analysis: &HashMap<PathBuf, LineAnalysis>, config: &Config, input_trace: &TraceMap) -> TraceMap {
+    let mut result_trace = TraceMap::new();
     for (file, line_analysis) in analysis.iter() {
-        if config.exclude_path(file) {
+        if config.exclude_path(file) || !config.include_path(file) {
             continue;
         }
         for line in &line_analysis.cover {
             let line = *line as u64;
-            if !result.contains_location(file, line) && !line_analysis.should_ignore(line as usize)
+            if !input_trace.contains_location(file, line) && !line_analysis.should_ignore(line as usize)
             {
                 let rpath = config.strip_base_dir(file);
                 trace!(
@@ -349,11 +357,12 @@ fn get_line_addresses<'data>(
                     rpath.display(),
                     line
                 );
-                result.add_trace(file, Trace::new_stub(line));
+                result_trace.add_trace(file, Trace::new_stub(line));
             }
         }
     }
-    Ok(result)
+
+    result_trace
 }
 
 #[cfg(ptrace_supported)]

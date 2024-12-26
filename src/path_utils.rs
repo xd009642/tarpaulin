@@ -94,6 +94,7 @@ pub fn get_source_walker(config: &Config) -> impl Iterator<Item = DirEntry> + '_
         .filter_entry(move |e| is_coverable_file_path(e.path(), &root, &target))
         .filter_map(Result::ok)
         .filter(move |e| !(config.exclude_path(e.path())))
+        .filter(move |e| (config.include_path(e.path())))
         .filter(is_source_file)
 }
 

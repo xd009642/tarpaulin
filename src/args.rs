@@ -134,6 +134,9 @@ pub struct ConfigArgs {
     /// Exclude given files from coverage results has * wildcard
     #[arg(long, value_name = "FILE", num_args = 0..)]
     pub exclude_files: Vec<Pattern>,
+    /// Include only given files in coverage results. Can have a * wildcard
+    #[arg(long, value_name = "FILE", num_args = 0..)]
+    pub include_files: Vec<Pattern>,
     /// Integer for the maximum time in seconds without response from test before timeout (default is 1 minute).
     #[arg(long, short, value_name = "SECONDS")]
     pub timeout: Option<u64>,
