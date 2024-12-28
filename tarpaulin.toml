@@ -113,6 +113,9 @@ exclude = []
 # List of file paths to exclude from testing.
 exclude-files = []
 
+# List of file paths to include (and exclude all others) from testing.
+include-files = []
+
 # Additional arguments to pass to the test executables.
 args = []
 

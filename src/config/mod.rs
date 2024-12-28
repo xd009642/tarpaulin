@@ -852,8 +852,8 @@ impl Config {
         let project = self.strip_base_dir(path);
 
         //if empty, then parameter not used, thus all files are included by default
-        if self.included_files.borrow().len() == 0 {
-            return true
+        if self.included_files.borrow().is_empty() {
+            return true;
         }
 
         self.included_files
