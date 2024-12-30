@@ -53,7 +53,7 @@ tracing-subscriber = { version = "0.3.19", default-features = false, features = 
     "tracing-log",
 ] }
 walkdir = "2.5.0"
-glob = "0.3.1"
+glob = "0.3.2"
 
 [target.'cfg(all(target_os = "linux", any(target_arch = "x86_64", target_arch = "x86")))'.dependencies]
 libc = "0.2.169"
