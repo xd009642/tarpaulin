@@ -127,6 +127,12 @@ pub struct Config {
     /// Files to exclude from testing in uncompiled form (for serde)
     #[serde(rename = "exclude-files")]
     excluded_files_raw: Vec<String>,
+    /// Files to include in testing in their compiled form
+    #[serde(skip_deserializing, skip_serializing)]
+    included_files: RefCell<Vec<glob::Pattern>>,
+    /// Files to include in testing in uncompiled form (for serde)
+    #[serde(rename = "include-files")]
+    included_files_raw: Vec<String>,
     /// Varargs to be forwarded to the test executables.
     #[serde(rename = "args")]
     pub varargs: Vec<String>,
@@ -238,6 +244,8 @@ impl Default for Config {
             exclude: vec![],
             excluded_files: RefCell::new(vec![]),
             excluded_files_raw: vec![],
+            included_files: RefCell::new(vec![]),
+            included_files_raw: vec![],
             varargs: vec![],
             test_timeout: default_test_timeout(),
             release: false,
@@ -330,6 +338,8 @@ impl From<ConfigArgs> for ConfigWrapper {
             exclude: args.exclude,
             excluded_files_raw: args.exclude_files.iter().map(Pattern::to_string).collect(),
             excluded_files: RefCell::new(args.exclude_files),
+            included_files_raw: args.include_files.iter().map(Pattern::to_string).collect(),
+            included_files: RefCell::new(args.include_files),
             varargs: args.args,
             test_timeout: Duration::from_secs(args.timeout.unwrap_or(60)),
             release: args.release,
@@ -776,6 +786,15 @@ impl Config {
             let mut excluded_files = self.excluded_files.borrow_mut();
             excluded_files.clear();
         }
+
+        if !other.included_files_raw.is_empty() {
+            self.included_files_raw
+                .extend_from_slice(&other.included_files_raw);
+
+            // Now invalidated the compiled regex cache so clear it
+            let mut included_files = self.included_files.borrow_mut();
+            included_files.clear();
+        }
     }
 
     pub fn pick_optional_config<T: Clone>(
@@ -816,6 +835,28 @@ impl Config {
         let project = self.strip_base_dir(path);
 
         self.excluded_files
+            .borrow()
+            .iter()
+            .any(|x| x.matches_path(&project))
+    }
+
+    #[inline]
+    pub fn include_path(&self, path: &Path) -> bool {
+        if self.included_files.borrow().len() != self.included_files_raw.len() {
+            let mut included_files = self.included_files.borrow_mut();
+            let mut compiled = globs_from_excluded(&self.included_files_raw);
+            included_files.clear();
+            included_files.append(&mut compiled);
+        }
+
+        let project = self.strip_base_dir(path);
+
+        //if empty, then parameter not used, thus all files are included by default
+        if self.included_files.borrow().is_empty() {
+            return true;
+        }
+
+        self.included_files
             .borrow()
             .iter()
             .any(|x| x.matches_path(&project))
@@ -977,6 +1018,30 @@ mod tests {
     }
 
     #[test]
+    fn include_paths_directory_separators() {
+        let args = TarpaulinCli::parse_from(vec![
+            "tarpaulin",
+            "--include-files",
+            "src/foo/*",
+            "src\\bar\\*",
+        ]);
+        let conf = ConfigWrapper::from(args.config).0;
+        assert_eq!(conf.len(), 1);
+        assert!(conf[0].include_path(Path::new("src/foo/file.rs")));
+        assert!(conf[0].include_path(Path::new("src\\bar\\file.rs")));
+
+        cfg_if::cfg_if! {
+            if #[cfg(windows)] {
+                assert!(conf[0].include_path(Path::new("src\\foo\\file.rs")));
+                assert!(conf[0].include_path(Path::new("src/bar/file.rs")));
+            } else {
+                assert!(!conf[0].include_path(Path::new("src\\foo\\file.rs")));
+                assert!(!conf[0].include_path(Path::new("src/bar/file.rs")));
+            }
+        }
+    }
+
+    #[test]
     fn no_exclusions() {
         let args = TarpaulinCli::parse_from(vec!["tarpaulin"]);
         let conf = ConfigWrapper::from(args.config).0;
@@ -985,6 +1050,11 @@ mod tests {
         assert!(!conf[0].exclude_path(Path::new("src/mod.rs")));
         assert!(!conf[0].exclude_path(Path::new("unrelated.rs")));
         assert!(!conf[0].exclude_path(Path::new("module.rs")));
+
+        assert!(conf[0].include_path(Path::new("src/module/file.rs")));
+        assert!(conf[0].include_path(Path::new("src/mod.rs")));
+        assert!(conf[0].include_path(Path::new("unrelated.rs")));
+        assert!(conf[0].include_path(Path::new("module.rs")));
     }
 
     #[test]
@@ -996,6 +1066,17 @@ mod tests {
         assert!(!conf[0].exclude_path(Path::new("src/mod.rs")));
         assert!(!conf[0].exclude_path(Path::new("src/notlib.rs")));
         assert!(!conf[0].exclude_path(Path::new("lib.rs")));
+    }
+
+    #[test]
+    fn include_exact_file() {
+        let args = TarpaulinCli::parse_from(vec!["tarpaulin", "--include-files", "*/lib.rs"]);
+        let conf = ConfigWrapper::from(args.config).0;
+        assert_eq!(conf.len(), 1);
+        assert!(conf[0].include_path(Path::new("src/lib.rs")));
+        assert!(!conf[0].include_path(Path::new("src/mod.rs")));
+        assert!(!conf[0].include_path(Path::new("src/notlib.rs")));
+        assert!(!conf[0].include_path(Path::new("lib.rs")));
     }
 
     #[test]

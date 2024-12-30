@@ -81,6 +81,7 @@ Options:
   -p, --packages [<PACKAGE>...]    Package id specifications for which package should be build. See cargo help pkgid for more info
   -e, --exclude [<PACKAGE>...]     Package id specifications to exclude from coverage. See cargo help pkgid for more info
       --exclude-files [<FILE>...]  Exclude given files from coverage results has * wildcard
+      --include-files [<FILE>...]  Include only given files in coverage results. Can have a * wildcard
   -t, --timeout <SECONDS>          Integer for the maximum time in seconds without response from test before timeout (default is 1 minute)
       --post-test-delay <SECONDS>  Delay after test to collect coverage profiles
       --follow-exec                Follow executed processes capturing coverage information if they're part of your project
