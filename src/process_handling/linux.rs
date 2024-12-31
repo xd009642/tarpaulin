@@ -99,9 +99,6 @@ pub fn execute(
     envar: &[(String, String)],
 ) -> Result<TestHandle, RunError> {
     let program = CString::new(test.display().to_string()).unwrap_or_default();
-    // Move inferior to a different process group than tarpaulin so signals etc applied to
-    // tarpaulin don't apply to our inferior process
-    setpgid(Pid::from_raw(0), Pid::from_raw(0));
     if is_aslr_enabled() {
         disable_aslr().map_err(|e| RunError::TestRuntime(format!("ASLR disable failed: {e}")))?;
     }
