@@ -81,6 +81,7 @@ Options:
   -p, --packages [<PACKAGE>...]    Package id specifications for which package should be build. See cargo help pkgid for more info
   -e, --exclude [<PACKAGE>...]     Package id specifications to exclude from coverage. See cargo help pkgid for more info
       --exclude-files [<FILE>...]  Exclude given files from coverage results has * wildcard
+      --include-files [<FILE>...]  Include only given files in coverage results. Can have a * wildcard
   -t, --timeout <SECONDS>          Integer for the maximum time in seconds without response from test before timeout (default is 1 minute)
       --post-test-delay <SECONDS>  Delay after test to collect coverage profiles
       --follow-exec                Follow executed processes capturing coverage information if they're part of your project
@@ -571,9 +572,9 @@ affects the report output. This is a reserved feature name and any non-reporting
 based options chosen will not affect the output of Tarpaulin.
 
 For reference on available keys and their types refer to the CLI help text
-at the start of the readme or `src/config/mod.rs` for the concrete types
+at the start of the readme or [`src/config/mod.rs`](https://github.com/xd009642/tarpaulin/blob/develop/src/config/mod.rs) for the concrete types
 if anything is unclear. For arguments to be passed into the test binary that
-follow `--` in Tarpaulin use `args` in the toml file.
+follow `--` in Tarpaulin use `args` in the toml file. Find an example in the projects [`tarpaulin.toml](./tarpaulin.toml) file.
 
 Setting the field `config` will not affect the run as it won't be parsed
 for additional configuration.
