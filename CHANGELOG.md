@@ -3,6 +3,10 @@
 From 2019 onwards, all notable changes to tarpaulin will be documented in this
 file.
 
+## [0.31.4] 2024-12-31
+### Added
+- Added `--include-files` argument to only display coverage for the mentioned files (#1667)
+
 ## [0.31.3] 2024-11-29
 ### Added
 - The `CARGO_TARPAULIN_CONFIG_FILE` environment variable may be used to set the
