@@ -11,7 +11,6 @@ use nix::sys::personality;
 use nix::unistd::*;
 use std::ffi::{CStr, CString};
 use std::path::Path;
-use std::process::Command;
 use tracing::{info, warn};
 
 lazy_static! {

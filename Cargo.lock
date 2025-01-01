@@ -180,7 +180,6 @@ dependencies = [
  "chrono",
  "clap",
  "coveralls-api",
- "fallible-iterator",
  "gimli 0.31.1",
  "git2",
  "glob",
