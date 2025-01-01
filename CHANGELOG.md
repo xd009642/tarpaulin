@@ -3,6 +3,10 @@
 From 2019 onwards, all notable changes to tarpaulin will be documented in this
 file.
 
+## [Unreleased]
+### Changed
+- ASLR detection was slightly broken - although it wouldn't break anything unless setting was broken as well.
+
 ## [0.31.4] 2024-12-31
 ### Added
 - Added `--include-files` argument to only display coverage for the mentioned files (#1667)
