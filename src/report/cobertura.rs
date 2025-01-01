@@ -362,6 +362,8 @@ fn render_class(config: &Config, traces: &TraceMap, file: &Path) -> Option<Class
     }
 }
 
+/// So I don't currently export out methods for cobertura. This may change in future easily enough
+/// though so leaving the type here as a potential stub.
 #[derive(Debug)]
 struct Method {
     name: String,
@@ -369,14 +371,6 @@ struct Method {
     line_rate: f64,
     branch_rate: f64,
     lines: Vec<Line>,
-}
-
-fn render_methods() -> Vec<Method> {
-    unimplemented!()
-}
-
-fn render_method() -> Method {
-    unimplemented!()
 }
 
 #[derive(Debug)]
