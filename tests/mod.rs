@@ -673,4 +673,14 @@ fn workspace_default_members() {
     assert!(files[1].ends_with(Path::new("workspace_2/src/lib.rs")));
 }
 
+#[test]
+fn nested_project_include_files() {
+    // Issue #1676
+    let mut config = Config::default();
+    config.set_clean(false);
+    config.set_included_files(vec!["src/*".to_string()]);
+
+    let res = check_percentage_with_config("issue1676", 1.0f64, true, config.clone());
+}
+
 }

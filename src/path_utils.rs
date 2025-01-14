@@ -86,7 +86,7 @@ pub fn is_coverable_file_path(
 }
 
 pub fn get_source_walker(config: &Config) -> impl Iterator<Item = DirEntry> + '_ {
-    let root = config.root();
+    let root = config.source_root();
     let target = config.target_dir();
 
     let walker = WalkDir::new(&root).into_iter();

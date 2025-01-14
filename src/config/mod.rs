@@ -466,6 +466,11 @@ impl Config {
         self.target_dir = Some(target_dir);
     }
 
+    /// Used for testing otherwise this is expected to come just from CLI args
+    pub fn set_included_files(&mut self, include_raw: Vec<String>) {
+        self.included_files_raw = include_raw;
+    }
+
     pub fn doctest_dir(&self) -> PathBuf {
         // https://github.com/rust-lang/rust/issues/98690
         let mut result = self.target_dir();
@@ -483,6 +488,19 @@ impl Config {
             }
         }
         self.metadata.borrow()
+    }
+
+    pub fn source_root(&self) -> PathBuf {
+        let root = self.root();
+        if self
+            .included_files_raw
+            .iter()
+            .any(|x| x.starts_with("../") || x.starts_with("..\\"))
+        {
+            root.parent().unwrap().to_path_buf()
+        } else {
+            root
+        }
     }
 
     pub fn root(&self) -> PathBuf {
@@ -841,13 +859,18 @@ impl Config {
     }
 
     #[inline]
-    pub fn include_path(&self, path: &Path) -> bool {
+    fn init_included_files(&self) {
         if self.included_files.borrow().len() != self.included_files_raw.len() {
             let mut included_files = self.included_files.borrow_mut();
             let mut compiled = globs_from_excluded(&self.included_files_raw);
             included_files.clear();
             included_files.append(&mut compiled);
         }
+    }
+
+    #[inline]
+    pub fn include_path(&self, path: &Path) -> bool {
+        self.init_included_files();
 
         let project = self.strip_base_dir(path);
 
