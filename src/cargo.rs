@@ -942,13 +942,7 @@ mod tests {
 
     #[test]
     fn can_get_libdir() {
-        let config = Config::default();
-        let path = get_libdir(
-            &config.manifest().to_string_lossy(),
-            &config,
-            Some(RunType::Tests),
-        )
-        .unwrap();
+        let path = get_libdir(Some(RunType::Tests)).unwrap();
         assert!(path.exists(), "{} doesn't exist", path.display());
     }
 
