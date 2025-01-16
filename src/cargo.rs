@@ -278,7 +278,10 @@ fn run_cargo(
     trace!("Running command {:?}", cmd);
     let mut child = cmd.spawn().map_err(|e| RunError::Cargo(e.to_string()))?;
     let update_from = result.test_binaries.len();
-    let mut paths = vec![];
+    let mut paths = match get_libdir(ty) {
+        Some(path) => vec![path],
+        None => vec![],
+    };
 
     if ty != Some(RunType::Doctests) {
         let mut package_ids = vec![None; result.test_binaries.len()];
@@ -514,7 +517,7 @@ fn find_str_in_file(file: &Path, value: &str) -> io::Result<Vec<usize>> {
     Ok(lines)
 }
 
-fn create_command(manifest_path: &str, config: &Config, ty: Option<RunType>) -> Command {
+fn start_cargo_command(ty: Option<RunType>) -> Command {
     let mut test_cmd = Command::new("cargo");
     let bootstrap = matches!(env::var("RUSTC_BOOTSTRAP").as_deref(), Ok("1"));
     let override_toolchain = if cfg!(windows) {
@@ -541,13 +544,37 @@ fn create_command(manifest_path: &str, config: &Config, ty: Option<RunType>) -> 
                 test_cmd.args(["+nightly"]);
             }
         }
-        test_cmd.args(["test"]);
     } else {
         if override_toolchain {
             if let Ok(toolchain) = env::var("RUSTUP_TOOLCHAIN") {
                 test_cmd.arg(format!("+{toolchain}"));
             }
         }
+    }
+    test_cmd
+}
+
+fn get_libdir(ty: Option<RunType>) -> Option<PathBuf> {
+    let mut test_cmd = start_cargo_command(ty);
+    test_cmd.env("RUSTC_BOOTSTRAP", "1");
+    test_cmd.args(["rustc", "-Z", "unstable-options", "--print=target-libdir"]);
+
+    let output = match test_cmd.output() {
+        Ok(output) => String::from_utf8_lossy(&output.stdout).trim().to_string(),
+        Err(e) => {
+            debug!("Unable to run cargo rustc command: {}", e);
+            warn!("Unable to get target libdir proc macro crates in the workspace may not work. Consider adding `--exclude` to remove them from compilation");
+            return None;
+        }
+    };
+    Some(PathBuf::from(output))
+}
+
+fn create_command(manifest_path: &str, config: &Config, ty: Option<RunType>) -> Command {
+    let mut test_cmd = start_cargo_command(ty);
+    if ty == Some(RunType::Doctests) {
+        test_cmd.args(["test"]);
+    } else {
         if config.command == Mode::Test {
             test_cmd.args(["test", "--no-run"]);
         } else {
@@ -912,6 +939,18 @@ pub fn llvm_coverage_rustflag() -> &'static str {
 mod tests {
     use super::*;
     use toml::toml;
+
+    #[test]
+    fn can_get_libdir() {
+        let config = Config::default();
+        let path = get_libdir(
+            &config.manifest().to_string_lossy(),
+            &config,
+            Some(RunType::Tests),
+        )
+        .unwrap();
+        assert!(path.exists(), "{} doesn't exist", path.display());
+    }
 
     #[test]
     #[cfg(not(windows))]
