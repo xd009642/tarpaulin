@@ -11,7 +11,6 @@ use nix::sys::personality;
 use nix::unistd::*;
 use std::ffi::{CStr, CString};
 use std::path::Path;
-use std::process::Command;
 use tracing::{info, warn};
 
 lazy_static! {
@@ -63,17 +62,9 @@ fn disable_aslr() -> nix::Result<()> {
 }
 
 fn is_aslr_enabled() -> bool {
-    // Create a Command instance with the 'cat' command and the path to the file as arguments
-    let output = Command::new("cat")
-        .arg("/proc/sys/kernel/random/boot_random")
-        .output()
-        .unwrap();
-
-    // Convert the output to a String and store it in a variable
-    let output_str = String::from_utf8(output.stdout).unwrap();
-
-    // Check if the output string is not '0' (case-insensitive) and return the result
-    output_str.trim().to_lowercase() != "0"
+    !personality::get()
+        .map(|x| x.contains(personality::Persona::ADDR_NO_RANDOMIZE))
+        .unwrap_or(true)
 }
 
 pub fn limit_affinity() -> nix::Result<()> {
@@ -119,4 +110,16 @@ pub fn execute(
     execve(&program, &arg_ref, &env_ref).map_err(|_| RunError::Internal)?;
 
     unreachable!();
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn can_disable_aslr() {
+        assert!(is_aslr_enabled());
+        disable_aslr().unwrap();
+        assert!(!is_aslr_enabled());
+    }
 }

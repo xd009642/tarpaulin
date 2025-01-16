@@ -98,14 +98,14 @@ target-dir = "./target"
 # Run the tests without accessing the network (offline mode).
 offline = false
 
-# Cargo subcommand to run; options are "test" or "build".
-command = "test"
+# Cargo subcommand to run; options are "Test" or "Build".
+command = "Test"
 
-# Types of tests to collect coverage for. For example: ["unit", "integration"]
-run-types = ["unit"]
+# Types of tests to collect coverage for. For example: ["Lib", "AllTargets", "Benchmarks", "Bins", "Examples", "Doctests", "Tests"]
+run-types = ["AllTargets"]
 
 # List of packages to include when building the target project.
-packages = ["my_package"]
+packages = []
 
 # List of packages to exclude from testing.
 exclude = []
@@ -156,7 +156,7 @@ no-fail-fast = false
 avoid-cfg-tarpaulin = false
 
 # Colouring of logs in the terminal output (e.g., "auto", "always", "never").
-color = "auto"
+color = "Auto"
 
 # Follow traced executables down through function calls.
 follow-exec = true
