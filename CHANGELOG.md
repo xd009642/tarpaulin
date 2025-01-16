@@ -3,9 +3,10 @@
 From 2019 onwards, all notable changes to tarpaulin will be documented in this
 file.
 
-## [Unreleased]
+## [0.31.5] 2025-01-16
 ### Changed
 - ASLR detection was slightly broken - although it wouldn't break anything unless setting was broken as well.
+- Detect the libdir path by rustc and link to it to enable proc-macro test binaries to run without error #1642
 
 ## [0.31.4] 2024-12-31
 ### Added
