@@ -430,7 +430,7 @@ fn convert_to_prefix(p: &Path) -> Option<String> {
     // Need to go from directory after last one with Cargo.toml
     let convert_name = |p: &Path| {
         if let Some(s) = p.file_name() {
-            s.to_str().map(|x| x.replace('.', "_")).unwrap_or_default()
+            s.to_str().map(|x| x.replace(['.', '-'], "_")).unwrap_or_default()
         } else {
             String::new()
         }
