@@ -427,31 +427,26 @@ fn run_cargo(
 }
 
 fn convert_to_prefix(p: &Path) -> Option<String> {
-    // Need to go from directory after last one with Cargo.toml
-    let convert_name = |p: &Path| {
-        if let Some(s) = p.file_name() {
-            s.to_str().map(|x| x.replace('.', "_")).unwrap_or_default()
-        } else {
-            String::new()
+    let mut buffer = vec![];
+    let mut p = Some(p);
+    while let Some(path_temp) = p {
+        // The only component of the path that should be lacking a filename is the final empty
+        // parent of a relative path, which we don't want to include anyway.
+        if let Some(name) = path_temp.file_name().and_then(|s| s.to_str()) {
+            buffer.push(name.replace(['.', '-'], "_"));
         }
-    };
-    let mut buffer = vec![convert_name(p)];
-    let mut parent = p.parent();
-    while let Some(path_temp) = parent {
-        buffer.insert(0, convert_name(path_temp));
-        parent = path_temp.parent();
+        p = path_temp.parent();
     }
     if buffer.is_empty() {
         None
     } else {
+        buffer.reverse();
         Some(buffer.join("_"))
     }
 }
 
 fn is_prefix_match(prefix: &str, entry: &Path) -> bool {
-    convert_to_prefix(entry)
-        .map(|s| s.contains(prefix))
-        .unwrap_or(false)
+    convert_to_prefix(entry).as_deref() == Some(prefix)
 }
 
 /// This returns a map of the string prefixes for the file in the doc test and a list of lines
