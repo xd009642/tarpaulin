@@ -3,6 +3,12 @@
 From 2019 onwards, all notable changes to tarpaulin will be documented in this
 file.
 
+## [Unreleased]
+### Changed
+- doctest name resolution changed to be exact match not suffix match. This should only break doc test coverage
+for nightlies >1 year old
+- Fixed handling of dashes in doctest name resolution
+
 ## [0.31.5] 2025-01-16
 ### Changed
 - ASLR detection was slightly broken - although it wouldn't break anything unless setting was broken as well.
