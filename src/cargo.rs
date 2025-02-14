@@ -942,6 +942,7 @@ mod tests {
     #[cfg(not(any(windows, target_os = "macos")))]
     fn check_dead_code_flags() {
         let mut config = Config::default();
+        config.set_engine(TraceEngine::Ptrace);
         assert!(rustdoc_flags(&config).contains("link-dead-code"));
         assert!(rust_flags(&config).contains("link-dead-code"));
 
