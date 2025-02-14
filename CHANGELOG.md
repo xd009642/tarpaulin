@@ -3,7 +3,7 @@
 From 2019 onwards, all notable changes to tarpaulin will be documented in this
 file.
 
-## [Unreleased]
+## [0.32.0] 2025-02-14
 ### Changed
 - doctest name resolution changed to be exact match not suffix match. This should only break doc test coverage
 for nightlies >1 year old
