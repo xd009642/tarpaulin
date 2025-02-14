@@ -8,6 +8,7 @@ file.
 - doctest name resolution changed to be exact match not suffix match. This should only break doc test coverage
 for nightlies >1 year old
 - Fixed handling of dashes in doctest name resolution
+- Now disable dead code inclusion for mac's by default due to [rust-lang/rust#137009](https://github.com/rust-lang/rust/issues/137009)
 
 ## [0.31.5] 2025-01-16
 ### Changed
