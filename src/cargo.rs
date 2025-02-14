@@ -704,7 +704,7 @@ fn handle_llvm_flags(value: &mut String, config: &Config) {
     if config.engine() == TraceEngine::Llvm {
         value.push_str(llvm_coverage_rustflag());
     }
-    if cfg!(not(windows)) && !config.no_dead_code {
+    if cfg!(not(windows)) && cfg!(not(target_os = "macos")) && !config.no_dead_code {
         value.push_str(" -Clink-dead-code ");
     }
 }
@@ -942,7 +942,7 @@ mod tests {
     }
 
     #[test]
-    #[cfg(not(windows))]
+    #[cfg(not(any(windows, target_os = "macos")))]
     fn check_dead_code_flags() {
         let mut config = Config::default();
         assert!(rustdoc_flags(&config).contains("link-dead-code"));
