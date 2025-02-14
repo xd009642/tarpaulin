@@ -4,6 +4,7 @@ use cargo_tarpaulin::path_utils::*;
 use cargo_tarpaulin::traces::TraceMap;
 use cargo_tarpaulin::{
     args::TarpaulinCli,
+    cargo::rust_flags,
     config::{Config, ConfigWrapper, Mode, OutputFile, RunType, TraceEngine},
 };
 use cargo_tarpaulin::{launch_tarpaulin, run};
@@ -264,7 +265,8 @@ fn config_file_coverage() {
     ];
     check_percentage_with_cli_args(1.0f64, true, &args);
     args.push("--ignore-config".to_string());
-    check_percentage_with_cli_args(0.0f64, true, &args);
+    let has_lines = rust_flags(&Config::default()).contains("dead-code");
+    check_percentage_with_cli_args(0.0f64, has_lines, &args);
 }
 
 #[test]
@@ -322,7 +324,8 @@ fn cargo_run_coverage() {
 #[cfg(not(windows))] // TODO fix
 fn examples_coverage() {
     let test = "example_test";
-    check_percentage(test, 0.0f64, true);
+    let has_lines = rust_flags(&Config::default()).contains("dead-code");
+    check_percentage(test, 0.0f64, has_lines);
 
     let mut config = Config::default();
     config.run_types = vec![RunType::Examples];
