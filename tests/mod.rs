@@ -4,7 +4,6 @@ use cargo_tarpaulin::path_utils::*;
 use cargo_tarpaulin::traces::TraceMap;
 use cargo_tarpaulin::{
     args::TarpaulinCli,
-    cargo::rust_flags,
     config::{Config, ConfigWrapper, Mode, OutputFile, RunType, TraceEngine},
 };
 use cargo_tarpaulin::{launch_tarpaulin, run};
@@ -166,7 +165,7 @@ fn lets_coverage() {
 }
 
 #[test]
-#[cfg_attr(not(target_os="linux"), ignore)] // TODO So there are linker issues I can't adequately diagnose myself in windows
+#[cfg_attr(target_os="macos", ignore)]
 #[cfg(not(tarpaulin))]
 fn picking_up_shared_objects() {
     // Need a project which downloads a shared object to target folder and uses build script to set
@@ -255,7 +254,7 @@ fn method_calls_expr_coverage() {
 }
 
 #[test]
-#[cfg(not(windows))] // TODO fix
+//#[cfg(not(windows))] // TODO fix
 fn config_file_coverage() {
     let test_dir = get_test_path("configs");
     let mut args = vec![
@@ -265,8 +264,7 @@ fn config_file_coverage() {
     ];
     check_percentage_with_cli_args(1.0f64, true, &args);
     args.push("--ignore-config".to_string());
-    let has_lines = rust_flags(&Config::default()).contains("dead-code");
-    check_percentage_with_cli_args(0.0f64, has_lines, &args);
+    check_percentage_with_cli_args(0.0f64, true, &args);
 }
 
 #[test]
@@ -321,11 +319,10 @@ fn cargo_run_coverage() {
 }
 
 #[test]
-#[cfg(not(windows))] // TODO fix
+//#[cfg(not(windows))] // TODO fix
 fn examples_coverage() {
     let test = "example_test";
-    let has_lines = rust_flags(&Config::default()).contains("dead-code");
-    check_percentage(test, 0.0f64, has_lines);
+    check_percentage(test, 0.0f64, true);
 
     let mut config = Config::default();
     config.run_types = vec![RunType::Examples];

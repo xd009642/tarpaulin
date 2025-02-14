@@ -703,8 +703,7 @@ fn clean_doctest_folder<P: AsRef<Path>>(doctest_dir: P) {
 fn handle_llvm_flags(value: &mut String, config: &Config) {
     if config.engine() == TraceEngine::Llvm {
         value.push_str(llvm_coverage_rustflag());
-    }
-    if cfg!(not(windows)) && cfg!(not(target_os = "macos")) && !config.no_dead_code {
+    } else if !config.no_dead_code {
         value.push_str(" -Clink-dead-code ");
     }
 }
@@ -945,6 +944,7 @@ mod tests {
     #[cfg(not(any(windows, target_os = "macos")))]
     fn check_dead_code_flags() {
         let mut config = Config::default();
+        config.set_engine(TraceEngine::Ptrace);
         assert!(rustdoc_flags(&config).contains("link-dead-code"));
         assert!(rust_flags(&config).contains("link-dead-code"));
 
