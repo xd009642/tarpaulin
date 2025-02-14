@@ -4,7 +4,6 @@ use cargo_tarpaulin::path_utils::*;
 use cargo_tarpaulin::traces::TraceMap;
 use cargo_tarpaulin::{
     args::TarpaulinCli,
-    cargo::rust_flags,
     config::{Config, ConfigWrapper, Mode, OutputFile, RunType, TraceEngine},
 };
 use cargo_tarpaulin::{launch_tarpaulin, run};

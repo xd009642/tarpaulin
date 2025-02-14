@@ -703,6 +703,8 @@ fn clean_doctest_folder<P: AsRef<Path>>(doctest_dir: P) {
 fn handle_llvm_flags(value: &mut String, config: &Config) {
     if config.engine() == TraceEngine::Llvm {
         value.push_str(llvm_coverage_rustflag());
+    } else if !config.no_dead_code {
+        value.push_str(" -Clink-dead-code ");
     }
 }
 
