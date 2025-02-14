@@ -9,6 +9,7 @@ file.
 for nightlies >1 year old
 - Fixed handling of dashes in doctest name resolution
 - Now disable dead code inclusion for mac's by default due to [rust-lang/rust#137009](https://github.com/rust-lang/rust/issues/137009)
+- Remove link-dead-code from llvm engine coverage jobs
 
 ## [0.31.5] 2025-01-16
 ### Changed
