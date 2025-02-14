@@ -165,7 +165,7 @@ fn lets_coverage() {
 }
 
 #[test]
-#[cfg_attr(not(target_os="linux"), ignore)] // TODO So there are linker issues I can't adequately diagnose myself in windows
+#[cfg_attr(target_os="macos", ignore)]
 #[cfg(not(tarpaulin))]
 fn picking_up_shared_objects() {
     // Need a project which downloads a shared object to target folder and uses build script to set
@@ -254,7 +254,7 @@ fn method_calls_expr_coverage() {
 }
 
 #[test]
-#[cfg(not(windows))] // TODO fix
+//#[cfg(not(windows))] // TODO fix
 fn config_file_coverage() {
     let test_dir = get_test_path("configs");
     let mut args = vec![
@@ -319,7 +319,7 @@ fn cargo_run_coverage() {
 }
 
 #[test]
-#[cfg(not(windows))] // TODO fix
+//#[cfg(not(windows))] // TODO fix
 fn examples_coverage() {
     let test = "example_test";
     check_percentage(test, 0.0f64, true);

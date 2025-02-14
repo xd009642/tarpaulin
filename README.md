@@ -612,16 +612,6 @@ Then install `pycobertura` with pip and execute the desired command.
 As Tarpaulin doesn't allow you to change the name of the generated cobertura
 report be mindful of this if diffing reports between multiple commits.
 
-## Roadmap
-
-* [ ] Branch coverage for tests
-* [ ] Condition coverage for tests
-* [ ] MCDC coverage reports
-* [x] LLVM coverage support
-* [ ] Support for embedded targets
-* [x] OSX support
-* [x] Windows support
-
 ## License
 
 Tarpaulin is currently licensed under the terms of both the MIT license and the
