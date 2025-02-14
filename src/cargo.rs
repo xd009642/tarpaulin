@@ -942,7 +942,7 @@ mod tests {
     }
 
     #[test]
-    #[cfg(not(windows))]
+    #[cfg(or(not(windows), not(target_os = "macos")))]
     fn check_dead_code_flags() {
         let mut config = Config::default();
         assert!(rustdoc_flags(&config).contains("link-dead-code"));
