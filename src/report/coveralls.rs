@@ -5,7 +5,7 @@ use coveralls_api::*;
 use std::collections::HashMap;
 use std::fs;
 use std::path::{Path, PathBuf};
-use tracing::{info, trace, warn};
+use tracing::{info, warn};
 
 fn get_git_info(manifest_path: &Path) -> Result<GitInfo, String> {
     let dir_path = manifest_path
@@ -39,6 +39,20 @@ fn get_git_info(manifest_path: &Path) -> Result<GitInfo, String> {
 
     let author = commit.author();
     let committer = commit.committer();
+
+    let mut remotes = vec![];
+    if let Ok(remote_names) = repo.remotes() {
+        for name in remote_names.into_iter().filter_map(|x| x) {
+            if let Ok(url) = repo.find_remote(name) {
+                if let Some(url) = url.url() {
+                    remotes.push(Remote {
+                        name: name.to_string(),
+                        url: url.to_string(),
+                    });
+                }
+            }
+        }
+    }
     Ok(GitInfo {
         head: Head {
             id: commit.id().to_string(),
@@ -49,7 +63,7 @@ fn get_git_info(manifest_path: &Path) -> Result<GitInfo, String> {
             message: get_string(commit.message())?,
         },
         branch: branch_name,
-        remotes: Vec::new(),
+        remotes,
     })
 }
 
@@ -130,10 +144,7 @@ pub fn export(coverage_data: &TraceMap, config: &Config) -> Result<(), RunError>
             }
         }
         match res {
-            Ok(s) => {
-                trace!("Coveralls response {:?}", s);
-                Ok(())
-            }
+            Ok(_s) => Ok(()),
             Err(e) => Err(RunError::CovReport(format!("Coveralls send failed. {e}"))),
         }
     } else {
