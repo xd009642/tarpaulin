@@ -381,7 +381,10 @@ fn run_cargo(
         let dir_entries = walker
             .filter_map(Result::ok)
             .filter(|e| matches!(e.metadata(), Ok(ref m) if m.is_file() && m.len() != 0))
-            .filter(|e| e.path().extension() != Some(OsStr::new("pdb")))
+            .filter(|e| {
+                let ext = e.path().extension();
+                ext != Some(OsStr::new("pdb")) && ext != Some(OsStr::new("rs"))
+            })
             .filter(|e| {
                 !e.path()
                     .components()
