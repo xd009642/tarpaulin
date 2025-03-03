@@ -326,7 +326,7 @@ checksum = "06ea2b9bc92be3c2baa9334a323ebca2d6f074ff852cd1d7b11064035cd3868f"
 [[package]]
 name = "coveralls-api"
 version = "0.6.0"
-source = "git+https://github.com/xd009642/coveralls-api?branch=tidy-up#b56b293c883bb56281aa659ad260c953513ba5ce"
+source = "git+https://github.com/xd009642/coveralls-api?branch=tidy-up#ef1b4a42e8ce0776c3ad01693f2f76e27f3ee79b"
 dependencies = [
  "deflate",
  "md5",
