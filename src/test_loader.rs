@@ -401,7 +401,10 @@ pub fn generate_tracemap(
         }
     };
     let obj = object::File::parse(&file)
-        .map_err(|_| io::Error::new(io::ErrorKind::InvalidData, "Unable to parse binary"))?;
+        .map_err(|e| {
+            error!("{}", e);
+            io::Error::new(io::ErrorKind::InvalidData, "Unable to parse binary")
+        })?;
     let endian = if obj.is_little_endian() {
         RunTimeEndian::Little
     } else {

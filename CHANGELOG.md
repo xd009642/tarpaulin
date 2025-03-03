@@ -3,6 +3,10 @@
 From 2019 onwards, all notable changes to tarpaulin will be documented in this
 file.
 
+## [0.32.1] 2025-03-03
+### Fixed
+- Merged doctests now work in coverage
+
 ## [0.32.0] 2025-02-14
 ### Changed
 - doctest name resolution changed to be exact match not suffix match. This should only break doc test coverage
