@@ -24,7 +24,7 @@ cargo_metadata = "0.19"
 cfg-if = "1.0.0"
 chrono = "0.4"
 clap = { version = "4.4.0", features = ["derive"] }
-coveralls-api = { git = "https://github.com/xd009642/coveralls-api", optional = true, branch = "tidy-up" }
+coveralls-api = { version = "0.7.0", optional = true }
 gimli = "0.31.1"
 git2 =  { version = "0.20", optional = true }
 humantime-serde = "1"

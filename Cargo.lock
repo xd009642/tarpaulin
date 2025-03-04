@@ -325,8 +325,9 @@ checksum = "06ea2b9bc92be3c2baa9334a323ebca2d6f074ff852cd1d7b11064035cd3868f"
 
 [[package]]
 name = "coveralls-api"
-version = "0.6.0"
-source = "git+https://github.com/xd009642/coveralls-api?branch=tidy-up#ef1b4a42e8ce0776c3ad01693f2f76e27f3ee79b"
+version = "0.7.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "2b0d9065c788bbdef212fd6565a46c151504b7b383fdbe4624621640520a49d5"
 dependencies = [
  "deflate",
  "md5",

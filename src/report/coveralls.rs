@@ -145,7 +145,10 @@ pub fn export(coverage_data: &TraceMap, config: &Config) -> Result<(), RunError>
             }
         }
         match res {
-            Ok(_s) => Ok(()),
+            Ok(s) => {
+                info!("Report successfully uploaded, you can find it at {}", s.url);
+                Ok(())
+            },
             Err(e) => Err(RunError::CovReport(format!("Coveralls send failed. {e}"))),
         }
     } else {
