@@ -3,6 +3,10 @@
 From 2019 onwards, all notable changes to tarpaulin will be documented in this
 file.
 
+## [0.32.3] 2025-03-12
+### Changed
+- Ignore rlib files in doctest folder
+
 ## [0.32.2] 2025-03-04
 ### Changed
 - Now submit git remote information to coveralls and log the report URL as well as better error handling
