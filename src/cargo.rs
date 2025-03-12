@@ -383,7 +383,9 @@ fn run_cargo(
             .filter(|e| matches!(e.metadata(), Ok(ref m) if m.is_file() && m.len() != 0))
             .filter(|e| {
                 let ext = e.path().extension();
-                ext != Some(OsStr::new("pdb")) && ext != Some(OsStr::new("rs"))
+                ext != Some(OsStr::new("pdb"))
+                    && ext != Some(OsStr::new("rs"))
+                    && ext != Some(OsStr::new("rlib"))
             })
             .filter(|e| {
                 !e.path()
