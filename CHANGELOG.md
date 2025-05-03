@@ -3,6 +3,10 @@
 From 2019 onwards, all notable changes to tarpaulin will be documented in this
 file.
 
+## [0.32.3] 2025-05-03
+### Changed
+- Performance improvements for llvm profraw report generation
+
 ## [0.32.3] 2025-03-12
 ### Changed
 - Ignore rlib files in doctest folder
