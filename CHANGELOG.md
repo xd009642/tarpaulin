@@ -3,7 +3,7 @@
 From 2019 onwards, all notable changes to tarpaulin will be documented in this
 file.
 
-## [0.32.3] 2025-05-03
+## [0.32.4] 2025-05-03
 ### Changed
 - Performance improvements for llvm profraw report generation
 
