@@ -3,9 +3,10 @@
 From 2019 onwards, all notable changes to tarpaulin will be documented in this
 file.
 
-## [Unreleased]
+## [0.32.5] 2025-05-06
 ### Changed
 - Change some types so x86 starts working properly
+- Performance improvements for llvm profraw report generation via [llvm-profparsers#48](https://github.com/xd009642/llvm-profparser/pull/48)
 
 ## [0.32.4] 2025-05-03
 ### Changed
