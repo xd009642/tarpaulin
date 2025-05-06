@@ -39,7 +39,7 @@ pub fn read_address(pid: Pid, address: u64) -> Result<c_long> {
     read(pid, address as AddressType)
 }
 
-pub fn write_to_address(pid: Pid, address: u64, data: i64) -> Result<()> {
+pub fn write_to_address(pid: Pid, address: u64, data: c_long) -> Result<()> {
     write(pid, address as AddressType, data)
 }
 
