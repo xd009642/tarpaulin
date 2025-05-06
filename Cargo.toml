@@ -30,7 +30,7 @@ git2 =  { version = "0.20", optional = true }
 humantime-serde = "1"
 indexmap = { version = "~1.8", features = ["serde-1"] }
 lazy_static = "1.5"
-llvm_profparser = { version = "0.8.0",  default-features = false }
+llvm_profparser = { version = "0.8.1",  default-features = false }
 object = "0.36"
 num_cpus = "1.16.0"
 proc-macro2 = { version = "1.0", features = ["span-locations"] }
