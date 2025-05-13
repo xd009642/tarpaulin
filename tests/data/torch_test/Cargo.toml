@@ -6,5 +6,4 @@ edition = "2021"
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
 [dependencies]
-# We want to keep to a version we know will download the shared object
-tch = "=0.6.1"
+tch = "0.20.0"
