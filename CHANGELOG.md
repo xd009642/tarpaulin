@@ -6,6 +6,7 @@ file.
 ## [0.32.7] 2025-05-20
 ### Changed
 - Update `llvm_profparser` to remove a panic
+- Only bring in num-cpus for ptrace builds
 
 ## [0.32.6] 2025-05-20
 ### Changed
