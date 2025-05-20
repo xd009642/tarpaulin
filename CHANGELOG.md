@@ -3,6 +3,11 @@
 From 2019 onwards, all notable changes to tarpaulin will be documented in this
 file.
 
+## [0.32.6] 2025-05-20
+### Changed
+- Update `llvm_profparser`
+- Enable lto for release builds
+
 ## [0.32.5] 2025-05-06
 ### Changed
 - Change some types so x86 starts working properly
