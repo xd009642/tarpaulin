@@ -483,7 +483,7 @@ jobs:
       - checkout
       - run:
           name: Coverage with docker
-          command: docker run --security-opt seccomp=unconfined -v "${PWD}:/volume" xd009642/tarpaulin
+          command: docker run --rm --security-opt seccomp=unconfined -v "${PWD}:/volume" xd009642/tarpaulin
 ```
 
 #### Gitlab Pipelines
@@ -519,7 +519,7 @@ Tarpaulin has builds deployed to [docker-hub](https://hub.docker.com/r/xd009642/
 to run Tarpaulin on any system that has Docker, run this in your project directory:
 
 ```text
-docker run --security-opt seccomp=unconfined -v "${PWD}:/volume" xd009642/tarpaulin
+docker run --rm --security-opt seccomp=unconfined -v "${PWD}:/volume" xd009642/tarpaulin
 ```
 
 This builds your project inside Docker and runs Tarpaulin without any arguments. There are
@@ -528,14 +528,14 @@ versions after 0.5.6 will have the latest release built with the rust stable and
 compilers. To get the latest development version built with rustc-nightly run the following:
 
 ```text
-docker run --security-opt seccomp=unconfined -v "${PWD}:/volume" xd009642/tarpaulin:develop-nightly
+docker run --rm --security-opt seccomp=unconfined -v "${PWD}:/volume" xd009642/tarpaulin:develop-nightly
 ```
 
 Note that the build might fail if the Docker image doesn't contain any necessary
 dependencies. In that case, you can install dependencies before, like this:
 
 ```text
-docker run --security-opt seccomp=unconfined -v "${PWD}:/volume" xd009642/tarpaulin sh -c "apt-get install xxx && cargo tarpaulin"
+docker run --rm --security-opt seccomp=unconfined -v "${PWD}:/volume" xd009642/tarpaulin sh -c "apt-get install xxx && cargo tarpaulin"
 ```
 
 Alternatively, taking the seccomp json and setting all seccomp actions
@@ -617,4 +617,3 @@ report be mindful of this if diffing reports between multiple commits.
 Tarpaulin is currently licensed under the terms of both the MIT license and the
 Apache License (Version 2.0). See LICENSE-MIT and LICENSE-APACHE for more 
 details.
-
