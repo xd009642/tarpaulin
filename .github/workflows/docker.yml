@@ -13,11 +13,11 @@ jobs:
         image: ['', '-slim', '-nightly', '-nightly-slim']
         branch: ['master', 'develop']
     steps:
-      - uses: actions/checkout@v3
+      - uses: actions/checkout@v4
         with:
           ref: ${{ matrix.branch }}
       - name: Login to DockerHub
-        uses: docker/login-action@v1
+        uses: docker/login-action@v3
         with:
           username: ${{ secrets.DOCKERHUB_USERNAME }}
           password: ${{ secrets.DOCKERHUB_TOKEN }}
@@ -37,7 +37,7 @@ jobs:
           releases-only: true
         if: matrix.branch == 'master'
       - name: checkout_last_release
-        uses: actions/checkout@v3
+        uses: actions/checkout@v4
         with:
           ref: ${{ steps.tarpaulin.outputs.tag }}
         if: matrix.branch == 'master'
