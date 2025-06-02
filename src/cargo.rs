@@ -361,7 +361,7 @@ fn run_cargo(
                     .manifest_path
                     .parent()
                     .map(|x| fix_unc_path(x.as_std_path()));
-                res.pkg_name = Some(package.name.clone());
+                res.pkg_name = Some(package.name.to_string());
                 res.pkg_version = Some(package.version.to_string());
                 res.pkg_authors = Some(package.authors.clone());
             }
