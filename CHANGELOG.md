@@ -3,6 +3,10 @@
 From 2019 onwards, all notable changes to tarpaulin will be documented in this
 file.
 
+## [0.32.8] 2025-06-23
+### Changed
+- cargo metadata command no longer runs with `--all-features`
+
 ## [0.32.7] 2025-05-20
 ### Changed
 - Update `llvm_profparser` to remove a panic

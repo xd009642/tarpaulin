@@ -154,8 +154,11 @@ fn array_coverage() {
 }
 
 #[test]
+#[ignore]
 fn dependency_build_script() {
     // From issue #1297
+    // TODO metatensor isn't really maintained that frequently and has broken on nightly. Find an
+    // alternative project to test this (or make one)
     check_percentage("metatensor", 1.0f64, true);
 }
 

@@ -237,9 +237,26 @@ pub fn get_tests(config: &Config) -> Result<CargoOutput, RunError> {
     }
     let man_binding = config.manifest();
     let manifest = man_binding.as_path().to_str().unwrap_or("Cargo.toml");
+    let features = if config.all_features {
+        CargoOpt::AllFeatures
+    } else if config.no_default_features {
+        CargoOpt::NoDefaultFeatures
+    } else {
+        CargoOpt::SomeFeatures(
+            config
+                .features
+                .as_ref()
+                .map(|x| {
+                    x.split_ascii_whitespace()
+                        .map(|x| x.to_string())
+                        .collect::<Vec<String>>()
+                })
+                .unwrap_or_default(),
+        )
+    };
     let metadata = MetadataCommand::new()
         .manifest_path(manifest)
-        .features(CargoOpt::AllFeatures)
+        .features(features)
         .exec()
         .map_err(|e| RunError::Cargo(e.to_string()))?;
 
@@ -361,7 +378,7 @@ fn run_cargo(
                     .manifest_path
                     .parent()
                     .map(|x| fix_unc_path(x.as_std_path()));
-                res.pkg_name = Some(package.name.clone());
+                res.pkg_name = Some(package.name.to_string());
                 res.pkg_version = Some(package.version.to_string());
                 res.pkg_authors = Some(package.authors.clone());
             }
