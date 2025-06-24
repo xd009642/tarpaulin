@@ -5,6 +5,7 @@ use crate::traces::{Trace, TraceMap};
 use serde::Serialize;
 use std::fs::{read_to_string, File};
 use std::io::{self, Write};
+use tracing::info;
 
 #[derive(Serialize)]
 struct SourceFile {
@@ -62,7 +63,7 @@ fn get_json(coverage_data: &TraceMap, context: Context) -> Result<String, RunErr
 
 pub fn export(coverage_data: &TraceMap, config: &Config) -> Result<(), RunError> {
     let file_path = config.output_dir().join("tarpaulin-report.html");
-    let mut file = match File::create(file_path) {
+    let mut file = match File::create(&file_path) {
         Ok(k) => k,
         Err(e) => return Err(RunError::Html(format!("File is not writeable: {e}"))),
     };
@@ -102,6 +103,8 @@ pub fn export(coverage_data: &TraceMap, config: &Config) -> Result<(), RunError>
         Ok(_) => (),
         Err(e) => return Err(RunError::Html(e.to_string())),
     };
+
+    info!("HTML report written to {}", file_path.display());
 
     Ok(())
 }

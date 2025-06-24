@@ -3,6 +3,10 @@
 From 2019 onwards, all notable changes to tarpaulin will be documented in this
 file.
 
+## [Unreleased]
+### Changed
+- Made HTML report writing consistent with the rest of the reports - `$TARGET_DIR/tarpaulin/` by default
+
 ## [0.32.8] 2025-06-23
 ### Changed
 - cargo metadata command no longer runs with `--all-features`

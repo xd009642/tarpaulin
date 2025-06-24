@@ -513,7 +513,7 @@ impl Config {
                 path.clone()
             }
         } else {
-            self.root()
+            self.target_dir().join("tarpaulin")
         };
         fix_unc_path(&path)
     }

@@ -37,8 +37,7 @@ fn coverage_report_name(config: &Config) -> String {
 pub fn report_coverage(config: &Config, result: &TraceMap) -> Result<(), RunError> {
     if !result.is_empty() {
         generate_requested_reports(config, result)?;
-        let mut report_dir = config.target_dir();
-        report_dir.push("tarpaulin");
+        let mut report_dir = config.output_dir();
         if !report_dir.exists() {
             let _ = create_dir_all(&report_dir);
         }
