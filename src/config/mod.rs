@@ -1322,7 +1322,10 @@ mod tests {
 
         let mut neither_merged_dir = no_dir.clone();
         neither_merged_dir.merge(&no_dir);
-        assert_eq!(neither_merged_dir.output_dir(), env::current_dir().unwrap());
+        assert_eq!(
+            neither_merged_dir.output_dir(),
+            no_dir.target_dir().join("tarpaulin")
+        );
 
         let mut both_merged_dir = has_dir;
         both_merged_dir.merge(&other_dir);
