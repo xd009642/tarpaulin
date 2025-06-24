@@ -569,7 +569,7 @@ fn sanitised_paths() {
             }
         }
     }
-    assert_eq!(count, 4);
+    assert_eq!(count, 5);
 }
 
 #[test]
