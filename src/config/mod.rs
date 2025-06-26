@@ -513,7 +513,7 @@ impl Config {
                 path.clone()
             }
         } else {
-            self.target_dir().join("tarpaulin")
+            self.root()
         };
         fix_unc_path(&path)
     }
@@ -1322,10 +1322,7 @@ mod tests {
 
         let mut neither_merged_dir = no_dir.clone();
         neither_merged_dir.merge(&no_dir);
-        assert_eq!(
-            neither_merged_dir.output_dir(),
-            no_dir.target_dir().join("tarpaulin")
-        );
+        assert_eq!(neither_merged_dir.output_dir(), env::current_dir().unwrap(),);
 
         let mut both_merged_dir = has_dir;
         both_merged_dir.merge(&other_dir);

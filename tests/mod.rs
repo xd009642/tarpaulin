@@ -569,7 +569,7 @@ fn sanitised_paths() {
             }
         }
     }
-    assert_eq!(count, 5);
+    assert_eq!(count, 4);
 }
 
 #[test]
@@ -603,7 +603,6 @@ fn output_dir_workspace() {
     }
     println!("{:?}", output);
     assert!(output.remove("cobertura.xml"));
-    assert!(output.remove("coverage.json"));
     assert!(output.remove("lcov.info"));
     assert!(output.remove("tarpaulin-report.html"));
     assert!(output.remove("tarpaulin-report.json"));
