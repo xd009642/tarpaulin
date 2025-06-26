@@ -5,7 +5,7 @@ file.
 
 ## [Unreleased]
 ### Changed
-- Made HTML report writing consistent with the rest of the reports - `$TARGET_DIR/tarpaulin/` by default
+- Made all reports consistent and put them in the project root by default
 
 ## [0.32.8] 2025-06-23
 ### Changed
