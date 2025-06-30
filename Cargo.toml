@@ -33,7 +33,7 @@ lazy_static = "1.5"
 llvm_profparser = { version = "0.8.3",  default-features = false }
 object = "0.37"
 proc-macro2 = { version = "1.0", features = ["span-locations"] }
-quick-xml = "0.37"
+quick-xml = "0.38"
 quote = "1.0"
 regex = "1.11"
 rustc-demangle = "0.1.25"
