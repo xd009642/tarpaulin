@@ -20,7 +20,7 @@ name = "integration"
 path = "tests/mod.rs"
 
 [dependencies]
-cargo_metadata = "0.20"
+cargo_metadata = "0.21"
 cfg-if = "1.0.1"
 chrono = "0.4"
 clap = { version = "4.4.0", features = ["derive"] }
@@ -40,7 +40,7 @@ rustc-demangle = "0.1.25"
 serde = { version = "1.0", features = ["derive"] }
 serde_json = "1.0"
 syn = { version = "2.0", features = ["full"] }
-toml = "0.8"
+toml = "0.9"
 tracing = { version = "0.1", default-features = false }
 tracing-subscriber = { version = "0.3.19", default-features = false, features = [
     "env-filter",
@@ -70,7 +70,7 @@ rustc_version = "0.4"
 [dev-dependencies]
 lcov = "0.8.1"
 rusty-fork = "0.3.0"
-test-log = { version = "0.2.17", features = ["trace"] }
+test-log = { version = "0.2.18", features = ["trace"] }
 
 [package.metadata.binstall]
 pkg-url = "{ repo }/releases/download/{ version }/cargo-tarpaulin-{ target }{ archive-suffix }"
