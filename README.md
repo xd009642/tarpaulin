@@ -349,7 +349,7 @@ fn main() {
 ### Recompilation
 
 As Tarpaulin changes the `RUSTFLAGS` when building tests sometimes rebuilds of
-test binaries can't be avoided. There is also a `--clean` and `--skip-clean`
+test binaries can't be avoided. There is also a `--force-clean` and `--skip-clean`
 argument, the default has been changed at times to avoid issues with incremental
 compilation when changing `RUSTFLAGS`. If you aim to reduce the amount of
 unnecessary recompilation attempting to add the `--skip-clean` flag should be
