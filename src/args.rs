@@ -152,7 +152,7 @@ pub struct ConfigArgs {
     /// Compile tests but don't run coverage
     #[arg(long)]
     pub no_run: bool,
-    /// 'Don't supply an explicit `--test-threads` argument to test executable. By default tarpaulin will infer the default rustc would pick if not ran via tarpaulin and set it
+    /// Don't supply an explicit `--test-threads` argument to test executable. By default tarpaulin will infer the default rustc would pick if not ran via tarpaulin and set it
     #[arg(long)]
     pub implicit_test_threads: bool,
     /// Do not update Cargo.lock
