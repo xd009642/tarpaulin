@@ -87,6 +87,8 @@ pub fn export(coverage_data: &TraceMap, config: &Config) -> Result<(), RunError>
 
     // Next, add file-by-file coverage table
     markdown_content.push_str("## File Coverage\n\n");
+    // Wrap the table in a details element for collapsibility
+    markdown_content.push_str("<details>\n<summary>Show file coverage details</summary>\n\n");
     markdown_content.push_str("| File | Coverage | Percentage | Change |\n");
     markdown_content.push_str("|------|----------|------------|--------|\n");
 
@@ -136,6 +138,9 @@ pub fn export(coverage_data: &TraceMap, config: &Config) -> Result<(), RunError>
             path_str, covered, coverable, file_percentage, change_info
         ));
     }
+
+    // Close the details element
+    markdown_content.push_str("\n</details>\n\n");
 
     // Finally, write the markdown content to the file
     file.write_all(markdown_content.as_bytes())
