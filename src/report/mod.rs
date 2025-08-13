@@ -94,9 +94,6 @@ fn generate_requested_reports(config: &Config, result: &TraceMap) -> Result<(), 
             OutputFile::Markdown => {
                 markdown::export(result, config)?;
             }
-            OutputFile::Html => {
-                html::export(result, config)?;
-            }
             OutputFile::Stdout => {
                 // Already reported the missing lines
                 if !config.verbose {
