@@ -15,6 +15,7 @@ pub mod coveralls;
 pub mod html;
 pub mod json;
 pub mod lcov;
+pub mod markdown;
 mod safe_json;
 /// Trait for report formats to implement.
 /// Currently reports must be serializable using serde
@@ -89,6 +90,12 @@ fn generate_requested_reports(config: &Config, result: &TraceMap) -> Result<(), 
             }
             OutputFile::Json => {
                 json::export(result, config)?;
+            }
+            OutputFile::Markdown => {
+                markdown::export(result, config)?;
+            }
+            OutputFile::Html => {
+                html::export(result, config)?;
             }
             OutputFile::Stdout => {
                 // Already reported the missing lines
