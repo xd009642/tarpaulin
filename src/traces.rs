@@ -178,7 +178,7 @@ impl TraceMap {
     }
 
     /// Provides an iterator to the underlying map of PathBufs to Vec<Trace>
-    pub fn iter(&self) -> Iter<PathBuf, Vec<Trace>> {
+    pub fn iter(&self) -> Iter<'_, PathBuf, Vec<Trace>> {
         self.traces.iter()
     }
 
