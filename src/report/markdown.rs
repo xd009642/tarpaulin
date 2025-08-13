@@ -121,7 +121,16 @@ pub fn export(coverage_data: &TraceMap, config: &Config) -> Result<(), RunError>
             None => "-".to_string(),
         };
 
-        let path_str = path.to_string_lossy();
+        // Calculate the relative path
+        let path_str = if path.is_absolute() {
+            path.strip_prefix(std::env::current_dir().unwrap_or_default())
+                .unwrap_or(path) // If we can't find the relative path just use the absolute path
+                .to_string_lossy()
+        } else {
+            path.to_string_lossy()
+        };
+
+        // Push the file result to the markdown table
         markdown_content.push_str(&format!(
             "| {} | {}/{} | {:.2}% | {} |\n",
             path_str, covered, coverable, file_percentage, change_info
