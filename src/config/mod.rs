@@ -473,7 +473,7 @@ impl Config {
         result
     }
 
-    pub(crate) fn get_metadata(&self) -> Ref<Option<Metadata>> {
+    pub(crate) fn get_metadata(&self) -> Ref<'_, Option<Metadata>> {
         if self.metadata.borrow().is_none() {
             match MetadataCommand::new().manifest_path(&self.manifest).exec() {
                 Ok(meta) => {
