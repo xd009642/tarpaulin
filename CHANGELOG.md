@@ -4,6 +4,9 @@ From 2019 onwards, all notable changes to tarpaulin will be documented in this
 file.
 
 ## [Unreleased]
+### Added
+- Markdown report type
+
 ### Changed
 - Made all reports consistent and put them in the project root by default
 
