@@ -20,7 +20,7 @@ name = "integration"
 path = "tests/mod.rs"
 
 [dependencies]
-cargo_metadata = "0.20"
+cargo_metadata = "0.22"
 cfg-if = "1.0.1"
 chrono = "0.4"
 clap = { version = "4.4.0", features = ["derive"] }
@@ -36,7 +36,7 @@ proc-macro2 = { version = "1.0", features = ["span-locations"] }
 quick-xml = "0.38"
 quote = "1.0"
 regex = "1.11"
-rustc-demangle = "0.1.25"
+rustc-demangle = "0.1.26"
 serde = { version = "1.0", features = ["derive"] }
 serde_json = "1.0"
 syn = { version = "2.0", features = ["full"] }
@@ -51,10 +51,10 @@ tracing-subscriber = { version = "0.3.19", default-features = false, features = 
     "tracing-log",
 ] }
 walkdir = "2.5.0"
-glob = "0.3.2"
+glob = "0.3.3"
 
 [target.'cfg(all(target_os = "linux", any(target_arch = "x86_64", target_arch = "x86")))'.dependencies]
-libc = "0.2.174"
+libc = "0.2.175"
 nix = {version = "0.30.1", default-features = false, features = ["sched", "signal", "ptrace", "personality"]}
 num_cpus = "1.17.0"
 procfs = "0.17"
@@ -70,7 +70,7 @@ rustc_version = "0.4"
 [dev-dependencies]
 lcov = "0.8.1"
 rusty-fork = "0.3.0"
-test-log = { version = "0.2.17", features = ["trace"] }
+test-log = { version = "0.2.18", features = ["trace"] }
 
 [package.metadata.binstall]
 pkg-url = "{ repo }/releases/download/{ version }/cargo-tarpaulin-{ target }{ archive-suffix }"
