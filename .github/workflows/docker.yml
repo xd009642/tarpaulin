@@ -13,7 +13,7 @@ jobs:
         image: ['', '-slim', '-nightly', '-nightly-slim']
         branch: ['master', 'develop']
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v5
         with:
           ref: ${{ matrix.branch }}
       - name: Login to DockerHub
@@ -37,7 +37,7 @@ jobs:
           releases-only: true
         if: matrix.branch == 'master'
       - name: checkout_last_release
-        uses: actions/checkout@v4
+        uses: actions/checkout@v5
         with:
           ref: ${{ steps.tarpaulin.outputs.tag }}
         if: matrix.branch == 'master'
