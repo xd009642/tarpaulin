@@ -13,7 +13,7 @@ use std::io;
 use std::io::{BufRead, BufReader};
 use std::path::{Component, Path, PathBuf};
 use std::process::{Command, Stdio};
-use toml::Value;
+use toml::{Table, Value};
 use tracing::{debug, error, info, trace, warn};
 use walkdir::{DirEntry, WalkDir};
 
@@ -756,14 +756,13 @@ fn look_for_field_in_table(value: &Value, field: &str) -> String {
 
 fn look_for_field_in_file(path: &Path, section: &str, field: &str) -> Option<String> {
     if let Ok(contents) = read_to_string(path) {
-        let value = contents.parse::<Value>().ok()?;
+        let value = contents.parse::<Table>().ok()?;
 
         let value: Vec<String> = value
-            .as_table()?
             .into_iter()
             .map(|(s, v)| {
                 if s.as_str() == section {
-                    look_for_field_in_table(v, field)
+                    look_for_field_in_table(&v, field)
                 } else {
                     String::new()
                 }

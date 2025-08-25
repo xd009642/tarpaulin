@@ -40,7 +40,7 @@ rustc-demangle = "0.1.26"
 serde = { version = "1.0", features = ["derive"] }
 serde_json = "1.0"
 syn = { version = "2.0", features = ["full"] }
-toml = "0.8"
+toml = "0.9"
 tracing = { version = "0.1", default-features = false }
 tracing-subscriber = { version = "0.3.19", default-features = false, features = [
     "env-filter",
