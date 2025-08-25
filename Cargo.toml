@@ -21,11 +21,11 @@ path = "tests/mod.rs"
 
 [dependencies]
 cargo_metadata = "0.22"
-cfg-if = "1.0.1"
+cfg-if = "1.0.3"
 chrono = "0.4"
 clap = { version = "4.4.0", features = ["derive"] }
 coveralls-api = { version = "0.7.0", optional = true }
-gimli = "0.32.0"
+gimli = "0.32.1"
 git2 =  { version = "0.20", optional = true }
 humantime-serde = "1"
 indexmap = { version = "~1.8", features = ["serde-1"] }
@@ -40,7 +40,7 @@ rustc-demangle = "0.1.26"
 serde = { version = "1.0", features = ["derive"] }
 serde_json = "1.0"
 syn = { version = "2.0", features = ["full"] }
-toml = "0.8"
+toml = "0.9"
 tracing = { version = "0.1", default-features = false }
 tracing-subscriber = { version = "0.3.19", default-features = false, features = [
     "env-filter",
