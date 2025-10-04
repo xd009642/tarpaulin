@@ -65,14 +65,11 @@ function findFolders(files) {
       prevRun: {
         covered: children.reduce((sum, file) => sum + file.prevRun.covered, 0),
         coverable: children.reduce((sum, file) => sum + file.prevRun.coverable, 0),
-      }
+      },
     };
   });
 
-  return [
-    ...folders,
-    ...files.filter(file => file.path.length === 1),
-  ];
+  return [...folders, ...files.filter(file => file.path.length === 1)];
 }
 
 class App extends React.Component {
@@ -86,12 +83,12 @@ class App extends React.Component {
 
   componentDidMount() {
     this.updateStateFromLocation();
-    window.addEventListener("hashchange", () => this.updateStateFromLocation(), false);
+    window.addEventListener('hashchange', () => this.updateStateFromLocation(), false);
   }
 
   updateStateFromLocation() {
     if (window.location.hash.length > 1) {
-      const current = window.location.hash.substr(1).split('/');
+      const current = window.location.hash.slice(1).split('/');
       this.setState({current});
     } else {
       this.setState({current: []});
@@ -133,15 +130,21 @@ class App extends React.Component {
   }
 
   selectFile(file) {
-    this.setState(({current}) => {
-      return {current: [...current, file.path[0]]};
-    }, () => this.updateHash());
+    this.setState(
+      ({current}) => {
+        return {current: [...current, file.path[0]]};
+      },
+      () => this.updateHash(),
+    );
   }
 
   back(file) {
-    this.setState(({current}) => {
-      return {current: current.slice(0, current.length - 1)};
-    }, () => this.updateHash());
+    this.setState(
+      ({current}) => {
+        return {current: current.slice(0, current.length - 1)};
+      },
+      () => this.updateHash(),
+    );
   }
 
   updateHash() {
@@ -155,101 +158,119 @@ class App extends React.Component {
 
 function FilesList({folder, onSelectFile, onBack}) {
   let files = folder.children;
-  return e('div', {className: 'display-folder'},
+  return e(
+    'div',
+    {className: 'display-folder'},
     e(FileHeader, {file: folder, onBack}),
-    e('table', {className: 'files-list'},
-      e('thead', {className: 'files-list__head'},
-        e('tr', null,
-          e('th', null, "Path"),
-          e('th', null, "Coverage")
-        )
+    e(
+      'table',
+      {className: 'files-list'},
+      e('thead', {className: 'files-list__head'}, e('tr', null, e('th', null, 'Path'), e('th', null, 'Coverage'))),
+      e(
+        'tbody',
+        {className: 'files-list__body'},
+        files.map(file => e(File, {file, onClick: onSelectFile})),
       ),
-      e('tbody', {className: 'files-list__body'},
-        files.map(file => e(File, {file, onClick: onSelectFile}))
-      )
-    )
+    ),
   );
 }
 
 function File({file, onClick}) {
-  const coverage = file.coverable ? file.covered / file.coverable * 100 : -1;
-  const coverageDelta = file.prevRun &&
-    (file.covered / file.coverable * 100 - file.prevRun.covered / file.prevRun.coverable * 100);
+  const coverage = file.coverable ? (file.covered / file.coverable) * 100 : -1;
+  const coverageDelta =
+    file.prevRun && (file.covered / file.coverable) * 100 - (file.prevRun.covered / file.prevRun.coverable) * 100;
 
-  return e('tr', {
-      className: 'files-list__file'
-        + (coverage >= 0 && coverage < 50 ? ' files-list__file_low': '')
-        + (coverage >= 50 && coverage < 80 ? ' files-list__file_medium': '')
-        + (coverage >= 80 ? ' files-list__file_high': '')
-        + (file.is_folder ? ' files-list__file_folder': ''),
+  return e(
+    'tr',
+    {
+      className:
+        'files-list__file' +
+        (coverage >= 0 && coverage < 50 ? ' files-list__file_low' : '') +
+        (coverage >= 50 && coverage < 80 ? ' files-list__file_medium' : '') +
+        (coverage >= 80 ? ' files-list__file_high' : '') +
+        (file.is_folder ? ' files-list__file_folder' : ''),
       onClick: () => onClick(file),
     },
     e('td', null, e('a', null, pathToString(file.path))),
-    e('td', null,
-      file.covered + ' / ' + file.coverable +
-      (coverage >= 0 ? ' (' + coverage.toFixed(2) + '%)' : ''),
-      e('span', {title: 'Change from the previous run'},
-        (coverageDelta ? ` (${coverageDelta > 0 ? '+' : ''}${coverageDelta.toFixed(2)}%)` : ''))
-    )
+    e(
+      'td',
+      null,
+      file.covered + ' / ' + file.coverable + (coverage >= 0 ? ' (' + coverage.toFixed(2) + '%)' : ''),
+      e(
+        'span',
+        {title: 'Change from the previous run'},
+        coverageDelta ? ` (${coverageDelta > 0 ? '+' : ''}${coverageDelta.toFixed(2)}%)` : '',
+      ),
+    ),
   );
 }
 
 function DisplayFile({file, onBack}) {
-  return e('div', {className: 'display-file'},
-    e(FileHeader, {file, onBack}),
-    e(FileContent, {file})
-  );
+  return e('div', {className: 'display-file'}, e(FileHeader, {file, onBack}), e(FileContent, {file}));
 }
 
 function FileHeader({file, onBack}) {
-  const coverage = file.covered / file.coverable * 100;
-  const coverageDelta = file.prevRun && (coverage - file.prevRun.covered / file.prevRun.coverable * 100);
+  const coverage = (file.covered / file.coverable) * 100;
+  const coverageDelta = file.prevRun && coverage - (file.prevRun.covered / file.prevRun.coverable) * 100;
 
-  return e('div', {className: 'file-header'},
+  return e(
+    'div',
+    {className: 'file-header'},
     onBack ? e('a', {className: 'file-header__back', onClick: onBack}, 'Back') : null,
     e('div', {className: 'file-header__name'}, pathToString([...file.parent, ...file.path])),
-    e('div', {className: 'file-header__stat'},
-      'Covered: ' + file.covered + ' of ' + file.coverable +
-      (file.coverable ? ' (' + coverage.toFixed(2) + '%)' : ''),
-      e('span', {title: 'Change from the previous run'},
-        (coverageDelta ? ` (${coverageDelta > 0 ? '+' : ''}${coverageDelta.toFixed(2)}%)` : ''))
-    )
+    e(
+      'div',
+      {className: 'file-header__stat'},
+      'Covered: ' + file.covered + ' of ' + file.coverable + (file.coverable ? ' (' + coverage.toFixed(2) + '%)' : ''),
+      e(
+        'span',
+        {title: 'Change from the previous run'},
+        coverageDelta ? ` (${coverageDelta > 0 ? '+' : ''}${coverageDelta.toFixed(2)}%)` : '',
+      ),
+      e('input', {id: 'theme-toggle', type: 'checkbox', hidden: true}),
+      e('label', {for: 'theme-toggle', id: 'theme-toggle-label'}, '🌙'),
+    ),
   );
 }
 
 function FileContent({file}) {
-  return e('pre', {className: 'file-content'},
+  return e(
+    'pre',
+    {className: 'file-content'},
     file.content.split(/\r?\n/).map((line, index) => {
       const trace = file.traces.find(trace => trace.line === index + 1);
       const covered = trace && trace.stats.Line;
       const uncovered = trace && !trace.stats.Line;
-      return e('code', {
-          className: 'code-line'
-            + (covered ? ' code-line_covered' : '')
-            + (uncovered ? ' code-line_uncovered' : ''),
+      return e(
+        'code',
+        {
+          className: 'code-line' + (covered ? ' code-line_covered' : '') + (uncovered ? ' code-line_uncovered' : ''),
           title: trace ? JSON.stringify(trace.stats, null, 2) : null,
-        }, line);
-    })
+        },
+        line,
+      );
+    }),
   );
 }
 
-(function(){
+(function () {
   const commonPath = findCommonPath(data.files);
   const prevFilesMap = new Map();
 
-  previousData && previousData.files.forEach((file) => {
-    const path = file.path.slice(commonPath.length).join('/');
-    prevFilesMap.set(path, file);
-  });
+  previousData &&
+    previousData.files.forEach(file => {
+      const path = file.path.slice(commonPath.length).join('/');
+      prevFilesMap.set(path, file);
+    });
 
-  const files = data.files.map((file) => {
+  const files = data.files.map(file => {
     const path = file.path.slice(commonPath.length);
-    const { covered = 0, coverable = 0 } = prevFilesMap.get(path.join('/')) || {};
+    const {covered = 0, coverable = 0} = prevFilesMap.get(path.join('/')) || {};
     return {
       ...file,
       path,
       parent: commonPath,
-      prevRun: { covered, coverable },
+      prevRun: {covered, coverable},
     };
   });
 
@@ -265,8 +286,22 @@ function FileContent({file}) {
     prevRun: {
       covered: children.reduce((sum, file) => sum + file.prevRun.covered, 0),
       coverable: children.reduce((sum, file) => sum + file.prevRun.coverable, 0),
-    }
+    },
   };
 
   ReactDOM.render(e(App, {root, prevFilesMap}), document.getElementById('root'));
-}());
+
+  const toggle = document.getElementById('theme-toggle');
+  const label = document.getElementById('theme-toggle-label');
+  label.textContent = '🌙';
+
+  toggle.addEventListener('change', () => {
+    if (toggle.checked) {
+      document.documentElement.setAttribute('data-theme', 'dark');
+      label.textContent = '☀️';
+    } else {
+      document.documentElement.removeAttribute('data-theme');
+      label.textContent = '🌙';
+    }
+  });
+})();
