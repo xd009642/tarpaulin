@@ -1,6 +1,33 @@
-html, body {
+:root {
+  --color: black;
+  --bg: white;
+  --head-bg: white;
+  --link: #338;
+
+  --blue: #ccf;
+  --red: #fcc;
+  --yellow: #ffc;
+  --green: #cfc;
+}
+
+[data-theme='dark'] {
+  --color: white;
+  --bg: black;
+  --head-bg: #333;
+  --link: #aaf;
+
+  --blue: #225;
+  --red: #522;
+  --yellow: #552;
+  --green: #252;
+}
+
+html,
+body {
   margin: 0;
   padding: 0;
+  color: var(--color);
+  background: var(--bg);
 }
 
 .app {
@@ -21,7 +48,7 @@ html, body {
   border: 1px solid #999;
   text-align: left;
   font-weight: normal;
-  background: #ddd;
+  background: var(--head-bg);
 }
 .files-list__body {
 }
@@ -29,7 +56,7 @@ html, body {
   cursor: pointer;
 }
 .files-list__file:hover {
-  background: #ccf;
+  background: var(--blue);
 }
 .files-list__file > td {
   padding: 10px;
@@ -40,13 +67,13 @@ html, body {
   margin-right: 1em;
 }
 .files-list__file_low {
-  background: #fcc;
+  background: var(--red);
 }
 .files-list__file_medium {
-  background: #ffc;
+  background: var(--yellow);
 }
 .files-list__file_high {
-  background: #cfc;
+  background: var(--green);
 }
 .files-list__file_folder > td:first-child::before {
   content: '\01F4C1';
@@ -60,7 +87,7 @@ html, body {
   align-items: center;
   position: sticky;
   top: 0;
-  background: white;
+  background: var(--bg);
 }
 
 .file-header__back {
@@ -69,7 +96,7 @@ html, body {
   flex-shrink: 0;
   flex-grow: 0;
   text-decoration: underline;
-  color: #338;
+  color: var(--link);
 }
 
 .file-header__name {
@@ -94,8 +121,8 @@ html, body {
 }
 
 .code-line::before {
-    content: counter(line);
-    margin-right: 10px;
+  content: counter(line);
+  margin-right: 10px;
 }
 .code-line {
   margin: 0;
@@ -104,8 +131,12 @@ html, body {
   counter-increment: line;
 }
 .code-line_covered {
-  background: #cfc;
+  background: var(--green);
 }
 .code-line_uncovered {
-  background: #fcc;
+  background: var(--red);
+}
+
+#theme-toggle-label {
+  margin-left: 1ch;
 }

@@ -212,7 +212,9 @@ function FileHeader({file, onBack}) {
       'Covered: ' + file.covered + ' of ' + file.coverable +
       (file.coverable ? ' (' + coverage.toFixed(2) + '%)' : ''),
       e('span', {title: 'Change from the previous run'},
-        (coverageDelta ? ` (${coverageDelta > 0 ? '+' : ''}${coverageDelta.toFixed(2)}%)` : ''))
+        (coverageDelta ? ` (${coverageDelta > 0 ? '+' : ''}${coverageDelta.toFixed(2)}%)` : '')),
+      e("input", { id: "theme-toggle", type: "checkbox", hidden: true }),
+      e("label", { for: "theme-toggle", id: "theme-toggle-label" }, "🌙"),
     )
   );
 }
@@ -269,4 +271,20 @@ function FileContent({file}) {
   };
 
   ReactDOM.render(e(App, {root, prevFilesMap}), document.getElementById('root'));
+
+  const toggle = document.getElementById("theme-toggle");
+  const label = document.getElementById("theme-toggle-label");
+  label.textContent = "🌙";
+
+  toggle.addEventListener("change", () => {
+    if (toggle.checked) {
+      document.documentElement.setAttribute("data-theme", "dark");
+      label.textContent = "☀️";
+    } else {
+      document.documentElement.removeAttribute("data-theme");
+      label.textContent = "🌙";
+    }
+  });
+
 }());
+
