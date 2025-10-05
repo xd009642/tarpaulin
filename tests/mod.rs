@@ -601,6 +601,7 @@ fn output_dir_workspace() {
             output.insert(file_name);
         }
     }
+    println!("{:?}", output);
     assert!(output.remove("cobertura.xml"));
     assert!(output.remove("lcov.info"));
     assert!(output.remove("tarpaulin-report.html"));

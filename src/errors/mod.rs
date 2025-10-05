@@ -30,6 +30,7 @@ pub enum RunError {
     #[cfg(ptrace_supported)]
     NixError(nix::Error),
     Html(String),
+    Markdown(String),
     XML(cobertura::Error),
     Lcov(String),
     Json(String),
@@ -61,6 +62,7 @@ impl Display for RunError {
             #[cfg(ptrace_supported)]
             Self::NixError(e) => write!(f, "{e}"),
             Self::Html(e) => write!(f, "Failed to generate HTML report! Error: {e}"),
+            Self::Markdown(e) => write!(f, "Failed to generate Markdown report! Error: {e}"),
             Self::XML(e) => write!(f, "Failed to generate XML report! Error: {e}"),
             Self::Lcov(e) => write!(f, "Failed to generate Lcov report! Error: {e}"),
             Self::Json(e) => write!(f, "Failed to generate JSON report! Error: {e}"),

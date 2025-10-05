@@ -15,6 +15,7 @@ pub mod coveralls;
 pub mod html;
 pub mod json;
 pub mod lcov;
+pub mod markdown;
 mod safe_json;
 /// Trait for report formats to implement.
 /// Currently reports must be serializable using serde
@@ -37,11 +38,12 @@ fn coverage_report_name(config: &Config) -> String {
 pub fn report_coverage(config: &Config, result: &TraceMap) -> Result<(), RunError> {
     if !result.is_empty() {
         generate_requested_reports(config, result)?;
-        let mut report_dir = config.target_dir();
-        report_dir.push("tarpaulin");
+        let report_dir = config.output_dir();
         if !report_dir.exists() {
             let _ = create_dir_all(&report_dir);
         }
+
+        let mut report_dir = config.target_dir().join("tarpaulin");
         report_dir.push(coverage_report_name(config));
         let file = File::create(&report_dir)
             .map_err(|_| RunError::CovReport("Failed to create run report".to_string()))?;
@@ -88,6 +90,9 @@ fn generate_requested_reports(config: &Config, result: &TraceMap) -> Result<(), 
             }
             OutputFile::Json => {
                 json::export(result, config)?;
+            }
+            OutputFile::Markdown => {
+                markdown::export(result, config)?;
             }
             OutputFile::Stdout => {
                 // Already reported the missing lines

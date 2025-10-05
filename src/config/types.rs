@@ -106,6 +106,7 @@ pub enum OutputFile {
     Xml,
     Html,
     Lcov,
+    Markdown,
 }
 
 #[cfg(feature = "coveralls")]

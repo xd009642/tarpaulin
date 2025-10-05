@@ -473,7 +473,7 @@ impl Config {
         result
     }
 
-    pub(crate) fn get_metadata(&self) -> Ref<Option<Metadata>> {
+    pub(crate) fn get_metadata(&self) -> Ref<'_, Option<Metadata>> {
         if self.metadata.borrow().is_none() {
             match MetadataCommand::new().manifest_path(&self.manifest).exec() {
                 Ok(meta) => {
@@ -1322,7 +1322,7 @@ mod tests {
 
         let mut neither_merged_dir = no_dir.clone();
         neither_merged_dir.merge(&no_dir);
-        assert_eq!(neither_merged_dir.output_dir(), env::current_dir().unwrap());
+        assert_eq!(neither_merged_dir.output_dir(), env::current_dir().unwrap(),);
 
         let mut both_merged_dir = has_dir;
         both_merged_dir.merge(&other_dir);
