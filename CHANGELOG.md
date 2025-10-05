@@ -3,12 +3,13 @@
 From 2019 onwards, all notable changes to tarpaulin will be documented in this
 file.
 
-## [Unreleased]
+## [0.33.0] 2025-10-05
 ### Added
 - Markdown report type
 
 ### Changed
 - Made all reports consistent and put them in the project root by default
+- Add dark/light mode to HTML reports
 
 ## [0.32.8] 2025-06-23
 ### Changed
