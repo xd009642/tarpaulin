@@ -107,7 +107,8 @@ impl From<&Pid> for ProcessInfo {
 }
 
 fn get_offset(pid: Pid, config: &Config) -> u64 {
-    if rust_flags(config).contains("dynamic-no-pic") {
+    // TODO I don't think this would be an issue... but I'll test it
+    if rust_flags(config, &Default::default()).contains("dynamic-no-pic") {
         0
     } else if let Ok(proc) = Process::new(pid.as_raw()) {
         let exe = proc.exe().ok();

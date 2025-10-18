@@ -8,14 +8,18 @@ use serde::{Deserialize, Serialize};
 use std::collections::{HashMap, HashSet};
 use std::env;
 use std::ffi::OsStr;
-use std::fs::{read_dir, read_to_string, remove_dir_all, remove_file, File};
+use std::fs::{read_dir, remove_dir_all, remove_file, File};
 use std::io;
 use std::io::{BufRead, BufReader};
 use std::path::{Component, Path, PathBuf};
 use std::process::{Command, Stdio};
-use toml::{Table, Value};
+use std::rc::Rc;
 use tracing::{debug, error, info, trace, warn};
 use walkdir::{DirEntry, WalkDir};
+
+pub use config_file::{get_cargo_config, CargoConfigFields};
+
+mod config_file;
 
 const BUILD_PROFRAW: &str = "build_rs_cov.profraw";
 
@@ -49,13 +53,15 @@ impl CargoVersionInfo {
     }
 }
 
-#[derive(Clone, Debug, Default)]
+#[derive(Clone, Debug)]
 pub struct CargoOutput {
     /// This contains all binaries we want to run to collect coverage from.
     pub test_binaries: Vec<TestBinary>,
     /// This covers binaries we don't want to run explicitly but may be called as part of tracing
     /// execution of other processes.
     pub binaries: Vec<PathBuf>,
+    /// Env vars that will have been extracted from config files in .cargo
+    pub cargo_config: Rc<CargoConfigFields>,
 }
 
 #[derive(Clone, Debug, PartialEq, Eq, PartialOrd, Ord, Hash, Deserialize, Serialize)]
@@ -71,6 +77,8 @@ pub struct TestBinary {
     /// `Self::has_linker_paths` and `Self::ld_library_path` as there may be interaction with
     /// current environment. It's only made pub(crate) for the purpose of testing.
     pub(crate) linker_paths: Vec<PathBuf>,
+    // Env vars grabbed from places like .cargo/config that may be project/workspace specific
+    //pub env_vars: Vec<String>,
 }
 
 #[derive(Clone, Debug)]
@@ -126,7 +134,6 @@ impl TestBinary {
     }
 
     /// Convert linker paths to an LD_LIBRARY_PATH.
-    /// TODO this won't work for windows when it's implemented
     pub fn ld_library_path(&self) -> String {
         cfg_if::cfg_if! {
             if #[cfg(windows)] {
@@ -221,7 +228,12 @@ lazy_static! {
 }
 
 pub fn get_tests(config: &Config) -> Result<CargoOutput, RunError> {
-    let mut result = CargoOutput::default();
+    let cargo_config = Rc::new(get_cargo_config(config));
+    let mut result = CargoOutput {
+        test_binaries: vec![],
+        binaries: vec![],
+        cargo_config: cargo_config.clone(),
+    };
     if config.force_clean() {
         let cleanup_dir = if config.release {
             config.target_dir().join("release")
@@ -254,24 +266,43 @@ pub fn get_tests(config: &Config) -> Result<CargoOutput, RunError> {
                 .unwrap_or_default(),
         )
     };
-    let metadata = MetadataCommand::new()
-        .manifest_path(manifest)
-        .features(features)
+    let mut metadata = MetadataCommand::new();
+    metadata.manifest_path(manifest).features(features);
+
+    for (key, value) in cargo_config.env_vars.iter() {
+        metadata.env(key, value);
+    }
+
+    let metadata = metadata
         .exec()
         .map_err(|e| RunError::Cargo(e.to_string()))?;
 
     for ty in &config.run_types {
-        run_cargo(&metadata, manifest, config, Some(*ty), &mut result)?;
+        run_cargo(
+            &metadata,
+            manifest,
+            config,
+            &cargo_config,
+            Some(*ty),
+            &mut result,
+        )?;
     }
     if config.has_named_tests() {
-        run_cargo(&metadata, manifest, config, None, &mut result)?;
+        run_cargo(
+            &metadata,
+            manifest,
+            config,
+            &cargo_config,
+            None,
+            &mut result,
+        )?;
     } else if config.run_types.is_empty() {
         let ty = if config.command == Mode::Test {
             Some(RunType::Tests)
         } else {
             None
         };
-        run_cargo(&metadata, manifest, config, ty, &mut result)?;
+        run_cargo(&metadata, manifest, config, &cargo_config, ty, &mut result)?;
     }
     // Only matters for llvm cov and who knows, one day may not be needed
     let _ = remove_file(config.root().join(BUILD_PROFRAW));
@@ -282,10 +313,11 @@ fn run_cargo(
     metadata: &Metadata,
     manifest: &str,
     config: &Config,
+    cargo_config: &CargoConfigFields,
     ty: Option<RunType>,
     result: &mut CargoOutput,
 ) -> Result<(), RunError> {
-    let mut cmd = create_command(manifest, config, ty);
+    let mut cmd = create_command(manifest, config, cargo_config, ty);
     if ty != Some(RunType::Doctests) {
         cmd.stdout(Stdio::piped());
     } else {
@@ -587,7 +619,12 @@ fn get_libdir(ty: Option<RunType>) -> Option<PathBuf> {
     Some(PathBuf::from(output))
 }
 
-fn create_command(manifest_path: &str, config: &Config, ty: Option<RunType>) -> Command {
+fn create_command(
+    manifest_path: &str,
+    config: &Config,
+    cargo_config: &CargoConfigFields,
+    ty: Option<RunType>,
+) -> Command {
     let mut test_cmd = start_cargo_command(ty);
     if ty == Some(RunType::Doctests) {
         test_cmd.args(["test"]);
@@ -628,7 +665,7 @@ fn create_command(manifest_path: &str, config: &Config, ty: Option<RunType>) -> 
         }
     }
     init_args(&mut test_cmd, config);
-    setup_environment(&mut test_cmd, config);
+    setup_environment(&mut test_cmd, config, cargo_config);
     test_cmd
 }
 
@@ -730,97 +767,7 @@ fn handle_llvm_flags(value: &mut String, config: &Config) {
     }
 }
 
-fn look_for_field_in_table(value: &Value, field: &str) -> String {
-    let table = value.as_table().unwrap();
-
-    if let Some(rustflags) = table.get(field) {
-        if rustflags.is_array() {
-            let vec_of_flags: Vec<String> = rustflags
-                .as_array()
-                .unwrap()
-                .iter()
-                .filter_map(Value::as_str)
-                .map(ToString::to_string)
-                .collect();
-
-            vec_of_flags.join(" ")
-        } else if rustflags.is_str() {
-            rustflags.as_str().unwrap().to_string()
-        } else {
-            String::new()
-        }
-    } else {
-        String::new()
-    }
-}
-
-fn look_for_field_in_file(path: &Path, section: &str, field: &str) -> Option<String> {
-    if let Ok(contents) = read_to_string(path) {
-        let value = contents.parse::<Table>().ok()?;
-
-        let value: Vec<String> = value
-            .into_iter()
-            .map(|(s, v)| {
-                if s.as_str() == section {
-                    look_for_field_in_table(&v, field)
-                } else {
-                    String::new()
-                }
-            })
-            .collect();
-
-        Some(value.join(" "))
-    } else {
-        None
-    }
-}
-
-fn look_for_field_in_section(path: &Path, section: &str, field: &str) -> Option<String> {
-    let mut config_path = path.join("config");
-
-    let value = look_for_field_in_file(&config_path, section, field);
-    if value.is_some() {
-        return value;
-    }
-
-    config_path.pop();
-    config_path.push("config.toml");
-
-    let value = look_for_field_in_file(&config_path, section, field);
-    if value.is_some() {
-        return value;
-    }
-
-    None
-}
-
-fn build_config_path(base: impl AsRef<Path>) -> PathBuf {
-    let mut config_path = PathBuf::from(base.as_ref());
-    config_path.push(base);
-    config_path.push(".cargo");
-
-    config_path
-}
-
-fn gather_config_field_from_section(config: &Config, section: &str, field: &str) -> String {
-    if let Some(value) =
-        look_for_field_in_section(&build_config_path(config.root()), section, field)
-    {
-        return value;
-    }
-
-    if let Ok(cargo_home_config) = env::var("CARGO_HOME") {
-        if let Some(value) =
-            look_for_field_in_section(&PathBuf::from(cargo_home_config), section, field)
-        {
-            return value;
-        }
-    }
-
-    String::new()
-}
-
-pub fn rust_flags(config: &Config) -> String {
+pub fn rust_flags(config: &Config, cargo_config: &CargoConfigFields) -> String {
     const RUSTFLAGS: &str = "RUSTFLAGS";
     let mut value = config.rustflags.clone().unwrap_or_default();
     value.push_str(" -Cdebuginfo=2 ");
@@ -844,14 +791,14 @@ pub fn rust_flags(config: &Config) -> String {
             value.push_str(&temp);
         }
     } else {
-        let vtemp = gather_config_field_from_section(config, "build", "rustflags");
+        let vtemp = cargo_config.rust_flags.join(" ");
         value.push_str(&DEBUG_INFO.replace_all(&vtemp, " "));
     }
 
     deduplicate_flags(&value)
 }
 
-pub fn rustdoc_flags(config: &Config) -> String {
+pub fn rustdoc_flags(config: &Config, cargo_config: &CargoConfigFields) -> String {
     const RUSTDOC: &str = "RUSTDOCFLAGS";
     let common_opts = " -Cdebuginfo=2 --cfg=tarpaulin -Cstrip=none ";
     let mut value = format!(
@@ -864,7 +811,7 @@ pub fn rustdoc_flags(config: &Config) -> String {
             value.push_str(vtemp.as_ref());
         }
     } else {
-        let vtemp = gather_config_field_from_section(config, "build", "rustdocflags");
+        let vtemp = cargo_config.rust_doc_flags.join(" ");
         value.push_str(&vtemp);
     }
     handle_llvm_flags(&mut value, config);
@@ -908,16 +855,16 @@ fn deduplicate_flags(flags: &str) -> String {
     result.join(" ")
 }
 
-fn setup_environment(cmd: &mut Command, config: &Config) {
+fn setup_environment(cmd: &mut Command, config: &Config, cargo_config: &CargoConfigFields) {
     // https://github.com/rust-lang/rust/issues/107447
     cmd.env("LLVM_PROFILE_FILE", config.root().join(BUILD_PROFRAW));
     cmd.env("TARPAULIN", "1");
     let rustflags = "RUSTFLAGS";
-    let value = rust_flags(config);
+    let value = rust_flags(config, cargo_config);
     cmd.env(rustflags, value);
     // doesn't matter if we don't use it
     let rustdoc = "RUSTDOCFLAGS";
-    let value = rustdoc_flags(config);
+    let value = rustdoc_flags(config, cargo_config);
     trace!("Setting RUSTDOCFLAGS='{}'", value);
     cmd.env(rustdoc, value);
     if let Ok(bootstrap) = env::var("RUSTC_BOOTSTRAP") {
@@ -953,7 +900,6 @@ pub fn llvm_coverage_rustflag() -> &'static str {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use toml::toml;
 
     #[test]
     fn can_get_libdir() {
@@ -965,36 +911,14 @@ mod tests {
     #[cfg(not(any(windows, target_os = "macos")))]
     fn check_dead_code_flags() {
         let mut config = Config::default();
+        let cargo_config = get_cargo_config(&config);
         config.set_engine(TraceEngine::Ptrace);
-        assert!(rustdoc_flags(&config).contains("link-dead-code"));
-        assert!(rust_flags(&config).contains("link-dead-code"));
+        assert!(rustdoc_flags(&config, &cargo_config).contains("link-dead-code"));
+        assert!(rust_flags(&config, &cargo_config).contains("link-dead-code"));
 
         config.no_dead_code = true;
-        assert!(!rustdoc_flags(&config).contains("link-dead-code"));
-        assert!(!rust_flags(&config).contains("link-dead-code"));
-    }
-
-    #[test]
-    fn parse_rustflags_from_toml() {
-        let list_flags = toml! {
-            rustflags = ["--cfg=foo", "--cfg=bar"]
-        };
-        let list_flags = toml::Value::Table(list_flags);
-
-        assert_eq!(
-            look_for_field_in_table(&list_flags, "rustflags"),
-            "--cfg=foo --cfg=bar"
-        );
-
-        let string_flags = toml! {
-            rustflags = "--cfg=bar --cfg=baz"
-        };
-        let string_flags = toml::Value::Table(string_flags);
-
-        assert_eq!(
-            look_for_field_in_table(&string_flags, "rustflags"),
-            "--cfg=bar --cfg=baz"
-        );
+        assert!(!rustdoc_flags(&config, &cargo_config).contains("link-dead-code"));
+        assert!(!rust_flags(&config, &cargo_config).contains("link-dead-code"));
     }
 
     #[test]
