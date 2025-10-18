@@ -303,14 +303,11 @@ mod tests {
     fn check_ld_library_path_correct() {
         let mut binary = TestBinary::new(PathBuf::from("dummy"), None);
         let default_config = Config::default();
+        let cargo_config = CargoConfigFields::default();
 
-        let vars = get_env_vars(&binary, &default_config);
+        let vars = get_env_vars(&binary, &default_config, &cargo_config);
 
-        if let Some(ld) = vars
-            .iter()
-            .find(|(key, _)| key == LD_PATH_VAR)
-            .map(|(_, val)| val)
-        {
+        if let Some(ld) = vars.get(LD_PATH_VAR) {
             let sys = env::var(LD_PATH_VAR).unwrap();
             assert_eq!(ld, &sys);
         }
@@ -319,11 +316,8 @@ mod tests {
             .linker_paths
             .push(PathBuf::from("/usr/local/lib/foo"));
 
-        let vars = get_env_vars(&binary, &default_config);
-        let res = vars
-            .iter()
-            .find(|(key, _)| key == LD_PATH_VAR)
-            .map(|(_, val)| val);
+        let vars = get_env_vars(&binary, &default_config, &cargo_config);
+        let res = vars.get(LD_PATH_VAR);
 
         assert!(res.is_some());
         let res = res.unwrap();

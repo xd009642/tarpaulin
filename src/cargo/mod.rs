@@ -902,7 +902,6 @@ pub fn llvm_coverage_rustflag() -> &'static str {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use toml::toml;
 
     #[test]
     fn can_get_libdir() {
@@ -914,36 +913,14 @@ mod tests {
     #[cfg(not(any(windows, target_os = "macos")))]
     fn check_dead_code_flags() {
         let mut config = Config::default();
+        let cargo_config = get_cargo_config(&config);
         config.set_engine(TraceEngine::Ptrace);
-        assert!(rustdoc_flags(&config).contains("link-dead-code"));
-        assert!(rust_flags(&config).contains("link-dead-code"));
+        assert!(rustdoc_flags(&config, &cargo_config).contains("link-dead-code"));
+        assert!(rust_flags(&config, &cargo_config).contains("link-dead-code"));
 
         config.no_dead_code = true;
-        assert!(!rustdoc_flags(&config).contains("link-dead-code"));
-        assert!(!rust_flags(&config).contains("link-dead-code"));
-    }
-
-    #[test]
-    fn parse_rustflags_from_toml() {
-        let list_flags = toml! {
-            rustflags = ["--cfg=foo", "--cfg=bar"]
-        };
-        let list_flags = toml::Value::Table(list_flags);
-
-        assert_eq!(
-            look_for_field_in_table(&list_flags, "rustflags"),
-            "--cfg=foo --cfg=bar"
-        );
-
-        let string_flags = toml! {
-            rustflags = "--cfg=bar --cfg=baz"
-        };
-        let string_flags = toml::Value::Table(string_flags);
-
-        assert_eq!(
-            look_for_field_in_table(&string_flags, "rustflags"),
-            "--cfg=bar --cfg=baz"
-        );
+        assert!(!rustdoc_flags(&config, &cargo_config).contains("link-dead-code"));
+        assert!(!rust_flags(&config, &cargo_config).contains("link-dead-code"));
     }
 
     #[test]
