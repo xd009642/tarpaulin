@@ -856,8 +856,6 @@ fn deduplicate_flags(flags: &str) -> String {
 }
 
 fn setup_environment(cmd: &mut Command, config: &Config, cargo_config: &CargoConfigFields) {
-    // These will be updated if they're set later on
-    cmd.envs(cargo_config.env_vars.iter());
     // https://github.com/rust-lang/rust/issues/107447
     cmd.env("LLVM_PROFILE_FILE", config.root().join(BUILD_PROFRAW));
     cmd.env("TARPAULIN", "1");
