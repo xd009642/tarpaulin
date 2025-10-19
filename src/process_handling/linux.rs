@@ -1,9 +1,9 @@
+use crate::cargo::{CargoConfigFields, TestBinary};
 use crate::config::types::Mode;
 use crate::errors::*;
 use crate::process_handling::execute_test;
 use crate::ptrace_control::*;
 use crate::Config;
-use crate::TestBinary;
 use crate::TestHandle;
 use lazy_static::lazy_static;
 use nix::sched::*;
@@ -11,6 +11,7 @@ use nix::sys::personality;
 use nix::unistd::*;
 use std::ffi::{CStr, CString};
 use std::path::Path;
+use std::rc::Rc;
 use tracing::{info, warn};
 
 lazy_static! {
@@ -21,6 +22,7 @@ lazy_static! {
 pub fn get_test_coverage(
     test: &TestBinary,
     config: &Config,
+    cargo_config: Rc<CargoConfigFields>,
     ignored: bool,
 ) -> Result<Option<TestHandle>, RunError> {
     if !test.path().exists() {
@@ -44,7 +46,7 @@ pub fn get_test_coverage(
                     Mode::Build => "binary",
                 };
                 info!("Launching {}", bin_type);
-                execute_test(test, &[], ignored, config, Some(threads))?;
+                execute_test(test, &[], ignored, config, cargo_config, Some(threads))?;
                 Ok(None)
             }
             Err(err) => Err(RunError::TestCoverage(format!(

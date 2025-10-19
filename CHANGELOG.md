@@ -3,6 +3,11 @@
 From 2019 onwards, all notable changes to tarpaulin will be documented in this
 file.
 
+## [0.34.0] 2025-10-19
+### Added
+- Support for [env] section in `.cargo/config`
+- Full resolution of `.cargo/config` file hierarchy
+
 ## [0.33.0] 2025-10-05
 ### Added
 - Markdown report type

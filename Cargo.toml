@@ -1,6 +1,6 @@
 [package]
 name = "cargo-tarpaulin"
-version = "0.33.0"
+version = "0.34.0"
 authors = ["Daniel McKenna <danielmckenna93@gmail.com>"]
 description = "Cargo-Tarpaulin is a tool to determine code coverage achieved via tests"
 repository = "https://github.com/xd009642/tarpaulin"
@@ -20,7 +20,7 @@ name = "integration"
 path = "tests/mod.rs"
 
 [dependencies]
-cargo_metadata = "0.22"
+cargo_metadata = "0.23"
 cfg-if = "1.0.3"
 chrono = "0.4"
 clap = { version = "4.4.0", features = ["derive"] }
@@ -35,7 +35,7 @@ object = "0.37"
 proc-macro2 = { version = "1.0", features = ["span-locations"] }
 quick-xml = "0.38"
 quote = "1.0"
-regex = "1.11"
+regex = "1.12"
 rustc-demangle = "0.1.26"
 serde = { version = "1.0", features = ["derive"] }
 serde_json = "1.0"
@@ -52,9 +52,10 @@ tracing-subscriber = { version = "0.3.20", default-features = false, features = 
 ] }
 walkdir = "2.5.0"
 glob = "0.3.3"
+cargo-config2 = "0.1.39"
 
 [target.'cfg(all(target_os = "linux", any(target_arch = "x86_64", target_arch = "x86")))'.dependencies]
-libc = "0.2.175"
+libc = "0.2.177"
 nix = {version = "0.30.1", default-features = false, features = ["sched", "signal", "ptrace", "personality"]}
 num_cpus = "1.17.0"
 procfs = "0.18"
@@ -69,7 +70,7 @@ rustc_version = "0.4"
 
 [dev-dependencies]
 lcov = "0.8.1"
-rusty-fork = "0.3.0"
+rusty-fork = "0.3.1"
 test-log = { version = "0.2.18", features = ["trace"] }
 
 [package.metadata.binstall]
