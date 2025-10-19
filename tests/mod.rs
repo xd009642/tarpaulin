@@ -655,6 +655,11 @@ fn warning_flags_in_config() {
 }
 
 #[test]
+fn warning_flags_in_config() {
+    check_percentage("cargo_config_env", 1.0f64, true);
+}
+
+#[test]
 fn workspace_default_members() {
     let mut config = Config::default();
     config.set_clean(false);
