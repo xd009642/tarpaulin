@@ -180,7 +180,7 @@ dependencies = [
 
 [[package]]
 name = "cargo-tarpaulin"
-version = "0.33.0"
+version = "0.34.0"
 dependencies = [
  "cargo-config2",
  "cargo_metadata",
