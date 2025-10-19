@@ -1,6 +1,6 @@
 #![cfg(not(tarpaulin_include))]
 use cargo_tarpaulin::args::CargoTarpaulinCli;
-use cargo_tarpaulin::cargo::{rust_flags, rustdoc_flags};
+use cargo_tarpaulin::cargo::{get_cargo_config, rust_flags, rustdoc_flags, CargoConfigFields};
 use cargo_tarpaulin::config::{Color, Config, ConfigWrapper};
 use cargo_tarpaulin::{run, setup_logging};
 use std::collections::HashMap;
@@ -57,15 +57,15 @@ fn main() -> Result<(), String> {
 
 fn print_flags<F>(config: &ConfigWrapper, flags_fn: F, prefix: &str)
 where
-    F: Fn(&Config) -> String,
+    F: Fn(&Config, &CargoConfigFields) -> String,
 {
     let mut seen_flags = HashMap::new();
     for config in &config.0 {
         if config.name == "report" {
             continue;
         }
-
-        let flags = flags_fn(config);
+        let cargo_config = get_cargo_config(config);
+        let flags = flags_fn(config, &cargo_config);
         seen_flags
             .entry(flags)
             .or_insert_with(Vec::new)
@@ -73,5 +73,6 @@ where
     }
 
     let default = Config::default();
-    print_env(seen_flags, prefix, &flags_fn(&default));
+    let cargo_config = get_cargo_config(&default);
+    print_env(seen_flags, prefix, &flags_fn(&default, &cargo_config));
 }

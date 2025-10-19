@@ -1,0 +1,6 @@
+[package]
+name = "cargo_config_env"
+version = "0.1.0"
+edition = "2024"
+
+[dependencies]
