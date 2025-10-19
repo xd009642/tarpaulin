@@ -655,7 +655,7 @@ fn warning_flags_in_config() {
 }
 
 #[test]
-fn warning_flags_in_config() {
+fn cargo_config_env_section() {
     check_percentage("cargo_config_env", 1.0f64, true);
 }
 
