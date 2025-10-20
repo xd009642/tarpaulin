@@ -21,7 +21,7 @@ path = "tests/mod.rs"
 
 [dependencies]
 cargo_metadata = "0.23"
-cfg-if = "1.0.3"
+cfg-if = "1.0.4"
 chrono = "0.4"
 clap = { version = "4.4.0", features = ["derive"] }
 coveralls-api = { version = "0.7.0", optional = true }
