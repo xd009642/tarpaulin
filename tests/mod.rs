@@ -168,12 +168,9 @@ fn lets_coverage() {
 }
 
 #[test]
-#[cfg_attr(target_os="macos", ignore)]
-#[cfg(not(tarpaulin))]
 fn picking_up_shared_objects() {
-    // Need a project which downloads a shared object to target folder and uses build script to set
-    // the linker path.
-    check_percentage("torch_test", 1.0f64, true);
+    // Need a project which uses a build script and adds a library to the linker directives.
+    check_percentage("sqlite-sys-test", 1.0f64, true);
 }
 
 // Just for linux if we have ptrace as default
