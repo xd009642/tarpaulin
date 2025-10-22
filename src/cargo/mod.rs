@@ -194,36 +194,34 @@ impl DocTestBinaryMeta {
 }
 
 static CARGO_VERSION_INFO: LazyLock<Option<CargoVersionInfo>> = LazyLock::new(|| {
-        let version_info = Regex::new(
-            r"cargo (\d)\.(\d+)\.\d+([\-betanightly]*)(\.[[:alnum:]]+)?",
-        )
-        .unwrap();
-        Command::new("cargo")
-            .arg("--version")
-            .output()
-            .map(|x| {
-                let s = String::from_utf8_lossy(&x.stdout);
-                if let Some(cap) = version_info.captures(&s) {
-                    let major = cap[1].parse().unwrap();
-                    let minor = cap[2].parse().unwrap();
-                    // We expect a string like `cargo 1.50.0-nightly (a0f433460 2020-02-01)
-                    // the version number either has `-nightly` `-beta` or empty for stable
-                    let channel = match &cap[3] {
-                        "-nightly" => Channel::Nightly,
-                        "-beta" => Channel::Beta,
-                        _ => Channel::Stable,
-                    };
-                    Some(CargoVersionInfo {
-                        major,
-                        minor,
-                        channel,
-                    })
-                } else {
-                    None
-                }
-            })
-            .unwrap_or(None)
-    });
+    let version_info =
+        Regex::new(r"cargo (\d)\.(\d+)\.\d+([\-betanightly]*)(\.[[:alnum:]]+)?").unwrap();
+    Command::new("cargo")
+        .arg("--version")
+        .output()
+        .map(|x| {
+            let s = String::from_utf8_lossy(&x.stdout);
+            if let Some(cap) = version_info.captures(&s) {
+                let major = cap[1].parse().unwrap();
+                let minor = cap[2].parse().unwrap();
+                // We expect a string like `cargo 1.50.0-nightly (a0f433460 2020-02-01)
+                // the version number either has `-nightly` `-beta` or empty for stable
+                let channel = match &cap[3] {
+                    "-nightly" => Channel::Nightly,
+                    "-beta" => Channel::Beta,
+                    _ => Channel::Stable,
+                };
+                Some(CargoVersionInfo {
+                    major,
+                    minor,
+                    channel,
+                })
+            } else {
+                None
+            }
+        })
+        .unwrap_or(None)
+});
 
 pub fn get_tests(config: &Config) -> Result<CargoOutput, RunError> {
     let cargo_config = Rc::new(get_cargo_config(config));
@@ -777,8 +775,10 @@ pub fn rust_flags(config: &Config, cargo_config: &CargoConfigFields) -> String {
         value.push_str("-Cdebug-assertions=off ");
     }
     handle_llvm_flags(&mut value, config);
-    static DEBUG_INFO: LazyLock<Regex> = LazyLock::new(|| Regex::new(r"\-C\s*debuginfo=\d").unwrap());
-    static DEAD_CODE: LazyLock<Regex> = LazyLock::new(|| Regex::new(r"\-C\s*link-dead-code").unwrap());
+    static DEBUG_INFO: LazyLock<Regex> =
+        LazyLock::new(|| Regex::new(r"\-C\s*debuginfo=\d").unwrap());
+    static DEAD_CODE: LazyLock<Regex> =
+        LazyLock::new(|| Regex::new(r"\-C\s*link-dead-code").unwrap());
     if let Ok(vtemp) = env::var(RUSTFLAGS) {
         let temp = DEBUG_INFO.replace_all(&vtemp, " ");
         if config.no_dead_code {

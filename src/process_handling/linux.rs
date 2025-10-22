@@ -5,13 +5,13 @@ use crate::process_handling::execute_test;
 use crate::ptrace_control::*;
 use crate::Config;
 use crate::TestHandle;
-use std::sync::LazyLock;
 use nix::sched::*;
 use nix::sys::personality;
 use nix::unistd::*;
 use std::ffi::{CStr, CString};
 use std::path::Path;
 use std::rc::Rc;
+use std::sync::LazyLock;
 use tracing::{info, warn};
 
 static NUM_CPUS: LazyLock<usize> = LazyLock::new(|| num_cpus::get());

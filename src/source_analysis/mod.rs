@@ -460,7 +460,8 @@ impl SourceAnalysis {
     /// These are often things like close braces, semicolons that may register as
     /// false positives.
     pub(crate) fn find_ignorable_lines(&mut self, ctx: &Context) {
-        static IGNORABLE: LazyLock<Regex> = LazyLock::new(|| Regex::new(r"^((\s*//)|([\[\]\{\}\(\)\s;\?,/]*$))").unwrap());
+        static IGNORABLE: LazyLock<Regex> =
+            LazyLock::new(|| Regex::new(r"^((\s*//)|([\[\]\{\}\(\)\s;\?,/]*$))").unwrap());
         let analysis = self.get_line_analysis(ctx.file.to_path_buf());
         let lines = ctx
             .file_contents
