@@ -1,0 +1,7 @@
+[package]
+name = "sqlite-sys-test"
+version = "0.1.0"
+edition = "2024"
+
+[dependencies]
+sqlite3 = "0.24.0"
