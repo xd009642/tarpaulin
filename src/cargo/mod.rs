@@ -2,7 +2,6 @@ use crate::config::*;
 use crate::errors::RunError;
 use crate::path_utils::{fix_unc_path, get_source_walker};
 use cargo_metadata::{diagnostic::DiagnosticLevel, CargoOpt, Message, Metadata, MetadataCommand};
-use lazy_static::lazy_static;
 use regex::Regex;
 use serde::{Deserialize, Serialize};
 use std::collections::{HashMap, HashSet};
@@ -14,6 +13,7 @@ use std::io::{BufRead, BufReader};
 use std::path::{Component, Path, PathBuf};
 use std::process::{Command, Stdio};
 use std::rc::Rc;
+use std::sync::LazyLock;
 use tracing::{debug, error, info, trace, warn};
 use walkdir::{DirEntry, WalkDir};
 
@@ -193,8 +193,7 @@ impl DocTestBinaryMeta {
     }
 }
 
-lazy_static! {
-    static ref CARGO_VERSION_INFO: Option<CargoVersionInfo> = {
+static CARGO_VERSION_INFO: LazyLock<Option<CargoVersionInfo>> = LazyLock::new(|| {
         let version_info = Regex::new(
             r"cargo (\d)\.(\d+)\.\d+([\-betanightly]*)(\.[[:alnum:]]+)?",
         )
@@ -224,8 +223,7 @@ lazy_static! {
                 }
             })
             .unwrap_or(None)
-    };
-}
+    });
 
 pub fn get_tests(config: &Config) -> Result<CargoOutput, RunError> {
     let cargo_config = Rc::new(get_cargo_config(config));
@@ -779,10 +777,8 @@ pub fn rust_flags(config: &Config, cargo_config: &CargoConfigFields) -> String {
         value.push_str("-Cdebug-assertions=off ");
     }
     handle_llvm_flags(&mut value, config);
-    lazy_static! {
-        static ref DEBUG_INFO: Regex = Regex::new(r"\-C\s*debuginfo=\d").unwrap();
-        static ref DEAD_CODE: Regex = Regex::new(r"\-C\s*link-dead-code").unwrap();
-    }
+    static DEBUG_INFO: LazyLock<Regex> = LazyLock::new(|| Regex::new(r"\-C\s*debuginfo=\d").unwrap());
+    static DEAD_CODE: LazyLock<Regex> = LazyLock::new(|| Regex::new(r"\-C\s*link-dead-code").unwrap());
     if let Ok(vtemp) = env::var(RUSTFLAGS) {
         let temp = DEBUG_INFO.replace_all(&vtemp, " ");
         if config.no_dead_code {
@@ -819,14 +815,12 @@ pub fn rustdoc_flags(config: &Config, cargo_config: &CargoConfigFields) -> Strin
 }
 
 fn deduplicate_flags(flags: &str) -> String {
-    lazy_static! {
-        static ref CFG_FLAG: Regex = Regex::new(r#"\--cfg\s+"#).unwrap();
-        static ref C_FLAG: Regex = Regex::new(r#"\-C\s+"#).unwrap();
-        static ref Z_FLAG: Regex = Regex::new(r#"\-Z\s+"#).unwrap();
-        static ref W_FLAG: Regex = Regex::new(r#"\-W\s+"#).unwrap();
-        static ref A_FLAG: Regex = Regex::new(r#"\-A\s+"#).unwrap();
-        static ref D_FLAG: Regex = Regex::new(r#"\-D\s+"#).unwrap();
-    }
+    static CFG_FLAG: LazyLock<Regex> = LazyLock::new(|| Regex::new(r#"\--cfg\s+"#).unwrap());
+    static C_FLAG: LazyLock<Regex> = LazyLock::new(|| Regex::new(r#"\-C\s+"#).unwrap());
+    static Z_FLAG: LazyLock<Regex> = LazyLock::new(|| Regex::new(r#"\-Z\s+"#).unwrap());
+    static W_FLAG: LazyLock<Regex> = LazyLock::new(|| Regex::new(r#"\-W\s+"#).unwrap());
+    static A_FLAG: LazyLock<Regex> = LazyLock::new(|| Regex::new(r#"\-A\s+"#).unwrap());
+    static D_FLAG: LazyLock<Regex> = LazyLock::new(|| Regex::new(r#"\-D\s+"#).unwrap());
 
     // Going to remove the excess spaces to make it easier to filter things.
     let res = CFG_FLAG.replace_all(flags, "--cfg=");
