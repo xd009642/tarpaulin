@@ -3,6 +3,10 @@
 From 2019 onwards, all notable changes to tarpaulin will be documented in this
 file.
 
+## [Unreleased]
+### Fixed
+- LLVM split regions are now counted correctly fixing some missed coverage hits.
+
 ## [0.34.0] 2025-10-19
 ### Added
 - Support for [env] section in `.cargo/config`

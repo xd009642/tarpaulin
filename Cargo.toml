@@ -29,7 +29,7 @@ gimli = { version = "0.32.3", default-features = false, features = ["read", "std
 git2 =  { version = "0.20", optional = true }
 humantime-serde = "1"
 indexmap = { version = "~1.8", features = ["serde-1"] }
-llvm_profparser = { version = "0.9.0",  default-features = false }
+llvm_profparser = { version = "0.9.1",  default-features = false }
 object = "0.37"
 proc-macro2 = { version = "1.0", features = ["span-locations"] }
 quick-xml = "0.38"
