@@ -154,15 +154,6 @@ fn array_coverage() {
 }
 
 #[test]
-#[ignore]
-fn dependency_build_script() {
-    // From issue #1297
-    // TODO metatensor isn't really maintained that frequently and has broken on nightly. Find an
-    // alternative project to test this (or make one)
-    check_percentage("metatensor", 1.0f64, true);
-}
-
-#[test]
 fn lets_coverage() {
     check_percentage("lets", 1.0f64, true);
 }
@@ -254,7 +245,6 @@ fn method_calls_expr_coverage() {
 }
 
 #[test]
-//#[cfg(not(windows))] // TODO fix
 fn config_file_coverage() {
     let test_dir = get_test_path("configs");
     let mut args = vec![
@@ -296,18 +286,6 @@ fn rustflags_config_coverage() {
 #[test]
 fn match_expr_coverage() {
     check_percentage("matches", 1.0f64, true);
-}
-
-#[test]
-#[ignore]
-fn benchmark_coverage() {
-    let test = "benchmark_coverage";
-    check_percentage(test, 0.0f64, true);
-
-    let mut config = Config::default();
-    config.set_clean(false);
-    config.run_types = vec![RunType::Benchmarks];
-    check_percentage_with_config(test, 1.0f64, true, config);
 }
 
 #[test]
