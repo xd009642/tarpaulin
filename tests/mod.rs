@@ -582,6 +582,7 @@ fn output_dir_workspace() {
     config.generate.push(OutputFile::Html);
     config.generate.push(OutputFile::Xml);
     config.generate.push(OutputFile::Json);
+    config.generate.push(OutputFile::Markdown);
     let _ = fs::remove_dir_all(&report_dir);
     let _ = fs::create_dir(&report_dir);
     config.output_directory = Some(report_dir.clone());
@@ -603,6 +604,7 @@ fn output_dir_workspace() {
     assert!(output.remove("lcov.info"));
     assert!(output.remove("tarpaulin-report.html"));
     assert!(output.remove("tarpaulin-report.json"));
+    assert!(output.remove("tarpaulin-report.md"));
     assert_eq!(output.len(), 1);
 
     for event_log in &output {
