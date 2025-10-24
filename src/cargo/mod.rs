@@ -545,7 +545,7 @@ fn get_attribute_candidates(
                     }
                 }
             }
-        } else if !test.path().to_string_lossy().contains("merged") { 
+        } else if !test.path().to_string_lossy().contains("merged") {
             // Merged doctests don't need this work
             warn!(
                 "Invalid characters in name of doctest {}",
@@ -903,14 +903,19 @@ mod tests {
 
     #[test]
     fn old_doctest_name_handling() {
-        let dtbm = DocTestBinaryMeta::new("src_some_folder_foo_rs_3_1/rust_out").unwrap(); 
+        let dtbm = DocTestBinaryMeta::new("src_some_folder_foo_rs_3_1/rust_out").unwrap();
         assert_eq!(dtbm.line, 3);
         assert_eq!(dtbm.prefix, "src_some_folder_foo_rs");
 
-        assert!(is_prefix_match(&dtbm.prefix, &Path::new("src/some_folder/foo.rs")));
+        assert!(is_prefix_match(
+            &dtbm.prefix,
+            &Path::new("src/some_folder/foo.rs")
+        ));
 
         let no_run = line!() as usize;
-        assert!(find_str_in_file(&Path::new(file!()), "no_run").unwrap().contains(&no_run));
+        assert!(find_str_in_file(&Path::new(file!()), "no_run")
+            .unwrap()
+            .contains(&no_run));
     }
 
     #[test]
