@@ -168,12 +168,9 @@ fn lets_coverage() {
 }
 
 #[test]
-#[cfg_attr(target_os="macos", ignore)]
-#[cfg(not(tarpaulin))]
 fn picking_up_shared_objects() {
-    // Need a project which downloads a shared object to target folder and uses build script to set
-    // the linker path.
-    check_percentage("torch_test", 1.0f64, true);
+    // Need a project which uses a build script and adds a library to the linker directives.
+    check_percentage("sqlite-sys-test", 1.0f64, true);
 }
 
 // Just for linux if we have ptrace as default
@@ -585,6 +582,7 @@ fn output_dir_workspace() {
     config.generate.push(OutputFile::Html);
     config.generate.push(OutputFile::Xml);
     config.generate.push(OutputFile::Json);
+    config.generate.push(OutputFile::Markdown);
     let _ = fs::remove_dir_all(&report_dir);
     let _ = fs::create_dir(&report_dir);
     config.output_directory = Some(report_dir.clone());
@@ -606,6 +604,7 @@ fn output_dir_workspace() {
     assert!(output.remove("lcov.info"));
     assert!(output.remove("tarpaulin-report.html"));
     assert!(output.remove("tarpaulin-report.json"));
+    assert!(output.remove("tarpaulin-report.md"));
     assert_eq!(output.len(), 1);
 
     for event_log in &output {

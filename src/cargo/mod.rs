@@ -2,7 +2,6 @@ use crate::config::*;
 use crate::errors::RunError;
 use crate::path_utils::{fix_unc_path, get_source_walker};
 use cargo_metadata::{diagnostic::DiagnosticLevel, CargoOpt, Message, Metadata, MetadataCommand};
-use lazy_static::lazy_static;
 use regex::Regex;
 use serde::{Deserialize, Serialize};
 use std::collections::{HashMap, HashSet};
@@ -14,6 +13,7 @@ use std::io::{BufRead, BufReader};
 use std::path::{Component, Path, PathBuf};
 use std::process::{Command, Stdio};
 use std::rc::Rc;
+use std::sync::LazyLock;
 use tracing::{debug, error, info, trace, warn};
 use walkdir::{DirEntry, WalkDir};
 
@@ -193,39 +193,35 @@ impl DocTestBinaryMeta {
     }
 }
 
-lazy_static! {
-    static ref CARGO_VERSION_INFO: Option<CargoVersionInfo> = {
-        let version_info = Regex::new(
-            r"cargo (\d)\.(\d+)\.\d+([\-betanightly]*)(\.[[:alnum:]]+)?",
-        )
-        .unwrap();
-        Command::new("cargo")
-            .arg("--version")
-            .output()
-            .map(|x| {
-                let s = String::from_utf8_lossy(&x.stdout);
-                if let Some(cap) = version_info.captures(&s) {
-                    let major = cap[1].parse().unwrap();
-                    let minor = cap[2].parse().unwrap();
-                    // We expect a string like `cargo 1.50.0-nightly (a0f433460 2020-02-01)
-                    // the version number either has `-nightly` `-beta` or empty for stable
-                    let channel = match &cap[3] {
-                        "-nightly" => Channel::Nightly,
-                        "-beta" => Channel::Beta,
-                        _ => Channel::Stable,
-                    };
-                    Some(CargoVersionInfo {
-                        major,
-                        minor,
-                        channel,
-                    })
-                } else {
-                    None
-                }
-            })
-            .unwrap_or(None)
-    };
-}
+static CARGO_VERSION_INFO: LazyLock<Option<CargoVersionInfo>> = LazyLock::new(|| {
+    let version_info =
+        Regex::new(r"cargo (\d)\.(\d+)\.\d+([\-betanightly]*)(\.[[:alnum:]]+)?").unwrap();
+    Command::new("cargo")
+        .arg("--version")
+        .output()
+        .map(|x| {
+            let s = String::from_utf8_lossy(&x.stdout);
+            if let Some(cap) = version_info.captures(&s) {
+                let major = cap[1].parse().unwrap();
+                let minor = cap[2].parse().unwrap();
+                // We expect a string like `cargo 1.50.0-nightly (a0f433460 2020-02-01)
+                // the version number either has `-nightly` `-beta` or empty for stable
+                let channel = match &cap[3] {
+                    "-nightly" => Channel::Nightly,
+                    "-beta" => Channel::Beta,
+                    _ => Channel::Stable,
+                };
+                Some(CargoVersionInfo {
+                    major,
+                    minor,
+                    channel,
+                })
+            } else {
+                None
+            }
+        })
+        .unwrap_or(None)
+});
 
 pub fn get_tests(config: &Config) -> Result<CargoOutput, RunError> {
     let cargo_config = Rc::new(get_cargo_config(config));
@@ -516,6 +512,11 @@ fn is_prefix_match(prefix: &str, entry: &Path) -> bool {
 /// As of some point in June 2023 the naming convention has changed to include the package name in
 /// the generated name which reduces collisions. Before it was done relative to the workspace
 /// package folder not the workspace root.
+///
+/// # Deprecation
+///
+/// This function becomes unnecessary with merged doc tests. Once they've been a thing long enough
+/// (so maybe when they hit stable?) delete this and you can tidy up the code for some wins.
 fn get_attribute_candidates(
     tests: &[DirEntry],
     config: &Config,
@@ -544,7 +545,8 @@ fn get_attribute_candidates(
                     }
                 }
             }
-        } else {
+        } else if !test.path().to_string_lossy().contains("merged") {
+            // Merged doctests don't need this work
             warn!(
                 "Invalid characters in name of doctest {}",
                 test.path().display()
@@ -779,10 +781,10 @@ pub fn rust_flags(config: &Config, cargo_config: &CargoConfigFields) -> String {
         value.push_str("-Cdebug-assertions=off ");
     }
     handle_llvm_flags(&mut value, config);
-    lazy_static! {
-        static ref DEBUG_INFO: Regex = Regex::new(r"\-C\s*debuginfo=\d").unwrap();
-        static ref DEAD_CODE: Regex = Regex::new(r"\-C\s*link-dead-code").unwrap();
-    }
+    static DEBUG_INFO: LazyLock<Regex> =
+        LazyLock::new(|| Regex::new(r"\-C\s*debuginfo=\d").unwrap());
+    static DEAD_CODE: LazyLock<Regex> =
+        LazyLock::new(|| Regex::new(r"\-C\s*link-dead-code").unwrap());
     if let Ok(vtemp) = env::var(RUSTFLAGS) {
         let temp = DEBUG_INFO.replace_all(&vtemp, " ");
         if config.no_dead_code {
@@ -819,14 +821,12 @@ pub fn rustdoc_flags(config: &Config, cargo_config: &CargoConfigFields) -> Strin
 }
 
 fn deduplicate_flags(flags: &str) -> String {
-    lazy_static! {
-        static ref CFG_FLAG: Regex = Regex::new(r#"\--cfg\s+"#).unwrap();
-        static ref C_FLAG: Regex = Regex::new(r#"\-C\s+"#).unwrap();
-        static ref Z_FLAG: Regex = Regex::new(r#"\-Z\s+"#).unwrap();
-        static ref W_FLAG: Regex = Regex::new(r#"\-W\s+"#).unwrap();
-        static ref A_FLAG: Regex = Regex::new(r#"\-A\s+"#).unwrap();
-        static ref D_FLAG: Regex = Regex::new(r#"\-D\s+"#).unwrap();
-    }
+    static CFG_FLAG: LazyLock<Regex> = LazyLock::new(|| Regex::new(r#"\--cfg\s+"#).unwrap());
+    static C_FLAG: LazyLock<Regex> = LazyLock::new(|| Regex::new(r#"\-C\s+"#).unwrap());
+    static Z_FLAG: LazyLock<Regex> = LazyLock::new(|| Regex::new(r#"\-Z\s+"#).unwrap());
+    static W_FLAG: LazyLock<Regex> = LazyLock::new(|| Regex::new(r#"\-W\s+"#).unwrap());
+    static A_FLAG: LazyLock<Regex> = LazyLock::new(|| Regex::new(r#"\-A\s+"#).unwrap());
+    static D_FLAG: LazyLock<Regex> = LazyLock::new(|| Regex::new(r#"\-D\s+"#).unwrap());
 
     // Going to remove the excess spaces to make it easier to filter things.
     let res = CFG_FLAG.replace_all(flags, "--cfg=");
@@ -900,6 +900,23 @@ pub fn llvm_coverage_rustflag() -> &'static str {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn old_doctest_name_handling() {
+        let dtbm = DocTestBinaryMeta::new("src_some_folder_foo_rs_3_1/rust_out").unwrap();
+        assert_eq!(dtbm.line, 3);
+        assert_eq!(dtbm.prefix, "src_some_folder_foo_rs");
+
+        assert!(is_prefix_match(
+            &dtbm.prefix,
+            &Path::new("src/some_folder/foo.rs")
+        ));
+
+        let no_run = line!() as usize;
+        assert!(find_str_in_file(&Path::new(file!()), "no_run")
+            .unwrap()
+            .contains(&no_run));
+    }
 
     #[test]
     fn can_get_libdir() {

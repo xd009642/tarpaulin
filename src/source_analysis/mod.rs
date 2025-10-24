@@ -1,6 +1,5 @@
 use crate::config::{Config, RunType};
 use crate::path_utils::{get_source_walker, is_source_file};
-use lazy_static::lazy_static;
 use proc_macro2::{Span, TokenStream};
 use quote::ToTokens;
 use regex::Regex;
@@ -11,6 +10,7 @@ use std::ffi::OsStr;
 use std::fs::File;
 use std::io::{self, BufRead, BufReader, Read};
 use std::path::{Path, PathBuf};
+use std::sync::LazyLock;
 use syn::spanned::Spanned;
 use syn::*;
 use tracing::{debug, trace, warn};
@@ -234,9 +234,7 @@ impl LineAnalysis {
         // for a reason.
         let mut useful_lines: HashSet<usize> = HashSet::new();
         if let Some(c) = contents {
-            lazy_static! {
-                static ref SINGLE_LINE: Regex = Regex::new(r"\s*//").unwrap();
-            }
+            static SINGLE_LINE: LazyLock<Regex> = LazyLock::new(|| Regex::new(r"\s*//").unwrap());
             const MULTI_START: &str = "/*";
             const MULTI_END: &str = "*/";
             let len = span.end().line - span.start().line;
@@ -462,10 +460,8 @@ impl SourceAnalysis {
     /// These are often things like close braces, semicolons that may register as
     /// false positives.
     pub(crate) fn find_ignorable_lines(&mut self, ctx: &Context) {
-        lazy_static! {
-            static ref IGNORABLE: Regex =
-                Regex::new(r"^((\s*//)|([\[\]\{\}\(\)\s;\?,/]*$))").unwrap();
-        }
+        static IGNORABLE: LazyLock<Regex> =
+            LazyLock::new(|| Regex::new(r"^((\s*//)|([\[\]\{\}\(\)\s;\?,/]*$))").unwrap());
         let analysis = self.get_line_analysis(ctx.file.to_path_buf());
         let lines = ctx
             .file_contents

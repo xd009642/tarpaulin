@@ -2,6 +2,14 @@
 
 From 2019 onwards, all notable changes to tarpaulin will be documented in this
 file.
+ 
+## [0.34.1] 2025-10-24
+### Changed
+- Silence warning on invalid/unexpected doctest path for merged doctests as they
+don't need the old processing
+
+### Fixed
+- LLVM split regions are now counted correctly fixing some missed coverage hits.
 
 ## [0.34.0] 2025-10-19
 ### Added

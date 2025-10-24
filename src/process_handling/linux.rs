@@ -5,18 +5,16 @@ use crate::process_handling::execute_test;
 use crate::ptrace_control::*;
 use crate::Config;
 use crate::TestHandle;
-use lazy_static::lazy_static;
 use nix::sched::*;
 use nix::sys::personality;
 use nix::unistd::*;
 use std::ffi::{CStr, CString};
 use std::path::Path;
 use std::rc::Rc;
+use std::sync::LazyLock;
 use tracing::{info, warn};
 
-lazy_static! {
-    static ref NUM_CPUS: usize = num_cpus::get();
-}
+static NUM_CPUS: LazyLock<usize> = LazyLock::new(|| num_cpus::get());
 
 /// Returns the coverage statistics for a test executable in the given workspace
 pub fn get_test_coverage(

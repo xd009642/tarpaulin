@@ -180,7 +180,7 @@ dependencies = [
 
 [[package]]
 name = "cargo-tarpaulin"
-version = "0.34.0"
+version = "0.34.1"
 dependencies = [
  "cargo-config2",
  "cargo_metadata",
@@ -193,7 +193,6 @@ dependencies = [
  "glob",
  "humantime-serde",
  "indexmap 1.8.2",
- "lazy_static",
  "lcov",
  "libc",
  "llvm_profparser",
@@ -245,9 +244,9 @@ dependencies = [
 
 [[package]]
 name = "cfg-if"
-version = "1.0.3"
+version = "1.0.4"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "2fd1289c04a9ea8cb22300a459a72a385d7c73d3259e2ed7dcb2af674838cfa9"
+checksum = "9330f8b2ff13f34540b44e946ef35111825727b38d33286ef986142615121801"
 
 [[package]]
 name = "cfg_aliases"
@@ -538,7 +537,6 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "e629b9b98ef3dd8afe6ca2bd0f89306cec16d43d907889945bc5d6687f2f13c7"
 dependencies = [
  "fallible-iterator",
- "indexmap 2.11.4",
  "stable_deref_trait",
 ]
 
@@ -1013,9 +1011,9 @@ checksum = "241eaef5fd12c88705a01fc1066c48c4b36e0dd4377dcdc7ec3942cea7a69956"
 
 [[package]]
 name = "llvm_profparser"
-version = "0.9.0"
+version = "0.9.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "deca0df3be8d359302ec7e32f8ee34461fa4f30ddab8add28714e3be0e22f034"
+checksum = "d67ff57e85c4295dcfcc939358e80c885e4f402db650d646c678d51c44e3798f"
 dependencies = [
  "anyhow",
  "flate2",
@@ -1359,9 +1357,9 @@ checksum = "69cdb34c158ceb288df11e18b4bd39de994f6657d83847bdffdbd7f346754b0f"
 
 [[package]]
 name = "regex"
-version = "1.12.1"
+version = "1.12.2"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "4a52d8d02cacdb176ef4678de6c052efb4b3da14b78e4db683a4252762be5433"
+checksum = "843bc0191f75f3e22651ae5f1e72939ab2f72a4bc30fa80a066bd66edefc24d4"
 dependencies = [
  "aho-corasick",
  "memchr",
