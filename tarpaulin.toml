@@ -28,7 +28,7 @@ force-clean = false
 skip-clean = true
 
 # Enable verbose logging for user information during tests.
-verbose = true
+verbose = false 
 
 # Enable debugging information for internal issues.
 debug = false
@@ -111,7 +111,7 @@ packages = []
 exclude = []
 
 # List of file paths to exclude from testing.
-exclude-files = []
+exclude-files = ["tests/data/*"]
 
 # List of file paths to include (and exclude all others) from testing.
 include-files = []
