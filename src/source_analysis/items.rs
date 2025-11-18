@@ -58,17 +58,18 @@ impl SourceAnalysis {
             if let Some((ref braces, _)) = module.content {
                 let analysis = self.get_line_analysis(ctx.file.to_path_buf());
                 analysis.ignore_span(braces.span.join());
-            }
-            // Get the file or directory name of the module
-            let mut p = if let Some(parent) = ctx.file.parent() {
-                parent.join(module.ident.to_string())
             } else {
-                PathBuf::from(module.ident.to_string())
-            };
-            if !p.exists() {
-                p.set_extension("rs");
+                // Get the file or directory name of the module
+                let mut p = if let Some(parent) = ctx.file.parent() {
+                    parent.join(module.ident.to_string())
+                } else {
+                    PathBuf::from(module.ident.to_string())
+                };
+                if !p.exists() {
+                    p.set_extension("rs");
+                }
+                ctx.ignore_mods.borrow_mut().insert(p);
             }
-            ctx.ignore_mods.borrow_mut().insert(p);
         }
     }
 
