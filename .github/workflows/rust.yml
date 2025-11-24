@@ -25,7 +25,7 @@ jobs:
           - aarch64-unknown-linux-gnu
       fail-fast: false
     steps:
-      - uses: actions/checkout@v5
+      - uses: actions/checkout@v6
       - uses: dtolnay/rust-toolchain@master
         with:
           toolchain: ${{ matrix.version }}
@@ -50,7 +50,7 @@ jobs:
           - x86_64-pc-windows-msvc
       fail-fast: false
     steps:
-      - uses: actions/checkout@v5
+      - uses: actions/checkout@v6
       - uses: dtolnay/rust-toolchain@master
         with:
           toolchain: ${{ matrix.version }}
@@ -69,7 +69,7 @@ jobs:
           - x86_64-apple-darwin	
       fail-fast: false
     steps:
-      - uses: actions/checkout@v5
+      - uses: actions/checkout@v6
       - uses: dtolnay/rust-toolchain@master
         with:
           toolchain: ${{ matrix.version }}
