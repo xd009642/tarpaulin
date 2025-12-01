@@ -41,7 +41,7 @@ serde_json = "1.0"
 syn = { version = "2.0", default-features = false, features = ["full", "parsing"] }
 toml = { version = "0.9", default-features = false, features = ["parse", "preserve_order", "std", "serde"] }
 tracing = { version = "0.1", default-features = false }
-tracing-subscriber = { version = "0.3.20", default-features = false, features = [
+tracing-subscriber = { version = "0.3.22", default-features = false, features = [
     "env-filter",
     "fmt",
     "chrono",
@@ -70,7 +70,7 @@ rustc_version = "0.4"
 [dev-dependencies]
 lcov = "0.8.1"
 rusty-fork = "0.3.1"
-test-log = { version = "0.2.18", features = ["trace"] }
+test-log = { version = "0.2.19", features = ["trace"] }
 
 [package.metadata.binstall]
 pkg-url = "{ repo }/releases/download/{ version }/cargo-tarpaulin-{ target }{ archive-suffix }"
