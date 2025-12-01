@@ -25,11 +25,19 @@ pub trait Report<Out: Serialize> {
 }
 
 fn coverage_report_name(config: &Config) -> String {
+    // separate reports by package to prevent clashing statistics
+    let mut joined = String::from("-");
+    if !config.packages.is_empty() {
+        let mut packages = config.packages.clone();
+        packages.sort();
+        joined = String::from("-") + &packages.join("-") + "-";
+    }
+
     config
         .get_metadata()
         .as_ref()
         .and_then(Metadata::root_package)
-        .map(|x| format!("{}-coverage.json", x.name))
+        .map(|x| format!("{}{}coverage.json", x.name, joined))
         .unwrap_or_else(|| "coverage.json".to_string())
 }
 
@@ -246,5 +254,46 @@ fn accumulate_lines(
     } else {
         group.push(next);
         (acc, group)
+    }
+}
+
+
+#[cfg(test)]
+mod tests {
+    use crate::{config::Config, report::coverage_report_name};
+
+    #[test]
+    fn coverage_report_name_no_package() {
+        let config = Config::default();
+
+        let name_report = coverage_report_name(&config);
+        assert_eq!(name_report, "cargo-tarpaulin-coverage.json", "Suffix should have been added and name should be in title");
+    }
+
+    #[test]
+    fn coverage_report_name_1_package() {
+        let mut config = Config::default();
+        config.packages = vec![String::from("bintest")];
+
+        let name_report = coverage_report_name(&config);
+        assert_eq!(name_report, "cargo-tarpaulin-bintest-coverage.json", "Suffix should have been added, name should be in title, and also package should be present");
+    }
+
+    #[test]
+    fn coverage_report_name_3_packages() {
+        let mut config = Config::default();
+        config.packages = vec![String::from("pizza"),String::from("bintest"),String::from("fur")];
+
+        let name_report = coverage_report_name(&config);
+        assert_eq!(name_report, "cargo-tarpaulin-bintest-fur-pizza-coverage.json", "Suffix should have been added, name should be in title, and also packages should be present");
+    }
+
+    #[test]
+    fn coverage_report_name_3_packages_diff() {
+        let mut config = Config::default();
+        config.packages = vec![String::from("pizza"),String::from("fur"),String::from("bintest")];
+
+        let name_report = coverage_report_name(&config);
+        assert_eq!(name_report, "cargo-tarpaulin-bintest-fur-pizza-coverage.json", "Suffix should have been added, name should be in title, and also packages should be present in alphabetical order");
     }
 }
