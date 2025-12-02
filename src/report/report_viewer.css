@@ -122,7 +122,7 @@ body {
 
 .code-line::before {
   content: counter(line);
-  margin-right: 10px;
+  margin-right: 72px;
 }
 .code-line {
   margin: 0;
@@ -135,6 +135,18 @@ body {
 }
 .code-line_uncovered {
   background: var(--red);
+}
+
+.stat-line-hit {
+  position: absolute;
+  display: inline;
+  transform: translateX(-64px);
+  border: 1px solid black;
+  border-radius: 8px;
+  padding: 0 4px;
+  background-color: var(--yellow);
+  max-width: 48px;
+  overflow: hidden;
 }
 
 #theme-toggle-label {

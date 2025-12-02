@@ -241,12 +241,20 @@ function FileContent({file}) {
       const trace = file.traces.find(trace => trace.line === index + 1);
       const covered = trace && trace.stats.Line;
       const uncovered = trace && !trace.stats.Line;
+      const nbHit = covered? trace.stats.Line: 0;
       return e(
         'code',
         {
           className: 'code-line' + (covered ? ' code-line_covered' : '') + (uncovered ? ' code-line_uncovered' : ''),
-          title: trace ? JSON.stringify(trace.stats, null, 2) : null,
         },
+        covered? e(
+          'div',
+          { 
+            className: 'stat-line-hit',
+            title: "Line hit: " + nbHit + " times"
+          },
+          "Hit:" + nbHit
+        ): null,
         line,
       );
     }),
