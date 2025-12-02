@@ -842,7 +842,7 @@ impl Config {
 
     #[inline]
     pub fn include_path(&self, path: &Path) -> bool {
-        if self.included_files.borrow().len() != self.included_files_raw.len() + self.packages.len() 
+        if self.included_files.borrow().len() != self.included_files_raw.len() + self.packages.len()
         {
             let mut included_files = self.included_files.borrow_mut();
             let mut compiled = globs_from_excluded(&self.included_files_raw);
@@ -1106,10 +1106,10 @@ mod tests {
     #[test]
     fn include_path_package_and_path() {
         let args = TarpaulinCli::parse_from(vec![
-            "tarpaulin", 
-            "-p", 
-            "bintest", 
-            "--include-files", 
+            "tarpaulin",
+            "-p",
+            "bintest",
+            "--include-files",
             "*/lib.rs",
         ]);
         let conf = ConfigWrapper::from(args.config).0;
@@ -1123,10 +1123,10 @@ mod tests {
     #[test]
     fn include_path_package_not_module_and_path() {
         let args = TarpaulinCli::parse_from(vec![
-            "tarpaulin", 
-            "-p", 
-            "bintest", 
-            "--include-files", 
+            "tarpaulin",
+            "-p",
+            "bintest",
+            "--include-files",
             "*/lib.rs",
         ]);
         let conf = ConfigWrapper::from(args.config).0;
@@ -1138,7 +1138,7 @@ mod tests {
         assert!(!conf[0].include_path(Path::new("bintest/mod.rs"))); // not package: don't have src folder under package
         assert!(!conf[0].include_path(Path::new("org/bintest/main.rs"))); // not package: don't have src folder under package
         assert!(!conf[0].include_path(Path::new("hophopbintest/src/mod.rs"))); // not same package
-        //not same inner package
+                                                                               //not same inner package
         assert!(!conf[0].include_path(Path::new("org/hophopbintest/src/mod.rs")));
     }
 
