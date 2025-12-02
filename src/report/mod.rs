@@ -257,7 +257,6 @@ fn accumulate_lines(
     }
 }
 
-
 #[cfg(test)]
 mod tests {
     use crate::{config::Config, report::coverage_report_name};
@@ -267,7 +266,10 @@ mod tests {
         let config = Config::default();
 
         let name_report = coverage_report_name(&config);
-        assert_eq!(name_report, "cargo-tarpaulin-coverage.json", "Suffix should have been added and name should be in title");
+        assert_eq!(
+            name_report, "cargo-tarpaulin-coverage.json",
+            "Suffix should have been added and name should be in title"
+        );
     }
 
     #[test]
@@ -282,7 +284,11 @@ mod tests {
     #[test]
     fn coverage_report_name_3_packages() {
         let mut config = Config::default();
-        config.packages = vec![String::from("pizza"),String::from("bintest"),String::from("fur")];
+        config.packages = vec![
+            String::from("pizza"),
+            String::from("bintest"),
+            String::from("fur"),
+        ];
 
         let name_report = coverage_report_name(&config);
         assert_eq!(name_report, "cargo-tarpaulin-bintest-fur-pizza-coverage.json", "Suffix should have been added, name should be in title, and also packages should be present");
@@ -291,7 +297,11 @@ mod tests {
     #[test]
     fn coverage_report_name_3_packages_diff() {
         let mut config = Config::default();
-        config.packages = vec![String::from("pizza"),String::from("fur"),String::from("bintest")];
+        config.packages = vec![
+            String::from("pizza"),
+            String::from("fur"),
+            String::from("bintest"),
+        ];
 
         let name_report = coverage_report_name(&config);
         assert_eq!(name_report, "cargo-tarpaulin-bintest-fur-pizza-coverage.json", "Suffix should have been added, name should be in title, and also packages should be present in alphabetical order");
