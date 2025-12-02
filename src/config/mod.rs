@@ -842,17 +842,22 @@ impl Config {
 
     #[inline]
     pub fn include_path(&self, path: &Path) -> bool {
-        if self.included_files.borrow().len() != self.included_files_raw.len() {
+        if self.included_files.borrow().len() != self.included_files_raw.len() + self.packages.len() {
             let mut included_files = self.included_files.borrow_mut();
             let mut compiled = globs_from_excluded(&self.included_files_raw);
             included_files.clear();
             included_files.append(&mut compiled);
+
+            let mut packages_included_files = self.packages.clone();
+            packages_included_files = packages_included_files.into_iter().map(|p| String::from("*") + &p + "/*").collect::<Vec<String>>();
+            let mut compiled_packages_included = globs_from_excluded(&packages_included_files);
+            included_files.append(&mut compiled_packages_included);
         }
 
         let project = self.strip_base_dir(path);
 
         //if empty, then parameter not used, thus all files are included by default
-        if self.included_files.borrow().is_empty() {
+        if self.included_files.borrow().is_empty() && self.packages.is_empty() {
             return true;
         }
 
@@ -1077,6 +1082,27 @@ mod tests {
         assert!(!conf[0].include_path(Path::new("src/mod.rs")));
         assert!(!conf[0].include_path(Path::new("src/notlib.rs")));
         assert!(!conf[0].include_path(Path::new("lib.rs")));
+    }
+
+    #[test]
+    fn include_path_package() {
+        let args = TarpaulinCli::parse_from(vec!["tarpaulin", "-p", "bintest"]);
+        let conf = ConfigWrapper::from(args.config).0;
+        assert_eq!(conf.len(), 1);
+        assert!(conf[0].include_path(Path::new("bintest/src/lib.rs")));
+        assert!(conf[0].include_path(Path::new("org/bintest/src/main.rs")));
+        assert!(!conf[0].include_path(Path::new("org/somepackage/src/test.rs")));
+    }
+
+    #[test]
+    fn include_path_package_and_path() {
+        let args = TarpaulinCli::parse_from(vec!["tarpaulin", "-p", "bintest", "--include-files", "*/lib.rs"]);
+        let conf = ConfigWrapper::from(args.config).0;
+        assert_eq!(conf.len(), 1);
+        assert!(conf[0].include_path(Path::new("bintest/src/lib.rs")));
+        assert!(conf[0].include_path(Path::new("org/bintest/src/main.rs")));
+        assert!(!conf[0].include_path(Path::new("org/somepackage/src/test.rs")));
+        assert!(conf[0].include_path(Path::new("org/somepackage/src/lib.rs")));
     }
 
     #[test]
