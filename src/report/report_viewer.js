@@ -243,19 +243,24 @@ function FileContent({file}) {
       const uncovered = trace && !trace.stats.Line;
       const nbHit = covered? trace.stats.Line: 0;
       return e(
-        'code',
-        {
-          className: 'code-line' + (covered ? ' code-line_covered' : '') + (uncovered ? ' code-line_uncovered' : ''),
-        },
-        covered? e(
-          'div',
-          { 
-            className: 'stat-line-hit',
-            title: "Line hit: " + nbHit + " times"
+        'div',
+        { className: 'code-text-container' },
+        e(
+          'code',
+          {
+            className: 'code-line' + (covered ? ' code-line_covered' : '') + (uncovered ? ' code-line_uncovered' : ''),
           },
-          "Hit:" + nbHit
-        ): null,
-        line,
+          line
+        ),
+        e(
+          'div',
+          { className: 'cover-indicator' + (covered? ' check-cover': '') + (uncovered? ' no-cover': '')},
+          e(
+            'div',
+            { className: (covered? 'stat-line-hit': '')},
+            covered? nbHit: ""
+          )
+        )
       );
     }),
   );
