@@ -409,6 +409,12 @@ fn handle_module_level_exclude_attrs() {
 }
 
 #[test]
+fn module_name_clashes() {
+    // Make sure the exclusions are correct
+    check_percentage("module_name_clashes", 1.0f64, true);
+}
+
+#[test]
 #[cfg(unix)]
 fn handle_forks() {
     let mut config = Config::default();
