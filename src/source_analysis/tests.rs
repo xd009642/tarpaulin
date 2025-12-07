@@ -1800,6 +1800,10 @@ fn module_nesting_correct() {
         #[cfg(test)]
         mod tests {
             mod inner; // should be at src/tests/inner.rs
+            
+            mod foo {
+                mod innermost;
+            }
         }
         ",
         file: Path::new("src/lib.rs"),
@@ -1809,10 +1813,16 @@ fn module_nesting_correct() {
     let parser = parse_file(ctx.file_contents).unwrap();
     let mut analysis = SourceAnalysis::new();
     analysis.process_items(&parser.items, &ctx);
+    println!("{:?}", ctx.ignore_mods.borrow());
     assert!(ctx
         .ignore_mods
         .borrow()
         .contains(&PathBuf::from("src/tests/inner.rs")));
+
+    assert!(ctx
+        .ignore_mods
+        .borrow()
+        .contains(&PathBuf::from("src/tests/foo/innermost.rs")));
 
     let ctx = Context {
         config: &config,
