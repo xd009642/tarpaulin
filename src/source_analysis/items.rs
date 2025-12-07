@@ -58,6 +58,32 @@ impl SourceAnalysis {
             if let Some((ref braces, _)) = module.content {
                 let analysis = self.get_line_analysis(ctx.file.to_path_buf());
                 analysis.ignore_span(braces.span.join());
+                if let Some((_, ref items)) = module.content {
+                    for item in items.iter() {
+                        if let Item::Mod(m) = item {
+                            // ignore whole ass module
+                            let mut p = if let Some(parent) = ctx.file.parent() {
+                                parent.to_path_buf()
+                            } else {
+                                PathBuf::new()
+                            };
+                            match ctx.file.file_stem().and_then(|x| x.to_str()) {
+                                Some(name) if !["lib", "mod"].contains(&name) => {
+                                    p.push(name);
+                                }
+                                _ => {}
+                            }
+                            for s in ctx.symbol_stack.borrow().iter() {
+                                p.push(s);
+                            }
+                            p.push(m.ident.to_string());
+                            if !p.exists() {
+                                p.set_extension("rs");
+                            }
+                            ctx.ignore_mods.borrow_mut().insert(p);
+                        }
+                    }
+                }
             } else {
                 // Get the file or directory name of the module
                 let mut p = if let Some(parent) = ctx.file.parent() {

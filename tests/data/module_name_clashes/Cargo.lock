@@ -3,5 +3,5 @@
 version = 4
 
 [[package]]
-name = "tidier-split-mod"
+name = "module_name_clashes"
 version = "0.1.0"

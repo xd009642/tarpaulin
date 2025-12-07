@@ -1809,8 +1809,10 @@ fn module_nesting_correct() {
     let parser = parse_file(ctx.file_contents).unwrap();
     let mut analysis = SourceAnalysis::new();
     analysis.process_items(&parser.items, &ctx);
-    println!("{:?}", analysis.ignored_modules);
-    assert!(analysis.ignored_modules.contains(&PathBuf::from("src/tests/inner.rs")));
+    assert!(ctx
+        .ignore_mods
+        .borrow()
+        .contains(&PathBuf::from("src/tests/inner.rs")));
 }
 
 #[test]
