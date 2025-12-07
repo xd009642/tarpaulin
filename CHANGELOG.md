@@ -6,6 +6,10 @@ file.
 ## [Unreleased]
 ### Changed
 - Update LLVM profile parsing code to lazily load files reducing memory usage
+- HTML reports now display the hit count without a mouseover
+
+### Fixed
+- Correctly trace module paths when ignoring file modules declared in an inline module #1974
  
 ## [0.34.1] 2025-10-24
 ### Changed
