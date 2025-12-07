@@ -45,6 +45,38 @@ impl SourceAnalysis {
         res
     }
 
+    fn ignore_nested_modules(&mut self, items: &[Item], ctx: &Context) {
+        for item in items.iter() {
+            if let Item::Mod(m) = item {
+                if let Some((_, ref items)) = m.content {
+                    let _guard = ctx.push_to_symbol_stack(m.ident.to_string());
+                    self.ignore_nested_modules(items, ctx);
+                } else {
+                    // ignore whole ass module
+                    let mut p = if let Some(parent) = ctx.file.parent() {
+                        parent.to_path_buf()
+                    } else {
+                        PathBuf::new()
+                    };
+                    match ctx.file.file_stem().and_then(|x| x.to_str()) {
+                        Some(name) if !["lib", "mod"].contains(&name) => {
+                            p.push(name);
+                        }
+                        _ => {}
+                    }
+                    for s in ctx.symbol_stack.borrow().iter() {
+                        p.push(s);
+                    }
+                    p.push(m.ident.to_string());
+                    if !p.exists() {
+                        p.set_extension("rs");
+                    }
+                    ctx.ignore_mods.borrow_mut().insert(p);
+                }
+            }
+        }
+    }
+
     fn visit_mod(&mut self, module: &ItemMod, ctx: &Context) {
         let _guard = ctx.push_to_symbol_stack(module.ident.to_string());
         let analysis = self.get_line_analysis(ctx.file.to_path_buf());
@@ -58,17 +90,29 @@ impl SourceAnalysis {
             if let Some((ref braces, _)) = module.content {
                 let analysis = self.get_line_analysis(ctx.file.to_path_buf());
                 analysis.ignore_span(braces.span.join());
-            }
-            // Get the file or directory name of the module
-            let mut p = if let Some(parent) = ctx.file.parent() {
-                parent.join(module.ident.to_string())
+                if let Some((_, ref items)) = module.content {
+                    self.ignore_nested_modules(items, ctx);
+                }
             } else {
-                PathBuf::from(module.ident.to_string())
-            };
-            if !p.exists() {
-                p.set_extension("rs");
+                // Get the file or directory name of the module
+                let mut p = if let Some(parent) = ctx.file.parent() {
+                    parent.to_path_buf()
+                } else {
+                    PathBuf::new()
+                };
+                if let Some(s) = ctx.file.file_stem().and_then(|x| x.to_str()) {
+                    p.push(s);
+                }
+                let stack = ctx.symbol_stack.borrow();
+                for s in stack.iter().take(stack.len() - 1) {
+                    p.push(s);
+                }
+                p.push(module.ident.to_string());
+                if !p.exists() {
+                    p.set_extension("rs");
+                }
+                ctx.ignore_mods.borrow_mut().insert(p);
             }
-            ctx.ignore_mods.borrow_mut().insert(p);
         }
     }
 

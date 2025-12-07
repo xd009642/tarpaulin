@@ -1792,6 +1792,61 @@ fn ignore_trait_types() {
 }
 
 #[test]
+fn module_nesting_correct() {
+    let config = Config::default();
+    let ctx = Context {
+        config: &config,
+        file_contents: "
+        #[cfg(test)]
+        mod tests {
+            mod inner; // should be at src/tests/inner.rs
+            
+            mod foo {
+                mod innermost;
+            }
+        }
+        ",
+        file: Path::new("src/lib.rs"),
+        ignore_mods: RefCell::new(HashSet::new()),
+        symbol_stack: RefCell::new(Vec::new()),
+    };
+    let parser = parse_file(ctx.file_contents).unwrap();
+    let mut analysis = SourceAnalysis::new();
+    analysis.process_items(&parser.items, &ctx);
+    println!("{:?}", ctx.ignore_mods.borrow());
+    assert!(ctx
+        .ignore_mods
+        .borrow()
+        .contains(&PathBuf::from("src/tests/inner.rs")));
+
+    assert!(ctx
+        .ignore_mods
+        .borrow()
+        .contains(&PathBuf::from("src/tests/foo/innermost.rs")));
+
+    let ctx = Context {
+        config: &config,
+        file_contents: "
+        mod bar {
+            #[cfg(test)]
+            mod inner; // should be at src/tests/inner.rs
+        }
+        ",
+        file: Path::new("src/foo.rs"),
+        ignore_mods: RefCell::new(HashSet::new()),
+        symbol_stack: RefCell::new(Vec::new()),
+    };
+    let parser = parse_file(ctx.file_contents).unwrap();
+    let mut analysis = SourceAnalysis::new();
+    analysis.process_items(&parser.items, &ctx);
+    println!("{:?}", ctx.ignore_mods);
+    assert!(ctx
+        .ignore_mods
+        .borrow()
+        .contains(&PathBuf::from("src/foo/bar/inner.rs")));
+}
+
+#[test]
 fn get_function_names() {
     let config = Config::default();
     let ctx = Context {
