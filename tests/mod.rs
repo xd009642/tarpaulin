@@ -411,7 +411,18 @@ fn handle_module_level_exclude_attrs() {
 #[test]
 fn module_name_clashes() {
     // Make sure the exclusions are correct
-    check_percentage("module_name_clashes", 1.0f64, true);
+    let mut config = Config::default();
+    config.set_include_tests(false);
+    config.set_clean(false);
+    let map = check_percentage_with_config("module_name_clashes", 1.0f64, true, config);
+
+    println!("{:?}", map.files());
+
+    let root = get_test_path("module_name_clashes");
+
+    assert!(map.contains_file(&root.join("src/foo/overhere.rs")));
+    assert!(map.contains_file(&root.join("src/foo/boo.rs")));
+    assert!(!map.contains_file(&root.join("src/foo/bar/overhere/boo.rs")));
 }
 
 #[test]
