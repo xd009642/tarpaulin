@@ -1813,6 +1813,27 @@ fn module_nesting_correct() {
         .ignore_mods
         .borrow()
         .contains(&PathBuf::from("src/tests/inner.rs")));
+
+    let ctx = Context {
+        config: &config,
+        file_contents: "
+        mod bar {
+            #[cfg(test)]
+            mod inner; // should be at src/tests/inner.rs
+        }
+        ",
+        file: Path::new("src/foo.rs"),
+        ignore_mods: RefCell::new(HashSet::new()),
+        symbol_stack: RefCell::new(Vec::new()),
+    };
+    let parser = parse_file(ctx.file_contents).unwrap();
+    let mut analysis = SourceAnalysis::new();
+    analysis.process_items(&parser.items, &ctx);
+    println!("{:?}", ctx.ignore_mods);
+    assert!(ctx
+        .ignore_mods
+        .borrow()
+        .contains(&PathBuf::from("src/foo/bar/inner.rs")));
 }
 
 #[test]
