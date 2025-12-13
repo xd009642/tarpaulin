@@ -185,7 +185,7 @@ cargo binstall cargo-tarpaulin
 When Tarpaulin runs your tests it strives to run them in the same environment as if they were run via cargo test.
 To achieve this it sets the following environment variables when executing the test binaries:
 
-- **RUST_BACKTRACE**      - _When --verbose flag is used_
+- **RUST_BACKTRACE**      - _Set to `1` when --verbose flag is used unless it is already set_
 - **CARGO_MANIFEST_DIR**  - _Path to Cargo.toml From --root | --manifest-path or guessed from the current or parent directory_
 - **CARGO_PKG_NAME**      - _From Cargo.toml_
 - **CARGO_PKG_AUTHORS**   - _From Cargo.toml_

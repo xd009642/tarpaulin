@@ -197,7 +197,7 @@ fn get_env_vars(
         }
         envars.insert(key.to_string(), value.to_string());
     }
-    if config.verbose {
+    if config.verbose && !envars.contains_key("RUST_BACKTRACE") {
         envars.insert("RUST_BACKTRACE".to_string(), "1".to_string());
     }
     if let Some(s) = test.pkg_name() {
