@@ -97,7 +97,7 @@ mod tests {
     use crate::source_analysis::Function;
     use crate::traces::*;
     use lcov::{record::Record, Reader};
-    use std::collections::HashMap;
+    use std::collections::{HashMap, HashSet};
     use std::io::Cursor;
     use std::path::{Path, PathBuf};
 
@@ -111,6 +111,7 @@ mod tests {
                 stats: CoverageStat::Line(1),
                 address: Default::default(),
                 length: 0,
+                src: HashSet::new(),
             },
         );
         traces.add_trace(
@@ -120,6 +121,7 @@ mod tests {
                 stats: CoverageStat::Line(0),
                 address: Default::default(),
                 length: 0,
+                src: HashSet::new(),
             },
         );
 
@@ -130,6 +132,7 @@ mod tests {
                 stats: CoverageStat::Line(9),
                 address: Default::default(),
                 length: 0,
+                src: HashSet::new(),
             },
         );
 

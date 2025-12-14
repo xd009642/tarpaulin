@@ -33,6 +33,8 @@ pub struct LinuxData<'a> {
     config: &'a Config,
     /// Optional event log to update as the test progresses
     event_log: &'a Option<EventLog>,
+    /// Test name associated with the trace
+    test_name: Option<String>,
     /// Instrumentation points in code with associated coverage data
     traces: &'a mut TraceMap,
     /// Source analysis, needed in case we need to follow any executables
@@ -63,13 +65,14 @@ pub struct TracedProcess {
 }
 
 pub fn create_state_machine<'a>(
+    test_name: Option<String>,
     test: impl Into<TestHandle>,
     traces: &'a mut TraceMap,
     source_analysis: &'a HashMap<PathBuf, LineAnalysis>,
     config: &'a Config,
     event_log: &'a Option<EventLog>,
 ) -> (TestState, LinuxData<'a>) {
-    let mut data = LinuxData::new(traces, source_analysis, config, event_log);
+    let mut data = LinuxData::new(test_name, traces, source_analysis, config, event_log);
     let handle = test.into();
     match handle {
         TestHandle::Id(test) => {
@@ -413,6 +416,7 @@ impl<'a> StateData for LinuxData<'a> {
 
 impl<'a> LinuxData<'a> {
     pub fn new(
+        test_name: Option<String>,
         traces: &'a mut TraceMap,
         analysis: &'a HashMap<PathBuf, LineAnalysis>,
         config: &'a Config,
@@ -424,6 +428,7 @@ impl<'a> LinuxData<'a> {
             processes: HashMap::new(),
             current: Pid::from_raw(0),
             parent: Pid::from_raw(0),
+            test_name,
             traces,
             analysis,
             config,
@@ -749,7 +754,7 @@ impl<'a> LinuxData<'a> {
         }
         if let Some(traces) = self.get_active_trace_map_mut(current) {
             for addr in &hits_to_increment {
-                traces.increment_hit(*addr);
+                traces.increment_hit(*addr, self.test_name.clone());
             }
         } else {
             warn!("Failed to find traces for pid: {}", current);

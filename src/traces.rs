@@ -62,6 +62,8 @@ pub struct Trace {
     pub length: usize,
     /// Coverage stats
     pub stats: CoverageStat,
+    /// Coverage source. Only useful for PerTest run type
+    pub src: HashSet<String>,
 }
 
 #[derive(Clone, Debug, Eq, PartialEq, PartialOrd, Ord, Hash, Serialize, Deserialize)]
@@ -79,6 +81,7 @@ impl Trace {
             address,
             length,
             stats: CoverageStat::Line(0),
+            src: HashSet::new(),
         }
     }
 
@@ -88,6 +91,7 @@ impl Trace {
             address: HashSet::new(),
             length: 0,
             stats: CoverageStat::Line(0),
+            src: HashSet::new(),
         }
     }
 }
@@ -200,6 +204,7 @@ impl TraceMap {
                         .find(|x| x.line == v.line && x.address == v.address)
                     {
                         t.stats = t.stats.clone() + v.stats.clone();
+                        t.src.extend(v.src.clone());
                         added = true;
                     }
                     if !added {
@@ -218,7 +223,8 @@ impl TraceMap {
     pub fn dedup(&mut self) {
         for values in self.traces.values_mut() {
             // Map of lines and stats, merge duplicated stats here
-            let mut lines: HashMap<u64, CoverageStat> = HashMap::new();
+            let mut lines: HashMap<u64, Trace> = HashMap::new();
+
             // Duplicated traces need cleaning up. Maintain a list of them!
             let mut dirty: Vec<u64> = Vec::new();
             for v in values.iter() {
@@ -226,9 +232,11 @@ impl TraceMap {
                     .entry(v.line)
                     .and_modify(|e| {
                         dirty.push(v.line);
-                        *e = e.clone() + v.stats.clone();
+
+                        e.stats = e.stats.clone() + v.stats.clone();
+                        e.src.extend(v.src.clone());
                     })
-                    .or_insert_with(|| v.stats.clone());
+                    .or_insert_with(|| v.clone());
             }
             for d in &dirty {
                 let mut first = true;
@@ -245,9 +253,10 @@ impl TraceMap {
                         res
                     }
                 });
-                if let Some(new_stat) = lines.remove(d) {
+                if let Some(trace) = lines.remove(d) {
                     if let Some(ref mut t) = values.iter_mut().find(|x| x.line == *d) {
-                        t.stats = new_stat;
+                        t.stats = trace.stats;
+                        t.src.extend(trace.src);
                     }
                 }
             }
@@ -278,7 +287,8 @@ impl TraceMap {
         self.all_traces().find(|x| x.address.contains(&address))
     }
 
-    pub fn increment_hit(&mut self, address: u64) {
+    pub fn increment_hit(&mut self, address: u64, test_name: Option<String>) {
+        let test_name_val = test_name.unwrap_or(String::from(""));
         for trace in self
             .all_traces_mut()
             .filter(|x| x.address.contains(&address))
@@ -286,6 +296,9 @@ impl TraceMap {
             if let CoverageStat::Line(ref mut x) = trace.stats {
                 trace!("Incrementing hit count for trace");
                 *x += 1;
+                if !test_name_val.is_empty() {
+                    trace.src.insert(test_name_val.clone());
+                }
             }
         }
     }
@@ -437,6 +450,7 @@ mod tests {
             address,
             length: 0,
             stats: CoverageStat::Line(1),
+            src: HashSet::new(),
         };
         t1.add_trace(Path::new("file.rs"), trace_1);
 
@@ -458,6 +472,7 @@ mod tests {
             address,
             length: 0,
             stats: CoverageStat::Line(1),
+            src: HashSet::new(),
         };
         t1.add_trace(Path::new("file.rs"), a_trace.clone());
         t2.add_trace(
@@ -467,6 +482,7 @@ mod tests {
                 address: HashSet::new(),
                 length: 0,
                 stats: CoverageStat::Line(2),
+                src: HashSet::new(),
             },
         );
 
@@ -491,6 +507,7 @@ mod tests {
             address,
             length: 0,
             stats: CoverageStat::Line(1),
+            src: HashSet::new(),
         };
         t1.add_trace(Path::new("file.rs"), a_trace.clone());
         t2.add_trace(
@@ -500,6 +517,7 @@ mod tests {
                 address: HashSet::new(),
                 length: 0,
                 stats: CoverageStat::Line(2),
+                src: HashSet::new(),
             },
         );
 
@@ -525,6 +543,7 @@ mod tests {
                 address: address.clone(),
                 length: 0,
                 stats: CoverageStat::Line(5),
+                src: HashSet::new(),
             },
         );
         t2.add_trace(
@@ -534,6 +553,7 @@ mod tests {
                 address: address.clone(),
                 length: 0,
                 stats: CoverageStat::Line(2),
+                src: HashSet::new(),
             },
         );
         t1.merge(&t2);
@@ -545,6 +565,7 @@ mod tests {
                 address: address.clone(),
                 length: 0,
                 stats: CoverageStat::Line(7),
+                src: HashSet::new()
             })
         );
         // Deduplicating should have no effect.
@@ -557,6 +578,7 @@ mod tests {
                 address,
                 length: 0,
                 stats: CoverageStat::Line(7),
+                src: HashSet::new()
             })
         );
     }
