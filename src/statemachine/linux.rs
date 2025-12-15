@@ -752,9 +752,10 @@ impl<'a> LinuxData<'a> {
         } else {
             warn!("Failed to find process for pid: {}", current);
         }
+        let test_name = self.test_name.clone();
         if let Some(traces) = self.get_active_trace_map_mut(current) {
             for addr in &hits_to_increment {
-                traces.increment_hit(*addr, self.test_name.clone());
+                traces.increment_hit(*addr, test_name.clone());
             }
         } else {
             warn!("Failed to find traces for pid: {}", current);
