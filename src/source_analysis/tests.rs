@@ -459,7 +459,7 @@ fn filter_tests() {
     assert!(!lines.ignore.contains(&Lines::Line(2)));
     assert!(!lines.ignore.contains(&Lines::Line(3)));
 
-    tracing::trace!("Starting new analyis");
+    tracing::trace!("Starting new analysis");
     let ctx = Context {
         config: &igconfig,
         file_contents: "#[test]\nfn mytest() { \n assert!(true);\n}",

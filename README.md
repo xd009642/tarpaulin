@@ -58,7 +58,7 @@ Options:
       --test [<NAME>...]           Test only the specified test target
       --bench [<NAME>...]          Test only the specified bench target
       --no-fail-fast               Run all tests regardless of failure
-      --profile <NAME>             Build artefacts with the specified profile
+      --profile <NAME>             Build artifacts with the specified profile
       --ignore-tests               Ignore lines of test functions when collecting coverage (default)
       --no-dead-code               Stops tarpaulin from building projects with -Clink-dead-code
       --include-tests              Include lines of test functions when collecting coverage

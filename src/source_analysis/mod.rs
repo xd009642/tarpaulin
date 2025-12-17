@@ -44,7 +44,7 @@ pub enum Lines {
 #[derive(Clone, Debug, Default)]
 pub struct LineAnalysis {
     /// This represents lines that should be ignored in coverage
-    /// but may be identifed as coverable in the DWARF tables
+    /// but may be identified as coverable in the DWARF tables
     pub ignore: HashSet<Lines>,
     /// This represents lines that should be included in coverage
     /// But may be ignored. Doesn't make sense to cover ALL the lines so this

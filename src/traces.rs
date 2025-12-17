@@ -56,7 +56,7 @@ impl Add for CoverageStat {
 pub struct Trace {
     /// Line the trace is on in the file
     pub line: u64,
-    /// Optional address showing location in the test artefact
+    /// Optional address showing location in the test artifact
     pub address: HashSet<u64>,
     /// Length of the instruction (useful to get entire condition/branch)
     pub length: usize,
