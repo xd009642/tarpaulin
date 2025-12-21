@@ -62,15 +62,6 @@ fn specify_package() {
     assert!(files.iter().any(|f| f.ends_with("foo/src/lib.rs")));
     assert!(!files.iter().any(|f| f.ends_with("bar/src/lib.rs")));
 
-    let mut config = Config::default();
-    config.set_clean(false);
-    config.set_include_tests(true);
-
-    let test_dir = get_test_path("workspace");
-    env::set_current_dir(&test_dir).unwrap();
-    let mut manifest = test_dir;
-    manifest.push("Cargo.toml");
-    config.set_manifest(manifest);
     config.packages = vec!["bar".to_string()];
     let result = launch_tarpaulin(&config, &None);
     let result = result.expect("Test failed").0;
@@ -78,15 +69,6 @@ fn specify_package() {
     assert!(!files.iter().any(|f| f.ends_with("foo/src/lib.rs")));
     assert!(files.iter().any(|f| f.ends_with("bar/src/lib.rs")));
 
-    let mut config = Config::default();
-    config.set_clean(false);
-    config.set_include_tests(true);
-
-    let test_dir = get_test_path("workspace");
-    env::set_current_dir(&test_dir).unwrap();
-    let mut manifest = test_dir;
-    manifest.push("Cargo.toml");
-    config.set_manifest(manifest);
     config.packages = vec!["bar".to_string(), "foo".to_string()];
     let result = launch_tarpaulin(&config, &None);
     let result = result.expect("Test failed").0;
