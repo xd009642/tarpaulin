@@ -153,6 +153,15 @@ pub fn coverage_percentage<'a>(traces: impl Iterator<Item = &'a Trace>) -> f64 {
     (amount_covered(t.iter().copied()) as f64) / (amount_coverable(t.iter().copied()) as f64)
 }
 
+#[derive(Debug, Default, PartialEq, Clone, Deserialize, Serialize)]
+pub struct TraceMapSettings {
+    pub packages: Vec<String>,
+    pub workspace: bool,
+    pub excluded_files_raw: Vec<String>,
+    pub included_files_raw: Vec<String>,
+    pub exclude: Vec<String>,
+}
+
 /// Stores all the program traces mapped to files and provides an interface to
 /// add, query and change traces.
 #[derive(Debug, Default, Deserialize, Serialize)]
@@ -160,12 +169,21 @@ pub struct TraceMap {
     ///rTraces in the program mapped to the given file
     traces: BTreeMap<PathBuf, Vec<Trace>>,
     functions: HashMap<PathBuf, Vec<Function>>,
+    settings: TraceMapSettings,
 }
 
 impl TraceMap {
     /// Create a new TraceMap
     pub fn new() -> TraceMap {
         Self::default()
+    }
+
+    pub fn set_settings(&mut self, tracemap_settings: TraceMapSettings) {
+        self.settings = tracemap_settings;
+    }
+
+    pub fn get_settings(&self) -> TraceMapSettings {
+        self.settings.clone()
     }
 
     pub fn set_functions(&mut self, functions: HashMap<PathBuf, Vec<Function>>) {

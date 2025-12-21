@@ -25,19 +25,11 @@ pub trait Report<Out: Serialize> {
 }
 
 fn coverage_report_name(config: &Config) -> String {
-    // separate reports by package to prevent clashing statistics
-    let mut joined = String::from("-");
-    if !config.packages.is_empty() {
-        let mut packages = config.packages.clone();
-        packages.sort();
-        joined = String::from("-") + &packages.join("-") + "-";
-    }
-
     config
         .get_metadata()
         .as_ref()
         .and_then(Metadata::root_package)
-        .map(|x| format!("{}{}coverage.json", x.name, joined))
+        .map(|x| format!("{}-coverage.json", x.name))
         .unwrap_or_else(|| "coverage.json".to_string())
 }
 
@@ -174,14 +166,31 @@ fn print_summary(config: &Config, result: &TraceMap) {
         Some(l) => l,
         None => TraceMap::new(),
     };
+
+    let mut is_same_settings = false;
+    if last.get_settings() == result.get_settings() {
+        is_same_settings = true;
+    }
+
     // All the `writeln` unwraps are fine, it's basically what the `println` macro does
     writeln!(w, "|| Tested/Total Lines:").unwrap();
+    print_files_summary(config, result, &last, is_same_settings, &mut w);
+    print_overall_summary(result, &last, is_same_settings, &mut w);
+}
+
+fn print_files_summary(
+    config: &Config,
+    result: &TraceMap,
+    last: &TraceMap,
+    is_same_settings: bool,
+    w: &mut dyn Write,
+) {
     for file in result.files() {
         if result.coverable_in_path(file) == 0 {
             continue;
         }
         let path = config.strip_base_dir(file);
-        if last.contains_file(file) && last.coverable_in_path(file) > 0 {
+        if is_same_settings && last.contains_file(file) && last.coverable_in_path(file) > 0 {
             let last_percent = coverage_percentage(last.get_child_traces(file));
             let current_percent = coverage_percentage(result.get_child_traces(file));
             let delta = 100.0f64 * (current_percent - last_percent);
@@ -205,10 +214,18 @@ fn print_summary(config: &Config, result: &TraceMap) {
             .unwrap();
         }
     }
+}
+
+fn print_overall_summary(
+    result: &TraceMap,
+    last: &TraceMap,
+    is_same_settings: bool,
+    w: &mut dyn Write,
+) {
     let percent = result.coverage_percentage() * 100.0f64;
     if result.total_coverable() == 0 {
         writeln!(w, "No coverable lines found").unwrap();
-    } else if last.is_empty() {
+    } else if !is_same_settings || last.is_empty() {
         writeln!(
             w,
             "|| \n{:.2}% coverage, {}/{} lines covered",
@@ -259,51 +276,93 @@ fn accumulate_lines(
 
 #[cfg(test)]
 mod tests {
-    use crate::{config::Config, report::coverage_report_name};
+    use std::{collections::HashSet, path::Path};
+
+    use crate::{
+        config::Config,
+        report::{print_files_summary, print_overall_summary},
+        traces::{CoverageStat, Trace, TraceMap},
+    };
 
     #[test]
-    fn coverage_report_name_no_package() {
+    fn print_files_summary_is_same_settings_false_return_no_delta() {
         let config = Config::default();
+        let mut tracemap = TraceMap::default();
+        let path_val = Path::new("./foo/x.rs");
+        let mut trace = Trace::new(333, HashSet::new(), 1);
+        trace.stats = CoverageStat::Line(1);
+        tracemap.add_trace(path_val, trace);
 
-        let name_report = coverage_report_name(&config);
-        assert_eq!(
-            name_report, "cargo-tarpaulin-coverage.json",
-            "Suffix should have been added and name should be in title"
-        );
+        let last = TraceMap::default();
+        let mut buffer = Vec::new();
+        print_files_summary(&config, &tracemap, &last, false, &mut buffer);
+
+        let output = String::from_utf8(buffer).unwrap();
+        assert!(output.contains("|| ./foo/x.rs: 1/1"));
     }
 
     #[test]
-    fn coverage_report_name_1_package() {
-        let mut config = Config::default();
-        config.packages = vec![String::from("bintest")];
+    fn print_files_summary_is_same_settings_true_return_delta() {
+        let config = Config::default();
+        let mut tracemap = TraceMap::default();
+        let path_val = Path::new("./foo/x.rs");
+        let mut trace = Trace::new(333, HashSet::new(), 1);
+        trace.stats = CoverageStat::Line(1);
+        tracemap.add_trace(path_val, trace.clone());
 
-        let name_report = coverage_report_name(&config);
-        assert_eq!(name_report, "cargo-tarpaulin-bintest-coverage.json", "Suffix should have been added, name should be in title, and also package should be present");
+        let mut last = TraceMap::default();
+        last.add_trace(path_val, trace.clone());
+        let mut buffer = Vec::new();
+        print_files_summary(&config, &tracemap, &last, true, &mut buffer);
+
+        let output = String::from_utf8(buffer).unwrap();
+        assert!(output.contains("|| ./foo/x.rs: 1/1 +0.00%"));
     }
 
     #[test]
-    fn coverage_report_name_3_packages() {
-        let mut config = Config::default();
-        config.packages = vec![
-            String::from("pizza"),
-            String::from("bintest"),
-            String::from("fur"),
-        ];
+    fn print_overall_summary_no_coverage_found_return_warning() {
+        let tracemap = TraceMap::default();
 
-        let name_report = coverage_report_name(&config);
-        assert_eq!(name_report, "cargo-tarpaulin-bintest-fur-pizza-coverage.json", "Suffix should have been added, name should be in title, and also packages should be present");
+        let last = TraceMap::default();
+
+        let mut buffer = Vec::new();
+        print_overall_summary(&tracemap, &last, true, &mut buffer);
+
+        let output = String::from_utf8(buffer).unwrap();
+        assert!(output.contains("No coverable lines found"));
     }
 
     #[test]
-    fn coverage_report_name_3_packages_diff() {
-        let mut config = Config::default();
-        config.packages = vec![
-            String::from("pizza"),
-            String::from("fur"),
-            String::from("bintest"),
-        ];
+    fn print_overall_summary_is_same_settings_true_return_delta() {
+        let mut tracemap = TraceMap::default();
+        let path_val = Path::new("./foo/x.rs");
+        let mut trace = Trace::new(333, HashSet::new(), 1);
+        trace.stats = CoverageStat::Line(1);
+        tracemap.add_trace(path_val, trace.clone());
 
-        let name_report = coverage_report_name(&config);
-        assert_eq!(name_report, "cargo-tarpaulin-bintest-fur-pizza-coverage.json", "Suffix should have been added, name should be in title, and also packages should be present in alphabetical order");
+        let mut last = TraceMap::default();
+        last.add_trace(path_val, trace.clone());
+        let mut buffer = Vec::new();
+        print_overall_summary(&tracemap, &last, true, &mut buffer);
+
+        let output = String::from_utf8(buffer).unwrap();
+        assert!(output.contains("100.00% coverage, 1/1 lines covered, +0.00% change in coverage"));
+    }
+
+    #[test]
+    fn print_overall_summary_is_same_settings_false_return_no_delta() {
+        let mut tracemap = TraceMap::default();
+        let path_val = Path::new("./foo/x.rs");
+        let mut trace = Trace::new(333, HashSet::new(), 1);
+        trace.stats = CoverageStat::Line(1);
+        tracemap.add_trace(path_val, trace.clone());
+
+        let mut last = TraceMap::default();
+        last.add_trace(path_val, trace.clone());
+        let mut buffer = Vec::new();
+        print_overall_summary(&tracemap, &last, true, &mut buffer);
+
+        let output = String::from_utf8(buffer).unwrap();
+        assert!(output.contains("100.00% coverage, 1/1 lines covered"));
     }
 }

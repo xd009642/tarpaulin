@@ -1,6 +1,7 @@
 use self::parse::*;
 pub use self::types::*;
 use crate::path_utils::fix_unc_path;
+use crate::traces::TraceMapSettings;
 use crate::{args::ConfigArgs, cargo::supports_llvm_coverage};
 use cargo_metadata::{Metadata, MetadataCommand};
 #[cfg(feature = "coveralls")]
@@ -406,6 +407,24 @@ impl Config {
 
     pub fn set_engine(&self, engine: TraceEngine) {
         self.engine.replace(engine);
+    }
+
+    pub fn get_included_files_raw(&self) -> Vec<String> {
+        self.included_files_raw.clone()
+    }
+
+    pub fn get_excluded_files_raw(&self) -> Vec<String> {
+        self.excluded_files_raw.clone()
+    }
+
+    pub fn get_tracemap_settings(&self) -> TraceMapSettings {
+        TraceMapSettings {
+            packages: self.packages.clone(),
+            workspace: self.all,
+            excluded_files_raw: self.get_excluded_files_raw(),
+            included_files_raw: self.get_included_files_raw(),
+            exclude: self.exclude.clone(),
+        }
     }
 
     pub fn set_clean(&mut self, clean: bool) {
