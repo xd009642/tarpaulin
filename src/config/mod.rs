@@ -409,20 +409,12 @@ impl Config {
         self.engine.replace(engine);
     }
 
-    pub fn get_included_files_raw(&self) -> Vec<String> {
-        self.included_files_raw.clone()
-    }
-
-    pub fn get_excluded_files_raw(&self) -> Vec<String> {
-        self.excluded_files_raw.clone()
-    }
-
     pub fn get_tracemap_settings(&self) -> TraceMapSettings {
         TraceMapSettings {
             packages: self.packages.clone(),
             workspace: self.all,
-            excluded_files_raw: self.get_excluded_files_raw(),
-            included_files_raw: self.get_included_files_raw(),
+            excluded_files_raw: self.excluded_files_raw.clone(),
+            included_files_raw: self.included_files_raw.clone(),
             exclude: self.exclude.clone(),
         }
     }
