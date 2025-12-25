@@ -2,7 +2,7 @@ use crate::source_analysis::Function;
 use serde::{Deserialize, Serialize};
 use std::cmp::{Ord, Ordering};
 use std::collections::btree_map::Iter;
-use std::collections::{BTreeMap, HashMap, HashSet};
+use std::collections::{BTreeMap, BTreeSet, HashMap, HashSet};
 use std::ops::Add;
 use std::path::{Path, PathBuf};
 use tracing::trace;
@@ -153,13 +153,13 @@ pub fn coverage_percentage<'a>(traces: impl Iterator<Item = &'a Trace>) -> f64 {
     (amount_covered(t.iter().copied()) as f64) / (amount_coverable(t.iter().copied()) as f64)
 }
 
-#[derive(Debug, Default, PartialEq, Clone, Deserialize, Serialize)]
+#[derive(Debug, Default, PartialEq, Clone, Deserialize, Serialize, Ord, PartialOrd, Eq)]
 pub struct TraceMapSettings {
-    pub packages: Vec<String>,
+    pub packages: BTreeSet<String>,
     pub workspace: bool,
-    pub excluded_files_raw: Vec<String>,
-    pub included_files_raw: Vec<String>,
-    pub exclude: Vec<String>,
+    pub excluded_files_raw: BTreeSet<String>,
+    pub included_files_raw: BTreeSet<String>,
+    pub exclude: BTreeSet<String>,
 }
 
 /// Stores all the program traces mapped to files and provides an interface to
@@ -169,7 +169,7 @@ pub struct TraceMap {
     ///rTraces in the program mapped to the given file
     traces: BTreeMap<PathBuf, Vec<Trace>>,
     functions: HashMap<PathBuf, Vec<Function>>,
-    settings: TraceMapSettings,
+    settings: BTreeSet<TraceMapSettings>,
 }
 
 impl TraceMap {
@@ -178,12 +178,18 @@ impl TraceMap {
         Self::default()
     }
 
-    pub fn set_settings(&mut self, tracemap_settings: TraceMapSettings) {
-        self.settings = tracemap_settings;
+    pub fn insert_settings(&mut self, tracemap_settings: TraceMapSettings) {
+        self.settings.insert(tracemap_settings);
     }
 
-    pub fn get_settings(&self) -> TraceMapSettings {
-        self.settings.clone()
+    pub fn append_settings(&mut self, tracemap_settings: Vec<TraceMapSettings>) {
+        let mut settings_collection: BTreeSet<TraceMapSettings> =
+            tracemap_settings.into_iter().collect();
+        self.settings.append(&mut settings_collection);
+    }
+
+    pub fn get_settings(&self) -> &BTreeSet<TraceMapSettings> {
+        &self.settings
     }
 
     pub fn set_functions(&mut self, functions: HashMap<PathBuf, Vec<Function>>) {

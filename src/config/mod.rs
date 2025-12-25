@@ -411,11 +411,11 @@ impl Config {
 
     pub fn get_tracemap_settings(&self) -> TraceMapSettings {
         TraceMapSettings {
-            packages: self.packages.clone(),
+            packages: self.packages.clone().into_iter().collect(),
             workspace: self.all,
-            excluded_files_raw: self.excluded_files_raw.clone(),
-            included_files_raw: self.included_files_raw.clone(),
-            exclude: self.exclude.clone(),
+            excluded_files_raw: self.excluded_files_raw.clone().into_iter().collect(),
+            included_files_raw: self.included_files_raw.clone().into_iter().collect(),
+            exclude: self.exclude.clone().into_iter().collect(),
         }
     }
 
