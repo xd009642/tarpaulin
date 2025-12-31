@@ -224,6 +224,7 @@ pub fn report_tracemap(configs: &[Config], mut tracemap: TraceMap) -> Result<(),
     let mut reported = false;
     for c in configs.iter() {
         if c.no_run || c.name != "report" {
+            tracemap.insert_settings(c.get_tracemap_settings());
             continue;
         }
 
