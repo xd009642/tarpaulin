@@ -233,7 +233,6 @@ pub fn report_tracemap(configs: &[Config], mut tracemap: TraceMap) -> Result<(),
     }
 
     if !reported && !configs.is_empty() && !configs[0].no_run {
-        tracemap.insert_settings(configs[0].get_tracemap_settings());
         report_coverage_with_check(&configs[0], &tracemap)?;
     }
 
