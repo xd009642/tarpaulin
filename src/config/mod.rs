@@ -416,6 +416,8 @@ impl Config {
             excluded_files_raw: self.excluded_files_raw.clone().into_iter().collect(),
             included_files_raw: self.included_files_raw.clone().into_iter().collect(),
             exclude: self.exclude.clone().into_iter().collect(),
+            run_types: self.run_types.clone().into_iter().collect(),
+            varargs: self.varargs.clone().into_iter().collect(),
         }
     }
 

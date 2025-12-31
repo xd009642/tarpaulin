@@ -1,3 +1,4 @@
+use crate::config::RunType;
 use crate::source_analysis::Function;
 use serde::{Deserialize, Serialize};
 use std::cmp::{Ord, Ordering};
@@ -160,6 +161,8 @@ pub struct TraceMapSettings {
     pub excluded_files_raw: BTreeSet<String>,
     pub included_files_raw: BTreeSet<String>,
     pub exclude: BTreeSet<String>,
+    pub run_types: BTreeSet<RunType>,
+    pub varargs: BTreeSet<String>,
 }
 
 /// Stores all the program traces mapped to files and provides an interface to

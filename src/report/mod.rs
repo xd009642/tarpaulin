@@ -167,10 +167,7 @@ fn print_summary(config: &Config, result: &TraceMap) {
         None => TraceMap::new(),
     };
 
-    let mut is_same_settings = false;
-    if last.get_settings() == result.get_settings() {
-        is_same_settings = true;
-    }
+    let is_same_settings = last.get_settings() == result.get_settings();
 
     // All the `writeln` unwraps are fine, it's basically what the `println` macro does
     writeln!(w, "|| Tested/Total Lines:").unwrap();
