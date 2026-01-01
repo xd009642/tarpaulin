@@ -58,7 +58,7 @@ Options:
       --test [<NAME>...]           Test only the specified test target
       --bench [<NAME>...]          Test only the specified bench target
       --no-fail-fast               Run all tests regardless of failure
-      --profile <NAME>             Build artefacts with the specified profile
+      --profile <NAME>             Build artifacts with the specified profile
       --ignore-tests               Ignore lines of test functions when collecting coverage (default)
       --no-dead-code               Stops tarpaulin from building projects with -Clink-dead-code
       --include-tests              Include lines of test functions when collecting coverage
@@ -185,7 +185,7 @@ cargo binstall cargo-tarpaulin
 When Tarpaulin runs your tests it strives to run them in the same environment as if they were run via cargo test.
 To achieve this it sets the following environment variables when executing the test binaries:
 
-- **RUST_BACKTRACE**      - _When --verbose flag is used_
+- **RUST_BACKTRACE**      - _Set to `1` when --verbose flag is used unless it is already set_
 - **CARGO_MANIFEST_DIR**  - _Path to Cargo.toml From --root | --manifest-path or guessed from the current or parent directory_
 - **CARGO_PKG_NAME**      - _From Cargo.toml_
 - **CARGO_PKG_AUTHORS**   - _From Cargo.toml_
@@ -464,9 +464,9 @@ jobs:
           cargo +nightly tarpaulin --verbose --all-features --workspace --timeout 120 --out xml
 
       - name: Upload to codecov.io
-        uses: codecov/codecov-action@v2
+        uses: codecov/codecov-action@v5
         with:
-          # token: ${{secrets.CODECOV_TOKEN}} # not required for public repos
+          token: ${{secrets.CODECOV_TOKEN}}
           fail_ci_if_error: true
 ```
 

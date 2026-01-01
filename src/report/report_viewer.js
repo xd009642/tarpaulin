@@ -241,13 +241,26 @@ function FileContent({file}) {
       const trace = file.traces.find(trace => trace.line === index + 1);
       const covered = trace && trace.stats.Line;
       const uncovered = trace && !trace.stats.Line;
+      const nbHit = covered? trace.stats.Line: 0;
       return e(
-        'code',
-        {
-          className: 'code-line' + (covered ? ' code-line_covered' : '') + (uncovered ? ' code-line_uncovered' : ''),
-          title: trace ? JSON.stringify(trace.stats, null, 2) : null,
-        },
-        line,
+        'div',
+        { className: 'code-text-container' },
+        e(
+          'code',
+          {
+            className: 'code-line' + (covered ? ' code-line_covered' : '') + (uncovered ? ' code-line_uncovered' : ''),
+          },
+          line
+        ),
+        e(
+          'div',
+          { className: 'cover-indicator' + (covered? ' check-cover': '') + (uncovered? ' no-cover': '')},
+          e(
+            'div',
+            { className: (covered? 'stat-line-hit': '')},
+            covered? nbHit: ""
+          )
+        )
       );
     }),
   );

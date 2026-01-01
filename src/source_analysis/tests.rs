@@ -459,7 +459,7 @@ fn filter_tests() {
     assert!(!lines.ignore.contains(&Lines::Line(2)));
     assert!(!lines.ignore.contains(&Lines::Line(3)));
 
-    tracing::trace!("Starting new analyis");
+    tracing::trace!("Starting new analysis");
     let ctx = Context {
         config: &igconfig,
         file_contents: "#[test]\nfn mytest() { \n assert!(true);\n}",
@@ -1789,6 +1789,61 @@ fn ignore_trait_types() {
     analysis.process_items(&parser.items, &ctx);
     let lines = &analysis.lines[Path::new("")];
     assert!(lines.ignore.contains(&Lines::Line(5)));
+}
+
+#[test]
+fn module_nesting_correct() {
+    let config = Config::default();
+    let ctx = Context {
+        config: &config,
+        file_contents: "
+        #[cfg(test)]
+        mod tests {
+            mod inner; // should be at src/tests/inner.rs
+            
+            mod foo {
+                mod innermost;
+            }
+        }
+        ",
+        file: Path::new("src/lib.rs"),
+        ignore_mods: RefCell::new(HashSet::new()),
+        symbol_stack: RefCell::new(Vec::new()),
+    };
+    let parser = parse_file(ctx.file_contents).unwrap();
+    let mut analysis = SourceAnalysis::new();
+    analysis.process_items(&parser.items, &ctx);
+    println!("{:?}", ctx.ignore_mods.borrow());
+    assert!(ctx
+        .ignore_mods
+        .borrow()
+        .contains(&PathBuf::from("src/tests/inner.rs")));
+
+    assert!(ctx
+        .ignore_mods
+        .borrow()
+        .contains(&PathBuf::from("src/tests/foo/innermost.rs")));
+
+    let ctx = Context {
+        config: &config,
+        file_contents: "
+        mod bar {
+            #[cfg(test)]
+            mod inner; // should be at src/tests/inner.rs
+        }
+        ",
+        file: Path::new("src/foo.rs"),
+        ignore_mods: RefCell::new(HashSet::new()),
+        symbol_stack: RefCell::new(Vec::new()),
+    };
+    let parser = parse_file(ctx.file_contents).unwrap();
+    let mut analysis = SourceAnalysis::new();
+    analysis.process_items(&parser.items, &ctx);
+    println!("{:?}", ctx.ignore_mods);
+    assert!(ctx
+        .ignore_mods
+        .borrow()
+        .contains(&PathBuf::from("src/foo/bar/inner.rs")));
 }
 
 #[test]

@@ -139,38 +139,6 @@ fn only_example_coverage() {
 }
 
 #[test]
-#[ignore]
-fn only_bench_coverage() {
-    let mut config = Config::default();
-    config.set_clean(false);
-    config.test_timeout = Duration::from_secs(60);
-    config.run_types = vec![RunType::Benchmarks];
-    let restore_dir = env::current_dir().unwrap();
-    let test_dir = get_test_path("all_test_types");
-    env::set_current_dir(&test_dir).unwrap();
-    let mut manifest = test_dir.clone();
-    manifest.push("Cargo.toml");
-    config.set_manifest(manifest);
-    let mut target = test_dir;
-    target.push("bench_target");
-    config.set_target_dir(target);
-    config.set_profraw_folder(PathBuf::from("only_bench_coverage"));
-
-    let (res, ret) = launch_tarpaulin(&config, &None).unwrap();
-    assert_eq!(ret, 0);
-    env::set_current_dir(restore_dir).unwrap();
-
-    for f in res.files() {
-        let f_name = f.file_name().unwrap().to_str().unwrap();
-        if f_name.contains("bench") {
-            assert!(res.covered_in_path(f) > 0);
-        } else {
-            assert_eq!(res.covered_in_path(f), 0);
-        }
-    }
-}
-
-#[test]
 #[cfg(nightly)]
 fn only_doctest_coverage() {
     let mut config = Config::default();

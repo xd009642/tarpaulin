@@ -1,6 +1,6 @@
 [package]
 name = "cargo-tarpaulin"
-version = "0.34.1"
+version = "0.35.0"
 authors = ["Daniel McKenna <danielmckenna93@gmail.com>"]
 description = "Cargo-Tarpaulin is a tool to determine code coverage achieved via tests"
 repository = "https://github.com/xd009642/tarpaulin"
@@ -29,8 +29,8 @@ gimli = { version = "0.32.3", default-features = false, features = ["read", "std
 git2 =  { version = "0.20", optional = true }
 humantime-serde = "1"
 indexmap = { version = "~1.8", features = ["serde-1"] }
-llvm_profparser = { version = "0.9.1",  default-features = false }
-object = "0.37"
+llvm_profparser = { version = "0.10",  default-features = false }
+object = "0.38"
 proc-macro2 = { version = "1.0", features = ["span-locations"] }
 quick-xml = "0.38"
 quote = "1.0"
@@ -41,7 +41,7 @@ serde_json = "1.0"
 syn = { version = "2.0", default-features = false, features = ["full", "parsing"] }
 toml = { version = "0.9", default-features = false, features = ["parse", "preserve_order", "std", "serde"] }
 tracing = { version = "0.1", default-features = false }
-tracing-subscriber = { version = "0.3.20", default-features = false, features = [
+tracing-subscriber = { version = "0.3.22", default-features = false, features = [
     "env-filter",
     "fmt",
     "chrono",
@@ -54,7 +54,7 @@ glob = "0.3.3"
 cargo-config2 = "0.1.39"
 
 [target.'cfg(all(target_os = "linux", any(target_arch = "x86_64", target_arch = "x86")))'.dependencies]
-libc = "0.2.177"
+libc = "0.2.178"
 nix = {version = "0.30.1", default-features = false, features = ["sched", "signal", "ptrace", "personality"]}
 num_cpus = "1.17.0"
 procfs = "0.18"
@@ -70,7 +70,7 @@ rustc_version = "0.4"
 [dev-dependencies]
 lcov = "0.8.1"
 rusty-fork = "0.3.1"
-test-log = { version = "0.2.18", features = ["trace"] }
+test-log = { version = "0.2.19", features = ["trace"] }
 
 [package.metadata.binstall]
 pkg-url = "{ repo }/releases/download/{ version }/cargo-tarpaulin-{ target }{ archive-suffix }"

@@ -122,19 +122,63 @@ body {
 
 .code-line::before {
   content: counter(line);
-  margin-right: 10px;
+  margin-right: 72px;
 }
 .code-line {
   margin: 0;
-  padding: 0.3em;
   height: 1em;
   counter-increment: line;
+
+  position: absolute;
+  padding: 0 0.3em 0.3em 0.3em;
+  display: inherit;
+  width: 100%;
 }
 .code-line_covered {
   background: var(--green);
 }
 .code-line_uncovered {
   background: var(--red);
+}
+
+.code-text-container {
+  position: relative;
+  height: 1em;
+  padding: 0.3em 0;
+}
+
+.cover-indicator {
+  display: flex;
+  width: 100%;
+  position: absolute;
+  justify-content: end;
+  height: 1em;
+  align-items: center;
+  padding: 0 0.3em 0.3em 0.3em;
+}
+
+.cover-indicator.check-cover::after {
+  content: "\2713";
+  font-weight: bold;
+  background-color: var(--green);
+  height: 1em;
+}
+
+.cover-indicator.no-cover::after {
+  content: "\2716";
+  font-weight: bold;
+  background-color: var(--red);
+  height: 1em;
+}
+
+.stat-line-hit {
+  max-width: 48px;
+  overflow: hidden;
+  font-weight: bold;
+  margin-right: 4px;
+  background-color: var(--green);
+  position: relative;
+  top: 0.1em;
 }
 
 #theme-toggle-label {

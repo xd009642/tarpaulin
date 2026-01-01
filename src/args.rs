@@ -65,7 +65,7 @@ pub struct ConfigArgs {
     /// Run all tests regardless of failure
     #[arg(long)]
     pub no_fail_fast: bool,
-    /// Build artefacts with the specified profile
+    /// Build artifacts with the specified profile
     #[arg(long, value_name = "NAME")]
     pub profile: Option<String>,
     /// Ignore lines of test functions when collecting coverage (default)
