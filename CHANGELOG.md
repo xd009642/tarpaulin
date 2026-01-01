@@ -3,11 +3,12 @@
 From 2019 onwards, all notable changes to tarpaulin will be documented in this
 file.
 
-## [Unreleased]
+## [0.35.0]
 ### Changed
 - Update LLVM profile parsing code to lazily load files reducing memory usage
 - HTML reports now display the hit count without a mouseover
 - Don't override `RUST_BACKTRACE` if it's already set in the env when using `--verbose`
+- Don't report delta coverage if run configuration changes in a way that would lead to meaningless results
 
 ### Fixed
 - Correctly trace module paths when ignoring file modules declared in an inline module #1974
