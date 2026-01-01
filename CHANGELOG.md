@@ -3,7 +3,7 @@
 From 2019 onwards, all notable changes to tarpaulin will be documented in this
 file.
 
-## [0.35.0]
+## [0.35.0] 2026-01-01
 ### Changed
 - Update LLVM profile parsing code to lazily load files reducing memory usage
 - HTML reports now display the hit count without a mouseover
