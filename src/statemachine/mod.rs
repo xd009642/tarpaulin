@@ -17,6 +17,7 @@ cfg_if::cfg_if! {
     }
 }
 pub fn create_state_machine<'a>(
+    test_name: Option<String>,
     test: impl Into<TestHandle>,
     traces: &'a mut TraceMap,
     source_analysis: &'a HashMap<PathBuf, LineAnalysis>,
@@ -27,7 +28,7 @@ pub fn create_state_machine<'a>(
         TraceEngine::Ptrace => {
             cfg_if::cfg_if! {
                 if #[cfg(ptrace_supported)] {
-                    let (state, machine) = linux::create_state_machine(test, traces, source_analysis, config, event_log);
+                    let (state, machine) = linux::create_state_machine(test_name, test, traces, source_analysis, config, event_log);
                     (state, Box::new(machine))
                 } else {
                     error!("The ptrace backend is not supported on this system");
@@ -38,6 +39,7 @@ pub fn create_state_machine<'a>(
         // Should never be auto so ignore our normal rules
         TraceEngine::Llvm | TraceEngine::Auto => {
             let (state, machine) = instrumented::create_state_machine(
+                test_name,
                 test,
                 traces,
                 source_analysis,

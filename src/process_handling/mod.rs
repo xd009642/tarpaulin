@@ -8,7 +8,7 @@ use crate::{Config, EventLog, LineAnalysis, RunError, TestBinary, TraceEngine};
 use std::collections::HashMap;
 use std::env;
 use std::fmt;
-use std::path::{Path, PathBuf};
+use std::path::PathBuf;
 use std::process::{Child, Command};
 use std::rc::Rc;
 use tracing::{debug, error, info, trace_span};
@@ -87,7 +87,7 @@ pub fn get_test_coverage(
 ) -> Result<Option<(TraceMap, i32)>, RunError> {
     let handle = launch_test(test, other_binaries, config, cargo_config, ignored, logger)?;
     if let Some(handle) = handle {
-        let t = collect_coverage(test.path(), handle, analysis, config, logger)?;
+        let t = collect_coverage(test, handle, analysis, config, logger)?;
         Ok(Some(t))
     } else {
         Ok(None)
@@ -147,7 +147,7 @@ cfg_if::cfg_if! {
 
 /// Collects the coverage data from the launched test
 pub(crate) fn collect_coverage(
-    test_path: &Path,
+    test_bin: &TestBinary,
     test: TestHandle,
     analysis: &HashMap<PathBuf, LineAnalysis>,
     config: &Config,
@@ -157,13 +157,19 @@ pub(crate) fn collect_coverage(
     let mut traces = if config.engine() == TraceEngine::Llvm {
         TraceMap::new()
     } else {
-        generate_tracemap(test_path, analysis, config)?
+        generate_tracemap(test_bin.path(), analysis, config)?
     };
     {
         let span = trace_span!("Collect coverage", pid=%test);
         let _enter = span.enter();
-        let (mut state, mut data) =
-            create_state_machine(test, &mut traces, analysis, config, logger);
+        let (mut state, mut data) = create_state_machine(
+            test_bin.get_test_name(),
+            test,
+            &mut traces,
+            analysis,
+            config,
+            logger,
+        );
         loop {
             state = state.step(&mut data, config)?;
             if state.is_finished() {
@@ -244,6 +250,10 @@ fn execute_test(
     let mut argv = vec![];
     if ignored {
         argv.push("--ignored".to_string());
+    }
+    if let Some(test_name) = test.get_test_name() {
+        argv.push(test_name.clone());
+        argv.push("--exact".to_string());
     }
     argv.extend_from_slice(&config.varargs);
     if config.color != Color::Auto {
