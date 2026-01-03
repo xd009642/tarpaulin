@@ -174,7 +174,7 @@ engine = "Llvm"
 # rustflags = null
 
 # Include test functions in the coverage statistics.
-include-tests = true
+include-tests = false
 
 # Delay after tests to collect instrumentation files (LLVM only).
 # post-test-delay = 0
