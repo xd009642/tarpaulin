@@ -1,7 +1,7 @@
 use crate::config::Config;
 use std::env::var;
 use std::ffi::OsStr;
-use std::path::{Path, PathBuf};
+use std::path::{Component, Path, PathBuf};
 use walkdir::{DirEntry, WalkDir};
 
 /// On windows removes the `\\?\\` prefix to UNC paths. For other operation systems just turns the
@@ -91,11 +91,39 @@ pub fn get_source_walker(config: &Config) -> impl Iterator<Item = DirEntry> + '_
 
     let walker = WalkDir::new(&root).into_iter();
     walker
-        .filter_entry(move |e| is_coverable_file_path(e.path(), &root, &target))
+        .filter_entry(move |e| {
+            if !config.include_tests() && is_tests_folder_package(e.path()) {
+                return false; //Removes entire tests folder at once
+            }
+            is_coverable_file_path(e.path(), &root, &target)
+        })
         .filter_map(Result::ok)
         .filter(move |e| !(config.exclude_path(e.path())))
         .filter(move |e| config.include_path(e.path()))
         .filter(is_source_file)
+}
+
+fn is_tests_folder_package(path: &Path) -> bool {
+    let mut is_pkg_tests: bool = false;
+    let tests_folder_name = "tests";
+    // check if the path contains a `tests` folder (platform independent)
+    let has_tests_component = path.components().any(|c| {
+        matches!(c, Component::Normal(name) if name == tests_folder_name)
+    });
+
+    if has_tests_component {
+        // Locate the actual `tests` directory in the ancestor chain
+        if let Some(tests_dir) = path.ancestors().find(|anc| {
+            anc.file_name().map(|n| n == tests_folder_name).unwrap_or(false)
+        }) {
+            if let Some(pkg_dir) = tests_dir.parent() {
+                is_pkg_tests = pkg_dir.join("Cargo.toml").is_file()
+                    && pkg_dir.join("src").is_dir();
+            }
+        }
+    }
+
+    is_pkg_tests
 }
 
 pub fn get_profile_walker(config: &Config) -> impl Iterator<Item = DirEntry> {
@@ -106,6 +134,89 @@ pub fn get_profile_walker(config: &Config) -> impl Iterator<Item = DirEntry> {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use std::fs::{self, File};
+    use std::io::Write;
+    use std::path::PathBuf;
+    use std::time::{SystemTime, UNIX_EPOCH};
+
+    fn make_temp_dir(prefix: &str) -> PathBuf {
+        let n = SystemTime::now()
+            .duration_since(UNIX_EPOCH)
+            .unwrap()
+            .as_nanos();
+        let dir = std::env::temp_dir().join(format!("{}_{}", prefix, n));
+        let _ = fs::create_dir_all(&dir);
+        dir
+    }
+
+    #[test]
+    fn is_tests_folder_package_no_tests_component_returns_false() {
+        let base = make_temp_dir("no_tests_component");
+        let p = base.join("some").join("path").join("lib.rs");
+        assert!(!is_tests_folder_package(&p));
+        let _ = fs::remove_dir_all(base);
+    }
+
+    #[test]
+    fn is_tests_folder_package_testsx_component_returns_false() {
+        let base = make_temp_dir("testsx_component");
+        let p = base.join("some").join("testsX").join("file.rs");
+        let _ = fs::create_dir_all(p.parent().unwrap());
+        assert!(!is_tests_folder_package(&p));
+        let _ = fs::remove_dir_all(base);
+    }
+
+    #[test]
+    fn is_tests_folder_package_tests_without_src_returns_false() {
+        let base = make_temp_dir("tests_no_src");
+        let pkg = base.join("pkg");
+        let tests = pkg.join("tests");
+        let _ = fs::create_dir_all(&tests);
+        let test_file = tests.join("a.rs");
+        let _ = File::create(&test_file);
+        let cargo = pkg.join("Cargo.toml");
+        let mut f = File::create(&cargo).expect("create Cargo.toml");
+        let _ = f.write_all(b"[package]\nname = \"pkg3\"\nversion = \"0.0.0\"");
+        // Ensure no src dir and no Cargo.toml
+        assert!(!pkg.join("src").exists());
+        assert!(pkg.join("Cargo.toml").exists());
+        assert!(!is_tests_folder_package(&test_file));
+        let _ = fs::remove_dir_all(base);
+    }
+
+    #[test]
+    fn is_tests_folder_package_tests_without_cargo_returns_false() {
+        let base = make_temp_dir("tests_no_cargo");
+        let pkg = base.join("pkg2");
+        let tests = pkg.join("tests");
+        let src = pkg.join("src");
+        let _ = fs::create_dir_all(&src);
+        let _ = fs::create_dir_all(&tests);
+        let test_file = tests.join("b.rs");
+        let _ = File::create(&test_file);
+        // src exists but Cargo.toml does not
+        assert!(src.is_dir());
+        assert!(!pkg.join("Cargo.toml").exists());
+        assert!(!is_tests_folder_package(&test_file));
+        let _ = fs::remove_dir_all(base);
+    }
+
+    #[test]
+    fn is_tests_folder_package_tests_with_src_and_cargo_returns_true() {
+        let base = make_temp_dir("tests_with_both");
+        let pkg = base.join("pkg3");
+        let tests = pkg.join("tests");
+        let src = pkg.join("src");
+        let _ = fs::create_dir_all(&src);
+        let _ = fs::create_dir_all(&tests);
+        let cargo = pkg.join("Cargo.toml");
+        let mut f = File::create(&cargo).expect("create Cargo.toml");
+        let _ = f.write_all(b"[package]\nname = \"pkg3\"\nversion = \"0.0.0\"");
+        let test_file = tests.join("c.rs");
+        let _ = File::create(&test_file);
+        assert!(is_tests_folder_package(&test_file));
+        let _ = fs::remove_dir_all(base);
+    }
 
     #[test]
     #[cfg(unix)]

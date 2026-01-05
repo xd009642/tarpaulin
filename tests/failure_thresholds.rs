@@ -17,6 +17,7 @@ fn coverage_below_threshold() {
     config.set_manifest(manifest);
     config.fail_under = Some(100.0);
     config.set_clean(false);
+    config.set_include_tests(true);
     config.set_profraw_folder(PathBuf::from("coverage_below_threshold"));
 
     let result = run(&[config]);
@@ -40,6 +41,7 @@ fn coverage_above_threshold() {
     config.set_manifest(manifest);
     config.fail_under = Some(30.0);
     config.set_clean(false);
+    config.set_include_tests(true);
     config.set_profraw_folder(PathBuf::from("coverage_above_threshold"));
 
     let result = run(&[config]);
@@ -57,6 +59,7 @@ fn report_coverage_fail() {
     config.set_manifest(manifest);
     config.fail_under = Some(10.0);
     config.set_clean(false);
+    config.set_include_tests(true);
     config.set_profraw_folder(PathBuf::from("report_coverage_fail"));
 
     let mut report = Config::default();

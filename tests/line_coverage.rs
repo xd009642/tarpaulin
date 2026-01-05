@@ -13,6 +13,7 @@ rusty_fork_test! {
 fn simple_project_coverage() {
     let mut config = Config::default();
     config.set_clean(false);
+    config.set_include_tests(true);
     config.test_timeout = Duration::from_secs(60);
     let restore_dir = env::current_dir().unwrap();
     let test_dir = get_test_path("simple_project");
@@ -55,6 +56,7 @@ fn debug_info_0() {
     // From issue #601
     let mut config = Config::default();
     config.set_clean(false);
+    config.set_include_tests(true);
     let restore_dir = env::current_dir().unwrap();
     let test_dir = get_test_path("simple_project");
     env::set_current_dir(&test_dir).unwrap();
@@ -77,6 +79,7 @@ fn debug_info_0() {
 fn test_threads_1() {
     let mut config = Config::default();
     config.set_clean(false);
+    config.set_include_tests(true);
     let restore_dir = env::current_dir().unwrap();
     let test_dir = get_test_path("simple_project");
     env::set_current_dir(&test_dir).unwrap();
