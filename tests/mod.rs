@@ -87,6 +87,7 @@ pub fn check_percentage_with_config(
     let mut manifest = test_dir;
     manifest.push("Cargo.toml");
     config.set_manifest(manifest);
+    config.set_include_tests(true);
     config.set_clean(false);
 
     // Note to contributors. If an integration test fails, uncomment this to be able to see the
@@ -249,6 +250,7 @@ fn config_file_coverage() {
     let test_dir = get_test_path("configs");
     let mut args = vec![
         "tarpaulin".to_string(),
+        "--include-tests".to_string(),
         "--root".to_string(),
         test_dir.display().to_string(),
     ];
@@ -262,6 +264,7 @@ fn issue_966_follow_exec() {
     let test_dir = get_test_path("follow_exec_issue966");
     let args = vec![
         "tarpaulin".to_string(),
+        "--include-tests".to_string(),
         "--root".to_string(),
         test_dir.display().to_string(),
         "--post-test-delay".to_string(),
@@ -275,6 +278,7 @@ fn rustflags_config_coverage() {
     let test_dir = get_test_path("multiple_rustflags");
     let mut args = vec![
         "tarpaulin".to_string(),
+        "--include-tests".to_string(),
         "--root".to_string(),
         test_dir.display().to_string(),
     ];
@@ -347,6 +351,7 @@ fn cargo_home_filtering() {
     let mut config = Config::default();
     config.test_timeout = Duration::from_secs(60);
     config.set_clean(false);
+    config.set_include_tests(true);
     let restore_dir = env::current_dir().unwrap();
     let test_dir = get_test_path("HttptestAndReqwest");
     env::set_current_dir(&test_dir).unwrap();
