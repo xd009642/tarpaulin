@@ -80,7 +80,6 @@ fn issue_610() {
     manifest.push("Cargo.toml");
     config.set_manifest(manifest);
     config.set_clean(false);
-    config.set_include_tests(true);
 
     let result = run(&[config.clone()]);
     assert!(result.is_ok());
