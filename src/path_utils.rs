@@ -92,7 +92,7 @@ pub fn get_source_walker(config: &Config) -> impl Iterator<Item = DirEntry> + '_
     let walker = WalkDir::new(&root).into_iter();
     walker
         .filter_entry(move |e| {
-            if !config.include_tests() && is_tests_folder_package(e.path()) {
+            if !config.include_tests() && is_tests_folder_package(&root, e.path()) {
                 return false; //Removes entire tests folder at once
             }
             is_coverable_file_path(e.path(), &root, &target)
@@ -103,17 +103,24 @@ pub fn get_source_walker(config: &Config) -> impl Iterator<Item = DirEntry> + '_
         .filter(is_source_file)
 }
 
-fn is_tests_folder_package(path: &Path) -> bool {
+fn is_tests_folder_package(root: &Path, path: &Path) -> bool {
     let mut is_pkg_tests: bool = false;
     let tests_folder_name = "tests";
+
+    // Ensure `path` is under `root`
+    let relative = match path.strip_prefix(root) {
+        Ok(p) => p,
+        Err(_) => return false,
+    };
+
     // check if the path contains a `tests` folder (platform independent)
-    let has_tests_component = path.components().any(|c| {
+    let has_tests_component = relative.components().any(|c| {
         matches!(c, Component::Normal(name) if name == tests_folder_name)
     });
 
     if has_tests_component {
-        // Locate the actual `tests` directory in the ancestor chain
-        if let Some(tests_dir) = path.ancestors().find(|anc| {
+        // Locate the actual `tests` directory in the ancestor chain. stopping at root
+        if let Some(tests_dir) = path.ancestors().take_while(|anc| *anc != root).find(|anc| {
             anc.file_name().map(|n| n == tests_folder_name).unwrap_or(false)
         }) {
             if let Some(pkg_dir) = tests_dir.parent() {
@@ -153,7 +160,7 @@ mod tests {
     fn is_tests_folder_package_no_tests_component_returns_false() {
         let base = make_temp_dir("no_tests_component");
         let p = base.join("some").join("path").join("lib.rs");
-        assert!(!is_tests_folder_package(&p));
+        assert!(!is_tests_folder_package(&base, &p));
         let _ = fs::remove_dir_all(base);
     }
 
@@ -162,7 +169,7 @@ mod tests {
         let base = make_temp_dir("testsx_component");
         let p = base.join("some").join("testsX").join("file.rs");
         let _ = fs::create_dir_all(p.parent().unwrap());
-        assert!(!is_tests_folder_package(&p));
+        assert!(!is_tests_folder_package(&base, &p));
         let _ = fs::remove_dir_all(base);
     }
 
@@ -180,7 +187,7 @@ mod tests {
         // Ensure no src dir and no Cargo.toml
         assert!(!pkg.join("src").exists());
         assert!(pkg.join("Cargo.toml").exists());
-        assert!(!is_tests_folder_package(&test_file));
+        assert!(!is_tests_folder_package(&base, &test_file));
         let _ = fs::remove_dir_all(base);
     }
 
@@ -197,7 +204,7 @@ mod tests {
         // src exists but Cargo.toml does not
         assert!(src.is_dir());
         assert!(!pkg.join("Cargo.toml").exists());
-        assert!(!is_tests_folder_package(&test_file));
+        assert!(!is_tests_folder_package(&base, &test_file));
         let _ = fs::remove_dir_all(base);
     }
 
@@ -214,7 +221,7 @@ mod tests {
         let _ = f.write_all(b"[package]\nname = \"pkg3\"\nversion = \"0.0.0\"");
         let test_file = tests.join("c.rs");
         let _ = File::create(&test_file);
-        assert!(is_tests_folder_package(&test_file));
+        assert!(is_tests_folder_package(&base, &test_file));
         let _ = fs::remove_dir_all(base);
     }
 
