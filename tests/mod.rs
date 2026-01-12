@@ -87,7 +87,6 @@ pub fn check_percentage_with_config(
     let mut manifest = test_dir;
     manifest.push("Cargo.toml");
     config.set_manifest(manifest);
-    config.set_include_tests(true);
     config.set_clean(false);
 
     // Note to contributors. If an integration test fails, uncomment this to be able to see the
@@ -405,6 +404,7 @@ fn follow_exes_down() {
     let mut config = Config::default();
     config.follow_exec = true;
     config.set_clean(false);
+    config.set_include_tests(true);
     check_percentage_with_config("follow_exe", 1.0f64, true, config);
 }
 
