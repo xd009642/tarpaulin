@@ -114,18 +114,19 @@ fn is_tests_folder_package(root: &Path, path: &Path) -> bool {
     };
 
     // check if the path contains a `tests` folder (platform independent)
-    let has_tests_component = relative.components().any(|c| {
-        matches!(c, Component::Normal(name) if name == tests_folder_name)
-    });
+    let has_tests_component = relative
+        .components()
+        .any(|c| matches!(c, Component::Normal(name) if name == tests_folder_name));
 
     if has_tests_component {
         // Locate the actual `tests` directory in the ancestor chain. stopping at root
         if let Some(tests_dir) = path.ancestors().take_while(|anc| *anc != root).find(|anc| {
-            anc.file_name().map(|n| n == tests_folder_name).unwrap_or(false)
+            anc.file_name()
+                .map(|n| n == tests_folder_name)
+                .unwrap_or(false)
         }) {
             if let Some(pkg_dir) = tests_dir.parent() {
-                is_pkg_tests = pkg_dir.join("Cargo.toml").is_file()
-                    && pkg_dir.join("src").is_dir();
+                is_pkg_tests = pkg_dir.join("Cargo.toml").is_file() && pkg_dir.join("src").is_dir();
             }
         }
     }
