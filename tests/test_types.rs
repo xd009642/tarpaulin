@@ -50,6 +50,7 @@ fn only_test_coverage() {
     config.set_clean(false);
     config.test_timeout = Duration::from_secs(60);
     config.run_types = vec![RunType::Tests];
+    config.set_include_tests(true);
     let restore_dir = env::current_dir().unwrap();
     let test_dir = get_test_path("all_test_types");
     env::set_current_dir(&test_dir).unwrap();
@@ -113,6 +114,7 @@ fn only_example_coverage() {
     config.set_clean(false);
     config.test_timeout = Duration::from_secs(60);
     config.run_types = vec![RunType::Examples];
+    config.set_include_tests(true);
     let restore_dir = env::current_dir().unwrap();
     let test_dir = get_test_path("all_test_types");
     env::set_current_dir(&test_dir).unwrap();
