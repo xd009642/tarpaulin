@@ -36,7 +36,7 @@ pub struct Config {
     /// Path to a tarpaulin.toml config file
     pub config: Option<PathBuf>,
     /// Path to the projects cargo manifest
-    root: Option<PathBuf>,
+    root: PathBuf,
     /// Flag to also run tests with the ignored attribute
     #[serde(rename = "ignored")]
     pub run_ignored: bool,
@@ -300,6 +300,7 @@ impl From<ConfigArgs> for ConfigWrapper {
             }
         };
 
+        info!("ROOT - Args : {:?}", &args.root);
         let args_config = Config {
             name: String::new(),
             manifest: process_manifest(args.manifest_path, args.root.clone()),
@@ -499,15 +500,29 @@ impl Config {
     }
 
     pub fn root(&self) -> PathBuf {
-        let res = match *self.get_metadata() {
-            Some(ref meta) => PathBuf::from(meta.workspace_root.clone()),
+        // how is root set??
+        /*if let Some(path) = &self.root {
+            info!("ROOT - path to root: {:?}", path);
+            info!("ROOT - path to root: {:?}", &env::current_dir().unwrap());
+            //return fix_unc_path(path); --> can't work with .
+            return fix_unc_path(&env::current_dir().unwrap()); // current dir is still subdir??
+        }*/
+        info!("ROOT - from self: {:?}", &self.root);
+        self.root.clone()
+        /*let res = match *self.get_metadata() {
+            Some(ref meta) => {
+                let root = PathBuf::from(&meta.workspace_root);
+                let root_arg = self.root.clone();
+                info!("ROOT - from metadata: {:?}, one in arg: {:?}", &root, &root_arg);
+                root
+            },
             _ => self
                 .manifest
                 .parent()
                 .map(Path::to_path_buf)
                 .unwrap_or_default(),
         };
-        fix_unc_path(&res)
+        fix_unc_path(&res)*/
     }
 
     pub fn manifest(&self) -> PathBuf {
@@ -551,12 +566,10 @@ impl Config {
     pub fn check_for_configs(&self) -> Option<PathBuf> {
         if let Some(config_file) = env::var_os("CARGO_TARPAULIN_CONFIG_FILE") {
             Some(config_file.into())
-        } else if let Some(root) = &self.root {
-            Self::check_path_for_configs(root)
         } else if let Some(root) = self.manifest.clone().parent() {
             Self::check_path_for_configs(root)
         } else {
-            None
+            Self::check_path_for_configs(&self.root)
         }
     }
 
@@ -585,9 +598,10 @@ impl Config {
             for c in cfs.iter_mut() {
                 c.config = Some(file.as_ref().to_path_buf());
                 c.manifest = make_absolute_with_parent(&c.manifest, &parent);
-                if let Some(root) = c.root.as_mut() {
+                /*if let Some(root) = c.root.as_mut() {
                     *root = make_absolute_with_parent(&root, &parent);
-                }
+                }*/
+                c.root = make_absolute_with_parent(&c.root, &parent);
                 if let Some(root) = c.output_directory.as_mut() {
                     *root = make_absolute_with_parent(&root, &parent);
                 }
@@ -650,7 +664,7 @@ impl Config {
                 self.objects.push(obj.clone());
             }
         }
-        self.root = Config::pick_optional_config(&self.root, &other.root);
+        //self.root = Config::pick_optional_config(&self.root, &other.root);
         self.coveralls = Config::pick_optional_config(&self.coveralls, &other.coveralls);
 
         cfg_if::cfg_if! {
@@ -1459,7 +1473,7 @@ mod tests {
         assert_eq!(config.run_types.len(), 1);
         assert_eq!(config.run_types[0], RunType::Doctests);
         assert_eq!(config.ci_tool, Some(CiService::Travis));
-        assert_eq!(config.root, Some("/home/rust".into()));
+        assert_eq!(config.root, PathBuf::from("/home/rust"));
         assert_eq!(config.manifest, PathBuf::from("/home/rust/foo/Cargo.toml"));
         assert_eq!(config.profile, Some("Release".to_string()));
         assert!(config.no_fail_fast);
