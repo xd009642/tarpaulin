@@ -199,7 +199,7 @@ pub struct ConfigArgs {
     pub command: Option<Mode>,
     /// Calculates relative paths to root directory. If --manifest-path isn't specified it will look for a Cargo.toml in root
     #[arg(long, short, value_name = "DIR", default_value = ".")]
-    pub root: PathBuf,
+    pub current_dir: PathBuf,
     /// Path to Cargo.toml
     #[arg(long, value_name = "PATH")]
     pub manifest_path: Option<PathBuf>,
