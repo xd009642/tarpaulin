@@ -8,7 +8,7 @@ use std::fmt;
 use std::fs::create_dir_all;
 use std::path::PathBuf;
 use std::str::FromStr;
-use tracing::{info,error};
+use tracing::error;
 
 pub(super) fn globs_from_excluded(strs: &[String]) -> Vec<glob::Pattern> {
     let mut files = vec![];
@@ -22,20 +22,14 @@ pub(super) fn globs_from_excluded(strs: &[String]) -> Vec<glob::Pattern> {
     files
 }
 
-pub(super) fn process_manifest(
-    opt_manifest_path: Option<PathBuf>,
-    opt_root: PathBuf,
-) -> PathBuf {
+pub(super) fn process_manifest(opt_manifest_path: Option<PathBuf>, opt_root: PathBuf) -> PathBuf {
     if let Some(path) = opt_manifest_path {
-        info!("MANIFEST - Only canonical link");
         return canonicalize_path(path);
     }
 
-    // doing something with root here, only when manifest is not defined
     let mut manifest = env::current_dir().unwrap();
     manifest.push(opt_root);
     manifest.push("Cargo.toml");
-    info!("MANIFEST - Trying to use root to define manifest: {:?}", manifest);
     canonicalize_path(manifest)
 }
 

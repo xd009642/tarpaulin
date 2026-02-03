@@ -300,7 +300,6 @@ impl From<ConfigArgs> for ConfigWrapper {
             }
         };
 
-        info!("ROOT - Args : {:?}", &args.current_dir);
         let args_config = Config {
             name: String::new(),
             manifest: process_manifest(args.manifest_path, args.current_dir.clone()),
@@ -576,9 +575,6 @@ impl Config {
             for c in cfs.iter_mut() {
                 c.config = Some(file.as_ref().to_path_buf());
                 c.manifest = make_absolute_with_parent(&c.manifest, &parent);
-                /*if let Some(root) = c.root.as_mut() {
-                    *root = make_absolute_with_parent(&root, &parent);
-                }*/
                 c.current_dir = make_absolute_with_parent(&c.current_dir, &parent);
                 if let Some(root) = c.output_directory.as_mut() {
                     *root = make_absolute_with_parent(&root, &parent);
@@ -642,7 +638,7 @@ impl Config {
                 self.objects.push(obj.clone());
             }
         }
-        //self.root = Config::pick_optional_config(&self.root, &other.root);
+
         self.coveralls = Config::pick_optional_config(&self.coveralls, &other.coveralls);
 
         cfg_if::cfg_if! {
