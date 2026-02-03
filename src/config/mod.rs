@@ -500,29 +500,7 @@ impl Config {
     }
 
     pub fn root(&self) -> PathBuf {
-        // how is root set??
-        /*if let Some(path) = &self.root {
-            info!("ROOT - path to root: {:?}", path);
-            info!("ROOT - path to root: {:?}", &env::current_dir().unwrap());
-            //return fix_unc_path(path); --> can't work with .
-            return fix_unc_path(&env::current_dir().unwrap()); // current dir is still subdir??
-        }*/
-        info!("ROOT - from self: {:?}", &self.root);
         self.root.clone()
-        /*let res = match *self.get_metadata() {
-            Some(ref meta) => {
-                let root = PathBuf::from(&meta.workspace_root);
-                let root_arg = self.root.clone();
-                info!("ROOT - from metadata: {:?}, one in arg: {:?}", &root, &root_arg);
-                root
-            },
-            _ => self
-                .manifest
-                .parent()
-                .map(Path::to_path_buf)
-                .unwrap_or_default(),
-        };
-        fix_unc_path(&res)*/
     }
 
     pub fn manifest(&self) -> PathBuf {
