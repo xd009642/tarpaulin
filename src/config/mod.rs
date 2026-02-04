@@ -503,7 +503,7 @@ impl Config {
         self.metadata.borrow()
     }
 
-    pub fn root(&self) -> PathBuf {
+    pub fn get_current_dir(&self) -> PathBuf {
         self.current_dir.clone()
     }
 
@@ -530,12 +530,12 @@ impl Config {
     pub fn output_dir(&self) -> PathBuf {
         let path = if let Some(ref path) = self.output_directory {
             if path.is_relative() {
-                self.root().join(path)
+                self.get_current_dir().join(path)
             } else {
                 path.clone()
             }
         } else {
-            self.root()
+            self.get_current_dir()
         };
         fix_unc_path(&path)
     }
@@ -888,7 +888,7 @@ impl Config {
     /// uses root if set, else env::current_dir()
     #[inline]
     pub fn get_base_dir(&self) -> PathBuf {
-        let root = self.root();
+        let root = self.get_current_dir();
         let res = if root.is_absolute() {
             root
         } else {
@@ -980,7 +980,7 @@ mod tests {
     fn is_root_absolute() {
         let args = TarpaulinCli::parse_from(vec!["tarpaulin", "-c", "."]);
         let conf = ConfigWrapper::from(args.config).0;
-        assert!(conf[0].root().is_absolute());
+        assert!(conf[0].get_current_dir().is_absolute());
     }
 
     #[test]

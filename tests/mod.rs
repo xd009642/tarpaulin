@@ -67,7 +67,7 @@ pub fn run_config(project_name: &str, mut config: Config) {
     config.set_current_dir(manifest.clone());
     manifest.push("Cargo.toml");
     config.set_manifest(manifest);
-    env::set_current_dir(config.root()).unwrap();
+    env::set_current_dir(config.get_current_dir()).unwrap();
     config.set_clean(false);
 
     run(&[config]).unwrap();
@@ -547,7 +547,7 @@ fn sanitised_paths() {
     config.set_current_dir(manifest.clone());
     manifest.push("Cargo.toml");
     config.set_manifest(manifest);
-    env::set_current_dir(format!(r#"\\?\{}"#, config.root().display())).unwrap();
+    env::set_current_dir(format!(r#"\\?\{}"#, config.get_current_dir().display())).unwrap();
     config.set_manifest(PathBuf::from(format!(r#"\\?\{}"#, config.manifest().display())));
     config.set_clean(false);
 

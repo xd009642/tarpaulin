@@ -26,7 +26,7 @@ fn resolve_value(path: &Path, name: &str, value: &cargo_config2::EnvConfigValue)
 // https://doc.rust-lang.org/cargo/reference/config.html
 
 pub fn get_cargo_config(config: &Config) -> CargoConfigFields {
-    let cargo_config = match cargo_config2::Config::load_with_cwd(config.root()) {
+    let cargo_config = match cargo_config2::Config::load_with_cwd(config.get_current_dir()) {
         Ok(c) => c,
         Err(e) => {
             warn!("Unable to read cargo configs: {}", e);
@@ -41,7 +41,7 @@ pub fn get_cargo_config(config: &Config) -> CargoConfigFields {
     if let Some(rust_flags) = cargo_config.build.rustdocflags {
         result.rust_doc_flags = rust_flags.flags;
     }
-    let root = config.root();
+    let root = config.get_current_dir();
     for (key, value) in &cargo_config.env {
         if let Some(value) = resolve_value(&root, key.as_str(), value) {
             result.env_vars.insert(key.to_string(), value);
