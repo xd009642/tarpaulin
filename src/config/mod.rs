@@ -36,6 +36,7 @@ pub struct Config {
     /// Path to a tarpaulin.toml config file
     pub config: Option<PathBuf>,
     /// Path tarpaulin is executed from
+    #[serde(rename = "current-dir", default = "default_current_dir")]
     current_dir: PathBuf,
     /// Flag to also run tests with the ignored attribute
     #[serde(rename = "ignored")]
@@ -203,6 +204,10 @@ pub struct Config {
 
 fn default_test_timeout() -> Duration {
     Duration::from_secs(60)
+}
+
+fn default_current_dir() -> PathBuf {
+    env::current_dir().unwrap_or_else(|_| PathBuf::from("."))
 }
 
 impl Default for Config {
@@ -502,6 +507,18 @@ impl Config {
         self.current_dir.clone()
     }
 
+    pub fn set_current_dir(&mut self, dir: PathBuf) {
+        let mut resolved_dir = dir;
+        if resolved_dir.is_relative() {
+            if let Ok(base_dir) = env::current_dir() {
+                if let Ok(abs_path) = base_dir.join(&resolved_dir).canonicalize() {
+                    resolved_dir = abs_path;
+                }
+            }
+        }
+        self.current_dir = resolved_dir;
+    }
+
     pub fn manifest(&self) -> PathBuf {
         fix_unc_path(&self.manifest)
     }
@@ -702,6 +719,10 @@ impl Config {
 
         if self.profile.is_none() && other.profile.is_some() {
             self.profile = other.profile.clone();
+        }
+        // Merge current_dir if the file didn't specify one (default is ".")
+        if self.current_dir == default_current_dir() && other.current_dir != default_current_dir() {
+            self.set_current_dir(other.current_dir.clone());
         }
         if other.features.is_some() {
             if self.features.is_none() {
@@ -957,7 +978,7 @@ mod tests {
 
     #[test]
     fn is_root_absolute() {
-        let args = TarpaulinCli::parse_from(vec!["tarpaulin", "-r", "."]);
+        let args = TarpaulinCli::parse_from(vec!["tarpaulin", "-c", "."]);
         let conf = ConfigWrapper::from(args.config).0;
         assert!(conf[0].root().is_absolute());
     }
@@ -1393,7 +1414,7 @@ mod tests {
         Z = ["something-nightly"]
         out = ["Html"]
         run-types = ["Doctests"]
-        root = "/home/rust"
+        current-dir = "/home/rust"
         manifest-path = "/home/rust/foo/Cargo.toml"
         ciserver = "travis-ci"
         args = ["--nocapture"]
@@ -1456,5 +1477,28 @@ mod tests {
         assert!(config.bin_names.contains("bin"));
         assert!(config.example_names.contains("example"));
         assert!(config.bench_names.contains("bench"));
+    }
+
+    #[test]
+    fn set_current_dir_absolute_path() {
+        let mut config = Config::default();
+        #[cfg(windows)]
+        let absolute_path = PathBuf::from("C:\\Users\\test\\project");
+        #[cfg(not(windows))]
+        let absolute_path = PathBuf::from("/home/test/project");
+
+        config.set_current_dir(absolute_path.clone());
+        assert_eq!(config.current_dir, absolute_path);
+        assert!(config.current_dir.is_absolute());
+    }
+
+    #[test]
+    fn set_current_dir_relative_path() {
+        let mut config = Config::default();
+        let relative_path = PathBuf::from("tests/data");
+
+        config.set_current_dir(relative_path);
+        // After setting, it should be converted to absolute
+        assert!(config.current_dir.is_absolute());
     }
 }

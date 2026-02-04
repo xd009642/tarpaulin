@@ -198,7 +198,7 @@ pub struct ConfigArgs {
     #[arg(long, value_enum, value_name = "CMD", ignore_case = true)]
     pub command: Option<Mode>,
     /// Calculates relative paths to root directory. If --manifest-path isn't specified it will look for a Cargo.toml in root
-    #[arg(long, short, value_name = "DIR", default_value = ".")]
+    #[arg(long = "current-dir", short, value_name = "DIR", default_value = ".")]
     pub current_dir: PathBuf,
     /// Path to Cargo.toml
     #[arg(long, value_name = "PATH")]
