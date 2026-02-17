@@ -11,7 +11,7 @@ use std::fs::{read_dir, remove_dir_all, remove_file, File};
 use std::io;
 use std::io::{BufRead, BufReader};
 use std::path::{Component, Path, PathBuf};
-use std::process::{Command, Stdio};
+use std::process::{Child, Command, Stdio};
 use std::rc::Rc;
 use std::sync::LazyLock;
 use tracing::{debug, error, info, trace, warn};
@@ -72,6 +72,7 @@ pub struct TestBinary {
     pkg_name: Option<String>,
     pkg_version: Option<String>,
     pkg_authors: Option<Vec<String>>,
+    test_name: Option<String>,
     should_panic: bool,
     /// Linker paths used when linking the binary, this should be accessed via
     /// `Self::has_linker_paths` and `Self::ld_library_path` as there may be interaction with
@@ -96,6 +97,7 @@ impl TestBinary {
             pkg_version: None,
             pkg_authors: None,
             cargo_dir: None,
+            test_name: None,
             should_panic: false,
             linker_paths: vec![],
         }
@@ -131,6 +133,10 @@ impl TestBinary {
 
     pub fn is_test_type(&self) -> bool {
         matches!(self.ty, None | Some(RunType::Tests))
+    }
+
+    pub fn get_test_name(&self) -> Option<String> {
+        self.test_name.clone()
     }
 
     /// Convert linker paths to an LD_LIBRARY_PATH.
@@ -313,105 +319,34 @@ fn run_cargo(
     ty: Option<RunType>,
     result: &mut CargoOutput,
 ) -> Result<(), RunError> {
-    let mut cmd = create_command(manifest, config, cargo_config, ty);
-    if ty != Some(RunType::Doctests) {
-        cmd.stdout(Stdio::piped());
-    } else {
-        clean_doctest_folder(config.doctest_dir());
-        cmd.stdout(Stdio::null());
+    if ty == Some(RunType::PerTest) {
+        let result_test_names = get_list_tests_str(ty);
+
+        for test_val in &result_test_names {
+            let mut child = run_cargo_spawn_child(manifest, config, cargo_config, ty)?;
+            let result_run = run_cargo_not_doctests(
+                Some(test_val.clone()),
+                &mut child,
+                config,
+                metadata,
+                ty,
+                result,
+            );
+            if result_run.is_err() {
+                return result_run;
+            }
+        }
+
+        return Ok(());
     }
-    trace!("Running command {:?}", cmd);
-    let mut child = cmd.spawn().map_err(|e| RunError::Cargo(e.to_string()))?;
-    let update_from = result.test_binaries.len();
-    let mut paths = match get_libdir(ty) {
-        Some(path) => vec![path],
-        None => vec![],
-    };
+
+    let mut child = run_cargo_spawn_child(manifest, config, cargo_config, ty)?;
 
     if ty != Some(RunType::Doctests) {
-        let mut package_ids = vec![None; result.test_binaries.len()];
-        let reader = std::io::BufReader::new(child.stdout.take().unwrap());
-        let mut error = None;
-        for msg in Message::parse_stream(reader) {
-            match msg {
-                Ok(Message::CompilerArtifact(art)) => {
-                    if let Some(path) = art.executable.as_ref() {
-                        if !art.profile.test && config.command == Mode::Test {
-                            result.binaries.push(PathBuf::from(path));
-                            continue;
-                        }
-                        result
-                            .test_binaries
-                            .push(TestBinary::new(fix_unc_path(path.as_std_path()), ty));
-                        package_ids.push(Some(art.package_id.clone()));
-                    }
-                }
-                Ok(Message::CompilerMessage(m)) => match m.message.level {
-                    DiagnosticLevel::Error | DiagnosticLevel::Ice => {
-                        let msg = if let Some(rendered) = m.message.rendered {
-                            rendered
-                        } else {
-                            format!("{}: {}", m.target.name, m.message.message)
-                        };
-                        error = Some(RunError::TestCompile(msg));
-                        break;
-                    }
-                    _ => {}
-                },
-                Ok(Message::BuildScriptExecuted(bs))
-                    if !(bs.linked_libs.is_empty() && bs.linked_paths.is_empty()) =>
-                {
-                    let temp_paths = bs.linked_paths.iter().filter_map(|x| {
-                        if x.as_std_path().exists() {
-                            Some(x.as_std_path().to_path_buf())
-                        } else if let Some(index) = x.as_str().find('=') {
-                            Some(PathBuf::from(&x.as_str()[(index + 1)..]))
-                        } else {
-                            warn!("Couldn't resolve linker path: {}", x.as_str());
-                            None
-                        }
-                    });
-                    for p in temp_paths {
-                        if !paths.contains(&p) {
-                            paths.push(p);
-                        }
-                    }
-                }
-                Err(e) => {
-                    error!("Error parsing cargo messages {e}");
-                }
-                _ => {}
-            }
+        let result_run = run_cargo_not_doctests(None, &mut child, config, metadata, ty, result);
+        if result_run.is_err() {
+            return result_run;
         }
-        debug!("Linker paths: {:?}", paths);
-        for bin in result.test_binaries.iter_mut().skip(update_from) {
-            bin.linker_paths = paths.clone();
-        }
-        let status = child.wait().unwrap();
-        if let Some(error) = error {
-            return Err(error);
-        }
-        if !status.success() {
-            return Err(RunError::Cargo("cargo run failed".to_string()));
-        };
-        for (res, package) in result
-            .test_binaries
-            .iter_mut()
-            .zip(package_ids.iter())
-            .filter(|(_, b)| b.is_some())
-        {
-            if let Some(package) = package {
-                let package = &metadata[package];
-                res.cargo_dir = package
-                    .manifest_path
-                    .parent()
-                    .map(|x| fix_unc_path(x.as_std_path()));
-                res.pkg_name = Some(package.name.to_string());
-                res.pkg_version = Some(package.version.to_string());
-                res.pkg_authors = Some(package.authors.clone());
-            }
-        }
-        child.wait().map_err(|e| RunError::Cargo(e.to_string()))?;
     } else {
         // need to wait for compiling to finish before getting doctests
         // also need to wait with output to ensure the stdout buffer doesn't fill up
@@ -473,7 +408,171 @@ fn run_cargo(
             result.test_binaries.push(tb);
         }
     }
+
     Ok(())
+}
+
+fn run_cargo_spawn_child(
+    manifest: &str,
+    config: &Config,
+    cargo_config: &CargoConfigFields,
+    ty: Option<RunType>,
+) -> Result<Child, RunError> {
+    let mut cmd = create_command(manifest, config, cargo_config, ty);
+    if ty != Some(RunType::Doctests) {
+        cmd.stdout(Stdio::piped());
+    } else {
+        clean_doctest_folder(config.doctest_dir());
+        cmd.stdout(Stdio::null());
+    }
+    trace!("Running command {:?}", cmd);
+    let child = cmd.spawn().map_err(|e| RunError::Cargo(e.to_string()));
+
+    child
+}
+
+fn run_cargo_not_doctests(
+    test_name: Option<String>,
+    child: &mut Child,
+    config: &Config,
+    metadata: &Metadata,
+    ty: Option<RunType>,
+    result: &mut CargoOutput,
+) -> Result<(), RunError> {
+    let update_from = result.test_binaries.len();
+    let mut paths = match get_libdir(ty) {
+        Some(path) => vec![path],
+        None => vec![],
+    };
+
+    let mut package_ids = vec![None; result.test_binaries.len()];
+    let reader = std::io::BufReader::new(child.stdout.take().unwrap());
+    let mut error = None;
+    for msg in Message::parse_stream(reader) {
+        match msg {
+            Ok(Message::CompilerArtifact(art)) => {
+                if let Some(path) = art.executable.as_ref() {
+                    if !art.profile.test && config.command == Mode::Test {
+                        result.binaries.push(PathBuf::from(path));
+                        continue;
+                    }
+
+                    let mut test_bin = TestBinary::new(fix_unc_path(path.as_std_path()), ty);
+                    test_bin.test_name = test_name.clone(); // useful when run type is PerTest
+
+                    result.test_binaries.push(test_bin);
+                    package_ids.push(Some(art.package_id.clone()));
+                }
+            }
+            Ok(Message::CompilerMessage(m)) => match m.message.level {
+                DiagnosticLevel::Error | DiagnosticLevel::Ice => {
+                    let msg = if let Some(rendered) = m.message.rendered {
+                        rendered
+                    } else {
+                        format!("{}: {}", m.target.name, m.message.message)
+                    };
+                    error = Some(RunError::TestCompile(msg));
+                    break;
+                }
+                _ => {}
+            },
+            Ok(Message::BuildScriptExecuted(bs))
+                if !(bs.linked_libs.is_empty() && bs.linked_paths.is_empty()) =>
+            {
+                let temp_paths = bs.linked_paths.iter().filter_map(|x| {
+                    if x.as_std_path().exists() {
+                        Some(x.as_std_path().to_path_buf())
+                    } else if let Some(index) = x.as_str().find('=') {
+                        Some(PathBuf::from(&x.as_str()[(index + 1)..]))
+                    } else {
+                        warn!("Couldn't resolve linker path: {}", x.as_str());
+                        None
+                    }
+                });
+                for p in temp_paths {
+                    if !paths.contains(&p) {
+                        paths.push(p);
+                    }
+                }
+            }
+            Err(e) => {
+                error!("Error parsing cargo messages {e}");
+            }
+            _ => {}
+        }
+    }
+
+    debug!("Linker paths: {:?}", paths);
+
+    for bin in result.test_binaries.iter_mut().skip(update_from) {
+        bin.linker_paths = paths.clone();
+    }
+
+    let status = child.wait().unwrap();
+    if let Some(error) = error {
+        return Err(error);
+    }
+
+    if !status.success() {
+        return Err(RunError::Cargo("cargo run failed".to_string()));
+    };
+
+    for (res, package) in result
+        .test_binaries
+        .iter_mut()
+        .zip(package_ids.iter())
+        .filter(|(_, b)| b.is_some())
+    {
+        if let Some(package) = package {
+            let package = &metadata[package];
+            res.cargo_dir = package
+                .manifest_path
+                .parent()
+                .map(|x| fix_unc_path(x.as_std_path()));
+            res.pkg_name = Some(package.name.to_string());
+            res.pkg_version = Some(package.version.to_string());
+            res.pkg_authors = Some(package.authors.clone());
+        }
+    }
+
+    child.wait().map_err(|e| RunError::Cargo(e.to_string()))?;
+
+    Ok(())
+}
+
+fn get_list_tests_str(ty: Option<RunType>) -> Vec<String> {
+    let mut test_names = vec![];
+    let mut cmd_list = start_cargo_command(ty);
+    cmd_list.args(["test", "-q", "--", "--list", "--format=terse"]);
+    let output = cmd_list.output();
+
+    match output {
+        Ok(output_val) => {
+            let stdout = String::from_utf8_lossy(&output_val.stdout);
+
+            //separating the test names
+            let mut stdout_filter = process_cmd_list_tests(&stdout);
+            test_names.append(&mut stdout_filter);
+            test_names
+        }
+        Err(_e) => {
+            error!("Error when trying to get the list of tests in the project");
+            test_names
+        }
+    }
+}
+
+fn process_cmd_list_tests(input: &str) -> Vec<String> {
+    input
+        .split('\n')
+        .filter_map(|line| {
+            if line.is_empty() {
+                None
+            } else {
+                Some(line.split(": ").next().unwrap_or(line).trim().to_string())
+            }
+        })
+        .collect()
 }
 
 fn convert_to_prefix(p: &Path) -> Option<String> {
@@ -641,6 +740,7 @@ fn create_command(
     if let Some(ty) = ty {
         match ty {
             RunType::Tests => test_cmd.arg("--tests"),
+            RunType::PerTest => &mut test_cmd,
             RunType::Doctests => test_cmd.arg("--doc"),
             RunType::Benchmarks => test_cmd.arg("--benches"),
             RunType::Examples => test_cmd.arg("--examples"),
@@ -668,6 +768,7 @@ fn create_command(
     }
     init_args(&mut test_cmd, config);
     setup_environment(&mut test_cmd, config, cargo_config);
+
     test_cmd
 }
 

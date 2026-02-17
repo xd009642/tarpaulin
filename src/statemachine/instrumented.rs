@@ -7,6 +7,7 @@ use std::thread::sleep;
 use tracing::{info, warn};
 
 pub fn create_state_machine<'a>(
+    test_name: Option<String>,
     test: impl Into<TestHandle>,
     traces: &'a mut TraceMap,
     analysis: &'a HashMap<PathBuf, LineAnalysis>,
@@ -14,6 +15,7 @@ pub fn create_state_machine<'a>(
     event_log: &'a Option<EventLog>,
 ) -> (TestState, LlvmInstrumentedData<'a>) {
     let handle = test.into();
+    let str_test_name = test_name.unwrap_or(String::from(""));
     if let TestHandle::Process(process) = handle {
         let llvm = LlvmInstrumentedData {
             process: Some(process),
@@ -21,6 +23,7 @@ pub fn create_state_machine<'a>(
             config,
             traces,
             analysis,
+            test_name: str_test_name,
         };
         (TestState::start_state(), llvm)
     } else {
@@ -31,6 +34,7 @@ pub fn create_state_machine<'a>(
             event_log,
             traces,
             analysis,
+            test_name: str_test_name,
         };
         (TestState::End(1), invalid)
     }
@@ -48,6 +52,8 @@ pub struct LlvmInstrumentedData<'a> {
     traces: &'a mut TraceMap,
     /// Source analysis, needed in case we need to follow any executables
     analysis: &'a HashMap<PathBuf, LineAnalysis>,
+    /// Test name associated with llvm instrumented data
+    test_name: String,
 }
 
 impl<'a> LlvmInstrumentedData<'a> {
@@ -160,6 +166,10 @@ impl<'a> StateData for LlvmInstrumentedData<'a> {
                                         if include {
                                             let mut trace = Trace::new_stub(line as u64);
                                             trace.stats = CoverageStat::Line(*hits as u64);
+                                            if !self.test_name.is_empty() && *hits as u64 > 0 {
+                                                info!("Insert for trace on line {} hits {} for test {}", trace.line.to_string(), hits.to_string(), self.test_name.clone());
+                                                trace.src.insert(self.test_name.clone());
+                                            }
                                             self.traces.add_trace(file, trace);
                                         }
                                     }
@@ -184,6 +194,10 @@ impl<'a> StateData for LlvmInstrumentedData<'a> {
                                     if let Some(hits) = result.hits_for_line(trace.line as usize) {
                                         if let CoverageStat::Line(ref mut x) = trace.stats {
                                             *x = hits as _;
+                                            if !self.test_name.is_empty() && hits as u64 > 0 {
+                                                info!("Insert for trace on line {} hits {} for test {}", trace.line.to_string(), hits.to_string(), self.test_name.clone());
+                                                trace.src.insert(self.test_name.clone());
+                                            }
                                         }
                                     }
                                 }
