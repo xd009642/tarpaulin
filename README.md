@@ -165,10 +165,11 @@ accuracy. If you see missing lines or files, check your compiler version.
 ### Installation
 
 Tarpaulin is a command-line program, you install it into your development
-environment with cargo install:
+environment with cargo install. A locked install is recommended to avoid being
+impacted by breaking changes in dependencies:
 
 ```text
-cargo install cargo-tarpaulin
+cargo install --locked cargo-tarpaulin
 ```
 
 When using the [Nix](https://nixos.org/nix) package manager, the `nixpkgs.cargo-tarpaulin` package can be used.
