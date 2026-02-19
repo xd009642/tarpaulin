@@ -730,7 +730,7 @@ with an empty section
 
 ### Changed
 - Ignore lines containing "}else{"
-- Use relative file paths to base_dir (env::current_dir() or --root option if set)
+- Use relative file paths to base_dir (env::current_dir() or --current-dir option if set)
 - Use `HashSet` for XML package deduplication in cobertura fixing a codecov rendering issue
 
 ### Removed

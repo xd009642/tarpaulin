@@ -35,8 +35,9 @@ pub struct Config {
     manifest: PathBuf,
     /// Path to a tarpaulin.toml config file
     pub config: Option<PathBuf>,
-    /// Path to the projects cargo manifest
-    root: Option<PathBuf>,
+    /// Path tarpaulin is executed from
+    #[serde(rename = "current-dir", default = "default_current_dir")]
+    current_dir: PathBuf,
     /// Flag to also run tests with the ignored attribute
     #[serde(rename = "ignored")]
     pub run_ignored: bool,
@@ -205,6 +206,10 @@ fn default_test_timeout() -> Duration {
     Duration::from_secs(60)
 }
 
+fn default_current_dir() -> PathBuf {
+    env::current_dir().unwrap_or_else(|_| PathBuf::from("."))
+}
+
 impl Default for Config {
     fn default() -> Config {
         Config {
@@ -213,7 +218,7 @@ impl Default for Config {
             run_types: vec![],
             manifest: default_manifest(),
             config: None,
-            root: Default::default(),
+            current_dir: Default::default(),
             run_ignored: false,
             include_tests: false,
             ignore_panics: false,
@@ -302,9 +307,9 @@ impl From<ConfigArgs> for ConfigWrapper {
 
         let args_config = Config {
             name: String::new(),
-            manifest: process_manifest(args.manifest_path, args.root.clone()),
+            manifest: process_manifest(args.manifest_path, args.current_dir.clone()),
             config: None,
-            root: args.root,
+            current_dir: args.current_dir,
             engine: RefCell::new(args.engine.unwrap_or_default()),
             command: args.command.unwrap_or(Mode::Test),
             verbose: args.logging.verbose || args.logging.debug,
@@ -498,16 +503,20 @@ impl Config {
         self.metadata.borrow()
     }
 
-    pub fn root(&self) -> PathBuf {
-        let res = match *self.get_metadata() {
-            Some(ref meta) => PathBuf::from(meta.workspace_root.clone()),
-            _ => self
-                .manifest
-                .parent()
-                .map(Path::to_path_buf)
-                .unwrap_or_default(),
-        };
-        fix_unc_path(&res)
+    pub fn get_current_dir(&self) -> PathBuf {
+        self.current_dir.clone()
+    }
+
+    pub fn set_current_dir(&mut self, dir: PathBuf) {
+        let mut resolved_dir = dir;
+        if resolved_dir.is_relative() {
+            if let Ok(base_dir) = env::current_dir() {
+                if let Ok(abs_path) = base_dir.join(&resolved_dir).canonicalize() {
+                    resolved_dir = abs_path;
+                }
+            }
+        }
+        self.current_dir = resolved_dir;
     }
 
     pub fn manifest(&self) -> PathBuf {
@@ -521,12 +530,12 @@ impl Config {
     pub fn output_dir(&self) -> PathBuf {
         let path = if let Some(ref path) = self.output_directory {
             if path.is_relative() {
-                self.root().join(path)
+                self.get_current_dir().join(path)
             } else {
                 path.clone()
             }
         } else {
-            self.root()
+            self.get_current_dir()
         };
         fix_unc_path(&path)
     }
@@ -551,12 +560,10 @@ impl Config {
     pub fn check_for_configs(&self) -> Option<PathBuf> {
         if let Some(config_file) = env::var_os("CARGO_TARPAULIN_CONFIG_FILE") {
             Some(config_file.into())
-        } else if let Some(root) = &self.root {
-            Self::check_path_for_configs(root)
         } else if let Some(root) = self.manifest.clone().parent() {
             Self::check_path_for_configs(root)
         } else {
-            None
+            Self::check_path_for_configs(&self.current_dir)
         }
     }
 
@@ -585,9 +592,7 @@ impl Config {
             for c in cfs.iter_mut() {
                 c.config = Some(file.as_ref().to_path_buf());
                 c.manifest = make_absolute_with_parent(&c.manifest, &parent);
-                if let Some(root) = c.root.as_mut() {
-                    *root = make_absolute_with_parent(&root, &parent);
-                }
+                c.current_dir = make_absolute_with_parent(&c.current_dir, &parent);
                 if let Some(root) = c.output_directory.as_mut() {
                     *root = make_absolute_with_parent(&root, &parent);
                 }
@@ -650,7 +655,7 @@ impl Config {
                 self.objects.push(obj.clone());
             }
         }
-        self.root = Config::pick_optional_config(&self.root, &other.root);
+
         self.coveralls = Config::pick_optional_config(&self.coveralls, &other.coveralls);
 
         cfg_if::cfg_if! {
@@ -714,6 +719,10 @@ impl Config {
 
         if self.profile.is_none() && other.profile.is_some() {
             self.profile = other.profile.clone();
+        }
+        // Merge current_dir if the file didn't specify one (default is ".")
+        if self.current_dir == default_current_dir() && other.current_dir != default_current_dir() {
+            self.set_current_dir(other.current_dir.clone());
         }
         if other.features.is_some() {
             if self.features.is_none() {
@@ -879,7 +888,7 @@ impl Config {
     /// uses root if set, else env::current_dir()
     #[inline]
     pub fn get_base_dir(&self) -> PathBuf {
-        let root = self.root();
+        let root = self.get_current_dir();
         let res = if root.is_absolute() {
             root
         } else {
@@ -969,9 +978,9 @@ mod tests {
 
     #[test]
     fn is_root_absolute() {
-        let args = TarpaulinCli::parse_from(vec!["tarpaulin", "-r", "."]);
+        let args = TarpaulinCli::parse_from(vec!["tarpaulin", "-c", "."]);
         let conf = ConfigWrapper::from(args.config).0;
-        assert!(conf[0].root().is_absolute());
+        assert!(conf[0].get_current_dir().is_absolute());
     }
 
     #[test]
@@ -1405,7 +1414,7 @@ mod tests {
         Z = ["something-nightly"]
         out = ["Html"]
         run-types = ["Doctests"]
-        root = "/home/rust"
+        current-dir = "/home/rust"
         manifest-path = "/home/rust/foo/Cargo.toml"
         ciserver = "travis-ci"
         args = ["--nocapture"]
@@ -1459,7 +1468,7 @@ mod tests {
         assert_eq!(config.run_types.len(), 1);
         assert_eq!(config.run_types[0], RunType::Doctests);
         assert_eq!(config.ci_tool, Some(CiService::Travis));
-        assert_eq!(config.root, Some("/home/rust".into()));
+        assert_eq!(config.current_dir, PathBuf::from("/home/rust"));
         assert_eq!(config.manifest, PathBuf::from("/home/rust/foo/Cargo.toml"));
         assert_eq!(config.profile, Some("Release".to_string()));
         assert!(config.no_fail_fast);
@@ -1468,5 +1477,28 @@ mod tests {
         assert!(config.bin_names.contains("bin"));
         assert!(config.example_names.contains("example"));
         assert!(config.bench_names.contains("bench"));
+    }
+
+    #[test]
+    fn set_current_dir_absolute_path() {
+        let mut config = Config::default();
+        #[cfg(windows)]
+        let absolute_path = PathBuf::from("C:\\Users\\test\\project");
+        #[cfg(not(windows))]
+        let absolute_path = PathBuf::from("/home/test/project");
+
+        config.set_current_dir(absolute_path.clone());
+        assert_eq!(config.current_dir, absolute_path);
+        assert!(config.current_dir.is_absolute());
+    }
+
+    #[test]
+    fn set_current_dir_relative_path() {
+        let mut config = Config::default();
+        let relative_path = PathBuf::from("tests/data");
+
+        config.set_current_dir(relative_path);
+        // After setting, it should be converted to absolute
+        assert!(config.current_dir.is_absolute());
     }
 }

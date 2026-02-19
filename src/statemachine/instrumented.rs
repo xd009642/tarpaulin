@@ -136,7 +136,7 @@ impl<'a> StateData for LlvmInstrumentedData<'a> {
                             RunError::TestCoverage(e.to_string())
                         })?;
 
-                    let root = self.config.root();
+                    let root = self.config.get_current_dir();
                     let report = mapping
                         .generate_subreport(|paths| {
                             paths.iter().any(|path| path.starts_with(&root))

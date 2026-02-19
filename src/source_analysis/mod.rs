@@ -341,7 +341,7 @@ impl SourceAnalysis {
     pub fn get_analysis(config: &Config) -> Self {
         let mut result = Self::new();
         let mut ignored_files: HashSet<PathBuf> = HashSet::new();
-        let root = config.root();
+        let root = config.get_current_dir();
 
         for e in get_source_walker(config) {
             if !ignored_files.contains(e.path()) {
