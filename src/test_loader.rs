@@ -76,10 +76,10 @@ where
     Offset: ReaderOffset,
 {
     let mut func_type = FunctionType::Standard;
-    let low = die.attr_value(DW_AT_low_pc)?;
-    let high = die.attr_value(DW_AT_high_pc)?;
-    let linkage = die.attr_value(DW_AT_linkage_name)?;
-    let fn_name = die.attr_value(DW_AT_name)?;
+    let low = die.attr_value(DW_AT_low_pc);
+    let high = die.attr_value(DW_AT_high_pc);
+    let linkage = die.attr_value(DW_AT_linkage_name);
+    let fn_name = die.attr_value(DW_AT_name);
 
     let fn_name: Option<String> = match fn_name {
         Some(AttributeValue::DebugStrRef(offset)) => debug_str
@@ -134,7 +134,7 @@ where
     let mut cursor = debug_info.entries(debug_abbrev);
     // skip compilation unit root.
     let _ = cursor.next_entry();
-    while let Ok(Some((_, node))) = cursor.next_dfs() {
+    while let Ok(Some(node)) = cursor.next_dfs() {
         // Function DIE
         if node.tag() == DW_TAG_subprogram {
             if let Ok(fd) = generate_func_desc(node, debug_str) {
@@ -264,9 +264,9 @@ fn get_line_addresses<'data>(
             })
             .collect::<Vec<_>>();
 
-        if let Ok(Some((_, root))) = cu.entries(&abbr).next_dfs() {
+        if let Ok(Some(root)) = cu.entries(&abbr).next_dfs() {
             let offset = match root.attr_value(DW_AT_stmt_list) {
-                Ok(Some(AttributeValue::DebugLineRef(o))) => o,
+                Some(AttributeValue::DebugLineRef(o)) => o,
                 _ => continue,
             };
             let prog = debug_line.program(offset, addr_size, None, None)?; // Here?
