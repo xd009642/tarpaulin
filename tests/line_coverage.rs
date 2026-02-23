@@ -19,6 +19,7 @@ fn simple_project_coverage() {
     let test_dir = get_test_path("simple_project");
     env::set_current_dir(&test_dir).unwrap();
     let mut manifest = test_dir.clone();
+    config.set_current_dir(manifest.clone());
     manifest.push("Cargo.toml");
     config.set_manifest(manifest);
 
@@ -61,6 +62,7 @@ fn debug_info_0() {
     let test_dir = get_test_path("simple_project");
     env::set_current_dir(&test_dir).unwrap();
     let mut manifest = test_dir;
+    config.set_current_dir(manifest.clone());
     manifest.push("Cargo.toml");
     config.set_manifest(manifest);
     let backup_flag = env::var("RUSTFLAGS").ok();
@@ -84,6 +86,7 @@ fn test_threads_1() {
     let test_dir = get_test_path("simple_project");
     env::set_current_dir(&test_dir).unwrap();
     let mut manifest = test_dir.clone();
+    config.set_current_dir(manifest.clone());
     manifest.push("Cargo.toml");
     config.set_manifest(manifest);
     config.varargs.push("--test-threads".to_string());
