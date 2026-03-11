@@ -14,6 +14,7 @@ fn package_exclude() {
     let test_dir = get_test_path("workspace");
     env::set_current_dir(&test_dir).unwrap();
     let mut manifest = test_dir;
+    config.set_current_dir(manifest.clone());
     manifest.push("Cargo.toml");
     config.set_manifest(manifest);
     config.set_clean(false);
@@ -53,6 +54,7 @@ fn specify_package() {
     let test_dir = get_test_path("workspace");
     env::set_current_dir(&test_dir).unwrap();
     let mut manifest = test_dir;
+    config.set_current_dir(manifest.clone());
     manifest.push("Cargo.toml");
     config.set_manifest(manifest);
     config.packages = vec!["foo".to_string()];

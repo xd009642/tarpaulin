@@ -232,7 +232,7 @@ fn execute_test(
     info!("running {}", test.path().display());
     let _ = match test.manifest_dir() {
         Some(md) => env::set_current_dir(md),
-        None => env::set_current_dir(config.root()),
+        None => env::set_current_dir(config.get_current_dir()),
     };
 
     debug!("Current working dir: {:?}", env::current_dir());

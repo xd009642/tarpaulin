@@ -102,7 +102,7 @@ Options:
       --engine <ENGINE>            Coverage tracing backend to use [possible values: Auto, Ptrace, Llvm]
       --output-dir <PATH>          Specify a custom directory to write report files
       --command <CMD>              cargo subcommand to run. So far only test and build are supported [possible values: Test, Build]
-  -r, --root <DIR>                 Calculates relative paths to root directory. If --manifest-path isn't specified it will look for a Cargo.toml in root
+  -c, --current-dir <DIR>          Defaults to path where tarpaulin is run. Can be changed if scope needs to be different
       --manifest-path <PATH>       Path to Cargo.toml
       --ciserver <SERVICE>         CI server being used, if unspecified tarpaulin may automatically infer for coveralls uploads
       --fail-immediately           Option to fail immediately after a single test fails
@@ -187,7 +187,7 @@ When Tarpaulin runs your tests it strives to run them in the same environment as
 To achieve this it sets the following environment variables when executing the test binaries:
 
 - **RUST_BACKTRACE**      - _Set to `1` when --verbose flag is used unless it is already set_
-- **CARGO_MANIFEST_DIR**  - _Path to Cargo.toml From --root | --manifest-path or guessed from the current or parent directory_
+- **CARGO_MANIFEST_DIR**  - _Path to Cargo.toml From --current-dir | --manifest-path or guessed from the current or parent directory_
 - **CARGO_PKG_NAME**      - _From Cargo.toml_
 - **CARGO_PKG_AUTHORS**   - _From Cargo.toml_
 - **CARGO_PKG_VERSION**   - _From Cargo.toml_
@@ -197,7 +197,7 @@ To achieve this it sets the following environment variables when executing the t
 
 For Tarpaulin to construct the Cargo environment correctly, Tarpaulin needs to find Cargo.toml by either:
 
-- Using *--root* or *--manifest-path* or
+- Using *--current-dir* or *--manifest-path* or
 - By invoking Cargo from the current working directory within the project holding Cargo.toml manifest or
 - By invoking Cargo from a sub-directory within the project
 
@@ -213,7 +213,7 @@ To get detailed help on available arguments when running Tarpaulin call:
 cargo tarpaulin --help
 ```
 
-Currently, no options are required, if no root directory is defined Tarpaulin
+Currently, no options are required, if no current-dir directory is defined Tarpaulin
 will run in the current working directory.
 
 Below is a Tarpaulin run utilising one of our example projects. This is a
@@ -549,7 +549,7 @@ Tarpaulin has a config file setting where multiple coverage setups can be
 encoded in a toml file. This can be provided by an argument,
 by the environment variable `CARGO_TARPAULIN_CONFIG_FILE` or if a
 `.tarpaulin.toml` or `tarpaulin.toml` is present in the same directory as
-the projects manifest or in the root directory that will be used unless
+the projects manifest or in the current-dir directory that will be used unless
 `--ignore-config` is passed. Below is an example file:
 
 ```toml

@@ -301,7 +301,7 @@ pub fn get_tests(config: &Config) -> Result<CargoOutput, RunError> {
         run_cargo(&metadata, manifest, config, &cargo_config, ty, &mut result)?;
     }
     // Only matters for llvm cov and who knows, one day may not be needed
-    let _ = remove_file(config.root().join(BUILD_PROFRAW));
+    let _ = remove_file(config.get_current_dir().join(BUILD_PROFRAW));
     Ok(result)
 }
 
@@ -524,7 +524,7 @@ fn get_attribute_candidates(
 ) -> HashMap<String, Vec<usize>> {
     let mut result = HashMap::new();
     let mut checked_files = HashSet::new();
-    let root = config.root();
+    let root = config.get_current_dir();
     for test in tests {
         if let Some(test_binary) = DocTestBinaryMeta::new(test.path()) {
             for dir_entry in get_source_walker(config) {
@@ -857,7 +857,10 @@ fn deduplicate_flags(flags: &str) -> String {
 
 fn setup_environment(cmd: &mut Command, config: &Config, cargo_config: &CargoConfigFields) {
     // https://github.com/rust-lang/rust/issues/107447
-    cmd.env("LLVM_PROFILE_FILE", config.root().join(BUILD_PROFRAW));
+    cmd.env(
+        "LLVM_PROFILE_FILE",
+        config.get_current_dir().join(BUILD_PROFRAW),
+    );
     cmd.env("TARPAULIN", "1");
     let rustflags = "RUSTFLAGS";
     let value = rust_flags(config, cargo_config);
