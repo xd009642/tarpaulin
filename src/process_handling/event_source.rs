@@ -3,7 +3,6 @@ use crate::{errors::RunError, process_handling::ptrace_control::*};
 use libc::c_long;
 use nix::{
     sys::{
-        ptrace::detach,
         signal::Signal,
         wait::{waitpid, WaitPidFlag, WaitStatus},
     },
@@ -11,36 +10,37 @@ use nix::{
 };
 
 pub trait EventSource {
-    fn request_trace(&mut self) -> nix::Result<()>;
-    fn waitpid(&mut self, pid: Pid, options: Option<WaitPidFlag>) -> nix::Result<WaitStatus>;
-    fn next_events(
-        &mut self,
-        wait_queue: &mut Vec<WaitStatus>,
-    ) -> Result<Option<TestState>, RunError>;
-    fn continue_pid(&mut self, pid: Pid, signal: Option<Signal>) -> nix::Result<()>;
-    fn single_step(&mut self, pid: Pid) -> nix::Result<()>;
-    fn detach_child(&mut self, pid: Pid) -> nix::Result<()>;
+    fn request_trace(&self) -> nix::Result<()>;
+    fn trace_children(&self, pid: Pid) -> nix::Result<()>;
+    fn waitpid(&self, pid: Pid, options: Option<WaitPidFlag>) -> nix::Result<WaitStatus>;
+    fn next_events(&self, wait_queue: &mut Vec<WaitStatus>) -> Result<Option<TestState>, RunError>;
+    fn get_event_data(&self, pid: Pid) -> nix::Result<c_long>;
+    fn continue_pid(&self, pid: Pid, signal: Option<Signal>) -> nix::Result<()>;
+    fn single_step(&self, pid: Pid) -> nix::Result<()>;
+    fn detach_child(&self, pid: Pid) -> nix::Result<()>;
     fn current_instruction_pointer(&self, pid: Pid) -> nix::Result<c_long>;
-    fn set_current_instruction_pointer(&mut self, pid: Pid, addr: u64) -> nix::Result<c_long>;
-    fn poke_text(&mut self, pid: Pid, addr: u64, data: c_long) -> nix::Result<()>;
-    fn peek_text(&mut self, pid: Pid, addr: u64) -> nix::Result<c_long>;
+    fn set_current_instruction_pointer(&self, pid: Pid, addr: u64) -> nix::Result<c_long>;
+    fn write_address(&self, pid: Pid, addr: u64, data: c_long) -> nix::Result<()>;
+    fn read_address(&self, pid: Pid, addr: u64) -> nix::Result<c_long>;
 }
 
+#[derive(Clone)]
 pub struct PtraceEventSource;
 
 impl EventSource for PtraceEventSource {
-    fn request_trace(&mut self) -> nix::Result<()> {
+    fn request_trace(&self) -> nix::Result<()> {
         request_trace()
     }
 
-    fn waitpid(&mut self, pid: Pid, options: Option<WaitPidFlag>) -> nix::Result<WaitStatus> {
+    fn trace_children(&self, pid: Pid) -> nix::Result<()> {
+        trace_children(pid)
+    }
+
+    fn waitpid(&self, pid: Pid, options: Option<WaitPidFlag>) -> nix::Result<WaitStatus> {
         waitpid(pid, options)
     }
 
-    fn next_events(
-        &mut self,
-        wait_queue: &mut Vec<WaitStatus>,
-    ) -> Result<Option<TestState>, RunError> {
+    fn next_events(&self, wait_queue: &mut Vec<WaitStatus>) -> Result<Option<TestState>, RunError> {
         let mut result = Ok(None);
         let mut running = true;
         while running {
@@ -77,15 +77,19 @@ impl EventSource for PtraceEventSource {
         result
     }
 
-    fn continue_pid(&mut self, pid: Pid, signal: Option<Signal>) -> nix::Result<()> {
+    fn get_event_data(&self, pid: Pid) -> nix::Result<c_long> {
+        get_event_data(pid)
+    }
+
+    fn continue_pid(&self, pid: Pid, signal: Option<Signal>) -> nix::Result<()> {
         continue_exec(pid, signal)
     }
 
-    fn single_step(&mut self, pid: Pid) -> nix::Result<()> {
+    fn single_step(&self, pid: Pid) -> nix::Result<()> {
         single_step(pid)
     }
 
-    fn detach_child(&mut self, pid: Pid) -> nix::Result<()> {
+    fn detach_child(&self, pid: Pid) -> nix::Result<()> {
         detach_child(pid)
     }
 
@@ -93,46 +97,52 @@ impl EventSource for PtraceEventSource {
         current_instruction_pointer(pid)
     }
 
-    fn set_current_instruction_pointer(&mut self, pid: Pid, addr: u64) -> nix::Result<c_long> {
+    fn set_current_instruction_pointer(&self, pid: Pid, addr: u64) -> nix::Result<c_long> {
         set_instruction_pointer(pid, addr)
     }
 
-    fn poke_text(&mut self, pid: Pid, address: u64, data: c_long) -> nix::Result<()> {
+    fn write_address(&self, pid: Pid, address: u64, data: c_long) -> nix::Result<()> {
         write_to_address(pid, address, data)
     }
 
-    fn peek_text(&mut self, pid: Pid, address: u64) -> nix::Result<c_long> {
+    fn read_address(&self, pid: Pid, address: u64) -> nix::Result<c_long> {
         read_address(pid, address)
     }
 }
 
+#[derive(Clone)]
 pub struct ReplayEventSource {}
 
 impl EventSource for ReplayEventSource {
-    fn request_trace(&mut self) -> nix::Result<()> {
+    fn request_trace(&self) -> nix::Result<()> {
         Ok(())
     }
 
-    fn waitpid(&mut self, pid: Pid, options: Option<WaitPidFlag>) -> nix::Result<WaitStatus> {
+    fn trace_children(&self, pid: Pid) -> nix::Result<()> {
         todo!()
     }
 
-    fn next_events(
-        &mut self,
-        wait_queue: &mut Vec<WaitStatus>,
-    ) -> Result<Option<TestState>, RunError> {
+    fn waitpid(&self, pid: Pid, options: Option<WaitPidFlag>) -> nix::Result<WaitStatus> {
+        todo!()
+    }
+
+    fn next_events(&self, wait_queue: &mut Vec<WaitStatus>) -> Result<Option<TestState>, RunError> {
         todo!();
     }
 
-    fn continue_pid(&mut self, pid: Pid, signal: Option<Signal>) -> nix::Result<()> {
+    fn get_event_data(&self, pid: Pid) -> nix::Result<c_long> {
+        todo!()
+    }
+
+    fn continue_pid(&self, pid: Pid, signal: Option<Signal>) -> nix::Result<()> {
         todo!();
     }
 
-    fn single_step(&mut self, pid: Pid) -> nix::Result<()> {
+    fn single_step(&self, pid: Pid) -> nix::Result<()> {
         todo!();
     }
 
-    fn detach_child(&mut self, pid: Pid) -> nix::Result<()> {
+    fn detach_child(&self, pid: Pid) -> nix::Result<()> {
         todo!()
     }
 
@@ -140,15 +150,15 @@ impl EventSource for ReplayEventSource {
         todo!();
     }
 
-    fn set_current_instruction_pointer(&mut self, pid: Pid, addr: u64) -> nix::Result<c_long> {
+    fn set_current_instruction_pointer(&self, pid: Pid, addr: u64) -> nix::Result<c_long> {
         todo!();
     }
 
-    fn poke_text(&mut self, pid: Pid, address: u64, data: c_long) -> nix::Result<()> {
+    fn write_address(&self, pid: Pid, address: u64, data: c_long) -> nix::Result<()> {
         todo!();
     }
 
-    fn peek_text(&mut self, pid: Pid, address: u64) -> nix::Result<c_long> {
+    fn read_address(&self, pid: Pid, address: u64) -> nix::Result<c_long> {
         todo!();
     }
 }

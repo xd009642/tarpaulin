@@ -5,7 +5,6 @@ use crate::errors::RunError;
 use crate::generate_tracemap;
 use crate::process_handling::event_source::EventSource;
 use crate::process_handling::event_source::PtraceEventSource;
-use crate::ptrace_control::*;
 use crate::source_analysis::LineAnalysis;
 use crate::statemachine::*;
 use crate::TestHandle;
@@ -18,6 +17,7 @@ use procfs::process::{MMapPath, Process};
 use std::collections::{HashMap, HashSet};
 use std::ops::RangeBounds;
 use std::path::PathBuf;
+use std::rc::Rc;
 use tracing::{debug, info, trace, trace_span, warn};
 
 /// Handle to linux process state
@@ -43,7 +43,7 @@ pub struct LinuxData<'a> {
     processes: HashMap<Pid, TracedProcess>,
     /// Map from pids to their parent
     pid_map: HashMap<Pid, Pid>,
-    event_source: Box<dyn EventSource>,
+    event_source: Rc<dyn EventSource>,
     /// So if we have the exit code but we're also waiting for all the spawned processes to end
     exit_code: Option<i32>,
 }
@@ -372,7 +372,7 @@ impl<'a> StateData for LinuxData<'a> {
                 TracerAction::Detach(t) => {
                     continued = true;
                     actioned_pids.insert(t.pid);
-                    let _ = detach_child(t.pid);
+                    let _ = self.event_source.detach_child(t.pid);
                 }
                 TracerAction::Nothing => {}
             }
@@ -410,7 +410,7 @@ impl<'a> LinuxData<'a> {
             config,
             event_log,
             pid_map: HashMap::new(),
-            event_source: Box::new(PtraceEventSource),
+            event_source: Rc::new(PtraceEventSource),
             exit_code: None,
         }
     }
@@ -464,7 +464,7 @@ impl<'a> LinuxData<'a> {
             None => self.traces,
         };
         let mut breakpoints = HashMap::new();
-        trace_children(pid)?;
+        self.event_source.trace_children(pid)?;
         let offset = get_offset(pid, self.config);
         trace!(
             "Initialising process: {}, address offset: 0x{:x}",
@@ -481,7 +481,7 @@ impl<'a> LinuxData<'a> {
                     );
                     continue;
                 }
-                match Breakpoint::new(pid, *addr + offset) {
+                match Breakpoint::new(pid, *addr + offset, self.event_source.clone()) {
                     Ok(bp) => {
                         let _ = breakpoints.insert(*addr + offset, bp);
                     }
@@ -581,7 +581,7 @@ impl<'a> LinuxData<'a> {
 
         if sig == Signal::SIGTRAP {
             match event {
-                PTRACE_EVENT_CLONE => match get_event_data(child) {
+                PTRACE_EVENT_CLONE => match self.event_source.get_event_data(child) {
                     Ok(t) => {
                         trace!("New thread spawned {}", t);
                         let mut parent = None;
@@ -607,7 +607,7 @@ impl<'a> LinuxData<'a> {
                     }
                 },
                 PTRACE_EVENT_FORK => {
-                    if let Ok(fork_child) = get_event_data(child) {
+                    if let Ok(fork_child) = self.event_source.get_event_data(child) {
                         trace!("Caught fork event. Child {}", fork_child);
                         let parent = if let Some(process) = self.get_traced_process_mut(child) {
                             // Counting a fork as a new thread ?
@@ -635,7 +635,7 @@ impl<'a> LinuxData<'a> {
                     //
                     // This suggests that Command::new().spawn() will result in a
                     // `PTRACE_EVENT_VFORK` not `PTRACE_EVENT_EXEC`
-                    if let Ok(fork_child) = get_event_data(child) {
+                    if let Ok(fork_child) = self.event_source.get_event_data(child) {
                         let fork_child = Pid::from_raw(fork_child as _);
                         if self.config.follow_exec {
                             // So I've seen some recursive bin calls with vforks... Maybe just assume
