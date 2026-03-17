@@ -3,6 +3,8 @@ use crate::cargo::rust_flags;
 use crate::config::Config;
 use crate::errors::RunError;
 use crate::generate_tracemap;
+use crate::process_handling::event_source::EventSource;
+use crate::process_handling::event_source::PtraceEventSource;
 use crate::ptrace_control::*;
 use crate::source_analysis::LineAnalysis;
 use crate::statemachine::*;
@@ -41,6 +43,7 @@ pub struct LinuxData<'a> {
     processes: HashMap<Pid, TracedProcess>,
     /// Map from pids to their parent
     pid_map: HashMap<Pid, Pid>,
+    event_source: Box<dyn EventSource>,
     /// So if we have the exit code but we're also waiting for all the spawned processes to end
     exit_code: Option<i32>,
 }
@@ -133,7 +136,10 @@ fn get_offset(pid: Pid, config: &Config) -> u64 {
 
 impl<'a> StateData for LinuxData<'a> {
     fn start(&mut self) -> Result<Option<TestState>, RunError> {
-        match waitpid(self.current, Some(WaitPidFlag::WNOHANG)) {
+        match self
+            .event_source
+            .waitpid(self.current, Some(WaitPidFlag::WNOHANG))
+        {
             Ok(WaitStatus::StillAlive) => Ok(None),
             Ok(sig @ WaitStatus::Stopped(_, Signal::SIGTRAP)) => {
                 if let WaitStatus::Stopped(child, _) = sig {
@@ -155,7 +161,11 @@ impl<'a> StateData for LinuxData<'a> {
         let mut traced_process = self.init_process(self.current, None)?;
         traced_process.is_test_proc = true;
 
-        if continue_exec(traced_process.parent, None).is_ok() {
+        if self
+            .event_source
+            .continue_pid(traced_process.parent, None)
+            .is_ok()
+        {
             trace!("Initialised inferior, transitioning to wait state");
             self.processes.insert(self.current, traced_process);
             Ok(TestState::wait_state())
@@ -181,42 +191,9 @@ impl<'a> StateData for LinuxData<'a> {
     }
 
     fn wait(&mut self) -> Result<Option<TestState>, RunError> {
-        let mut result = Ok(None);
-        let mut running = true;
-        while running {
-            let wait = waitpid(
-                Pid::from_raw(-1),
-                Some(WaitPidFlag::WNOHANG | WaitPidFlag::__WALL),
-            );
-            match wait {
-                Ok(WaitStatus::StillAlive) => {
-                    running = false;
-                }
-                Ok(WaitStatus::Exited(_, _)) => {
-                    self.wait_queue.push(wait.unwrap());
-                    result = Ok(Some(TestState::Stopped));
-                    running = false;
-                }
-                Ok(WaitStatus::PtraceEvent(_, _, _)) => {
-                    self.wait_queue.push(wait.unwrap());
-                    result = Ok(Some(TestState::Stopped));
-                    running = false;
-                }
-                Ok(s) => {
-                    self.wait_queue.push(s);
-                    result = Ok(Some(TestState::Stopped));
-                }
-                Err(_) if self.exit_code.is_some() => {
-                    running = false;
-                    result = self.last_wait_attempt();
-                }
-                Err(e) => {
-                    running = false;
-                    result = Err(RunError::TestRuntime(format!(
-                        "An error occurred while waiting for response from test: {e}"
-                    )));
-                }
-            }
+        let mut result = self.event_source.next_events(&mut self.wait_queue);
+        if result.is_err() && self.exit_code.is_some() {
+            result = self.last_wait_attempt();
         }
         if !self.wait_queue.is_empty() {
             trace!("Result queue is {:?}", self.wait_queue);
@@ -273,7 +250,11 @@ impl<'a> StateData for LinuxData<'a> {
                     "A segfault occurred while executing tests".to_string(),
                 )),
                 WaitStatus::Stopped(child, Signal::SIGILL) => {
-                    let pc = current_instruction_pointer(*child).unwrap_or(1) - 1;
+                    let pc = self
+                        .event_source
+                        .current_instruction_pointer(*child)
+                        .unwrap_or(1)
+                        - 1;
                     trace!("SIGILL raised. Child program counter is: 0x{:x}", pc);
                     Err(RunError::TestRuntime(format!(
                         "Error running test - SIGILL raised in {child}"
@@ -376,17 +357,17 @@ impl<'a> StateData for LinuxData<'a> {
                 TracerAction::TryContinue(t) => {
                     continued = true;
                     actioned_pids.insert(t.pid);
-                    let _ = continue_exec(t.pid, t.signal);
+                    let _ = self.event_source.continue_pid(t.pid, t.signal);
                 }
                 TracerAction::Continue(t) => {
                     continued = true;
                     actioned_pids.insert(t.pid);
-                    continue_exec(t.pid, t.signal)?;
+                    self.event_source.continue_pid(t.pid, t.signal)?;
                 }
                 TracerAction::Step(t) => {
                     continued = true;
                     actioned_pids.insert(t.pid);
-                    single_step(t.pid)?;
+                    self.event_source.single_step(t.pid)?;
                 }
                 TracerAction::Detach(t) => {
                     continued = true;
@@ -405,7 +386,7 @@ impl<'a> StateData for LinuxData<'a> {
 
         if !continued && self.exit_code.is_none() {
             trace!("No action suggested to continue tracee. Attempting a continue");
-            let _ = continue_exec(self.parent, None);
+            let _ = self.event_source.continue_pid(self.parent, None);
         }
         result
     }
@@ -429,6 +410,7 @@ impl<'a> LinuxData<'a> {
             config,
             event_log,
             pid_map: HashMap::new(),
+            event_source: Box::new(PtraceEventSource),
             exit_code: None,
         }
     }
@@ -718,9 +700,10 @@ impl<'a> LinuxData<'a> {
         let current = self.current;
         let enable = self.config.count;
         let mut hits_to_increment = HashSet::new();
+        let current_rip = self.event_source.current_instruction_pointer(current);
         if let Some(process) = self.get_traced_process_mut(current) {
             let visited = visited_pcs.entry(process.parent).or_default();
-            if let Ok(pc) = current_instruction_pointer(current) {
+            if let Ok(pc) = current_rip {
                 let pc = (pc - 1) as u64;
                 trace!("Hit address {:#x}", pc);
                 if process.breakpoints.contains_key(&pc) {
@@ -800,7 +783,7 @@ impl<'a> LinuxData<'a> {
             }
             match a {
                 TracerAction::Continue(t) | TracerAction::TryContinue(t) => {
-                    let _ = continue_exec(t.pid, t.signal);
+                    let _ = self.event_source.continue_pid(t.pid, t.signal);
                 }
                 e => {
                     error!("Pending actions should only be continues: {:?}", e);
