@@ -1,4 +1,6 @@
-use crate::statemachine::TestState;
+use crate::cargo::rust_flags;
+use crate::config::Config;
+use crate::statemachine::*;
 use crate::{errors::RunError, process_handling::ptrace_control::*};
 use libc::c_long;
 use nix::{
@@ -8,9 +10,11 @@ use nix::{
     },
     unistd::Pid,
 };
+use procfs::process::{MMapPath, Process};
 
 pub trait EventSource {
     fn request_trace(&self) -> nix::Result<()>;
+    fn get_offset(&self, pid: Pid, config: &Config) -> u64;
     fn trace_children(&self, pid: Pid) -> nix::Result<()>;
     fn waitpid(&self, pid: Pid, options: Option<WaitPidFlag>) -> nix::Result<WaitStatus>;
     fn next_events(&self, wait_queue: &mut Vec<WaitStatus>) -> Result<Option<TestState>, RunError>;
@@ -30,6 +34,31 @@ pub struct PtraceEventSource;
 impl EventSource for PtraceEventSource {
     fn request_trace(&self) -> nix::Result<()> {
         request_trace()
+    }
+
+    fn get_offset(&self, pid: Pid, config: &Config) -> u64 {
+        // TODO I don't think this would be an issue... but I'll test it
+        if rust_flags(config, &Default::default()).contains("dynamic-no-pic") {
+            0
+        } else if let Ok(proc) = Process::new(pid.as_raw()) {
+            let exe = proc.exe().ok();
+            if let Ok(maps) = proc.maps() {
+                let offset_info = maps.iter().find(|x| match (&x.pathname, exe.as_ref()) {
+                    (MMapPath::Path(p), Some(e)) => p == e,
+                    (MMapPath::Path(_), None) => true,
+                    _ => false,
+                });
+                if let Some(first) = offset_info {
+                    first.address.0
+                } else {
+                    0
+                }
+            } else {
+                0
+            }
+        } else {
+            0
+        }
     }
 
     fn trace_children(&self, pid: Pid) -> nix::Result<()> {
@@ -116,6 +145,10 @@ pub struct ReplayEventSource {}
 impl EventSource for ReplayEventSource {
     fn request_trace(&self) -> nix::Result<()> {
         Ok(())
+    }
+
+    fn get_offset(&self, pid: Pid, config: &Config) -> u64 {
+        0
     }
 
     fn trace_children(&self, pid: Pid) -> nix::Result<()> {

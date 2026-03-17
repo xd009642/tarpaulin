@@ -109,31 +109,6 @@ impl From<&Pid> for ProcessInfo {
     }
 }
 
-fn get_offset(pid: Pid, config: &Config) -> u64 {
-    // TODO I don't think this would be an issue... but I'll test it
-    if rust_flags(config, &Default::default()).contains("dynamic-no-pic") {
-        0
-    } else if let Ok(proc) = Process::new(pid.as_raw()) {
-        let exe = proc.exe().ok();
-        if let Ok(maps) = proc.maps() {
-            let offset_info = maps.iter().find(|x| match (&x.pathname, exe.as_ref()) {
-                (MMapPath::Path(p), Some(e)) => p == e,
-                (MMapPath::Path(_), None) => true,
-                _ => false,
-            });
-            if let Some(first) = offset_info {
-                first.address.0
-            } else {
-                0
-            }
-        } else {
-            0
-        }
-    } else {
-        0
-    }
-}
-
 impl<'a> StateData for LinuxData<'a> {
     fn start(&mut self) -> Result<Option<TestState>, RunError> {
         match self
@@ -465,7 +440,7 @@ impl<'a> LinuxData<'a> {
         };
         let mut breakpoints = HashMap::new();
         self.event_source.trace_children(pid)?;
-        let offset = get_offset(pid, self.config);
+        let offset = self.event_source.get_offset(pid, self.config);
         trace!(
             "Initialising process: {}, address offset: 0x{:x}",
             pid,
