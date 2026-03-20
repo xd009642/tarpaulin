@@ -1,5 +1,4 @@
 use crate::breakpoint::*;
-use crate::cargo::rust_flags;
 use crate::config::Config;
 use crate::errors::RunError;
 use crate::generate_tracemap;
@@ -13,7 +12,7 @@ use nix::sys::signal::Signal;
 use nix::sys::wait::*;
 use nix::unistd::Pid;
 use nix::Error as NixErr;
-use procfs::process::{MMapPath, Process};
+use procfs::process::*;
 use std::collections::{HashMap, HashSet};
 use std::ops::RangeBounds;
 use std::path::PathBuf;
@@ -394,6 +393,7 @@ impl<'a> LinuxData<'a> {
         self.pid_map.get(&pid).copied().or_else(|| {
             let mut parent_pid = None;
             'outer: for k in self.processes.keys() {
+                // TODO should be in the event source stuff
                 let proc = Process::new(k.as_raw()).ok()?;
                 if let Ok(tasks) = proc.tasks() {
                     for task in tasks.filter_map(Result::ok) {
@@ -402,6 +402,14 @@ impl<'a> LinuxData<'a> {
                             break 'outer;
                         }
                     }
+                }
+            }
+            if parent_pid.is_none() {
+                let proc = Process::new(pid.as_raw()).ok()?;
+                if let Ok(status) = proc.status() {
+                    info!("Found potential parent");
+                    let pid = Pid::from_raw(status.ppid);
+                    parent_pid = Some(pid);
                 }
             }
             parent_pid
@@ -764,6 +772,32 @@ impl<'a> LinuxData<'a> {
                     error!("Pending actions should only be continues: {:?}", e);
                 }
             }
+        }
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use nix::unistd::*;
+    use std::time::Duration;
+
+    #[test]
+    fn fork_parent_identified() {
+        match unsafe { fork() } {
+            Ok(ForkResult::Parent { child }) => {
+                let mut tracemap = TraceMap::new();
+                let analysis = HashMap::new();
+                let config = Config::default();
+                let data = LinuxData::new(&mut tracemap, &analysis, &config, &None);
+
+                assert_eq!(data.get_parent(child), Some(Pid::this()));
+                //child
+            }
+            Ok(ForkResult::Child) => {
+                std::thread::sleep(Duration::from_secs(5));
+            }
+            Err(e) => panic!("Fork failed: {}", e),
         }
     }
 }
