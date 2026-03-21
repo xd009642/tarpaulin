@@ -394,23 +394,15 @@ impl<'a> LinuxData<'a> {
             let mut parent_pid = None;
             'outer: for k in self.processes.keys() {
                 // TODO should be in the event source stuff
-                let proc = Process::new(k.as_raw()).ok()?;
-                if let Ok(tasks) = proc.tasks() {
-                    for task in tasks.filter_map(Result::ok) {
-                        if task.tid == pid.as_raw() {
-                            parent_pid = Some(*k);
-                            break 'outer;
-                        }
+                for task in self.event_source.get_tasks(*k) {
+                    if task.tid == pid.as_raw() {
+                        parent_pid = Some(*k);
+                        break 'outer;
                     }
                 }
             }
             if parent_pid.is_none() {
-                let proc = Process::new(pid.as_raw()).ok()?;
-                if let Ok(status) = proc.status() {
-                    info!("Found potential parent");
-                    let pid = Pid::from_raw(status.ppid);
-                    parent_pid = Some(pid);
-                }
+                parent_pid = self.event_source.get_ppid(pid);
             }
             parent_pid
         })

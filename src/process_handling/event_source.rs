@@ -10,12 +10,16 @@ use nix::{
     },
     unistd::Pid,
 };
-use procfs::process::{MMapPath, Process};
+use procfs::process::{MMapPath, Process, Task};
+use tracing::info;
 
 pub trait EventSource {
     fn request_trace(&self) -> nix::Result<()>;
     fn get_offset(&self, pid: Pid, config: &Config) -> u64;
     fn trace_children(&self, pid: Pid) -> nix::Result<()>;
+    /// This will be at the start of every wait/handle/continue loop so can be used to pop out and
+    /// apply state changes which occur when tests are running for any mock event sources. In real
+    /// life the actual processes under test will be modifying things!
     fn waitpid(&self, pid: Pid, options: Option<WaitPidFlag>) -> nix::Result<WaitStatus>;
     fn next_events(&self, wait_queue: &mut Vec<WaitStatus>) -> Result<Option<TestState>, RunError>;
     fn get_event_data(&self, pid: Pid) -> nix::Result<c_long>;
@@ -26,6 +30,9 @@ pub trait EventSource {
     fn set_current_instruction_pointer(&self, pid: Pid, addr: u64) -> nix::Result<c_long>;
     fn write_address(&self, pid: Pid, addr: u64, data: c_long) -> nix::Result<()>;
     fn read_address(&self, pid: Pid, addr: u64) -> nix::Result<c_long>;
+
+    fn get_tasks(&self, pid: Pid) -> Box<dyn Iterator<Item = Task> + '_>;
+    fn get_ppid(&self, pid: Pid) -> Option<Pid>;
 }
 
 #[derive(Clone)]
@@ -137,61 +144,23 @@ impl EventSource for PtraceEventSource {
     fn read_address(&self, pid: Pid, address: u64) -> nix::Result<c_long> {
         read_address(pid, address)
     }
-}
 
-#[derive(Clone)]
-pub struct ReplayEventSource {}
-
-impl EventSource for ReplayEventSource {
-    fn request_trace(&self) -> nix::Result<()> {
-        Ok(())
+    fn get_tasks(&self, pid: Pid) -> Box<dyn Iterator<Item = Task> + '_> {
+        if let Some(proc) = Process::new(pid.as_raw()).ok().and_then(|x| x.tasks().ok()) {
+            Box::new(proc.filter_map(Result::ok))
+        } else {
+            Box::new(std::iter::empty())
+        }
     }
 
-    fn get_offset(&self, pid: Pid, config: &Config) -> u64 {
-        0
-    }
-
-    fn trace_children(&self, pid: Pid) -> nix::Result<()> {
-        todo!()
-    }
-
-    fn waitpid(&self, pid: Pid, options: Option<WaitPidFlag>) -> nix::Result<WaitStatus> {
-        todo!()
-    }
-
-    fn next_events(&self, wait_queue: &mut Vec<WaitStatus>) -> Result<Option<TestState>, RunError> {
-        todo!();
-    }
-
-    fn get_event_data(&self, pid: Pid) -> nix::Result<c_long> {
-        todo!()
-    }
-
-    fn continue_pid(&self, pid: Pid, signal: Option<Signal>) -> nix::Result<()> {
-        todo!();
-    }
-
-    fn single_step(&self, pid: Pid) -> nix::Result<()> {
-        todo!();
-    }
-
-    fn detach_child(&self, pid: Pid) -> nix::Result<()> {
-        todo!()
-    }
-
-    fn current_instruction_pointer(&self, pid: Pid) -> nix::Result<c_long> {
-        todo!();
-    }
-
-    fn set_current_instruction_pointer(&self, pid: Pid, addr: u64) -> nix::Result<c_long> {
-        todo!();
-    }
-
-    fn write_address(&self, pid: Pid, address: u64, data: c_long) -> nix::Result<()> {
-        todo!();
-    }
-
-    fn read_address(&self, pid: Pid, address: u64) -> nix::Result<c_long> {
-        todo!();
+    fn get_ppid(&self, pid: Pid) -> Option<Pid> {
+        let proc = Process::new(pid.as_raw()).ok()?;
+        if let Ok(status) = proc.status() {
+            info!("Found potential parent");
+            let pid = Pid::from_raw(status.ppid);
+            Some(pid)
+        } else {
+            None
+        }
     }
 }
