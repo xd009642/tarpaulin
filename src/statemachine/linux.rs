@@ -770,9 +770,13 @@ impl<'a> LinuxData<'a> {
 
 #[cfg(test)]
 mod tests {
+    use crate::process_handling::mock_event_source::MockEventSource;
+
     use super::*;
     use nix::unistd::*;
+    use std::path::Path;
     use std::time::Duration;
+    use test_log::test;
 
     #[test]
     fn fork_parent_identified() {
@@ -791,5 +795,60 @@ mod tests {
             }
             Err(e) => panic!("Fork failed: {}", e),
         }
+    }
+
+    fn run_to_completion(test_state: &mut TestState, data: &mut LinuxData<'_>, config: &Config) {
+        for i in 0..100 {
+            println!("Step {}", i);
+            *test_state = test_state.step(data, config).unwrap();
+            if test_state.is_finished() {
+                return;
+            }
+        }
+        panic!("Test didn't end in 100 steps. Unexpectedly long simulation");
+    }
+
+    #[test]
+    fn delayed_fork_event_avoids_sigill() {
+        // let (mut state, mut data) =
+        //     create_state_machine(test, &mut traces, analysis, config, logger);
+
+        let source = MockEventSource::build()
+            .process(100)
+            .signal(Signal::SIGTRAP)
+            .breakpoint(1000)
+            .noop()
+            .noop()
+            .fork_child(101)
+            .exit(0)
+            .process(101)
+            .noop()
+            .noop()
+            .noop()
+            .signal(Signal::SIGSTOP)
+            .breakpoint(1000)
+            .exit(0)
+            .finish();
+
+        source.continue_pid(Pid::from_raw(100), None).unwrap();
+
+        let mut tracemap = TraceMap::new();
+        tracemap.add_file(&Path::new("src/lib.rs"));
+        let addresses = [1000u64].iter().copied().collect();
+        tracemap.add_trace(
+            &Path::new("src/main.rs"),
+            Trace::new(5, addresses, 1),
+        );
+        
+        let test_handle = TestHandle::Id(Pid::from_raw(100));
+        let analysis = HashMap::new();
+        let config = Config::default();
+        let (mut test_state, mut linux_data) = create_state_machine(test_handle, &mut tracemap, &analysis, &config, &None);
+
+        linux_data.event_source = Rc::new(source);
+
+        run_to_completion(&mut test_state, &mut linux_data, &config);
+
+        
     }
 }
