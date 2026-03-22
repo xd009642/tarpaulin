@@ -3,6 +3,10 @@
 From 2019 onwards, all notable changes to tarpaulin will be documented in this
 file.
 
+## [Unreleased]
+### Fixed
+- Fix ptrace SIGILL issue where PID parent event is delivered in iteration after the child stop is reported
+
 ## [0.35.2] 2026-02-19
 ### Fixed
 - Update native-tls to fix install issue after breaking change.
