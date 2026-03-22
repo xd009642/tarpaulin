@@ -31,7 +31,7 @@ pub trait EventSource {
     fn write_address(&self, pid: Pid, addr: u64, data: c_long) -> nix::Result<()>;
     fn read_address(&self, pid: Pid, addr: u64) -> nix::Result<c_long>;
 
-    fn get_tasks(&self, pid: Pid) -> Box<dyn Iterator<Item = Task> + '_>;
+    fn get_tids(&self, pid: Pid) -> Box<dyn Iterator<Item = Pid> + '_>;
     fn get_ppid(&self, pid: Pid) -> Option<Pid>;
 }
 
@@ -145,9 +145,9 @@ impl EventSource for PtraceEventSource {
         read_address(pid, address)
     }
 
-    fn get_tasks(&self, pid: Pid) -> Box<dyn Iterator<Item = Task> + '_> {
+    fn get_tids(&self, pid: Pid) -> Box<dyn Iterator<Item = Pid> + '_> {
         if let Some(proc) = Process::new(pid.as_raw()).ok().and_then(|x| x.tasks().ok()) {
-            Box::new(proc.filter_map(Result::ok))
+            Box::new(proc.filter_map(Result::ok).map(|x| Pid::from_raw(x.tid)))
         } else {
             Box::new(std::iter::empty())
         }

@@ -394,8 +394,8 @@ impl<'a> LinuxData<'a> {
             let mut parent_pid = None;
             'outer: for k in self.processes.keys() {
                 // TODO should be in the event source stuff
-                for task in self.event_source.get_tasks(*k) {
-                    if task.tid == pid.as_raw() {
+                for tid in self.event_source.get_tids(*k) {
+                    if tid == pid {
                         parent_pid = Some(*k);
                         break 'outer;
                     }
