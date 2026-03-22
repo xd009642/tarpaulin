@@ -233,7 +233,7 @@ impl MockEventSource {
     /// Advance a running process: pop its next step and park a WaitStatus.
     fn advance_process(proc: &mut ProcessState) {
         if proc.state != PidState::Running {
-        //    return;
+            //    return;
         }
         let Some(step) = proc.scenario.steps.pop_front() else {
             proc.state = PidState::Dead;
@@ -279,7 +279,11 @@ impl MockEventSource {
             }
             ThreadStep::Fork(_new_pid) => {
                 proc.state = PidState::Stopped;
-                proc.pending_wait = Some(WaitStatus::PtraceEvent(pid, Signal::SIGTRAP, nix::libc::PTRACE_EVENT_FORK));
+                proc.pending_wait = Some(WaitStatus::PtraceEvent(
+                    pid,
+                    Signal::SIGTRAP,
+                    nix::libc::PTRACE_EVENT_FORK,
+                ));
             }
         }
     }
@@ -339,8 +343,8 @@ impl EventSource for MockEventSource {
         println!("Waiting (pid={}): {:?}", pid, options);
         println!("{:?}", self);
         assert_eq!(pid, Pid::from_raw(0));
-        assert!(matches!(options, None | Some(WaitPidFlag::WNOHANG))); 
-        
+        assert!(matches!(options, None | Some(WaitPidFlag::WNOHANG)));
+
         let mut inner = self.inner.borrow_mut();
         for proc in inner.processes.values_mut() {
             if let Some(status) = proc.pending_wait.take() {
@@ -352,8 +356,12 @@ impl EventSource for MockEventSource {
 
     fn next_events(&self, wait_queue: &mut Vec<WaitStatus>) -> Result<Option<TestState>, RunError> {
         println!("{:?}", self);
-        assert!(wait_queue.is_empty(), "wait queue should be emptied between checking for event list: {:?}", wait_queue);
-        
+        assert!(
+            wait_queue.is_empty(),
+            "wait queue should be emptied between checking for event list: {:?}",
+            wait_queue
+        );
+
         let mut inner = self.inner.borrow_mut();
         for proc in inner.processes.values_mut() {
             if let Some(status) = proc.pending_wait.take() {
@@ -375,12 +383,15 @@ impl EventSource for MockEventSource {
 
         // Find the root process pid — either this pid is itself a root,
         // or it's a thread whose parent is the root.
-        let root = inner.processes.get(&pid)
+        let root = inner
+            .processes
+            .get(&pid)
             .and_then(|p| p.parent)
             .unwrap_or(pid);
 
         // Advance all threads belonging to this process group
-        let pids: Vec<Pid> = inner.processes
+        let pids: Vec<Pid> = inner
+            .processes
             .iter()
             .filter(|(_, p)| p.scenario.pid == root || p.parent == Some(root))
             .map(|(pid, _)| *pid)

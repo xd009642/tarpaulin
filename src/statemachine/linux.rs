@@ -835,20 +835,16 @@ mod tests {
         let mut tracemap = TraceMap::new();
         tracemap.add_file(&Path::new("src/lib.rs"));
         let addresses = [1000u64].iter().copied().collect();
-        tracemap.add_trace(
-            &Path::new("src/main.rs"),
-            Trace::new(5, addresses, 1),
-        );
-        
+        tracemap.add_trace(&Path::new("src/main.rs"), Trace::new(5, addresses, 1));
+
         let test_handle = TestHandle::Id(Pid::from_raw(100));
         let analysis = HashMap::new();
         let config = Config::default();
-        let (mut test_state, mut linux_data) = create_state_machine(test_handle, &mut tracemap, &analysis, &config, &None);
+        let (mut test_state, mut linux_data) =
+            create_state_machine(test_handle, &mut tracemap, &analysis, &config, &None);
 
         linux_data.event_source = Rc::new(source);
 
         run_to_completion(&mut test_state, &mut linux_data, &config);
-
-        
     }
 }
