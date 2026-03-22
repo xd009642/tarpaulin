@@ -1,9 +1,11 @@
-use crate::ptrace_control::*;
+use crate::process_handling::event_source::EventSource;
 use crate::statemachine::*;
 use nix::libc::c_long;
 use nix::unistd::Pid;
 use nix::{Error, Result};
 use std::collections::HashMap;
+use std::fmt;
+use std::rc::Rc;
 
 /// INT refers to the software interrupt instruction. For x64/x86 we use INT3 which is a
 /// one byte instruction defined for use by debuggers. For implementing support for other
@@ -15,7 +17,6 @@ const INT: u64 = 0xCC;
 /// Breakpoint construct used to monitor program execution. As tarpaulin is an
 /// automated process, this will likely have less functionality than most
 /// breakpoint implementations.
-#[derive(Debug)]
 pub struct Breakpoint {
     /// Program counter
     pub pc: u64,
@@ -27,13 +28,26 @@ pub struct Breakpoint {
     shift: u64,
     /// Map of the state of the breakpoint on each thread/process
     is_running: HashMap<Pid, bool>,
+    /// Handle to process events.
+    event_source: Rc<dyn EventSource>,
+}
+
+impl fmt::Debug for Breakpoint {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        f.debug_struct("Breakpoint")
+            .field("pc", &self.pc)
+            .field("data", &self.data)
+            .field("shift", &self.shift)
+            .field("is_running", &self.is_running)
+            .finish()
+    }
 }
 
 impl Breakpoint {
     /// Creates a new breakpoint for the given process and program counter.
-    pub fn new(pid: Pid, pc: u64) -> Result<Self> {
+    pub fn new(pid: Pid, pc: u64, event_source: Rc<dyn EventSource>) -> Result<Self> {
         let aligned = align_address(pc);
-        let data = read_address(pid, aligned)?;
+        let data = event_source.read_address(pid, aligned)?;
         let shift = 8 * (pc - aligned);
         let data = ((data >> shift) & 0xFF) as u8;
 
@@ -42,6 +56,7 @@ impl Breakpoint {
             data,
             shift,
             is_running: HashMap::new(),
+            event_source,
         };
         match b.enable(pid) {
             Ok(_) => Ok(b),
@@ -50,28 +65,36 @@ impl Breakpoint {
     }
 
     pub fn jump_to(&mut self, pid: Pid) -> Result<()> {
-        set_instruction_pointer(pid, self.pc).map(|_| ())
+        self.event_source
+            .set_current_instruction_pointer(pid, self.pc)
+            .map(|_| ())
     }
 
     /// Attaches the current breakpoint.
     pub fn enable(&mut self, pid: Pid) -> Result<()> {
-        let data = read_address(pid, self.aligned_address())?;
+        let data = self
+            .event_source
+            .read_address(pid, self.aligned_address())?;
         self.is_running.insert(pid, true);
         let mut intdata = data & (!(0xFFu64 << self.shift) as c_long);
         intdata |= (INT << self.shift) as c_long;
         if data == intdata {
             Err(Error::UnknownErrno)
         } else {
-            write_to_address(pid, self.aligned_address(), intdata)
+            self.event_source
+                .write_address(pid, self.aligned_address(), intdata)
         }
     }
 
-    pub fn disable(&self, pid: Pid) -> Result<()> {
+    pub fn disable(&mut self, pid: Pid) -> Result<()> {
         // I require the bit fiddlin this end.
-        let data = read_address(pid, self.aligned_address())?;
+        let data = self
+            .event_source
+            .read_address(pid, self.aligned_address())?;
         let mut orgdata = data & (!(0xFFu64 << self.shift) as c_long);
         orgdata |= c_long::from(self.data) << self.shift;
-        write_to_address(pid, self.aligned_address(), orgdata)
+        self.event_source
+            .write_address(pid, self.aligned_address(), orgdata)
     }
 
     /// Processes the breakpoint. This steps over the breakpoint

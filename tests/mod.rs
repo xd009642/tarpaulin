@@ -239,7 +239,6 @@ fn boxes_coverage() {
 }
 
 #[test]
-#[ignore]
 fn method_calls_expr_coverage() {
     check_percentage("method_calls", 1.0f64, true);
 }

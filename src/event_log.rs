@@ -22,6 +22,16 @@ use std::path::PathBuf;
 use std::time::Instant;
 use tracing::{info, warn};
 
+#[derive(Clone, PartialEq, Serialize, Deserialize)]
+pub struct EventLog {
+    events: RefCell<Vec<EventWrapper>>,
+    #[serde(skip)]
+    start: Option<Instant>,
+    manifest_paths: HashSet<PathBuf>,
+    #[serde(skip)]
+    output_folder: PathBuf,
+}
+
 #[derive(Clone, Eq, PartialEq, PartialOrd, Ord, Hash, Serialize, Deserialize)]
 pub enum Event {
     ConfigLaunch(String),
@@ -161,16 +171,6 @@ impl TraceEvent {
         }
         event
     }
-}
-
-#[derive(Clone, PartialEq, Serialize, Deserialize)]
-pub struct EventLog {
-    events: RefCell<Vec<EventWrapper>>,
-    #[serde(skip)]
-    start: Option<Instant>,
-    manifest_paths: HashSet<PathBuf>,
-    #[serde(skip)]
-    output_folder: PathBuf,
 }
 
 impl EventLog {

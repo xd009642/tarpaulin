@@ -1,8 +1,8 @@
 use crate::cargo::{CargoConfigFields, TestBinary};
 use crate::config::types::Mode;
 use crate::errors::*;
+use crate::process_handling::event_source::{EventSource, PtraceEventSource};
 use crate::process_handling::execute_test;
-use crate::ptrace_control::*;
 use crate::Config;
 use crate::TestHandle;
 use nix::sched::*;
@@ -93,7 +93,10 @@ pub fn execute(
     if is_aslr_enabled() {
         disable_aslr().map_err(|e| RunError::TestRuntime(format!("ASLR disable failed: {e}")))?;
     }
-    request_trace().map_err(|e| RunError::Trace(e.to_string()))?;
+    let event_source = PtraceEventSource;
+    event_source
+        .request_trace()
+        .map_err(|e| RunError::Trace(e.to_string()))?;
 
     let envar = envar
         .iter()

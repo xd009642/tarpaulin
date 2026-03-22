@@ -1,9 +1,9 @@
 use crate::breakpoint::*;
-use crate::cargo::rust_flags;
 use crate::config::Config;
 use crate::errors::RunError;
 use crate::generate_tracemap;
-use crate::ptrace_control::*;
+use crate::process_handling::event_source::EventSource;
+use crate::process_handling::event_source::PtraceEventSource;
 use crate::source_analysis::LineAnalysis;
 use crate::statemachine::*;
 use crate::TestHandle;
@@ -12,10 +12,11 @@ use nix::sys::signal::Signal;
 use nix::sys::wait::*;
 use nix::unistd::Pid;
 use nix::Error as NixErr;
-use procfs::process::{MMapPath, Process};
+use procfs::process::*;
 use std::collections::{HashMap, HashSet};
 use std::ops::RangeBounds;
 use std::path::PathBuf;
+use std::rc::Rc;
 use tracing::{debug, info, trace, trace_span, warn};
 
 /// Handle to linux process state
@@ -41,6 +42,7 @@ pub struct LinuxData<'a> {
     processes: HashMap<Pid, TracedProcess>,
     /// Map from pids to their parent
     pid_map: HashMap<Pid, Pid>,
+    event_source: Rc<dyn EventSource>,
     /// So if we have the exit code but we're also waiting for all the spawned processes to end
     exit_code: Option<i32>,
 }
@@ -106,34 +108,12 @@ impl From<&Pid> for ProcessInfo {
     }
 }
 
-fn get_offset(pid: Pid, config: &Config) -> u64 {
-    // TODO I don't think this would be an issue... but I'll test it
-    if rust_flags(config, &Default::default()).contains("dynamic-no-pic") {
-        0
-    } else if let Ok(proc) = Process::new(pid.as_raw()) {
-        let exe = proc.exe().ok();
-        if let Ok(maps) = proc.maps() {
-            let offset_info = maps.iter().find(|x| match (&x.pathname, exe.as_ref()) {
-                (MMapPath::Path(p), Some(e)) => p == e,
-                (MMapPath::Path(_), None) => true,
-                _ => false,
-            });
-            if let Some(first) = offset_info {
-                first.address.0
-            } else {
-                0
-            }
-        } else {
-            0
-        }
-    } else {
-        0
-    }
-}
-
 impl<'a> StateData for LinuxData<'a> {
     fn start(&mut self) -> Result<Option<TestState>, RunError> {
-        match waitpid(self.current, Some(WaitPidFlag::WNOHANG)) {
+        match self
+            .event_source
+            .waitpid(self.current, Some(WaitPidFlag::WNOHANG))
+        {
             Ok(WaitStatus::StillAlive) => Ok(None),
             Ok(sig @ WaitStatus::Stopped(_, Signal::SIGTRAP)) => {
                 if let WaitStatus::Stopped(child, _) = sig {
@@ -155,7 +135,11 @@ impl<'a> StateData for LinuxData<'a> {
         let mut traced_process = self.init_process(self.current, None)?;
         traced_process.is_test_proc = true;
 
-        if continue_exec(traced_process.parent, None).is_ok() {
+        if self
+            .event_source
+            .continue_pid(traced_process.parent, None)
+            .is_ok()
+        {
             trace!("Initialised inferior, transitioning to wait state");
             self.processes.insert(self.current, traced_process);
             Ok(TestState::wait_state())
@@ -181,42 +165,9 @@ impl<'a> StateData for LinuxData<'a> {
     }
 
     fn wait(&mut self) -> Result<Option<TestState>, RunError> {
-        let mut result = Ok(None);
-        let mut running = true;
-        while running {
-            let wait = waitpid(
-                Pid::from_raw(-1),
-                Some(WaitPidFlag::WNOHANG | WaitPidFlag::__WALL),
-            );
-            match wait {
-                Ok(WaitStatus::StillAlive) => {
-                    running = false;
-                }
-                Ok(WaitStatus::Exited(_, _)) => {
-                    self.wait_queue.push(wait.unwrap());
-                    result = Ok(Some(TestState::Stopped));
-                    running = false;
-                }
-                Ok(WaitStatus::PtraceEvent(_, _, _)) => {
-                    self.wait_queue.push(wait.unwrap());
-                    result = Ok(Some(TestState::Stopped));
-                    running = false;
-                }
-                Ok(s) => {
-                    self.wait_queue.push(s);
-                    result = Ok(Some(TestState::Stopped));
-                }
-                Err(_) if self.exit_code.is_some() => {
-                    running = false;
-                    result = self.last_wait_attempt();
-                }
-                Err(e) => {
-                    running = false;
-                    result = Err(RunError::TestRuntime(format!(
-                        "An error occurred while waiting for response from test: {e}"
-                    )));
-                }
-            }
+        let mut result = self.event_source.next_events(&mut self.wait_queue);
+        if result.is_err() && self.exit_code.is_some() {
+            result = self.last_wait_attempt();
         }
         if !self.wait_queue.is_empty() {
             trace!("Result queue is {:?}", self.wait_queue);
@@ -273,7 +224,11 @@ impl<'a> StateData for LinuxData<'a> {
                     "A segfault occurred while executing tests".to_string(),
                 )),
                 WaitStatus::Stopped(child, Signal::SIGILL) => {
-                    let pc = current_instruction_pointer(*child).unwrap_or(1) - 1;
+                    let pc = self
+                        .event_source
+                        .current_instruction_pointer(*child)
+                        .unwrap_or(1)
+                        - 1;
                     trace!("SIGILL raised. Child program counter is: 0x{:x}", pc);
                     Err(RunError::TestRuntime(format!(
                         "Error running test - SIGILL raised in {child}"
@@ -376,22 +331,22 @@ impl<'a> StateData for LinuxData<'a> {
                 TracerAction::TryContinue(t) => {
                     continued = true;
                     actioned_pids.insert(t.pid);
-                    let _ = continue_exec(t.pid, t.signal);
+                    let _ = self.event_source.continue_pid(t.pid, t.signal);
                 }
                 TracerAction::Continue(t) => {
                     continued = true;
                     actioned_pids.insert(t.pid);
-                    continue_exec(t.pid, t.signal)?;
+                    self.event_source.continue_pid(t.pid, t.signal)?;
                 }
                 TracerAction::Step(t) => {
                     continued = true;
                     actioned_pids.insert(t.pid);
-                    single_step(t.pid)?;
+                    self.event_source.single_step(t.pid)?;
                 }
                 TracerAction::Detach(t) => {
                     continued = true;
                     actioned_pids.insert(t.pid);
-                    let _ = detach_child(t.pid);
+                    let _ = self.event_source.detach_child(t.pid);
                 }
                 TracerAction::Nothing => {}
             }
@@ -405,7 +360,7 @@ impl<'a> StateData for LinuxData<'a> {
 
         if !continued && self.exit_code.is_none() {
             trace!("No action suggested to continue tracee. Attempting a continue");
-            let _ = continue_exec(self.parent, None);
+            let _ = self.event_source.continue_pid(self.parent, None);
         }
         result
     }
@@ -429,6 +384,7 @@ impl<'a> LinuxData<'a> {
             config,
             event_log,
             pid_map: HashMap::new(),
+            event_source: Rc::new(PtraceEventSource),
             exit_code: None,
         }
     }
@@ -437,15 +393,16 @@ impl<'a> LinuxData<'a> {
         self.pid_map.get(&pid).copied().or_else(|| {
             let mut parent_pid = None;
             'outer: for k in self.processes.keys() {
-                let proc = Process::new(k.as_raw()).ok()?;
-                if let Ok(tasks) = proc.tasks() {
-                    for task in tasks.filter_map(Result::ok) {
-                        if task.tid == pid.as_raw() {
-                            parent_pid = Some(*k);
-                            break 'outer;
-                        }
+                // TODO should be in the event source stuff
+                for tid in self.event_source.get_tids(*k) {
+                    if tid == pid {
+                        parent_pid = Some(*k);
+                        break 'outer;
                     }
                 }
+            }
+            if parent_pid.is_none() {
+                parent_pid = self.event_source.get_ppid(pid);
             }
             parent_pid
         })
@@ -482,8 +439,8 @@ impl<'a> LinuxData<'a> {
             None => self.traces,
         };
         let mut breakpoints = HashMap::new();
-        trace_children(pid)?;
-        let offset = get_offset(pid, self.config);
+        self.event_source.trace_children(pid)?;
+        let offset = self.event_source.get_offset(pid, self.config);
         trace!(
             "Initialising process: {}, address offset: 0x{:x}",
             pid,
@@ -499,7 +456,7 @@ impl<'a> LinuxData<'a> {
                     );
                     continue;
                 }
-                match Breakpoint::new(pid, *addr + offset) {
+                match Breakpoint::new(pid, *addr + offset, self.event_source.clone()) {
                     Ok(bp) => {
                         let _ = breakpoints.insert(*addr + offset, bp);
                     }
@@ -599,7 +556,7 @@ impl<'a> LinuxData<'a> {
 
         if sig == Signal::SIGTRAP {
             match event {
-                PTRACE_EVENT_CLONE => match get_event_data(child) {
+                PTRACE_EVENT_CLONE => match self.event_source.get_event_data(child) {
                     Ok(t) => {
                         trace!("New thread spawned {}", t);
                         let mut parent = None;
@@ -625,7 +582,7 @@ impl<'a> LinuxData<'a> {
                     }
                 },
                 PTRACE_EVENT_FORK => {
-                    if let Ok(fork_child) = get_event_data(child) {
+                    if let Ok(fork_child) = self.event_source.get_event_data(child) {
                         trace!("Caught fork event. Child {}", fork_child);
                         let parent = if let Some(process) = self.get_traced_process_mut(child) {
                             // Counting a fork as a new thread ?
@@ -653,7 +610,7 @@ impl<'a> LinuxData<'a> {
                     //
                     // This suggests that Command::new().spawn() will result in a
                     // `PTRACE_EVENT_VFORK` not `PTRACE_EVENT_EXEC`
-                    if let Ok(fork_child) = get_event_data(child) {
+                    if let Ok(fork_child) = self.event_source.get_event_data(child) {
                         let fork_child = Pid::from_raw(fork_child as _);
                         if self.config.follow_exec {
                             // So I've seen some recursive bin calls with vforks... Maybe just assume
@@ -718,9 +675,10 @@ impl<'a> LinuxData<'a> {
         let current = self.current;
         let enable = self.config.count;
         let mut hits_to_increment = HashSet::new();
+        let current_rip = self.event_source.current_instruction_pointer(current);
         if let Some(process) = self.get_traced_process_mut(current) {
             let visited = visited_pcs.entry(process.parent).or_default();
-            if let Ok(pc) = current_instruction_pointer(current) {
+            if let Ok(pc) = current_rip {
                 let pc = (pc - 1) as u64;
                 trace!("Hit address {:#x}", pc);
                 if process.breakpoints.contains_key(&pc) {
@@ -800,12 +758,38 @@ impl<'a> LinuxData<'a> {
             }
             match a {
                 TracerAction::Continue(t) | TracerAction::TryContinue(t) => {
-                    let _ = continue_exec(t.pid, t.signal);
+                    let _ = self.event_source.continue_pid(t.pid, t.signal);
                 }
                 e => {
                     error!("Pending actions should only be continues: {:?}", e);
                 }
             }
+        }
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use nix::unistd::*;
+    use std::time::Duration;
+
+    #[test]
+    fn fork_parent_identified() {
+        match unsafe { fork() } {
+            Ok(ForkResult::Parent { child }) => {
+                let mut tracemap = TraceMap::new();
+                let analysis = HashMap::new();
+                let config = Config::default();
+                let data = LinuxData::new(&mut tracemap, &analysis, &config, &None);
+
+                assert_eq!(data.get_parent(child), Some(Pid::this()));
+                //child
+            }
+            Ok(ForkResult::Child) => {
+                std::thread::sleep(Duration::from_secs(5));
+            }
+            Err(e) => panic!("Fork failed: {}", e),
         }
     }
 }
