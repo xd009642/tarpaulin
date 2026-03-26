@@ -356,23 +356,24 @@ impl EventSource for MockEventSource {
 
     fn next_events(&self, wait_queue: &mut Vec<WaitStatus>) -> Result<Option<TestState>, RunError> {
         println!("{:?}", self);
-        assert!(
-            wait_queue.is_empty(),
-            "wait queue should be emptied between checking for event list: {:?}",
-            wait_queue
-        );
+
+        let mut result = None;
 
         let mut inner = self.inner.borrow_mut();
         for proc in inner.processes.values_mut() {
             if let Some(status) = proc.pending_wait.take() {
+                if !matches!(status, WaitStatus::StillAlive) {
+                    result = Some(TestState::Stopped);
+                }
                 wait_queue.push(status);
             }
         }
         println!("Wait queue {:?}", wait_queue);
-        Ok(None)
+        Ok(result)
     }
 
-    fn get_event_data(&self, _pid: Pid) -> nix::Result<c_long> {
+    fn get_event_data(&self, pid: Pid) -> nix::Result<c_long> {
+        println!("Get event data(pid={})", pid);
         Ok(0)
     }
 
@@ -507,6 +508,68 @@ impl EventSource for MockEventSource {
     }
 
     fn get_ppid(&self, pid: Pid) -> Option<Pid> {
+        println!("Get parent process id(pid={})", pid);
         self.inner.borrow().processes.get(&pid)?.parent
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::statemachine::{
+        linux::{create_state_machine, LinuxData},
+        *,
+    };
+    use crate::traces::{CoverageStat, Trace, TraceMap};
+    use crate::TestHandle;
+    use std::path::Path;
+    use std::rc::Rc;
+
+    fn run_to_completion(test_state: &mut TestState, data: &mut LinuxData<'_>, config: &Config) {
+        for i in 0..100 {
+            println!("Step {}", i);
+            *test_state = test_state.step(data, config).unwrap();
+            if test_state.is_finished() {
+                return;
+            }
+        }
+        panic!("Test didn't end in 100 steps. Unexpectedly long simulation");
+    }
+
+    #[test]
+    fn simple_mock_continuation() {
+        // let (mut state, mut data) =
+        //     create_state_machine(test, &mut traces, analysis, config, logger);
+
+        let source = MockEventSource::build()
+            .process(100)
+            .signal(Signal::SIGTRAP)
+            .breakpoint(1000)
+            .exit(0)
+            .finish();
+
+        source.continue_pid(Pid::from_raw(100), None).unwrap();
+
+        let mut tracemap = TraceMap::new();
+        tracemap.add_file(&Path::new("src/lib.rs"));
+        let addresses = [1000u64].iter().copied().collect();
+        tracemap.add_trace(&Path::new("src/main.rs"), Trace::new(5, addresses, 1));
+
+        let test_handle = TestHandle::Id(Pid::from_raw(100));
+        let analysis = HashMap::new();
+        let config = Config::default();
+        let (mut test_state, mut linux_data) =
+            create_state_machine(test_handle, &mut tracemap, &analysis, &config, &None);
+
+        linux_data.event_source = Rc::new(source);
+
+        run_to_completion(&mut test_state, &mut linux_data, &config);
+
+        let stat = tracemap
+            .all_traces()
+            .find(|x| x.line == 5 && x.address.contains(&1000))
+            .unwrap();
+
+        assert_eq!(stat.stats, CoverageStat::Line(1));
     }
 }

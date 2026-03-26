@@ -42,7 +42,7 @@ pub struct LinuxData<'a> {
     processes: HashMap<Pid, TracedProcess>,
     /// Map from pids to their parent
     pid_map: HashMap<Pid, Pid>,
-    event_source: Rc<dyn EventSource>,
+    pub(crate) event_source: Rc<dyn EventSource>,
     /// So if we have the exit code but we're also waiting for all the spawned processes to end
     exit_code: Option<i32>,
 }

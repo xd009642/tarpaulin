@@ -10,7 +10,7 @@ use nix::{
     },
     unistd::Pid,
 };
-use procfs::process::{MMapPath, Process, Task};
+use procfs::process::{MMapPath, Process};
 use tracing::info;
 
 pub trait EventSource {
