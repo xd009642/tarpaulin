@@ -159,6 +159,8 @@ enum PidState {
     Running,
     /// No more steps, process has exited
     Dead,
+    /// Doesn't yet exist
+    NotCreatedYet,
 }
 
 #[derive(Debug)]
@@ -209,11 +211,16 @@ impl MockEventSource {
         let mut processes = HashMap::new();
         for (scenario, parent) in builder.processes {
             let pid = scenario.pid;
+            let state = match scenario.steps.get(0) {
+                Some(&ThreadStep::None) => PidState::NotCreatedYet,
+                Some(_) => PidState::Stopped,
+                None => panic!("Scenario empty!"),
+            };
             processes.insert(
                 pid,
                 ProcessState {
                     scenario,
-                    state: PidState::Stopped, // starts stopped (just exec'd / TRACE_ME)
+                    state,
                     parent,
                     instruction_pointer: 0,
                     pending_wait: None,
@@ -232,9 +239,7 @@ impl MockEventSource {
 
     /// Advance a running process: pop its next step and park a WaitStatus.
     fn advance_process(proc: &mut ProcessState) {
-        if proc.state != PidState::Running {
-            //    return;
-        }
+        println!("Advancing(pid={})", proc.scenario.pid);
         let Some(step) = proc.scenario.steps.pop_front() else {
             proc.state = PidState::Dead;
             proc.pending_wait = Some(WaitStatus::Exited(proc.scenario.pid, 0));
@@ -406,6 +411,21 @@ impl EventSource for MockEventSource {
             }
         }
 
+        // Advance all threads belonging to this process group
+        let pids: Vec<Pid> = inner
+            .processes
+            .iter()
+            .filter(|(_, p)| p.scenario.pid != root || p.parent != Some(root))
+            .map(|(pid, _)| *pid)
+            .collect();
+
+        for pid in pids {
+            let proc = inner.processes.get_mut(&pid).unwrap();
+            if proc.state == PidState::NotCreatedYet {
+                MockEventSource::advance_process(proc);
+            }
+        }
+
         Ok(())
     }
 
@@ -419,6 +439,8 @@ impl EventSource for MockEventSource {
                 // A single_step immediately queues a Step event on the next advance
                 proc.scenario.steps.push_front(ThreadStep::Step);
                 MockEventSource::advance_process(proc);
+            } else {
+                panic!("Cannot step a process that isn't stopped");
             }
         }
         Ok(())
