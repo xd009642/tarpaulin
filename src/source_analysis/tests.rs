@@ -1844,6 +1844,63 @@ fn module_nesting_correct() {
         .ignore_mods
         .borrow()
         .contains(&PathBuf::from("src/foo/bar/inner.rs")));
+
+    // Top-level `#[cfg(test)] mod foo;` in lib.rs must resolve to src/foo.rs,
+    // not src/lib/foo.rs. Same for mod.rs and main.rs — all three file stems
+    // are transparent in the module tree.
+    let ctx = Context {
+        config: &config,
+        file_contents: "
+        #[cfg(test)]
+        mod tests;
+        ",
+        file: Path::new("src/lib.rs"),
+        ignore_mods: RefCell::new(HashSet::new()),
+        symbol_stack: RefCell::new(Vec::new()),
+    };
+    let parser = parse_file(ctx.file_contents).unwrap();
+    let mut analysis = SourceAnalysis::new();
+    analysis.process_items(&parser.items, &ctx);
+    assert!(ctx
+        .ignore_mods
+        .borrow()
+        .contains(&PathBuf::from("src/tests.rs")));
+
+    let ctx = Context {
+        config: &config,
+        file_contents: "
+        #[cfg(test)]
+        mod tests;
+        ",
+        file: Path::new("src/sub/mod.rs"),
+        ignore_mods: RefCell::new(HashSet::new()),
+        symbol_stack: RefCell::new(Vec::new()),
+    };
+    let parser = parse_file(ctx.file_contents).unwrap();
+    let mut analysis = SourceAnalysis::new();
+    analysis.process_items(&parser.items, &ctx);
+    assert!(ctx
+        .ignore_mods
+        .borrow()
+        .contains(&PathBuf::from("src/sub/tests.rs")));
+
+    let ctx = Context {
+        config: &config,
+        file_contents: "
+        #[cfg(test)]
+        mod tests;
+        ",
+        file: Path::new("src/main.rs"),
+        ignore_mods: RefCell::new(HashSet::new()),
+        symbol_stack: RefCell::new(Vec::new()),
+    };
+    let parser = parse_file(ctx.file_contents).unwrap();
+    let mut analysis = SourceAnalysis::new();
+    analysis.process_items(&parser.items, &ctx);
+    assert!(ctx
+        .ignore_mods
+        .borrow()
+        .contains(&PathBuf::from("src/tests.rs")));
 }
 
 #[test]
