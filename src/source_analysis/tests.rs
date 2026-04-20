@@ -277,11 +277,39 @@ fn match_arm_block_brace_ignored_tuple_struct_inert() {
     // `Some(_)` — inert, must be ignored.
     assert!(lines.should_ignore(3));
     assert!(!lines.is_force_covered(3));
-    // `None` parses as Pat::Ident in syn — indistinguishable from a binding
-    // without type resolution, so conservatively treat it as NOT inert. If
-    // a future implementation disambiguates via uppercase-start heuristics
-    // or type info, flip this assertion.
-    assert!(!lines.should_ignore(6));
+    // `None` parses as Pat::Ident in syn. The uppercase-start heuristic
+    // classifies it as a path (unit variant), so the arm is inert.
+    assert!(lines.should_ignore(6));
+    assert!(!lines.is_force_covered(6));
+}
+
+#[test]
+fn match_arm_block_brace_ignored_screaming_snake_const() {
+    // `OP_TEXT` parses as Pat::Ident in syn. The uppercase-start heuristic
+    // classifies it as a path (constant), so the arm is inert.
+    let config = Config::default();
+    let ctx = Context {
+        config: &config,
+        file_contents: "const OP_TEXT: u8 = 1;
+fn foo<S>(n: u8) -> bool {
+    match n {
+        OP_TEXT => {
+            true
+        }
+        _ => false,
+    }
+}",
+        file: Path::new(""),
+        ignore_mods: RefCell::new(HashSet::new()),
+        symbol_stack: RefCell::new(Vec::new()),
+    };
+
+    let parser = parse_file(ctx.file_contents).unwrap();
+    let mut analysis = SourceAnalysis::new();
+    analysis.process_items(&parser.items, &ctx);
+    let lines = analysis.get_line_analysis(ctx.file.to_path_buf());
+    assert!(lines.should_ignore(4));
+    assert!(!lines.is_force_covered(4));
 }
 
 #[test]

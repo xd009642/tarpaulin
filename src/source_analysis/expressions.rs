@@ -379,10 +379,12 @@ impl SourceAnalysis {
 // A pattern is "inert" when matching it binds no name, i.e. it contains
 // only literals, existing idents, consts and passive syntactic structures.
 //
-// `Pat::Ident` is treated as a binding even for bare unit variants like
-// `None` — syn can't distinguish those from fresh bindings without name
-// resolution. The cost is a remaining false-negative for unit-variant arms;
-// the benefit is no false-positives from misidentifying a binding.
+// Syn can't distinguish `Pat::Ident` bindings from unit variants or constants
+// without name resolution. Use Rust's naming convention as a heuristic:
+// idents starting with uppercase are paths (types, variants, or
+// SCREAMING_SNAKE constants) and are treated as inert. Lowercase idents are
+// treated as bindings. The `non_snake_case` lint keeps the false-positive
+// risk negligible.
 fn pattern_is_inert(pat: &Pat) -> bool {
     match pat {
         Pat::Wild(_)
@@ -391,43 +393,27 @@ fn pattern_is_inert(pat: &Pat) -> bool {
         | Pat::Const(_)
         | Pat::Range(_)
         | Pat::Rest(_) => true,
-        Pat::Or(o) => or_pattern_is_inert(o),
+        Pat::Or(o) => o.cases.iter().all(pattern_is_inert),
         Pat::Paren(p) => pattern_is_inert(&p.pat),
         Pat::Tuple(t) => t.elems.iter().all(pattern_is_inert),
         Pat::TupleStruct(ts) => ts.elems.iter().all(pattern_is_inert),
         Pat::Struct(s) => s.fields.iter().all(|f| pattern_is_inert(&f.pat)),
         Pat::Reference(r) => pattern_is_inert(&r.pat),
         Pat::Slice(s) => s.elems.iter().all(pattern_is_inert),
+        Pat::Ident(i) => pat_ident_is_path_by_convention(i),
         _ => false,
     }
 }
 
-// Determine if an OR-pattern is inert by checking that all the alternatives
-// are inert. Special case: if some top-level alternatives are ident, the
-// pattern can usually be safely deduced to be inert even without name resolution,
-// which is usually required with idents. (Why? Because in case of a name-binding
-// OR-pattern, all the cases have to bind the same name; if this is not the case,
-// we can exclude the possibility of name binding.)
-fn or_pattern_is_inert(o: &PatOr) -> bool {
-    let ident_cases: Vec<&Ident> = o
-        .cases
-        .iter()
-        .filter_map(|c| match c {
-            Pat::Ident(i) if i.subpat.is_none() => Some(&i.ident),
-            _ => None,
-        })
-        .collect();
-    let uniform_binding =
-        ident_cases.len() == o.cases.len() && ident_cases.windows(2).all(|w| w[0] == w[1]);
-    if uniform_binding {
-        return false; // The degenerate non-inert ident bindings pattern
-    }
-
-    // The general case: check each alternative
-    o.cases.iter().all(|c| match c {
-        Pat::Ident(_) => true,
-        other => pattern_is_inert(other),
-    })
+fn pat_ident_is_path_by_convention(i: &PatIdent) -> bool {
+    i.by_ref.is_none()
+        && i.mutability.is_none()
+        && i.subpat.is_none()
+        && i.ident
+            .to_string()
+            .chars()
+            .next()
+            .is_some_and(|c| c.is_ascii_uppercase())
 }
 
 fn get_coverable_args(args: &Punctuated<Expr, Comma>) -> HashSet<usize> {
