@@ -8,6 +8,7 @@ use nix::sys::wait::{WaitPidFlag, WaitStatus};
 use nix::unistd::Pid;
 use std::cell::RefCell;
 use std::collections::{HashMap, VecDeque};
+use std::fmt;
 
 /// One logical step in a thread's execution.
 /// Each Step produces a WaitStatus once the thread is continued/stepped to it.
@@ -202,6 +203,28 @@ pub enum TraceAction {
     DetachChild(Pid),
 }
 
+impl fmt::Display for MockEventSource {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        let inner = self.inner.borrow();
+
+        writeln!(f, "Processes")?;
+        for (pid, state) in inner.processes.iter() {
+            writeln!(
+                f,
+                "pid: {}. parent: {:?}. state: {:?}. Pending status: {:?}",
+                pid, state.parent, state.state, state.pending_wait
+            )?;
+            write!(f, "\t")?;
+            for step in &state.scenario.steps {
+                write!(f, "{:?}, ", step)?;
+            }
+            write!(f, "\n")?;
+        }
+
+        Ok(())
+    }
+}
+
 impl MockEventSource {
     pub fn build() -> MockBuilder {
         MockBuilder::new()
@@ -237,15 +260,7 @@ impl MockEventSource {
         }
     }
 
-    /// Advance a running process: pop its next step and park a WaitStatus.
-    fn advance_process(proc: &mut ProcessState) {
-        println!("Advancing(pid={})", proc.scenario.pid);
-        let Some(step) = proc.scenario.steps.pop_front() else {
-            proc.state = PidState::Dead;
-            proc.pending_wait = Some(WaitStatus::Exited(proc.scenario.pid, 0));
-            return;
-        };
-        let pid = proc.scenario.pid;
+    fn apply_state(pid: Pid, step: ThreadStep, proc: &mut ProcessState) {
         match step {
             ThreadStep::None => {}
             ThreadStep::Breakpoint(addr) => {
@@ -289,6 +304,33 @@ impl MockEventSource {
                     Signal::SIGTRAP,
                     nix::libc::PTRACE_EVENT_FORK,
                 ));
+            }
+        }
+    }
+
+    /// Advance a running process: pop its next step and park a WaitStatus.
+    fn advance_process(proc: &mut ProcessState) {
+        println!("Advancing(pid={})", proc.scenario.pid);
+        let Some(step) = proc.scenario.steps.pop_front() else {
+            proc.state = PidState::Dead;
+            proc.pending_wait = Some(WaitStatus::Exited(proc.scenario.pid, 0));
+            return;
+        };
+        let pid = proc.scenario.pid;
+        Self::apply_state(pid, step, proc);
+    }
+
+    fn advance_dormant_stages(&self) {
+        let mut inner = self.inner.borrow_mut();
+
+        for state in inner.processes.values_mut() {
+            if state.pending_wait.is_none() && state.state == PidState::NotCreatedYet {
+                let value = state.scenario.steps.pop_front();
+                println!("Popping off dormant value: {:?}", value);
+                if !matches!(value, Some(ThreadStep::None)) {
+                    println!("Dormant returns");
+                    Self::apply_state(state.scenario.pid, value.unwrap(), state);
+                }
             }
         }
     }
@@ -360,7 +402,8 @@ impl EventSource for MockEventSource {
     }
 
     fn next_events(&self, wait_queue: &mut Vec<WaitStatus>) -> Result<Option<TestState>, RunError> {
-        println!("{:?}", self);
+        println!("{}", self);
+        self.advance_dormant_stages();
 
         let mut result = None;
 
@@ -407,21 +450,6 @@ impl EventSource for MockEventSource {
             let proc = inner.processes.get_mut(&pid).unwrap();
             if proc.state == PidState::Stopped {
                 proc.state = PidState::Running;
-                MockEventSource::advance_process(proc);
-            }
-        }
-
-        // Advance all threads belonging to this process group
-        let pids: Vec<Pid> = inner
-            .processes
-            .iter()
-            .filter(|(_, p)| p.scenario.pid != root || p.parent != Some(root))
-            .map(|(pid, _)| *pid)
-            .collect();
-
-        for pid in pids {
-            let proc = inner.processes.get_mut(&pid).unwrap();
-            if proc.state == PidState::NotCreatedYet {
                 MockEventSource::advance_process(proc);
             }
         }
