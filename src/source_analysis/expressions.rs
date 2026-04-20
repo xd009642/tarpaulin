@@ -134,7 +134,7 @@ impl SourceAnalysis {
     fn visit_match(&mut self, mat: &ExprMatch, ctx: &Context) -> SubResult {
         // a match with some arms is unreachable iff all its arms are unreachable
         let mut result = None;
-        for arm in &mat.arms {
+        for (arm_idx, arm) in mat.arms.iter().enumerate() {
             if self.check_attr_list(&arm.attrs, ctx) {
                 let reachable = self.process_expr(&arm.body, ctx);
                 if reachable.is_reachable() {
@@ -145,6 +145,7 @@ impl SourceAnalysis {
                     }
                     result = result.map(|x| x + reachable).or(Some(reachable));
                 }
+                self.maybe_ignore_inert_match_arm(arm, arm_idx, &mat.arms, ctx);
             } else {
                 let analysis = self.get_line_analysis(ctx.file.to_path_buf());
                 analysis.ignore_tokens(arm);
@@ -157,6 +158,56 @@ impl SourceAnalysis {
             analysis.ignore_tokens(mat);
             SubResult::Unreachable
         }
+    }
+
+    // LLVM doesn't always assign a coverage region to match arm patterns that are
+    // inert (i.e., static patterns that don't bind any names).
+    // In force-covered functions, this leads them to be reported as uncovered,
+    // so we mark such patterns as ignored. Bindings (`a =>`, `Some(x) =>`) and
+    // pattern guards do get a region, so they're left alone.
+    fn maybe_ignore_inert_match_arm(
+        &mut self,
+        arm: &Arm,
+        arm_idx: usize,
+        all_arms: &[Arm],
+        ctx: &Context,
+    ) {
+        if !pattern_is_inert(&arm.pat) {
+            return;
+        }
+        let pat_line = arm.pat.span().start().line;
+        let end_line = match &arm.guard {
+            Some((_, guard)) => guard.span().start().line,
+            None => {
+                let Expr::Block(b) = &*arm.body else {
+                    return;
+                };
+                let Some(first_stmt) = b.block.stmts.first() else {
+                    return;
+                };
+                first_stmt.span().start().line
+            }
+        };
+        if end_line <= pat_line {
+            return;
+        }
+        // Bail out if any sibling arm has content in the range we'd ignore —
+        // swallowing those rows would hide a sibling's coverage.
+        for (i, other) in all_arms.iter().enumerate() {
+            if i == arm_idx {
+                continue;
+            }
+            let s = other.pat.span().start().line;
+            let e = other.body.span().end().line;
+            if s < end_line && e >= pat_line {
+                return;
+            }
+        }
+        let analysis = self.get_line_analysis(ctx.file.to_path_buf());
+        if !analysis.is_force_covered(pat_line) {
+            return;
+        }
+        analysis.add_to_ignore(pat_line..end_line);
     }
 
     fn visit_if(&mut self, if_block: &ExprIf, ctx: &Context) -> SubResult {
@@ -324,6 +375,61 @@ impl SourceAnalysis {
         SubResult::Ok
     }
 }
+
+// A pattern is "inert" when matching it binds no name, i.e. it contains
+// only literals, existing idents, consts and passive syntactic structures.
+//
+// `Pat::Ident` is treated as a binding even for bare unit variants like
+// `None` — syn can't distinguish those from fresh bindings without name
+// resolution. The cost is a remaining false-negative for unit-variant arms;
+// the benefit is no false-positives from misidentifying a binding.
+fn pattern_is_inert(pat: &Pat) -> bool {
+    match pat {
+        Pat::Wild(_)
+        | Pat::Lit(_)
+        | Pat::Path(_)
+        | Pat::Const(_)
+        | Pat::Range(_)
+        | Pat::Rest(_) => true,
+        Pat::Or(o) => or_pattern_is_inert(o),
+        Pat::Paren(p) => pattern_is_inert(&p.pat),
+        Pat::Tuple(t) => t.elems.iter().all(pattern_is_inert),
+        Pat::TupleStruct(ts) => ts.elems.iter().all(pattern_is_inert),
+        Pat::Struct(s) => s.fields.iter().all(|f| pattern_is_inert(&f.pat)),
+        Pat::Reference(r) => pattern_is_inert(&r.pat),
+        Pat::Slice(s) => s.elems.iter().all(pattern_is_inert),
+        _ => false,
+    }
+}
+
+// Determine if an OR-pattern is inert by checking that all the alternatives
+// are inert. Special case: if some top-level alternatives are ident, the
+// pattern can usually be safely deduced to be inert even without name resolution,
+// which is usually required with idents. (Why? Because in case of a name-binding
+// OR-pattern, all the cases have to bind the same name; if this is not the case,
+// we can exclude the possibility of name binding.)
+fn or_pattern_is_inert(o: &PatOr) -> bool {
+    let ident_cases: Vec<&Ident> = o
+        .cases
+        .iter()
+        .filter_map(|c| match c {
+            Pat::Ident(i) if i.subpat.is_none() => Some(&i.ident),
+            _ => None,
+        })
+        .collect();
+    let uniform_binding =
+        ident_cases.len() == o.cases.len() && ident_cases.windows(2).all(|w| w[0] == w[1]);
+    if uniform_binding {
+        return false; // The degenerate non-inert ident bindings pattern
+    }
+
+    // The general case: check each alternative
+    o.cases.iter().all(|c| match c {
+        Pat::Ident(_) => true,
+        other => pattern_is_inert(other),
+    })
+}
+
 fn get_coverable_args(args: &Punctuated<Expr, Comma>) -> HashSet<usize> {
     let mut lines: HashSet<usize> = HashSet::new();
     for a in args.iter() {
