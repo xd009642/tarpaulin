@@ -22,18 +22,13 @@ pub(super) fn globs_from_excluded(strs: &[String]) -> Vec<glob::Pattern> {
     files
 }
 
-pub(super) fn process_manifest(
-    opt_manifest_path: Option<PathBuf>,
-    opt_root: Option<PathBuf>,
-) -> PathBuf {
+pub(super) fn process_manifest(opt_manifest_path: Option<PathBuf>, opt_root: PathBuf) -> PathBuf {
     if let Some(path) = opt_manifest_path {
         return canonicalize_path(path);
     }
 
     let mut manifest = env::current_dir().unwrap();
-    if let Some(path) = opt_root {
-        manifest.push(path);
-    }
+    manifest.push(opt_root);
     manifest.push("Cargo.toml");
     canonicalize_path(manifest)
 }

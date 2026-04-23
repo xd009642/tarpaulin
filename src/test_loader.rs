@@ -156,7 +156,7 @@ where
     R: Reader<Offset = Offset>,
     Offset: ReaderOffset,
 {
-    let project = config.root();
+    let project = config.get_current_dir();
     let get_string = |x: R| x.to_string().map(|y| y.to_string()).ok();
     let (cprog, seq) = prog.sequences()?;
     for s in seq {
@@ -223,7 +223,7 @@ fn get_line_addresses<'data>(
     analysis: &HashMap<PathBuf, LineAnalysis>,
     config: &Config,
 ) -> Result<TraceMap> {
-    let project = config.root();
+    let project = config.get_current_dir();
     let io_err = |e| {
         error!("IO error parsing section: {e}");
         Error::Io
