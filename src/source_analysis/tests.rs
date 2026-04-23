@@ -89,6 +89,468 @@ fn match_pattern_logical_lines() {
     assert_ne!(lines.logical_lines.get(&8), Some(&3));
 }
 
+// Rule under test: the opening brace line of a match arm's block body
+// (`pat => {` where the body starts on a later line) must be ignored iff the
+// pattern is inert — no name binding, no guard, and no other arm sharing that
+// line. Inert patterns (wildcard, literal, or-of-literals, tuple-struct of
+// wildcards, ...) produce no MIR instruction anchored to the brace, so LLVM
+// emits no coverage region there; without the ignore, force-covered generic
+// fns report the brace line as uncovered.
+
+#[test]
+fn match_arm_block_brace_ignored_literal_pattern() {
+    let config = Config::default();
+    let ctx = Context {
+        config: &config,
+        file_contents: "fn foo<S>() -> bool {
+    match true {
+        true => {
+            true
+        }
+        false => {
+            false
+        },
+    }
+}",
+        file: Path::new(""),
+        ignore_mods: RefCell::new(HashSet::new()),
+        symbol_stack: RefCell::new(Vec::new()),
+    };
+
+    let parser = parse_file(ctx.file_contents).unwrap();
+    let mut analysis = SourceAnalysis::new();
+    analysis.process_items(&parser.items, &ctx);
+    let lines = analysis.get_line_analysis(ctx.file.to_path_buf());
+    // L3: `true => {`, L6: `false => {` — both must be ignored & not covered.
+    assert!(lines.should_ignore(3));
+    assert!(!lines.is_force_covered(3));
+    assert!(lines.should_ignore(6));
+    assert!(!lines.is_force_covered(6));
+    // Arm bodies must remain covered.
+    assert!(!lines.should_ignore(4));
+    assert!(!lines.should_ignore(7));
+}
+
+#[test]
+fn match_arm_block_brace_ignored_wildcard() {
+    let config = Config::default();
+    let ctx = Context {
+        config: &config,
+        file_contents: "fn foo<S>() -> bool {
+    match true {
+        _ => {
+            true
+        }
+    }
+}",
+        file: Path::new(""),
+        ignore_mods: RefCell::new(HashSet::new()),
+        symbol_stack: RefCell::new(Vec::new()),
+    };
+
+    let parser = parse_file(ctx.file_contents).unwrap();
+    let mut analysis = SourceAnalysis::new();
+    analysis.process_items(&parser.items, &ctx);
+    let lines = analysis.get_line_analysis(ctx.file.to_path_buf());
+    assert!(lines.should_ignore(3));
+    assert!(!lines.is_force_covered(3));
+    assert!(!lines.should_ignore(4));
+}
+
+#[test]
+fn match_arm_block_brace_ignored_or_pattern_of_literals() {
+    let config = Config::default();
+    let ctx = Context {
+        config: &config,
+        file_contents: "fn foo<S>(n: u32) -> u32 {
+    match n {
+        1 | 2 | 3 => {
+            10
+        }
+        _ => {
+            0
+        }
+    }
+}",
+        file: Path::new(""),
+        ignore_mods: RefCell::new(HashSet::new()),
+        symbol_stack: RefCell::new(Vec::new()),
+    };
+
+    let parser = parse_file(ctx.file_contents).unwrap();
+    let mut analysis = SourceAnalysis::new();
+    analysis.process_items(&parser.items, &ctx);
+    let lines = analysis.get_line_analysis(ctx.file.to_path_buf());
+    assert!(lines.should_ignore(3));
+    assert!(!lines.is_force_covered(3));
+    assert!(lines.should_ignore(6));
+    assert!(!lines.is_force_covered(6));
+}
+
+#[test]
+fn match_arm_block_brace_ignored_or_pattern_of_differing_idents() {
+    // `OP_TEXT | OP_BINARY` — two Pat::Ident with different names. An
+    // or-pattern requires every alternative to bind the same set of names,
+    // so the differing names rule them both out as bindings — they must be
+    // constants or unit variants (inert). The fix treats the arm as inert
+    // without needing type resolution.
+    let config = Config::default();
+    let ctx = Context {
+        config: &config,
+        file_contents: "const OP_TEXT: u8 = 1;
+const OP_BINARY: u8 = 2;
+fn foo<S>(n: u8) -> bool {
+    match n {
+        OP_TEXT | OP_BINARY => {
+            true
+        }
+        _ => false,
+    }
+}",
+        file: Path::new(""),
+        ignore_mods: RefCell::new(HashSet::new()),
+        symbol_stack: RefCell::new(Vec::new()),
+    };
+
+    let parser = parse_file(ctx.file_contents).unwrap();
+    let mut analysis = SourceAnalysis::new();
+    analysis.process_items(&parser.items, &ctx);
+    let lines = analysis.get_line_analysis(ctx.file.to_path_buf());
+    // L5: `OP_TEXT | OP_BINARY => {` — must be ignored.
+    assert!(lines.should_ignore(5));
+    assert!(!lines.is_force_covered(5));
+}
+
+#[test]
+fn match_arm_brace_not_ignored_same_name_or_pattern() {
+    // `x | x` is a uniform single-name or-pattern — syntactically could be a
+    // binding, so conservative treatment applies (not inert). Pathological
+    // but well-defined; the fix must NOT ignore it.
+    let config = Config::default();
+    let ctx = Context {
+        config: &config,
+        file_contents: "fn foo<S>(x: u32) -> u32 {
+    match x {
+        x | x => {
+            x
+        }
+    }
+}",
+        file: Path::new(""),
+        ignore_mods: RefCell::new(HashSet::new()),
+        symbol_stack: RefCell::new(Vec::new()),
+    };
+
+    let parser = parse_file(ctx.file_contents).unwrap();
+    let mut analysis = SourceAnalysis::new();
+    analysis.process_items(&parser.items, &ctx);
+    let lines = analysis.get_line_analysis(ctx.file.to_path_buf());
+    assert!(!lines.should_ignore(3));
+}
+
+#[test]
+fn match_arm_block_brace_ignored_tuple_struct_inert() {
+    // `Some(_)` binds nothing — inert. Same pattern MIR-wise as `_`: no
+    // StorageLive on a binding, so no region anchored to the brace.
+    let config = Config::default();
+    let ctx = Context {
+        config: &config,
+        file_contents: "fn foo<S>(o: Option<u32>) -> u32 {
+    match o {
+        Some(_) => {
+            1
+        }
+        None => {
+            0
+        }
+    }
+}",
+        file: Path::new(""),
+        ignore_mods: RefCell::new(HashSet::new()),
+        symbol_stack: RefCell::new(Vec::new()),
+    };
+
+    let parser = parse_file(ctx.file_contents).unwrap();
+    let mut analysis = SourceAnalysis::new();
+    analysis.process_items(&parser.items, &ctx);
+    let lines = analysis.get_line_analysis(ctx.file.to_path_buf());
+    // `Some(_)` — inert, must be ignored.
+    assert!(lines.should_ignore(3));
+    assert!(!lines.is_force_covered(3));
+    // `None` parses as Pat::Ident in syn. The uppercase-start heuristic
+    // classifies it as a path (unit variant), so the arm is inert.
+    assert!(lines.should_ignore(6));
+    assert!(!lines.is_force_covered(6));
+}
+
+#[test]
+fn match_arm_block_brace_ignored_screaming_snake_const() {
+    // `OP_TEXT` parses as Pat::Ident in syn. The uppercase-start heuristic
+    // classifies it as a path (constant), so the arm is inert.
+    let config = Config::default();
+    let ctx = Context {
+        config: &config,
+        file_contents: "const OP_TEXT: u8 = 1;
+fn foo<S>(n: u8) -> bool {
+    match n {
+        OP_TEXT => {
+            true
+        }
+        _ => false,
+    }
+}",
+        file: Path::new(""),
+        ignore_mods: RefCell::new(HashSet::new()),
+        symbol_stack: RefCell::new(Vec::new()),
+    };
+
+    let parser = parse_file(ctx.file_contents).unwrap();
+    let mut analysis = SourceAnalysis::new();
+    analysis.process_items(&parser.items, &ctx);
+    let lines = analysis.get_line_analysis(ctx.file.to_path_buf());
+    assert!(lines.should_ignore(4));
+    assert!(!lines.is_force_covered(4));
+}
+
+#[test]
+fn match_arm_brace_same_line_as_body_not_ignored() {
+    // `_ => { body }` on one line — brace line is also statement line, so the
+    // `fs > brace_line` guard in the fix must prevent ignoring it.
+    let config = Config::default();
+    let ctx = Context {
+        config: &config,
+        file_contents: "fn foo<S>() -> bool {
+    match true {
+        _ => { true }
+    }
+}",
+        file: Path::new(""),
+        ignore_mods: RefCell::new(HashSet::new()),
+        symbol_stack: RefCell::new(Vec::new()),
+    };
+
+    let parser = parse_file(ctx.file_contents).unwrap();
+    let mut analysis = SourceAnalysis::new();
+    analysis.process_items(&parser.items, &ctx);
+    let lines = analysis.get_line_analysis(ctx.file.to_path_buf());
+    assert!(!lines.should_ignore(3));
+}
+
+#[test]
+fn match_arm_brace_not_ignored_with_binding() {
+    // `a =>` — binding introduces StorageLive/Dead pair anchored to the arm's
+    // scope; LLVM emits a region on the brace line naturally. Ignoring would
+    // suppress a real signal, so the fix must leave binding arms alone.
+    let config = Config::default();
+    let ctx = Context {
+        config: &config,
+        file_contents: "fn foo<S>(x: bool) -> bool {
+    match x {
+        a => {
+            a
+        }
+    }
+}",
+        file: Path::new(""),
+        ignore_mods: RefCell::new(HashSet::new()),
+        symbol_stack: RefCell::new(Vec::new()),
+    };
+
+    let parser = parse_file(ctx.file_contents).unwrap();
+    let mut analysis = SourceAnalysis::new();
+    analysis.process_items(&parser.items, &ctx);
+    let lines = analysis.get_line_analysis(ctx.file.to_path_buf());
+    assert!(!lines.should_ignore(3));
+}
+
+#[test]
+fn match_arm_brace_not_ignored_with_binding_in_tuple_struct() {
+    let config = Config::default();
+    let ctx = Context {
+        config: &config,
+        file_contents: "fn foo<S>(o: Option<u32>) -> u32 {
+    match o {
+        Some(x) => {
+            x
+        }
+        None => {
+            0
+        }
+    }
+}",
+        file: Path::new(""),
+        ignore_mods: RefCell::new(HashSet::new()),
+        symbol_stack: RefCell::new(Vec::new()),
+    };
+
+    let parser = parse_file(ctx.file_contents).unwrap();
+    let mut analysis = SourceAnalysis::new();
+    analysis.process_items(&parser.items, &ctx);
+    let lines = analysis.get_line_analysis(ctx.file.to_path_buf());
+    // `Some(x)` binds x — not inert.
+    assert!(!lines.should_ignore(3));
+}
+
+#[test]
+fn match_arm_brace_not_ignored_with_guard() {
+    // Guard expression has its own coverage probe and executes unconditionally
+    // for matching arms; the brace line is part of that execution path.
+    let config = Config::default();
+    let ctx = Context {
+        config: &config,
+        file_contents: "fn foo<S>(x: u32) -> u32 {
+    match x {
+        _ if x > 0 => {
+            1
+        }
+        _ => {
+            0
+        }
+    }
+}",
+        file: Path::new(""),
+        ignore_mods: RefCell::new(HashSet::new()),
+        symbol_stack: RefCell::new(Vec::new()),
+    };
+
+    let parser = parse_file(ctx.file_contents).unwrap();
+    let mut analysis = SourceAnalysis::new();
+    analysis.process_items(&parser.items, &ctx);
+    let lines = analysis.get_line_analysis(ctx.file.to_path_buf());
+    // Guarded arm on L3 — must not be ignored.
+    assert!(!lines.should_ignore(3));
+    // Second arm (no guard, inert) — still ignored.
+    assert!(lines.should_ignore(6));
+}
+
+#[test]
+fn match_arm_brace_not_ignored_shared_row() {
+    // Sibling arm with a non-block body sits on the same row as the next
+    // arm's opening brace. That row carries executable content from the
+    // sibling; ignoring it would lose the sibling's coverage signal.
+    let config = Config::default();
+    let ctx = Context {
+        config: &config,
+        file_contents: "fn foo<S>(n: u32) -> u32 {
+    match n {
+        1 => 10, _ => {
+            0
+        }
+    }
+}",
+        file: Path::new(""),
+        ignore_mods: RefCell::new(HashSet::new()),
+        symbol_stack: RefCell::new(Vec::new()),
+    };
+
+    let parser = parse_file(ctx.file_contents).unwrap();
+    let mut analysis = SourceAnalysis::new();
+    analysis.process_items(&parser.items, &ctx);
+    let lines = analysis.get_line_analysis(ctx.file.to_path_buf());
+    // L3 holds `1 => 10, _ => {` — the `1 => 10,` tail expression is
+    // executable content, so the row must not be ignored.
+    assert!(!lines.should_ignore(3));
+}
+
+#[test]
+fn match_arm_brace_not_ignored_in_monomorphic_fn() {
+    // Same inert pattern as `match_arm_block_brace_ignored_wildcard`, but the
+    // enclosing fn is not generic → not force-covered → LLVM emits a region
+    // on the brace line normally, so the fix must NOT ignore it.
+    let config = Config::default();
+    let ctx = Context {
+        config: &config,
+        file_contents: "fn foo() -> bool {
+    match true {
+        _ => {
+            true
+        }
+    }
+}",
+        file: Path::new(""),
+        ignore_mods: RefCell::new(HashSet::new()),
+        symbol_stack: RefCell::new(Vec::new()),
+    };
+
+    let parser = parse_file(ctx.file_contents).unwrap();
+    let mut analysis = SourceAnalysis::new();
+    analysis.process_items(&parser.items, &ctx);
+    let lines = analysis.get_line_analysis(ctx.file.to_path_buf());
+    assert!(!lines.should_ignore(3));
+}
+
+#[test]
+fn match_arm_header_ignored_when_split_across_lines() {
+    // Unusual but legal: pattern, `=>`, and `{` each on their own line.
+    // LLVM only anchors a region to the body's first statement, so every
+    // row of the arm header (pattern + arrow + brace) misses force-cover
+    // and must be ignored, not just the brace row.
+    let config = Config::default();
+    let ctx = Context {
+        config: &config,
+        file_contents: "fn foo<S>() -> bool {
+    match true {
+        _
+        =>
+        {
+            true
+        }
+    }
+}",
+        file: Path::new(""),
+        ignore_mods: RefCell::new(HashSet::new()),
+        symbol_stack: RefCell::new(Vec::new()),
+    };
+
+    let parser = parse_file(ctx.file_contents).unwrap();
+    let mut analysis = SourceAnalysis::new();
+    analysis.process_items(&parser.items, &ctx);
+    let lines = analysis.get_line_analysis(ctx.file.to_path_buf());
+    // L3 `_` and L4 `=>` — must be ignored via the header-range fix.
+    assert!(lines.should_ignore(3));
+    assert!(!lines.is_force_covered(3));
+    assert!(lines.should_ignore(4));
+    assert!(!lines.is_force_covered(4));
+    // L5 `{` — ignored by find_ignorable_lines anyway; checked for consistency.
+    assert!(lines.should_ignore(5));
+    // L6 `true` — body content, must remain coverable.
+    assert!(!lines.should_ignore(6));
+}
+
+#[test]
+fn match_arm_header_ignored_before_split_guard() {
+    // Guarded inert arm with pattern on its own line and `if cond` on the
+    // next. The guard expression carries its own coverage region, but the
+    // pattern row does not; ignore only the rows up to (not including) the
+    // guard.
+    let config = Config::default();
+    let ctx = Context {
+        config: &config,
+        file_contents: "fn foo<S>(x: u32) -> u32 {
+    match x {
+        _
+        if x > 0 => {
+            1
+        }
+        _ => 0,
+    }
+}",
+        file: Path::new(""),
+        ignore_mods: RefCell::new(HashSet::new()),
+        symbol_stack: RefCell::new(Vec::new()),
+    };
+
+    let parser = parse_file(ctx.file_contents).unwrap();
+    let mut analysis = SourceAnalysis::new();
+    analysis.process_items(&parser.items, &ctx);
+    let lines = analysis.get_line_analysis(ctx.file.to_path_buf());
+    // L3 `_` — pattern on its own row, ignored.
+    assert!(lines.should_ignore(3));
+    assert!(!lines.is_force_covered(3));
+    // L4 `if x > 0 => {` — guard row, coverable via its region.
+    assert!(!lines.should_ignore(4));
+}
+
 #[test]
 fn line_analysis_works() {
     let mut la = LineAnalysis::new();
@@ -785,8 +1247,8 @@ fn cover_generic_impl_methods() {
     let mut analysis = SourceAnalysis::new();
     analysis.process_items(&parser.items, &ctx);
     let lines = analysis.get_line_analysis(ctx.file.to_path_buf());
-    assert!(lines.cover.contains(&3));
-    assert!(lines.cover.contains(&4));
+    assert!(lines.is_force_covered(3));
+    assert!(lines.is_force_covered(4));
 
     let ctx = Context {
         config: &config,
@@ -806,7 +1268,7 @@ fn cover_generic_impl_methods() {
     let mut analysis = SourceAnalysis::new();
     analysis.process_items(&parser.items, &ctx);
     let lines = analysis.get_line_analysis(ctx.file.to_path_buf());
-    assert!(lines.cover.contains(&5));
+    assert!(lines.is_force_covered(5));
 }
 
 #[test]
@@ -827,8 +1289,8 @@ fn cover_default_trait_methods() {
     let mut analysis = SourceAnalysis::new();
     analysis.process_items(&parser.items, &ctx);
     let lines = analysis.get_line_analysis(ctx.file.to_path_buf());
-    assert!(lines.cover.contains(&2));
-    assert!(lines.cover.contains(&3));
+    assert!(lines.is_force_covered(2));
+    assert!(lines.is_force_covered(3));
 }
 
 #[test]
@@ -847,8 +1309,8 @@ fn cover_impl_trait_generic_fns() {
     let mut analysis = SourceAnalysis::new();
     analysis.process_items(&parser.items, &ctx);
     let lines = analysis.get_line_analysis(ctx.file.to_path_buf());
-    assert!(lines.cover.contains(&1));
-    assert!(lines.cover.contains(&2));
+    assert!(lines.is_force_covered(1));
+    assert!(lines.is_force_covered(2));
 }
 
 #[test]
@@ -930,12 +1392,12 @@ fn include_inline_fns() {
     let mut analysis = SourceAnalysis::new();
     analysis.process_items(&parser.items, &ctx);
     let lines = analysis.get_line_analysis(ctx.file.to_path_buf());
-    assert!(!lines.cover.contains(&3));
-    assert!(lines.cover.contains(&4));
-    assert!(!lines.cover.contains(&5));
-    assert!(!lines.cover.contains(&6));
-    assert!(!lines.cover.contains(&7));
-    assert!(lines.cover.contains(&8));
+    assert!(!lines.is_force_covered(3));
+    assert!(lines.is_force_covered(4));
+    assert!(!lines.is_force_covered(5));
+    assert!(!lines.is_force_covered(6));
+    assert!(!lines.is_force_covered(7));
+    assert!(lines.is_force_covered(8));
 }
 
 #[test]
@@ -1691,8 +2153,8 @@ fn ignore_comment() {
             // and me as well
             x * 2
         }
-        
-        fn blah() 
+
+        fn blah()
         {
 
         }",
@@ -1726,9 +2188,9 @@ fn py_attr() {
                 println!(\"foo\");
                 Ok(())
             }
-            
+
             struct Blah;
-            
+
             #[pyimpl]
             impl Blah {
                 #[pyfunction]
@@ -1800,7 +2262,7 @@ fn module_nesting_correct() {
         #[cfg(test)]
         mod tests {
             mod inner; // should be at src/tests/inner.rs
-            
+
             mod foo {
                 mod innermost;
             }
