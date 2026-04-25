@@ -274,6 +274,7 @@ impl SourceAnalysis {
                 analysis.ignore_tokens(loopex);
                 SubResult::Unreachable
             } else {
+                self.maybe_ignore_force_covered_loop_line(loopex, ctx);
                 SubResult::Definite
             }
         } else {
@@ -281,6 +282,25 @@ impl SourceAnalysis {
             analysis.ignore_tokens(loopex);
             SubResult::Definite
         }
+    }
+
+    // LLVM does not consistently anchor a coverage region to the `loop` keyword line.
+    // These might then be reported as coverage misses in force-covered functions,
+    // so we ignore `loop` lines in force-covered functions.
+    // Bail if the body's first statement shares the line (`loop { stmt }`), since
+    // ignoring would swallow the statement's coverage.
+    fn maybe_ignore_force_covered_loop_line(&mut self, loopex: &ExprLoop, ctx: &Context) {
+        let loop_line = loopex.loop_token.span().start().line;
+        if let Some(first_stmt) = loopex.body.stmts.first() {
+            if first_stmt.span().start().line <= loop_line {
+                return;
+            }
+        }
+        let analysis = self.get_line_analysis(ctx.file.to_path_buf());
+        if !analysis.is_force_covered(loop_line) {
+            return;
+        }
+        analysis.add_to_ignore([loop_line]);
     }
 
     fn visit_callable(&mut self, call: &ExprCall, ctx: &Context) -> SubResult {

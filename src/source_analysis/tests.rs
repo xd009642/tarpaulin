@@ -551,6 +551,178 @@ fn match_arm_header_ignored_before_split_guard() {
     assert!(!lines.should_ignore(4));
 }
 
+// Rule under test: the `loop` keyword line must be ignored in force-covered
+// fns (generic/inline/generic impl method) because LLVM does not anchor a
+// coverage region to it, and force-cover would otherwise report it as a miss.
+// In non-force-covered fns the line is covered normally by instrumentation,
+// so the fix must NOT ignore it there.
+
+#[test]
+fn loop_line_ignored_in_generic_fn() {
+    let config = Config::default();
+    let ctx = Context {
+        config: &config,
+        file_contents: "pub fn generic_looper<T>() {
+    loop {
+        if true {
+            return;
+        }
+    }
+}",
+        file: Path::new(""),
+        ignore_mods: RefCell::new(HashSet::new()),
+        symbol_stack: RefCell::new(Vec::new()),
+    };
+
+    let parser = parse_file(ctx.file_contents).unwrap();
+    let mut analysis = SourceAnalysis::new();
+    analysis.process_items(&parser.items, &ctx);
+    let lines = analysis.get_line_analysis(ctx.file.to_path_buf());
+    // L2: `loop {` must be ignored in the generic fn.
+    assert!(lines.should_ignore(2));
+    assert!(!lines.is_force_covered(2));
+    // Body lines remain coverable.
+    assert!(!lines.should_ignore(3));
+    assert!(!lines.should_ignore(4));
+}
+
+#[test]
+fn loop_line_not_ignored_in_monomorphic_fn() {
+    let config = Config::default();
+    let ctx = Context {
+        config: &config,
+        file_contents: "pub fn mono_looper() {
+    loop {
+        if true {
+            return;
+        }
+    }
+}",
+        file: Path::new(""),
+        ignore_mods: RefCell::new(HashSet::new()),
+        symbol_stack: RefCell::new(Vec::new()),
+    };
+
+    let parser = parse_file(ctx.file_contents).unwrap();
+    let mut analysis = SourceAnalysis::new();
+    analysis.process_items(&parser.items, &ctx);
+    let lines = analysis.get_line_analysis(ctx.file.to_path_buf());
+    // Non-generic fn: `loop {` on L2 is covered normally — must not be ignored.
+    assert!(!lines.should_ignore(2));
+}
+
+#[test]
+fn loop_line_ignored_in_generic_impl_method() {
+    // `impl<T> Foo<T>` marks all its methods as force-covered, even when the
+    // method itself has no generics. The loop line inside such a method must
+    // be ignored too.
+    let config = Config::default();
+    let ctx = Context {
+        config: &config,
+        file_contents: "struct Foo<T>(T);
+impl<T> Foo<T> {
+    pub fn looper(&self) {
+        loop {
+            if true {
+                return;
+            }
+        }
+    }
+}",
+        file: Path::new(""),
+        ignore_mods: RefCell::new(HashSet::new()),
+        symbol_stack: RefCell::new(Vec::new()),
+    };
+
+    let parser = parse_file(ctx.file_contents).unwrap();
+    let mut analysis = SourceAnalysis::new();
+    analysis.process_items(&parser.items, &ctx);
+    let lines = analysis.get_line_analysis(ctx.file.to_path_buf());
+    // L4: `loop {` inside an impl<T> method — force-covered, must be ignored.
+    assert!(lines.should_ignore(4));
+    assert!(!lines.is_force_covered(4));
+}
+
+#[test]
+fn loop_line_ignored_in_inline_fn() {
+    // Inline fns are also force-covered by tarpaulin.
+    let config = Config::default();
+    let ctx = Context {
+        config: &config,
+        file_contents: "#[inline]
+pub fn inline_looper() {
+    loop {
+        if true {
+            return;
+        }
+    }
+}",
+        file: Path::new(""),
+        ignore_mods: RefCell::new(HashSet::new()),
+        symbol_stack: RefCell::new(Vec::new()),
+    };
+
+    let parser = parse_file(ctx.file_contents).unwrap();
+    let mut analysis = SourceAnalysis::new();
+    analysis.process_items(&parser.items, &ctx);
+    let lines = analysis.get_line_analysis(ctx.file.to_path_buf());
+    assert!(lines.should_ignore(3));
+}
+
+#[test]
+fn loop_line_not_ignored_when_body_on_same_line() {
+    // `loop { return }` on one line — ignoring the line would swallow the
+    // statement's coverage. The first-statement-line guard must block this.
+    let config = Config::default();
+    let ctx = Context {
+        config: &config,
+        file_contents: "pub fn generic_looper<T>() {
+    loop { return; }
+}",
+        file: Path::new(""),
+        ignore_mods: RefCell::new(HashSet::new()),
+        symbol_stack: RefCell::new(Vec::new()),
+    };
+
+    let parser = parse_file(ctx.file_contents).unwrap();
+    let mut analysis = SourceAnalysis::new();
+    analysis.process_items(&parser.items, &ctx);
+    let lines = analysis.get_line_analysis(ctx.file.to_path_buf());
+    // L2: `loop { return; }` carries executable content, must not be ignored.
+    assert!(!lines.should_ignore(2));
+}
+
+#[test]
+fn loop_line_not_ignored_for_while_or_for() {
+    // The fix targets `loop` only. `while` and `for` have their own loop
+    // condition / iterator expressions that LLVM anchors regions to, and this
+    // branch of `visit_*` does not call the force-cover helper.
+    let config = Config::default();
+    let ctx = Context {
+        config: &config,
+        file_contents: "pub fn generic_while<T>() {
+    while true {
+        return;
+    }
+}
+pub fn generic_for<T>() {
+    for _ in 0..1 {
+        return;
+    }
+}",
+        file: Path::new(""),
+        ignore_mods: RefCell::new(HashSet::new()),
+        symbol_stack: RefCell::new(Vec::new()),
+    };
+
+    let parser = parse_file(ctx.file_contents).unwrap();
+    let mut analysis = SourceAnalysis::new();
+    analysis.process_items(&parser.items, &ctx);
+    let lines = analysis.get_line_analysis(ctx.file.to_path_buf());
+    assert!(!lines.should_ignore(2));
+    assert!(!lines.should_ignore(7));
+}
+
 #[test]
 fn line_analysis_works() {
     let mut la = LineAnalysis::new();
