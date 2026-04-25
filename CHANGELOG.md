@@ -3,7 +3,11 @@
 From 2019 onwards, all notable changes to tarpaulin will be documented in this
 file.
 
-## [0.35.3] 2026-04-25
+## [0.35.4] 2026-04-25
+### Changed
+- Revert gimli to a non-yanked version
+
+## [0.35.3] 2026-04-25 [YANKED]
 ### Changed
 - Refined the forced coverage of generic items and expressions to reduce false negatives
 
