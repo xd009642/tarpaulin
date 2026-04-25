@@ -3,7 +3,10 @@
 From 2019 onwards, all notable changes to tarpaulin will be documented in this
 file.
 
-## [Unreleased]
+## [0.35.3] 2026-04-25
+### Changed
+- Refined the forced coverage of generic items and expressions to reduce false negatives
+
 ### Fixed
 - Fix ptrace SIGILL issue where PID parent event is delivered in iteration after the child stop is reported
 
