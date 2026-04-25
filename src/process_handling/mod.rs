@@ -13,6 +13,22 @@ use std::process::{Child, Command};
 use std::rc::Rc;
 use tracing::{debug, error, info, trace_span};
 
+cfg_if::cfg_if! {
+    if #[cfg(ptrace_supported)] {
+        pub mod linux;
+        pub use linux::*;
+
+        pub mod breakpoint;
+        pub mod ptrace_control;
+
+        pub mod event_source;
+
+        pub type ProcessHandle = nix::unistd::Pid;
+    } else {
+        pub type ProcessHandle = u64;
+    }
+}
+
 /// Handle to a test currently either PID or a `std::process::Child`
 pub enum TestHandle {
     Id(ProcessHandle),
@@ -128,20 +144,6 @@ fn launch_test(
             );
             Err(RunError::TestCoverage("Unsupported OS".to_string()))
         }
-    }
-}
-
-cfg_if::cfg_if! {
-    if #[cfg(ptrace_supported)] {
-        pub mod linux;
-        pub use linux::*;
-
-        pub mod breakpoint;
-        pub mod ptrace_control;
-
-        pub type ProcessHandle = nix::unistd::Pid;
-    } else {
-        pub type ProcessHandle = u64;
     }
 }
 

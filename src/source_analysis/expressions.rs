@@ -134,7 +134,7 @@ impl SourceAnalysis {
     fn visit_match(&mut self, mat: &ExprMatch, ctx: &Context) -> SubResult {
         // a match with some arms is unreachable iff all its arms are unreachable
         let mut result = None;
-        for arm in &mat.arms {
+        for (arm_idx, arm) in mat.arms.iter().enumerate() {
             if self.check_attr_list(&arm.attrs, ctx) {
                 let reachable = self.process_expr(&arm.body, ctx);
                 if reachable.is_reachable() {
@@ -145,6 +145,7 @@ impl SourceAnalysis {
                     }
                     result = result.map(|x| x + reachable).or(Some(reachable));
                 }
+                self.maybe_ignore_inert_match_arm(arm, arm_idx, &mat.arms, ctx);
             } else {
                 let analysis = self.get_line_analysis(ctx.file.to_path_buf());
                 analysis.ignore_tokens(arm);
@@ -157,6 +158,56 @@ impl SourceAnalysis {
             analysis.ignore_tokens(mat);
             SubResult::Unreachable
         }
+    }
+
+    // LLVM doesn't always assign a coverage region to match arm patterns that are
+    // inert (i.e., static patterns that don't bind any names).
+    // In force-covered functions, this leads them to be reported as uncovered,
+    // so we mark such patterns as ignored. Bindings (`a =>`, `Some(x) =>`) and
+    // pattern guards do get a region, so they're left alone.
+    fn maybe_ignore_inert_match_arm(
+        &mut self,
+        arm: &Arm,
+        arm_idx: usize,
+        all_arms: &[Arm],
+        ctx: &Context,
+    ) {
+        if !pattern_is_inert(&arm.pat) {
+            return;
+        }
+        let pat_line = arm.pat.span().start().line;
+        let end_line = match &arm.guard {
+            Some((_, guard)) => guard.span().start().line,
+            None => {
+                let Expr::Block(b) = &*arm.body else {
+                    return;
+                };
+                let Some(first_stmt) = b.block.stmts.first() else {
+                    return;
+                };
+                first_stmt.span().start().line
+            }
+        };
+        if end_line <= pat_line {
+            return;
+        }
+        // Bail out if any sibling arm has content in the range we'd ignore —
+        // swallowing those rows would hide a sibling's coverage.
+        for (i, other) in all_arms.iter().enumerate() {
+            if i == arm_idx {
+                continue;
+            }
+            let s = other.pat.span().start().line;
+            let e = other.body.span().end().line;
+            if s < end_line && e >= pat_line {
+                return;
+            }
+        }
+        let analysis = self.get_line_analysis(ctx.file.to_path_buf());
+        if !analysis.is_force_covered(pat_line) {
+            return;
+        }
+        analysis.add_to_ignore(pat_line..end_line);
     }
 
     fn visit_if(&mut self, if_block: &ExprIf, ctx: &Context) -> SubResult {
@@ -223,6 +274,7 @@ impl SourceAnalysis {
                 analysis.ignore_tokens(loopex);
                 SubResult::Unreachable
             } else {
+                self.maybe_ignore_force_covered_loop_line(loopex, ctx);
                 SubResult::Definite
             }
         } else {
@@ -230,6 +282,25 @@ impl SourceAnalysis {
             analysis.ignore_tokens(loopex);
             SubResult::Definite
         }
+    }
+
+    // LLVM does not consistently anchor a coverage region to the `loop` keyword line.
+    // These might then be reported as coverage misses in force-covered functions,
+    // so we ignore `loop` lines in force-covered functions.
+    // Bail if the body's first statement shares the line (`loop { stmt }`), since
+    // ignoring would swallow the statement's coverage.
+    fn maybe_ignore_force_covered_loop_line(&mut self, loopex: &ExprLoop, ctx: &Context) {
+        let loop_line = loopex.loop_token.span().start().line;
+        if let Some(first_stmt) = loopex.body.stmts.first() {
+            if first_stmt.span().start().line <= loop_line {
+                return;
+            }
+        }
+        let analysis = self.get_line_analysis(ctx.file.to_path_buf());
+        if !analysis.is_force_covered(loop_line) {
+            return;
+        }
+        analysis.add_to_ignore([loop_line]);
     }
 
     fn visit_callable(&mut self, call: &ExprCall, ctx: &Context) -> SubResult {
@@ -324,6 +395,47 @@ impl SourceAnalysis {
         SubResult::Ok
     }
 }
+
+// A pattern is "inert" when matching it binds no name, i.e. it contains
+// only literals, existing idents, consts and passive syntactic structures.
+//
+// Syn can't distinguish `Pat::Ident` bindings from unit variants or constants
+// without name resolution. Use Rust's naming convention as a heuristic:
+// idents starting with uppercase are paths (types, variants, or
+// SCREAMING_SNAKE constants) and are treated as inert. Lowercase idents are
+// treated as bindings. The `non_snake_case` lint keeps the false-positive
+// risk negligible.
+fn pattern_is_inert(pat: &Pat) -> bool {
+    match pat {
+        Pat::Wild(_)
+        | Pat::Lit(_)
+        | Pat::Path(_)
+        | Pat::Const(_)
+        | Pat::Range(_)
+        | Pat::Rest(_) => true,
+        Pat::Or(o) => o.cases.iter().all(pattern_is_inert),
+        Pat::Paren(p) => pattern_is_inert(&p.pat),
+        Pat::Tuple(t) => t.elems.iter().all(pattern_is_inert),
+        Pat::TupleStruct(ts) => ts.elems.iter().all(pattern_is_inert),
+        Pat::Struct(s) => s.fields.iter().all(|f| pattern_is_inert(&f.pat)),
+        Pat::Reference(r) => pattern_is_inert(&r.pat),
+        Pat::Slice(s) => s.elems.iter().all(pattern_is_inert),
+        Pat::Ident(i) => pat_ident_is_path_by_convention(i),
+        _ => false,
+    }
+}
+
+fn pat_ident_is_path_by_convention(i: &PatIdent) -> bool {
+    i.by_ref.is_none()
+        && i.mutability.is_none()
+        && i.subpat.is_none()
+        && i.ident
+            .to_string()
+            .chars()
+            .next()
+            .is_some_and(|c| c.is_ascii_uppercase())
+}
+
 fn get_coverable_args(args: &Punctuated<Expr, Comma>) -> HashSet<usize> {
     let mut lines: HashSet<usize> = HashSet::new();
     for a in args.iter() {

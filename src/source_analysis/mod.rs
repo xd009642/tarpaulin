@@ -272,6 +272,12 @@ impl LineAnalysis {
             || (self.max_line > 0 && self.max_line < line)
     }
 
+    /// Returns true iff `line` is in the force-cover set populated by
+    /// `cover_span` (generic, `#[inline]`, or generic impl method bodies).
+    pub fn is_force_covered(&self, line: usize) -> bool {
+        self.cover.contains(&line)
+    }
+
     /// Adds a line to the list of lines to ignore
     fn add_to_ignore(&mut self, lines: impl IntoIterator<Item = usize>) {
         if !self.ignore.contains(&Lines::All) {
