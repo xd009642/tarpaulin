@@ -81,8 +81,8 @@ impl SourceAnalysis {
         let _guard = ctx.push_to_symbol_stack(module.ident.to_string());
         let analysis = self.get_line_analysis(ctx.file.to_path_buf());
         analysis.ignore_tokens(module.mod_token);
-        let check_insides = self.check_attr_list(&module.attrs, ctx);
-        if check_insides {
+        let should_cover = self.check_attr_list(&module.attrs, ctx);
+        if should_cover {
             if let Some((_, ref items)) = module.content {
                 self.process_items(items, ctx);
             }
@@ -94,14 +94,25 @@ impl SourceAnalysis {
                     self.ignore_nested_modules(items, ctx);
                 }
             } else {
-                // Get the file or directory name of the module
+                // This item was determined not to be covered, so we ignore it.
+                // Do a best-effort calculation of the path of the module
+                // corresponding to the mod item to ignore it.
+
+                // Get the file or directory name of the module containing the mod item
                 let mut p = if let Some(parent) = ctx.file.parent() {
                     parent.to_path_buf()
                 } else {
                     PathBuf::new()
                 };
-                if let Some(s) = ctx.file.file_stem().and_then(|x| x.to_str()) {
-                    p.push(s);
+                match ctx.file.file_stem().and_then(|x| x.to_str()) {
+                    Some(name) if ["lib", "mod", "main"].contains(&name) => {
+                        // skip because these segments are transparent in module tree
+                    }
+                    Some(name) => p.push(name),
+                    None => warn!(
+                        "Could not read file stem of {:?}; sub-module path may be wrong",
+                        ctx.file
+                    ),
                 }
                 let stack = ctx.symbol_stack.borrow();
                 for s in stack.iter().take(stack.len() - 1) {

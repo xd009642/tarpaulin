@@ -88,7 +88,7 @@ class App extends React.Component {
 
   updateStateFromLocation() {
     if (window.location.hash.length > 1) {
-      const current = window.location.hash.slice(1).split('/');
+      const current = window.location.hash.slice(1).split('/').map(decodeURIComponent);
       this.setState({current});
     } else {
       this.setState({current: []});
