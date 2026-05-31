@@ -13,6 +13,7 @@ fn coverage_below_threshold() {
     let test_dir = get_test_path("simple_project");
     env::set_current_dir(&test_dir).unwrap();
     let mut manifest = test_dir;
+    config.set_current_dir(manifest.clone());
     manifest.push("Cargo.toml");
     config.set_manifest(manifest);
     config.fail_under = Some(100.0);
@@ -37,6 +38,7 @@ fn coverage_above_threshold() {
     let test_dir = get_test_path("simple_project");
     env::set_current_dir(&test_dir).unwrap();
     let mut manifest = test_dir;
+    config.set_current_dir(manifest.clone());
     manifest.push("Cargo.toml");
     config.set_manifest(manifest);
     config.fail_under = Some(30.0);
@@ -55,6 +57,7 @@ fn report_coverage_fail() {
     let test_dir = get_test_path("simple_project");
     env::set_current_dir(&test_dir).unwrap();
     let mut manifest = test_dir.clone();
+    config.set_current_dir(manifest.clone());
     manifest.push("Cargo.toml");
     config.set_manifest(manifest);
     config.fail_under = Some(10.0);
@@ -65,6 +68,7 @@ fn report_coverage_fail() {
     let mut report = Config::default();
     report.name = "report".to_string();
     let mut manifest = test_dir;
+    config.set_current_dir(manifest.clone());
     manifest.push("Cargo.toml");
     report.set_manifest(manifest);
     report.fail_under = Some(99.0);
