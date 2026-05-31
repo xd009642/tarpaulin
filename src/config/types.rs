@@ -75,6 +75,7 @@ pub enum Mode {
 #[value(rename_all = "PascalCase")]
 pub enum RunType {
     Tests,
+    PerTest,
     Doctests,
     Benchmarks,
     Examples,

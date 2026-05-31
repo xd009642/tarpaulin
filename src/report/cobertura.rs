@@ -446,7 +446,7 @@ mod tests {
         assert_eq!(report.packages.len(), 2);
         assert_eq!(report.sources.len(), 1);
 
-        map.increment_hit(2);
+        map.increment_hit(2, None);
 
         let report = Report::render(&config, &map).unwrap();
         assert_eq!(report.lines_covered, 1);
