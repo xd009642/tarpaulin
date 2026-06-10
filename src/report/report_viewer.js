@@ -302,6 +302,10 @@ function FileContent({file}) {
     },
   };
 
+  if (window.matchMedia('(prefers-color-scheme: dark)').matches) {
+    document.documentElement.setAttribute('data-theme', 'dark');
+  }
+
   ReactDOM.render(e(App, {root, prevFilesMap}), document.getElementById('root'));
 
   const toggle = document.getElementById('theme-toggle');
