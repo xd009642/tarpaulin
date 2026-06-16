@@ -13,6 +13,7 @@ use std::fmt;
 /// One logical step in a thread's execution.
 /// Each Step produces a WaitStatus once the thread is continued/stepped to it.
 #[derive(Debug, Clone)]
+#[allow(dead_code)]
 pub enum ThreadStep {
     /// Nothing happens in this step (can also use this before the TID has started)
     None,
@@ -99,7 +100,7 @@ impl MockBuilder {
     pub fn breakpoint(mut self, addr: u64) -> Self {
         self.push_step(ThreadStep::Breakpoint(addr));
         // pre-populate the image so read_address returns something non-zero
-        self.image.entry(addr).or_insert(0xDEAD_BEEF); // ends with INT3
+        self.image.entry(addr & !0x7).or_insert(0xDEAD_BEEF); // ends with INT3
         self
     }
 
@@ -116,6 +117,7 @@ impl MockBuilder {
     }
 
     /// Thread clones a new child.
+    #[allow(dead_code)]
     pub fn clone_child(mut self, child_raw_pid: i32) -> Self {
         self.push_step(ThreadStep::Clone(Pid::from_raw(child_raw_pid)));
         self
@@ -126,7 +128,12 @@ impl MockBuilder {
         self
     }
 
+    pub fn delay(self) -> Self {
+        self.noop()
+    }
+
     /// Add a known address to the binary image (for read/write_address testing).
+    #[allow(dead_code)]
     pub fn with_image_byte(mut self, addr: u64, value: c_long) -> Self {
         self.image.insert(addr, value);
         self
@@ -172,6 +179,8 @@ struct ProcessState {
     instruction_pointer: u64,
     /// Steps that have fired but not yet drained by next_events
     pending_wait: Option<WaitStatus>,
+    /// Event data returned by ptrace for fork/clone/exec events.
+    pending_event_data: Option<c_long>,
 }
 
 /// A fully in-process mock implementation of `EventSource`.
@@ -247,6 +256,7 @@ impl MockEventSource {
                     parent,
                     instruction_pointer: 0,
                     pending_wait: None,
+                    pending_event_data: None,
                 },
             );
         }
@@ -280,25 +290,28 @@ impl MockEventSource {
                 proc.state = PidState::Dead;
                 proc.pending_wait = Some(WaitStatus::Exited(pid, code));
             }
-            ThreadStep::Clone(_child_pid) => {
+            ThreadStep::Clone(child_pid) => {
                 // The clone event itself is a ptrace stop on the parent
                 proc.state = PidState::Stopped;
+                proc.pending_event_data = Some(child_pid.as_raw().into());
                 proc.pending_wait = Some(WaitStatus::PtraceEvent(
                     pid,
                     Signal::SIGTRAP,
                     nix::libc::PTRACE_EVENT_CLONE as i32,
                 ));
             }
-            ThreadStep::Exec(_new_pid) => {
+            ThreadStep::Exec(new_pid) => {
                 proc.state = PidState::Stopped;
+                proc.pending_event_data = Some(new_pid.as_raw().into());
                 proc.pending_wait = Some(WaitStatus::PtraceEvent(
                     pid,
                     Signal::SIGTRAP,
                     nix::libc::PTRACE_EVENT_EXEC as i32,
                 ));
             }
-            ThreadStep::Fork(_new_pid) => {
+            ThreadStep::Fork(new_pid) => {
                 proc.state = PidState::Stopped;
+                proc.pending_event_data = Some(new_pid.as_raw().into());
                 proc.pending_wait = Some(WaitStatus::PtraceEvent(
                     pid,
                     Signal::SIGTRAP,
@@ -335,12 +348,23 @@ impl MockEventSource {
         }
     }
 
+    fn advance_running_processes(&self) {
+        let mut inner = self.inner.borrow_mut();
+
+        for state in inner.processes.values_mut() {
+            if state.pending_wait.is_none() && state.state == PidState::Running {
+                Self::advance_process(state);
+            }
+        }
+    }
+
     /// Test helper: get a snapshot of all tracer actions so far.
     pub fn action_log(&self) -> Vec<TraceAction> {
         self.inner.borrow().action_log.clone()
     }
 
     /// Test helper: how many times was this address written with INT3?
+    #[allow(dead_code)]
     pub fn breakpoint_set_count(&self, addr: u64) -> usize {
         self.inner
             .borrow()
@@ -355,6 +379,7 @@ impl MockEventSource {
 
     /// Test helper: is there any pid still stopped with a dangling INT3 written?
     /// A dangling breakpoint = INT3 is in the image but no pending step to restore it.
+    #[allow(dead_code)]
     pub fn has_dangling_breakpoints(&self) -> bool {
         let inner = self.inner.borrow();
         inner.breakpoints.keys().any(|addr| {
@@ -404,6 +429,7 @@ impl EventSource for MockEventSource {
     fn next_events(&self, wait_queue: &mut Vec<WaitStatus>) -> Result<Option<TestState>, RunError> {
         println!("{}", self);
         self.advance_dormant_stages();
+        self.advance_running_processes();
 
         let mut result = None;
 
@@ -422,7 +448,12 @@ impl EventSource for MockEventSource {
 
     fn get_event_data(&self, pid: Pid) -> nix::Result<c_long> {
         println!("Get event data(pid={})", pid);
-        Ok(0)
+        self.inner
+            .borrow_mut()
+            .processes
+            .get_mut(&pid)
+            .and_then(|p| p.pending_event_data.take())
+            .ok_or(nix::errno::Errno::EINVAL)
     }
 
     fn continue_pid(&self, pid: Pid, signal: Option<Signal>) -> nix::Result<()> {
@@ -430,24 +461,7 @@ impl EventSource for MockEventSource {
         let mut inner = self.inner.borrow_mut();
         inner.action_log.push(TraceAction::ContinuePid(pid, signal));
 
-        // Find the root process pid — either this pid is itself a root,
-        // or it's a thread whose parent is the root.
-        let root = inner
-            .processes
-            .get(&pid)
-            .and_then(|p| p.parent)
-            .unwrap_or(pid);
-
-        // Advance all threads belonging to this process group
-        let pids: Vec<Pid> = inner
-            .processes
-            .iter()
-            .filter(|(_, p)| p.scenario.pid == root || p.parent == Some(root))
-            .map(|(pid, _)| *pid)
-            .collect();
-
-        for pid in pids {
-            let proc = inner.processes.get_mut(&pid).unwrap();
+        if let Some(proc) = inner.processes.get_mut(&pid) {
             if proc.state == PidState::Stopped {
                 proc.state = PidState::Running;
                 MockEventSource::advance_process(proc);
@@ -566,10 +580,8 @@ impl EventSource for MockEventSource {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::statemachine::{
-        linux::{create_state_machine, LinuxData},
-        *,
-    };
+    use crate::statemachine::linux::{create_state_machine, LinuxData};
+    use crate::statemachine::TestState;
     use crate::traces::{CoverageStat, Trace, TraceMap};
     use crate::TestHandle;
     use std::path::Path;
