@@ -23,6 +23,9 @@ cfg_if::cfg_if! {
 
         pub mod event_source;
 
+        #[cfg(test)]
+        pub mod mock_event_source;
+
         pub type ProcessHandle = nix::unistd::Pid;
     } else {
         pub type ProcessHandle = u64;
