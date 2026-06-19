@@ -130,8 +130,7 @@ pub fn trace(configs: &[Config]) -> Result<(TraceMap, i32), RunError> {
     // It's OK that bad_threshold, tarpaulin_result may be overwritten in a loop
     if let Err(bad_limit) = bad_threshold {
         // Failure threshold probably more important than reporting failing
-        tracemap.append_settings(configs.iter().map(Config::get_tracemap_settings).collect());
-        let _ = report_coverage(&configs[0], &tracemap);
+        let _ = report_tracemap(configs, tracemap);
         Err(bad_limit)
     } else if ret == 0 {
         tarpaulin_result.map(|_| (tracemap, fail_fast_ret))

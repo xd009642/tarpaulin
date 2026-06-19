@@ -7,6 +7,9 @@ file.
 ### Added
 - Cargo 1.94 onward the `CARGO_BIN_EXE_` env vars are now set at test runtime, replicate this when running under tarpaulin #1833
 
+### Fixed
+- Fix report generation when coverage is below threshold #1852
+
 ## [0.35.4] 2026-04-25
 ### Changed
 - Revert gimli to a non-yanked version
