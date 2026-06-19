@@ -871,7 +871,7 @@ mod tests {
 
     #[test]
     fn delayed_fork_child_breakpoint_resolves_parent_via_ppid() {
-        // When we add a process it's all the steps for that process from the start of execution 
+        // When we add a process it's all the steps for that process from the start of execution
         // meaning you have to mentally realign them. During initial delays the pid may not yet
         // exist.
         let source = MockEventSource::build()
