@@ -3,6 +3,10 @@
 From 2019 onwards, all notable changes to tarpaulin will be documented in this
 file.
 
+## [Unreleased]
+### Added
+- Cargo 1.94 onward the `CARGO_BIN_EXE_` env vars are now set at test runtime, replicate this when running under tarpaulin #1833
+
 ## [0.35.4] 2026-04-25
 ### Changed
 - Revert gimli to a non-yanked version

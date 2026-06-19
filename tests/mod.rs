@@ -324,6 +324,14 @@ fn access_env_var() {
 }
 
 #[test]
+fn cargo_bin_exe_runtime_env() {
+    let mut config = Config::default();
+    config.set_include_tests(true);
+    config.set_clean(false);
+    run_config("cargo_bin_exe_runtime", config);
+}
+
+#[test]
 fn tarpaulin_attrs() {
     check_percentage("tarpaulin_attrs", 0.0f64, true);
 }
