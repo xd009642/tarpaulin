@@ -1,7 +1,8 @@
 use crate::config::Config;
 use std::collections::HashMap;
 use std::env;
-use std::path::Path;
+use std::ffi::OsString;
+use std::path::{Path, PathBuf};
 use tracing::warn;
 
 #[derive(Debug, Default)]
@@ -9,6 +10,13 @@ pub struct CargoConfigFields {
     pub rust_doc_flags: Vec<String>,
     pub rust_flags: Vec<String>,
     pub env_vars: HashMap<String, String>,
+    pub target_runner: Option<CargoTargetRunner>,
+}
+
+#[derive(Clone, Debug, Eq, PartialEq)]
+pub struct CargoTargetRunner {
+    pub path: PathBuf,
+    pub args: Vec<OsString>,
 }
 
 fn resolve_value(path: &Path, name: &str, value: &cargo_config2::EnvConfigValue) -> Option<String> {
@@ -35,16 +43,28 @@ pub fn get_cargo_config(config: &Config) -> CargoConfigFields {
     };
 
     let mut result = CargoConfigFields::default();
-    if let Some(rust_flags) = cargo_config.build.rustflags {
-        result.rust_flags = rust_flags.flags;
+    if let Some(rust_flags) = cargo_config.build.rustflags.as_ref() {
+        result.rust_flags = rust_flags.flags.clone();
     }
-    if let Some(rust_flags) = cargo_config.build.rustdocflags {
-        result.rust_doc_flags = rust_flags.flags;
+    if let Some(rust_flags) = cargo_config.build.rustdocflags.as_ref() {
+        result.rust_doc_flags = rust_flags.flags.clone();
     }
     let root = config.root();
     for (key, value) in &cargo_config.env {
         if let Some(value) = resolve_value(&root, key.as_str(), value) {
             result.env_vars.insert(key.to_string(), value);
+        }
+    }
+    if let Some(target) = config.target.as_ref() {
+        match cargo_config.runner(target.as_str()) {
+            Ok(Some(runner)) => {
+                result.target_runner = Some(CargoTargetRunner {
+                    path: runner.path,
+                    args: runner.args,
+                });
+            }
+            Ok(None) => {}
+            Err(e) => warn!("Unable to read target runner from cargo config: {}", e),
         }
     }
 

@@ -228,6 +228,23 @@ fn get_env_vars(
     envars
 }
 
+fn llvm_test_command(
+    test_path: &Path,
+    cargo_config: &CargoConfigFields,
+    argv: &[String],
+) -> Command {
+    let mut cmd = match cargo_config.target_runner.as_ref() {
+        Some(runner) => {
+            let mut cmd = Command::new(&runner.path);
+            cmd.args(&runner.args).arg(test_path);
+            cmd
+        }
+        None => Command::new(test_path),
+    };
+    cmd.args(argv);
+    cmd
+}
+
 /// Launches the test executable
 fn execute_test(
     test: &TestBinary,
@@ -285,8 +302,8 @@ fn execute_test(
             ));
             debug!("Env vars: {:?}", envars);
             debug!("Args: {:?}", argv);
-            let mut child = Command::new(test.path());
-            child.envs(envars).args(&argv);
+            let mut child = llvm_test_command(test.path(), &cargo_config, &argv);
+            child.envs(envars);
             let others = other_binaries.to_vec();
             let hnd = RunningProcessHandle::new(test, others, &mut child, config)?;
             Ok(hnd.into())
@@ -305,6 +322,8 @@ fn execute_test(
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::cargo::CargoTargetRunner;
+    use std::ffi::OsString;
     use std::path::PathBuf;
 
     #[test]
@@ -330,5 +349,60 @@ mod tests {
         assert!(res.is_some());
         let res = res.unwrap();
         assert!(res.contains("/usr/local/lib/foo"));
+    }
+
+    fn command_parts(cmd: &Command) -> (OsString, Vec<OsString>) {
+        (
+            cmd.get_program().to_os_string(),
+            cmd.get_args().map(|x| x.to_os_string()).collect(),
+        )
+    }
+
+    #[test]
+    fn llvm_command_runs_test_directly_without_runner() {
+        let cargo_config = CargoConfigFields::default();
+        let argv = vec!["--exact".to_string(), "my_test".to_string()];
+        let cmd = llvm_test_command(Path::new("target/debug/deps/foo"), &cargo_config, &argv);
+        let (program, args) = command_parts(&cmd);
+
+        assert_eq!(program, OsString::from("target/debug/deps/foo"));
+        assert_eq!(
+            args,
+            vec![OsString::from("--exact"), OsString::from("my_test")]
+        );
+    }
+
+    #[test]
+    fn llvm_command_runs_test_through_target_runner() {
+        let cargo_config = CargoConfigFields {
+            target_runner: Some(CargoTargetRunner {
+                path: PathBuf::from("wasm-bindgen-test-runner"),
+                args: vec![OsString::from("--node")],
+            }),
+            ..Default::default()
+        };
+        let argv = vec![
+            "--ignored".to_string(),
+            "--color".to_string(),
+            "always".to_string(),
+        ];
+        let cmd = llvm_test_command(
+            Path::new("target/wasm32/debug/deps/foo.wasm"),
+            &cargo_config,
+            &argv,
+        );
+        let (program, args) = command_parts(&cmd);
+
+        assert_eq!(program, OsString::from("wasm-bindgen-test-runner"));
+        assert_eq!(
+            args,
+            vec![
+                OsString::from("--node"),
+                OsString::from("target/wasm32/debug/deps/foo.wasm"),
+                OsString::from("--ignored"),
+                OsString::from("--color"),
+                OsString::from("always"),
+            ]
+        );
     }
 }
