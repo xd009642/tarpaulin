@@ -435,9 +435,10 @@ will speed up your CI runs.
 Alternatively, there are the prebuilt docker images or you can use
 [cargo-binstall](https://github.com/cargo-bins/cargo-binstall).
 
-The prebuilt binary is built using github actions ubuntu:latest image, because of this it
-doesn't work on xenial or trusty, but it works on bionic. You should still keep the rest
-of the recommended travis settings.
+The GNU Linux prebuilt binaries are built against glibc 2.31, matching Debian bullseye
+and Ubuntu 20.04. If you need to run on an older distribution, use the musl release
+artifact with `cargo-binstall --target x86_64-unknown-linux-musl` or install from
+source with `cargo install`.
 
 ### GitHub Actions
 

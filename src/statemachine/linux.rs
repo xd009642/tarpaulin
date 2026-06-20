@@ -42,7 +42,7 @@ pub struct LinuxData<'a> {
     processes: HashMap<Pid, TracedProcess>,
     /// Map from pids to their parent
     pid_map: HashMap<Pid, Pid>,
-    event_source: Rc<dyn EventSource>,
+    pub(crate) event_source: Rc<dyn EventSource>,
     /// So if we have the exit code but we're also waiting for all the spawned processes to end
     exit_code: Option<i32>,
 }
@@ -770,26 +770,243 @@ impl<'a> LinuxData<'a> {
 
 #[cfg(test)]
 mod tests {
+    use crate::process_handling::mock_event_source::{MockEventSource, TraceAction};
+
     use super::*;
-    use nix::unistd::*;
-    use std::time::Duration;
+    use crate::traces::CoverageStat;
+    use std::path::Path;
+    use test_log::test;
+
+    struct LinuxSimulation {
+        parent_pid: Pid,
+        source: MockEventSource,
+        tracemap: TraceMap,
+        max_steps: usize,
+    }
+
+    #[derive(Debug)]
+    struct SimulationResult {
+        source: Rc<MockEventSource>,
+        tracemap: TraceMap,
+    }
+
+    impl LinuxSimulation {
+        fn new(parent_pid: i32, source: MockEventSource) -> Self {
+            Self {
+                parent_pid: Pid::from_raw(parent_pid),
+                source,
+                tracemap: TraceMap::new(),
+                max_steps: 100,
+            }
+        }
+
+        fn with_trace(mut self, address: u64, line: u64) -> Self {
+            let addresses = [address].iter().copied().collect();
+            self.tracemap
+                .add_trace(Path::new("src/main.rs"), Trace::new(line, addresses, 1));
+            self
+        }
+
+        fn run(self) -> SimulationResult {
+            self.run_result().unwrap()
+        }
+
+        fn run_result(mut self) -> Result<SimulationResult, RunError> {
+            let source = Rc::new(self.source);
+            let event_source: Rc<dyn EventSource> = source.clone();
+
+            source.continue_pid(self.parent_pid, None).unwrap();
+
+            let analysis = HashMap::new();
+            let mut config = Config::default();
+            config.follow_exec = true;
+            let test_handle = TestHandle::Id(self.parent_pid);
+
+            {
+                let (mut test_state, mut linux_data) = create_state_machine(
+                    test_handle,
+                    &mut self.tracemap,
+                    &analysis,
+                    &config,
+                    &None,
+                );
+
+                linux_data.event_source = event_source;
+
+                for i in 0..self.max_steps {
+                    println!("Step {}", i);
+                    test_state = test_state.step(&mut linux_data, &config)?;
+                    if test_state.is_finished() {
+                        return Ok(SimulationResult {
+                            source,
+                            tracemap: self.tracemap,
+                        });
+                    }
+                }
+            }
+
+            panic!(
+                "Test didn't end in {} steps. Unexpectedly long simulation",
+                self.max_steps
+            );
+        }
+    }
+
+    impl SimulationResult {
+        fn covered_hits(&self, address: u64) -> u64 {
+            match self
+                .tracemap
+                .get_trace(address)
+                .map(|trace| trace.stats.clone())
+            {
+                Some(CoverageStat::Line(hits)) => hits,
+                _ => 0,
+            }
+        }
+
+        fn actions(&self) -> Vec<TraceAction> {
+            self.source.action_log()
+        }
+    }
 
     #[test]
-    fn fork_parent_identified() {
-        match unsafe { fork() } {
-            Ok(ForkResult::Parent { child }) => {
-                let mut tracemap = TraceMap::new();
-                let analysis = HashMap::new();
-                let config = Config::default();
-                let data = LinuxData::new(&mut tracemap, &analysis, &config, &None);
+    fn delayed_fork_child_breakpoint_resolves_parent_via_ppid() {
+        // When we add a process it's all the steps for that process from the start of execution
+        // meaning you have to mentally realign them. During initial delays the pid may not yet
+        // exist.
+        let source = MockEventSource::build()
+            .process(100)
+            .signal(Signal::SIGTRAP)
+            .breakpoint(1000)
+            .delay()
+            .delay()
+            .delay()
+            .delay()
+            .fork_child(101)
+            .exit(0)
+            .process(101)
+            .parent(100)
+            .delay()
+            .delay()
+            .signal(Signal::SIGSTOP)
+            .breakpoint(1000)
+            .exit(0)
+            .finish();
 
-                assert_eq!(data.get_parent(child), Some(Pid::this()));
-                //child
-            }
-            Ok(ForkResult::Child) => {
-                std::thread::sleep(Duration::from_secs(5));
-            }
-            Err(e) => panic!("Fork failed: {}", e),
-        }
+        let result = LinuxSimulation::new(100, source).with_trace(1000, 5).run();
+
+        assert_eq!(result.covered_hits(1000), 2);
+        assert!(
+            result
+                .actions()
+                .contains(&TraceAction::SetInstructionPointer(
+                    Pid::from_raw(101),
+                    1000
+                )),
+            "child breakpoint was not processed through the parent trace state"
+        );
+    }
+
+    #[test]
+    fn fork_event_before_child_breakpoint_uses_pid_map() {
+        let source = MockEventSource::build()
+            .process(100)
+            .signal(Signal::SIGTRAP)
+            .breakpoint(1000)
+            .fork_child(101)
+            .delay()
+            .delay()
+            .delay()
+            .delay()
+            .delay()
+            .exit(0)
+            .process(101)
+            .parent(100)
+            .delay()
+            .delay()
+            .delay()
+            .signal(Signal::SIGSTOP)
+            .breakpoint(1000)
+            .exit(0)
+            .finish();
+
+        let result = LinuxSimulation::new(100, source).with_trace(1000, 5).run();
+
+        assert_eq!(result.covered_hits(1000), 2);
+        assert!(
+            result
+                .actions()
+                .contains(&TraceAction::SetInstructionPointer(
+                    Pid::from_raw(101),
+                    1000
+                )),
+            "child breakpoint was not processed through pid_map"
+        );
+    }
+
+    #[test]
+    fn delayed_fork_without_parent_metadata_cannot_resolve_child() {
+        let source = MockEventSource::build()
+            .process(100)
+            .signal(Signal::SIGTRAP)
+            .breakpoint(1000)
+            .delay()
+            .delay()
+            .delay()
+            .delay()
+            .fork_child(101)
+            .exit(0)
+            .process(101)
+            .delay()
+            .delay()
+            .signal(Signal::SIGSTOP)
+            .breakpoint(1000)
+            .exit(0)
+            .finish();
+
+        let result = LinuxSimulation::new(100, source).with_trace(1000, 5).run();
+
+        assert_eq!(result.covered_hits(1000), 1);
+        assert!(
+            !result
+                .actions()
+                .contains(&TraceAction::SetInstructionPointer(
+                    Pid::from_raw(101),
+                    1000
+                )),
+            "child breakpoint unexpectedly resolved without parent metadata"
+        );
+    }
+
+    #[test]
+    fn sigill_failure_trace_window_maps_to_delayed_fork_simulation() {
+        let source = MockEventSource::build()
+            .process(3941)
+            .signal(Signal::SIGTRAP)
+            .delay()
+            .delay()
+            .delay()
+            .delay()
+            .fork_child(3946)
+            .exit(0)
+            .process(3946)
+            .delay()
+            .signal(Signal::SIGSTOP)
+            .breakpoint(93824992650301)
+            .signal(Signal::SIGILL)
+            .exit(1)
+            .finish();
+
+        let err = LinuxSimulation::new(3941, source)
+            .with_trace(93824992650301, 13)
+            .run_result()
+            .unwrap_err();
+
+        let message = format!("{err:?}");
+        assert!(
+            message.contains("SIGILL"),
+            "expected converted trace window to reproduce the SIGILL path, got {}",
+            message
+        );
     }
 }

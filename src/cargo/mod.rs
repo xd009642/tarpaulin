@@ -1,7 +1,9 @@
 use crate::config::*;
 use crate::errors::RunError;
 use crate::path_utils::{fix_unc_path, get_source_walker};
-use cargo_metadata::{diagnostic::DiagnosticLevel, CargoOpt, Message, Metadata, MetadataCommand};
+use cargo_metadata::{
+    diagnostic::DiagnosticLevel, CargoOpt, Message, Metadata, MetadataCommand, PackageId,
+};
 use regex::Regex;
 use serde::{Deserialize, Serialize};
 use std::collections::{HashMap, HashSet};
@@ -77,6 +79,8 @@ pub struct TestBinary {
     /// `Self::has_linker_paths` and `Self::ld_library_path` as there may be interaction with
     /// current environment. It's only made pub(crate) for the purpose of testing.
     pub(crate) linker_paths: Vec<PathBuf>,
+    pub(crate) cargo_bin_exe_paths: Vec<(String, PathBuf)>,
+    provides_cargo_bin_exe: bool,
     // Env vars grabbed from places like .cargo/config that may be project/workspace specific
     //pub env_vars: Vec<String>,
 }
@@ -98,6 +102,8 @@ impl TestBinary {
             cargo_dir: None,
             should_panic: false,
             linker_paths: vec![],
+            cargo_bin_exe_paths: vec![],
+            provides_cargo_bin_exe: false,
         }
     }
 
@@ -330,6 +336,7 @@ fn run_cargo(
 
     if ty != Some(RunType::Doctests) {
         let mut package_ids = vec![None; result.test_binaries.len()];
+        let mut package_bin_paths: HashMap<PackageId, Vec<(String, PathBuf)>> = HashMap::new();
         let reader = std::io::BufReader::new(child.stdout.take().unwrap());
         let mut error = None;
         for msg in Message::parse_stream(reader) {
@@ -337,12 +344,27 @@ fn run_cargo(
                 Ok(Message::CompilerArtifact(art)) => {
                     if let Some(path) = art.executable.as_ref() {
                         if !art.profile.test && config.command == Mode::Test {
+                            if art.target.is_bin() {
+                                package_bin_paths
+                                    .entry(art.package_id.clone())
+                                    .or_default()
+                                    .push((
+                                        art.target.name.clone(),
+                                        fix_unc_path(path.as_std_path()),
+                                    ));
+                            }
                             result.binaries.push(PathBuf::from(path));
                             continue;
                         }
-                        result
-                            .test_binaries
-                            .push(TestBinary::new(fix_unc_path(path.as_std_path()), ty));
+                        let mut test_binary = TestBinary::new(fix_unc_path(path.as_std_path()), ty);
+                        let provide_cargo_bin_exe = art.target.is_test() || art.target.is_bench();
+                        test_binary.provides_cargo_bin_exe = provide_cargo_bin_exe;
+                        if provide_cargo_bin_exe {
+                            if let Some(paths) = package_bin_paths.get(&art.package_id) {
+                                test_binary.cargo_bin_exe_paths = paths.clone();
+                            }
+                        }
+                        result.test_binaries.push(test_binary);
                         package_ids.push(Some(art.package_id.clone()));
                     }
                 }
@@ -402,6 +424,11 @@ fn run_cargo(
         {
             if let Some(package) = package {
                 let package = &metadata[package];
+                if res.provides_cargo_bin_exe {
+                    if let Some(paths) = package_bin_paths.get(&package.id) {
+                        res.cargo_bin_exe_paths = paths.clone();
+                    }
+                }
                 res.cargo_dir = package
                     .manifest_path
                     .parent()

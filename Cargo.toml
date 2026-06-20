@@ -1,6 +1,6 @@
 [package]
 name = "cargo-tarpaulin"
-version = "0.35.4"
+version = "0.35.5"
 authors = ["Daniel McKenna <danielmckenna93@gmail.com>"]
 description = "Cargo-Tarpaulin is a tool to determine code coverage achieved via tests"
 repository = "https://github.com/xd009642/tarpaulin"
@@ -32,7 +32,7 @@ indexmap = { version = "~1.8", features = ["serde-1"] }
 llvm_profparser = { version = "0.10",  default-features = false }
 object = "0.39"
 proc-macro2 = { version = "1.0", features = ["span-locations"] }
-quick-xml = "0.39"
+quick-xml = "0.40"
 quote = "1.0"
 regex = "1.12"
 rustc-demangle = "0.1.27"
@@ -55,7 +55,7 @@ cargo-config2 = "0.1.44"
 
 [target.'cfg(all(target_os = "linux", any(target_arch = "x86_64", target_arch = "x86")))'.dependencies]
 libc = "0.2.184"
-nix = {version = "0.31.2", default-features = false, features = ["sched", "signal", "ptrace", "personality"]}
+nix = {version = "0.31.3", default-features = false, features = ["sched", "signal", "ptrace", "personality"]}
 num_cpus = "1.17.0"
 procfs = "0.18"
 

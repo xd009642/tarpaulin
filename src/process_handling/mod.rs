@@ -23,6 +23,9 @@ cfg_if::cfg_if! {
 
         pub mod event_source;
 
+        #[cfg(test)]
+        pub mod mock_event_source;
+
         pub type ProcessHandle = nix::unistd::Pid;
     } else {
         pub type ProcessHandle = u64;
@@ -213,6 +216,9 @@ fn get_env_vars(
     }
     if let Some(s) = test.manifest_dir() {
         envars.insert("CARGO_MANIFEST_DIR".to_string(), s.display().to_string());
+    }
+    for (name, path) in &test.cargo_bin_exe_paths {
+        envars.insert(format!("CARGO_BIN_EXE_{name}"), path.display().to_string());
     }
     if test.has_linker_paths() {
         envars.insert(LD_PATH_VAR.to_string(), test.ld_library_path());

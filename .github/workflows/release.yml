@@ -35,20 +35,36 @@ jobs:
       matrix:
         include:
           - target: x86_64-unknown-linux-gnu
+            build-target: x86_64-unknown-linux-gnu.2.31
+            build-tool: cargo-zigbuild
             os: ubuntu-latest
           - target: x86_64-unknown-linux-musl
+            build-target: x86_64-unknown-linux-musl
+            build-tool: cargo
             os: ubuntu-latest
           - target: x86_64-apple-darwin
+            build-target: x86_64-apple-darwin
+            build-tool: cargo
             os: macos-latest
           - target: x86_64-pc-windows-msvc
+            build-target: x86_64-pc-windows-msvc
+            build-tool: cargo
             os: windows-latest
           - target: aarch64-unknown-linux-gnu
+            build-target: aarch64-unknown-linux-gnu.2.31
+            build-tool: cargo-zigbuild
             os: ubuntu-latest
           - target: aarch64-unknown-linux-musl
+            build-target: aarch64-unknown-linux-musl
+            build-tool: cargo
             os: ubuntu-latest
           - target: aarch64-apple-darwin
+            build-target: aarch64-apple-darwin
+            build-tool: cargo
             os: macos-latest
           - target: universal-apple-darwin
+            build-target: universal-apple-darwin
+            build-tool: cargo
             os: macos-latest
     runs-on: ${{ matrix.os }}
     steps:
@@ -57,7 +73,11 @@ jobs:
       - uses: taiki-e/upload-rust-binary-action@v1
         with:
           bin: cargo-tarpaulin
-          target: ${{ matrix.target }}
+          # Keep the public archive target stable for cargo-binstall while
+          # pinning GNU Linux artifacts to Debian bullseye's glibc floor.
+          archive: cargo-tarpaulin-${{ matrix.target }}
+          target: ${{ matrix.build-target }}
+          build-tool: ${{ matrix.build-tool }}
           features: vendored-openssl
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}

@@ -1,8 +1,11 @@
 use crate::utils::get_test_path;
 use cargo_tarpaulin::run;
-use cargo_tarpaulin::{config::Config, errors::RunError};
+use cargo_tarpaulin::{
+    config::{Config, OutputFile},
+    errors::RunError,
+};
 use rusty_fork::rusty_fork_test;
-use std::{env, path::PathBuf};
+use std::{env, fs, path::PathBuf};
 use test_log::test;
 
 rusty_fork_test! {
@@ -78,6 +81,39 @@ fn report_coverage_fail() {
     } else {
         panic!("Wrong error type {}", result.unwrap_err());
     }
+}
+
+#[test]
+fn report_generated_when_coverage_config_fails_threshold() {
+    let mut config = Config::default();
+    let test_dir = get_test_path("simple_project");
+    env::set_current_dir(&test_dir).unwrap();
+    let manifest = test_dir.join("Cargo.toml");
+    config.set_manifest(manifest.clone());
+    config.fail_under = Some(100.0);
+    config.set_clean(false);
+    config.set_include_tests(true);
+    config.set_profraw_folder(PathBuf::from(
+        "report_generated_when_coverage_config_fails_threshold",
+    ));
+
+    let report_dir = test_dir.join("reports_fail_under");
+    let _ = fs::remove_dir_all(&report_dir);
+
+    let mut report = Config::default();
+    report.name = "report".to_string();
+    report.set_manifest(manifest);
+    report.set_clean(false);
+    report.output_directory = Some(report_dir.clone());
+    report.generate.push(OutputFile::Html);
+
+    let result = run(&[config, report]);
+
+    assert!(matches!(result, Err(RunError::BelowThreshold(_, 100.0))));
+    assert!(report_dir.join("tarpaulin-report.html").exists());
+
+    fs::remove_dir_all(&report_dir)
+        .expect("failed to remove generated fail-under report directory");
 }
 
 }
