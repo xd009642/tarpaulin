@@ -40,7 +40,7 @@ jobs:
             os: ubuntu-latest
           - target: x86_64-unknown-linux-musl
             build-target: x86_64-unknown-linux-musl
-            build-tool: cargo
+            build-tool: cargo-zigbuild
             os: ubuntu-latest
           - target: x86_64-apple-darwin
             build-target: x86_64-apple-darwin
@@ -56,7 +56,7 @@ jobs:
             os: ubuntu-latest
           - target: aarch64-unknown-linux-musl
             build-target: aarch64-unknown-linux-musl
-            build-tool: cargo
+            build-tool: cargo-zigbuild
             os: ubuntu-latest
           - target: aarch64-apple-darwin
             build-target: aarch64-apple-darwin
