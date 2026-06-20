@@ -3,7 +3,7 @@
 From 2019 onwards, all notable changes to tarpaulin will be documented in this
 file.
 
-## [Unreleased]
+## [0.35.5] 2026-06-21
 ### Added
 - Cargo 1.94 onward the `CARGO_BIN_EXE_` env vars are now set at test runtime, replicate this when running under tarpaulin #1833
 
