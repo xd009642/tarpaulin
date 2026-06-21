@@ -12,6 +12,7 @@ use clap::Parser;
 use regex::Regex;
 use rusty_fork::rusty_fork_test;
 use std::collections::HashSet;
+use std::ffi::OsStr;
 #[cfg(windows)]
 use std::io;
 use std::path::Path;
@@ -31,6 +32,18 @@ mod line_coverage;
 mod test_types;
 mod utils;
 mod workspaces;
+
+pub(crate) fn set_env_var<K: AsRef<OsStr>, V: AsRef<OsStr>>(key: K, value: V) {
+    unsafe {
+        env::set_var(key, value);
+    }
+}
+
+pub(crate) fn remove_env_var<K: AsRef<OsStr>>(key: K) {
+    unsafe {
+        env::remove_var(key);
+    }
+}
 
 pub fn check_percentage_with_cli_args(
     minimum_coverage: f64,
@@ -236,8 +249,8 @@ fn llvm_uses_configured_target_runner() {
     let previous_marker = env::var_os("TARPAULIN_RUNNER_MARKER");
     let marker = temp_dir.join("runner.marker");
 
-    env::set_var(&runner_env, &runner);
-    env::set_var("TARPAULIN_RUNNER_MARKER", &marker);
+    set_env_var(&runner_env, &runner);
+    set_env_var("TARPAULIN_RUNNER_MARKER", &marker);
 
     let mut config = Config::default();
     config.set_engine(TraceEngine::Llvm);
@@ -247,12 +260,12 @@ fn llvm_uses_configured_target_runner() {
     check_percentage_with_config("simple_project", 0.5f64, true, config);
 
     match previous_runner {
-        Some(value) => env::set_var(&runner_env, value),
-        None => env::remove_var(&runner_env),
+        Some(value) => set_env_var(&runner_env, value),
+        None => remove_env_var(&runner_env),
     }
     match previous_marker {
-        Some(value) => env::set_var("TARPAULIN_RUNNER_MARKER", value),
-        None => env::remove_var("TARPAULIN_RUNNER_MARKER"),
+        Some(value) => set_env_var("TARPAULIN_RUNNER_MARKER", value),
+        None => remove_env_var("TARPAULIN_RUNNER_MARKER"),
     }
 
     assert!(marker.is_file(), "target runner should write its marker");
@@ -445,13 +458,13 @@ fn cargo_home_filtering() {
     manifest.push("Cargo.toml");
     config.set_manifest(manifest);
 
-    env::set_var("CARGO_HOME", new_home.display().to_string());
+    set_env_var("CARGO_HOME", new_home.display().to_string());
     let run = launch_tarpaulin(&config, &None);
     let _ = fs::remove_dir_all(&new_home);
     match previous {
-        Ok(s) => env::set_var("CARGO_HOME", s),
+        Ok(s) => set_env_var("CARGO_HOME", s),
         Err(_) => {
-            env::remove_var("CARGO_HOME");
+            remove_env_var("CARGO_HOME");
         }
     }
     let (res, _) = run.unwrap();
@@ -463,9 +476,9 @@ fn cargo_home_filtering() {
 
 #[test]
 fn rustflags_handling() {
-    env::remove_var("RUSTFLAGS");
+    remove_env_var("RUSTFLAGS");
     check_percentage("rustflags", 1.0f64, true);
-    env::set_var("RUSTFLAGS", "--cfg=foo");
+    set_env_var("RUSTFLAGS", "--cfg=foo");
     let mut config = Config::default();
     config.set_clean(false);
 
@@ -478,7 +491,7 @@ fn rustflags_handling() {
 
     let res = launch_tarpaulin(&config, &None);
     env::set_current_dir(&restore_dir).unwrap();
-    env::remove_var("RUSTFLAGS");
+    remove_env_var("RUSTFLAGS");
     assert!(res.is_err() || res.unwrap().1 != 0);
 
     let (_, ret) = launch_tarpaulin(&config, &None).unwrap();
@@ -598,7 +611,7 @@ fn doc_test_bootstrap() {
 
     config.run_types = vec![RunType::Doctests];
 
-    env::set_var("RUSTC_BOOTSTRAP", "1");
+    set_env_var("RUSTC_BOOTSTRAP", "1");
 
     let (_res, ret) = launch_tarpaulin(&config, &None).unwrap();
     assert_eq!(ret, 0);

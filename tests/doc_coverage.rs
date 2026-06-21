@@ -155,7 +155,7 @@ fn doc_test_no_run() {
 
 #[test]
 fn rustdocflags_handling() {
-    env::set_var("RUSTDOCFLAGS", "--cfg=foo");
+    crate::set_env_var("RUSTDOCFLAGS", "--cfg=foo");
     let mut config = Config::default();
     config.run_types = vec![RunType::Doctests];
     config.set_clean(false);
@@ -169,7 +169,7 @@ fn rustdocflags_handling() {
 
     let res = launch_tarpaulin(&config, &None);
     env::set_current_dir(&restore_dir).unwrap();
-    env::remove_var("RUSTDOCFLAGS");
+    crate::remove_env_var("RUSTDOCFLAGS");
     assert!(res.is_err() || res.unwrap().1 != 0);
 
     let (_, ret) = launch_tarpaulin(&config, &None).unwrap();

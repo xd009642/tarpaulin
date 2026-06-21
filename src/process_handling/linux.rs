@@ -1,10 +1,10 @@
+use crate::Config;
+use crate::TestHandle;
 use crate::cargo::{CargoConfigFields, TestBinary};
 use crate::config::types::Mode;
 use crate::errors::*;
 use crate::process_handling::event_source::{EventSource, PtraceEventSource};
 use crate::process_handling::execute_test;
-use crate::Config;
-use crate::TestHandle;
 use nix::sched::*;
 use nix::sys::personality;
 use nix::unistd::*;

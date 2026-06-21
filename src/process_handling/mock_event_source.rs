@@ -1,7 +1,7 @@
-use crate::process_handling::event_source::*;
-use crate::statemachine::TestState;
 use crate::Config;
 use crate::RunError;
+use crate::process_handling::event_source::*;
+use crate::statemachine::TestState;
 use libc::c_long;
 use nix::sys::signal::Signal;
 use nix::sys::wait::{WaitPidFlag, WaitStatus};
@@ -580,10 +580,10 @@ impl EventSource for MockEventSource {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::statemachine::linux::{create_state_machine, LinuxData};
-    use crate::statemachine::TestState;
-    use crate::traces::{CoverageStat, Trace, TraceMap};
     use crate::TestHandle;
+    use crate::statemachine::TestState;
+    use crate::statemachine::linux::{LinuxData, create_state_machine};
+    use crate::traces::{CoverageStat, Trace, TraceMap};
     use std::path::Path;
     use std::rc::Rc;
 

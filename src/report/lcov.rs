@@ -42,7 +42,7 @@ fn write_lcov(mut file: impl Write, coverage_data: &TraceMap) -> Result<(), RunE
                         _ => {
                             return Err(RunError::Lcov(
                                 "Function doesn't have hits number".to_string(),
-                            ))
+                            ));
                         }
                     };
 
@@ -96,7 +96,7 @@ mod tests {
     use super::*;
     use crate::source_analysis::Function;
     use crate::traces::*;
-    use lcov::{record::Record, Reader};
+    use lcov::{Reader, record::Record};
     use std::collections::HashMap;
     use std::io::Cursor;
     use std::path::{Path, PathBuf};

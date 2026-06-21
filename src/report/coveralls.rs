@@ -72,7 +72,7 @@ fn get_git_info(manifest_path: &Path) -> Result<GitInfo, String> {
 
 fn get_identity(ci_tool: &Option<CiService>, key: &str) -> Identity {
     match ci_tool {
-        Some(ref service) => {
+        Some(service) => {
             let service_object = match Service::from_ci(service.clone()) {
                 Some(s) => s,
                 None => Service {
@@ -111,7 +111,9 @@ pub fn export(coverage_data: &TraceMap, config: &Config) -> Result<(), RunError>
                         lines.insert(c.line as usize, hits as usize);
                     }
                     _ => {
-                        info!("Support for coverage statistic not implemented or supported for coveralls.io");
+                        info!(
+                            "Support for coverage statistic not implemented or supported for coveralls.io"
+                        );
                     }
                 }
             }

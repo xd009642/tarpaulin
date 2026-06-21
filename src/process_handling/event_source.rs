@@ -6,7 +6,7 @@ use libc::c_long;
 use nix::{
     sys::{
         signal::Signal,
-        wait::{waitpid, WaitPidFlag, WaitStatus},
+        wait::{WaitPidFlag, WaitStatus, waitpid},
     },
     unistd::Pid,
 };

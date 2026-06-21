@@ -121,9 +121,11 @@ mod tests {
     }
 
     fn restore_env_var(key: &str, previous: Option<OsString>) {
-        match previous {
-            Some(value) => env::set_var(key, value),
-            None => env::remove_var(key),
+        unsafe {
+            match previous {
+                Some(value) => env::set_var(key, value),
+                None => env::remove_var(key),
+            }
         }
     }
 
@@ -136,7 +138,9 @@ mod tests {
 
         let runner_key = "CARGO_TARGET_WASM32_UNKNOWN_UNKNOWN_RUNNER";
         let previous_runner = env::var_os(runner_key);
-        env::set_var(runner_key, "runner-for-the-wrong-target");
+        unsafe {
+            env::set_var(runner_key, "runner-for-the-wrong-target");
+        }
 
         let mut matching_config = Config::default();
         matching_config.set_manifest(root.join("Cargo.toml"));
@@ -170,7 +174,9 @@ mod tests {
         let host = host_target().expect("rustc should report a host target");
         let runner_key = target_runner_env_key(&host);
         let previous_runner = env::var_os(&runner_key);
-        env::set_var(&runner_key, "runner-for-host-target");
+        unsafe {
+            env::set_var(&runner_key, "runner-for-host-target");
+        }
 
         let mut config = Config::default();
         config.set_manifest(root.join("Cargo.toml"));

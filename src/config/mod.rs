@@ -397,7 +397,9 @@ impl Config {
             TraceEngine::Auto | TraceEngine::Llvm if supports_llvm_coverage() => TraceEngine::Llvm,
             engine => {
                 if engine == TraceEngine::Llvm {
-                    error!("unable to utilise llvm coverage, due to compiler support. Falling back to Ptrace");
+                    error!(
+                        "unable to utilise llvm coverage, due to compiler support. Falling back to Ptrace"
+                    );
                     self.engine.replace(TraceEngine::Ptrace);
                 }
                 TraceEngine::Ptrace
