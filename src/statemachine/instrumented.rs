@@ -103,7 +103,9 @@ impl<'a> StateData for LlvmInstrumentedData<'a> {
                     info!("Merging coverage reports");
                     let instrumentation = merge_profiles(&profraws)?;
                     if instrumentation.is_empty() {
-                        warn!("profraw file has no records after merging. If this is unexpected it may be caused by a panic or signal used in a test that prevented the LLVM instrumentation runtime from serialising results");
+                        warn!(
+                            "profraw file has no records after merging. If this is unexpected it may be caused by a panic or signal used in a test that prevented the LLVM instrumentation runtime from serialising results"
+                        );
                         self.process = None;
                         let code = exit.code().unwrap_or(1);
                         return Ok(Some(TestState::End(code)));

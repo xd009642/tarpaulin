@@ -30,7 +30,7 @@ impl SourceAnalysis {
                 }
                 Item::Trait(i) => self.visit_trait(i, ctx),
                 Item::Impl(i) => self.visit_impl(i, ctx),
-                Item::Macro(ref i) => {
+                Item::Macro(i) => {
                     if self.visit_macro_call(&i.mac, ctx).is_unreachable() {
                         res = SubResult::Unreachable;
                     }
@@ -80,7 +80,7 @@ impl SourceAnalysis {
     fn visit_mod(&mut self, module: &ItemMod, ctx: &Context) {
         let _guard = ctx.push_to_symbol_stack(module.ident.to_string());
         let analysis = self.get_line_analysis(ctx.file.to_path_buf());
-        analysis.ignore_tokens(module.mod_token);
+        analysis.ignore_tokens(&module.mod_token);
         let should_cover = self.check_attr_list(&module.attrs, ctx);
         if should_cover {
             if let Some((_, ref items)) = module.content {

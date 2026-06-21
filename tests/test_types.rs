@@ -1,5 +1,5 @@
 use crate::utils::get_test_path;
-use cargo_tarpaulin::config::{types::RunType, Config};
+use cargo_tarpaulin::config::{Config, types::RunType};
 use cargo_tarpaulin::launch_tarpaulin;
 use rusty_fork::rusty_fork_test;
 use std::env;

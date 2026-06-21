@@ -64,11 +64,11 @@ fn debug_info_0() {
     manifest.push("Cargo.toml");
     config.set_manifest(manifest);
     let backup_flag = env::var("RUSTFLAGS").ok();
-    env::set_var("RUSTFLAGS", "-Cdebuginfo=0");
+    crate::set_env_var("RUSTFLAGS", "-Cdebuginfo=0");
     let (res, ret) = launch_tarpaulin(&config, &None).unwrap();
     match backup_flag {
-        None => env::remove_var("RUSTFLAGS"),
-        Some(s) => env::set_var("RUSTFLAGS", s),
+        None => crate::remove_env_var("RUSTFLAGS"),
+        Some(s) => crate::set_env_var("RUSTFLAGS", s),
     };
     assert_eq!(ret, 0);
     assert!(!res.is_empty());

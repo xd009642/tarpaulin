@@ -1,6 +1,6 @@
 #![cfg(not(tarpaulin_include))]
 use cargo_tarpaulin::args::CargoTarpaulinCli;
-use cargo_tarpaulin::cargo::{get_cargo_config, rust_flags, rustdoc_flags, CargoConfigFields};
+use cargo_tarpaulin::cargo::{CargoConfigFields, get_cargo_config, rust_flags, rustdoc_flags};
 use cargo_tarpaulin::config::{Color, Config, ConfigWrapper};
 use cargo_tarpaulin::{run, setup_logging};
 use std::collections::HashMap;

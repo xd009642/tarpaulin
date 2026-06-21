@@ -2448,15 +2448,17 @@ fn module_nesting_correct() {
     let mut analysis = SourceAnalysis::new();
     analysis.process_items(&parser.items, &ctx);
     println!("{:?}", ctx.ignore_mods.borrow());
-    assert!(ctx
-        .ignore_mods
-        .borrow()
-        .contains(&PathBuf::from("src/tests/inner.rs")));
+    assert!(
+        ctx.ignore_mods
+            .borrow()
+            .contains(&PathBuf::from("src/tests/inner.rs"))
+    );
 
-    assert!(ctx
-        .ignore_mods
-        .borrow()
-        .contains(&PathBuf::from("src/tests/foo/innermost.rs")));
+    assert!(
+        ctx.ignore_mods
+            .borrow()
+            .contains(&PathBuf::from("src/tests/foo/innermost.rs"))
+    );
 
     let ctx = Context {
         config: &config,
@@ -2474,10 +2476,11 @@ fn module_nesting_correct() {
     let mut analysis = SourceAnalysis::new();
     analysis.process_items(&parser.items, &ctx);
     println!("{:?}", ctx.ignore_mods);
-    assert!(ctx
-        .ignore_mods
-        .borrow()
-        .contains(&PathBuf::from("src/foo/bar/inner.rs")));
+    assert!(
+        ctx.ignore_mods
+            .borrow()
+            .contains(&PathBuf::from("src/foo/bar/inner.rs"))
+    );
 
     // Top-level `#[cfg(test)] mod foo;` in lib.rs must resolve to src/foo.rs,
     // not src/lib/foo.rs. Same for mod.rs and main.rs — all three file stems
@@ -2495,10 +2498,11 @@ fn module_nesting_correct() {
     let parser = parse_file(ctx.file_contents).unwrap();
     let mut analysis = SourceAnalysis::new();
     analysis.process_items(&parser.items, &ctx);
-    assert!(ctx
-        .ignore_mods
-        .borrow()
-        .contains(&PathBuf::from("src/tests.rs")));
+    assert!(
+        ctx.ignore_mods
+            .borrow()
+            .contains(&PathBuf::from("src/tests.rs"))
+    );
 
     let ctx = Context {
         config: &config,
@@ -2513,10 +2517,11 @@ fn module_nesting_correct() {
     let parser = parse_file(ctx.file_contents).unwrap();
     let mut analysis = SourceAnalysis::new();
     analysis.process_items(&parser.items, &ctx);
-    assert!(ctx
-        .ignore_mods
-        .borrow()
-        .contains(&PathBuf::from("src/sub/tests.rs")));
+    assert!(
+        ctx.ignore_mods
+            .borrow()
+            .contains(&PathBuf::from("src/sub/tests.rs"))
+    );
 
     let ctx = Context {
         config: &config,
@@ -2531,10 +2536,11 @@ fn module_nesting_correct() {
     let parser = parse_file(ctx.file_contents).unwrap();
     let mut analysis = SourceAnalysis::new();
     analysis.process_items(&parser.items, &ctx);
-    assert!(ctx
-        .ignore_mods
-        .borrow()
-        .contains(&PathBuf::from("src/tests.rs")));
+    assert!(
+        ctx.ignore_mods
+            .borrow()
+            .contains(&PathBuf::from("src/tests.rs"))
+    );
 }
 
 #[test]

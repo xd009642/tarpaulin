@@ -1,3 +1,4 @@
+use crate::TestHandle;
 use crate::breakpoint::*;
 use crate::config::Config;
 use crate::errors::RunError;
@@ -6,12 +7,11 @@ use crate::process_handling::event_source::EventSource;
 use crate::process_handling::event_source::PtraceEventSource;
 use crate::source_analysis::LineAnalysis;
 use crate::statemachine::*;
-use crate::TestHandle;
+use nix::Error as NixErr;
 use nix::errno::Errno;
 use nix::sys::signal::Signal;
 use nix::sys::wait::*;
 use nix::unistd::Pid;
-use nix::Error as NixErr;
 use procfs::process::*;
 use std::collections::{HashMap, HashSet};
 use std::ops::RangeBounds;
@@ -277,7 +277,9 @@ impl<'a> StateData for LinuxData<'a> {
                             Ok((TestState::End(*ec), TracerAction::Nothing))
                         } else {
                             self.exit_code = Some(*ec);
-                            info!("Test process exited, but spawned processes still running. Continuing tracing");
+                            info!(
+                                "Test process exited, but spawned processes still running. Continuing tracing"
+                            );
                             Ok((TestState::wait_state(), TracerAction::Nothing))
                         }
                     } else {
@@ -443,8 +445,7 @@ impl<'a> LinuxData<'a> {
         let offset = self.event_source.get_offset(pid, self.config);
         trace!(
             "Initialising process: {}, address offset: 0x{:x}",
-            pid,
-            offset
+            pid, offset
         );
         let mut clashes = HashSet::new();
         for trace in traces.all_traces() {

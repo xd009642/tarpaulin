@@ -1,4 +1,4 @@
-use rustc_version::{version, version_meta, Channel};
+use rustc_version::{Channel, version, version_meta};
 use std::env;
 
 fn main() {

@@ -1,8 +1,8 @@
-use crate::cargo::{rust_flags, CargoConfigFields, LD_PATH_VAR};
+use crate::cargo::{CargoConfigFields, LD_PATH_VAR, rust_flags};
 use crate::config::Color;
 use crate::generate_tracemap;
 use crate::path_utils::get_profile_walker;
-use crate::statemachine::{create_state_machine, TestState};
+use crate::statemachine::{TestState, create_state_machine};
 use crate::traces::*;
 use crate::{Config, EventLog, LineAnalysis, RunError, TestBinary, TraceEngine};
 use std::collections::HashMap;

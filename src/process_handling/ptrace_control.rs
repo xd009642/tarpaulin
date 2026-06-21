@@ -1,9 +1,9 @@
+use nix::Result;
 use nix::errno::Errno;
 use nix::libc::{c_long, c_void};
 use nix::sys::ptrace::*;
 use nix::sys::signal::Signal;
 use nix::unistd::Pid;
-use nix::Result;
 use std::ptr;
 
 #[cfg(target_arch = "x86_64")]

@@ -3,7 +3,7 @@ use crate::errors::*;
 use crate::report::{get_previous_result, safe_json};
 use crate::traces::{Trace, TraceMap};
 use serde::Serialize;
-use std::fs::{read_to_string, File};
+use std::fs::{File, read_to_string};
 use std::io::{self, Write};
 use tracing::info;
 

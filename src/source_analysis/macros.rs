@@ -27,7 +27,7 @@ impl SourceAnalysis {
         let analysis = self.get_line_analysis(ctx.file.to_path_buf());
         let mut skip = false;
         if let Some(PathSegment {
-            ref ident,
+            ident,
             arguments: _,
         }) = mac.path.segments.last()
         {

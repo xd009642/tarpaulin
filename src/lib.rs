@@ -12,7 +12,7 @@ use std::ffi::OsString;
 use std::fs::{create_dir_all, remove_dir_all};
 use std::io;
 use tracing::{debug, error, info, warn};
-use tracing_subscriber::{filter::LevelFilter, EnvFilter};
+use tracing_subscriber::{EnvFilter, filter::LevelFilter};
 
 pub mod args;
 pub mod cargo;

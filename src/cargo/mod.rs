@@ -2,14 +2,14 @@ use crate::config::*;
 use crate::errors::RunError;
 use crate::path_utils::{fix_unc_path, get_source_walker};
 use cargo_metadata::{
-    diagnostic::DiagnosticLevel, CargoOpt, Message, Metadata, MetadataCommand, PackageId,
+    CargoOpt, Message, Metadata, MetadataCommand, PackageId, diagnostic::DiagnosticLevel,
 };
 use regex::Regex;
 use serde::{Deserialize, Serialize};
 use std::collections::{HashMap, HashSet};
 use std::env;
 use std::ffi::OsStr;
-use std::fs::{read_dir, remove_dir_all, remove_file, File};
+use std::fs::{File, read_dir, remove_dir_all, remove_file};
 use std::io;
 use std::io::{BufRead, BufReader};
 use std::path::{Component, Path, PathBuf};
@@ -19,7 +19,7 @@ use std::sync::LazyLock;
 use tracing::{debug, error, info, trace, warn};
 use walkdir::{DirEntry, WalkDir};
 
-pub use config_file::{get_cargo_config, CargoConfigFields, CargoTargetRunner};
+pub use config_file::{CargoConfigFields, CargoTargetRunner, get_cargo_config};
 
 mod config_file;
 
@@ -232,7 +232,9 @@ static CARGO_VERSION_INFO: LazyLock<Option<CargoVersionInfo>> = LazyLock::new(||
 pub fn get_tests(config: &Config) -> Result<CargoOutput, RunError> {
     let cargo_config = Rc::new(get_cargo_config(config));
     if config.engine() == TraceEngine::Ptrace && cargo_config.target_runner.is_some() {
-        warn!("Target runner configured, but the ptrace engine does not support target runners. The runner will be ignored");
+        warn!(
+            "Target runner configured, but the ptrace engine does not support target runners. The runner will be ignored"
+        );
     }
     let mut result = CargoOutput {
         test_binaries: vec![],
@@ -606,7 +608,9 @@ fn start_cargo_command(ty: Option<RunType>) -> Command {
         if env::var("PATH").unwrap_or_default().contains(&rustup_home) {
             // So the specific cargo we're using is in the path var so rustup toolchains won't
             // work. This only started happening recently so special casing it for older versions
-            env::remove_var("RUSTUP_TOOLCHAIN");
+            unsafe {
+                env::remove_var("RUSTUP_TOOLCHAIN");
+            }
             false
         } else {
             true
@@ -644,7 +648,9 @@ fn get_libdir(ty: Option<RunType>) -> Option<PathBuf> {
         Ok(output) => String::from_utf8_lossy(&output.stdout).trim().to_string(),
         Err(e) => {
             debug!("Unable to run cargo rustc command: {}", e);
-            warn!("Unable to get target libdir proc macro crates in the workspace may not work. Consider adding `--exclude` to remove them from compilation");
+            warn!(
+                "Unable to get target libdir proc macro crates in the workspace may not work. Consider adding `--exclude` to remove them from compilation"
+            );
             return None;
         }
     };
@@ -943,9 +949,11 @@ mod tests {
         ));
 
         let no_run = line!() as usize;
-        assert!(find_str_in_file(&Path::new(file!()), "no_run")
-            .unwrap()
-            .contains(&no_run));
+        assert!(
+            find_str_in_file(&Path::new(file!()), "no_run")
+                .unwrap()
+                .contains(&no_run)
+        );
     }
 
     #[test]
