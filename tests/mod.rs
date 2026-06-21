@@ -17,7 +17,9 @@ use std::io;
 use std::path::Path;
 #[cfg(windows)]
 use std::path::PathBuf;
+use std::process::{self, Command};
 use std::time::Duration;
+use std::time::{SystemTime, UNIX_EPOCH};
 use std::{env, fs};
 use test_log::test;
 
@@ -125,6 +127,34 @@ pub fn check_percentage(project_name: &str, minimum_coverage: f64, has_lines: bo
     check_percentage_with_config(project_name, minimum_coverage, has_lines, config)
 }
 
+fn host_target() -> String {
+    let output = Command::new("rustc")
+        .arg("-vV")
+        .output()
+        .expect("rustc -vV should run to discover the host target");
+    assert!(output.status.success(), "rustc -vV should succeed");
+    let stdout = String::from_utf8(output.stdout).expect("rustc -vV should print utf8");
+    stdout
+        .lines()
+        .find_map(|line| line.strip_prefix("host: "))
+        .expect("rustc -vV should print a host target")
+        .to_string()
+}
+
+fn target_runner_env_key(target: &str) -> String {
+    let mut target = target.replace(['-', '.'], "_");
+    target.make_ascii_uppercase();
+    format!("CARGO_TARGET_{target}_RUNNER")
+}
+
+fn unique_temp_dir(prefix: &str) -> std::path::PathBuf {
+    let timestamp = SystemTime::now()
+        .duration_since(UNIX_EPOCH)
+        .expect("system time should be after the unix epoch")
+        .as_nanos();
+    env::temp_dir().join(format!("{prefix}_{}_{}", process::id(), timestamp))
+}
+
 rusty_fork_test! {
 
 #[test]
@@ -177,6 +207,56 @@ fn llvm_sanity_test() {
     check_percentage_with_config("ifelse", 1.0f64, true, config.clone());
     check_percentage_with_config("returns", 1.0f64, true, config.clone());
     check_percentage_with_config("follow_exe", 1.0f64, true, config);
+}
+
+#[test]
+fn llvm_uses_configured_target_runner() {
+    let temp_dir = unique_temp_dir("tarpaulin_target_runner");
+    fs::create_dir_all(&temp_dir).expect("test should create its temp directory");
+
+    let runner_manifest = get_test_path("target_runner").join("Cargo.toml");
+    let runner_target_dir = temp_dir.join("runner_target");
+    let runner_build = Command::new("cargo")
+        .args(["build", "--manifest-path"])
+        .arg(&runner_manifest)
+        .arg("--target-dir")
+        .arg(&runner_target_dir)
+        .status()
+        .expect("runner fixture should build");
+    assert!(runner_build.success(), "runner fixture build should succeed");
+
+    let runner = runner_target_dir
+        .join("debug")
+        .join(format!("target_runner{}", env::consts::EXE_SUFFIX));
+    assert!(runner.is_file(), "runner fixture binary should exist");
+
+    let host = host_target();
+    let runner_env = target_runner_env_key(&host);
+    let previous_runner = env::var_os(&runner_env);
+    let previous_marker = env::var_os("TARPAULIN_RUNNER_MARKER");
+    let marker = temp_dir.join("runner.marker");
+
+    env::set_var(&runner_env, &runner);
+    env::set_var("TARPAULIN_RUNNER_MARKER", &marker);
+
+    let mut config = Config::default();
+    config.set_engine(TraceEngine::Llvm);
+    config.set_include_tests(true);
+    config.set_clean(false);
+    config.target = Some(host);
+    check_percentage_with_config("simple_project", 0.5f64, true, config);
+
+    match previous_runner {
+        Some(value) => env::set_var(&runner_env, value),
+        None => env::remove_var(&runner_env),
+    }
+    match previous_marker {
+        Some(value) => env::set_var("TARPAULIN_RUNNER_MARKER", value),
+        None => env::remove_var("TARPAULIN_RUNNER_MARKER"),
+    }
+
+    assert!(marker.is_file(), "target runner should write its marker");
+    let _ = fs::remove_dir_all(temp_dir);
 }
 
 #[cfg_attr(not(ptrace_supported), test)]

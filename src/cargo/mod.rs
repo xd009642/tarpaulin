@@ -19,7 +19,7 @@ use std::sync::LazyLock;
 use tracing::{debug, error, info, trace, warn};
 use walkdir::{DirEntry, WalkDir};
 
-pub use config_file::{get_cargo_config, CargoConfigFields};
+pub use config_file::{get_cargo_config, CargoConfigFields, CargoTargetRunner};
 
 mod config_file;
 
@@ -231,6 +231,9 @@ static CARGO_VERSION_INFO: LazyLock<Option<CargoVersionInfo>> = LazyLock::new(||
 
 pub fn get_tests(config: &Config) -> Result<CargoOutput, RunError> {
     let cargo_config = Rc::new(get_cargo_config(config));
+    if config.engine() == TraceEngine::Ptrace && cargo_config.target_runner.is_some() {
+        warn!("Target runner configured, but the ptrace engine does not support target runners. The runner will be ignored");
+    }
     let mut result = CargoOutput {
         test_binaries: vec![],
         binaries: vec![],
