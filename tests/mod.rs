@@ -226,8 +226,18 @@ fn llvm_respects_feature_gated_modules() {
     assert!(!without_feature.contains_file(&root.join("src/optional.rs")));
 
     config.features = Some("optional".to_string());
-    let with_feature = check_percentage_with_config("feature_gated_module", 0.4f64, true, config);
+    let with_feature = check_percentage_with_config(
+        "feature_gated_module",
+        0.4f64,
+        true,
+        config.clone(),
+    );
     assert!(with_feature.contains_file(&root.join("src/optional.rs")));
+
+    config.features = Some("feature_a".to_string());
+    let with_transitive_feature =
+        check_percentage_with_config("feature_gated_module", 0.2f64, true, config);
+    assert!(with_transitive_feature.contains_file(&root.join("src/transitive.rs")));
 }
 
 #[test]

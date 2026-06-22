@@ -1,6 +1,9 @@
 #[cfg(feature = "optional")]
 pub mod optional;
 
+#[cfg(feature = "feature_c")]
+pub mod transitive;
+
 pub fn covered() -> u8 {
     1
 }
