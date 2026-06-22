@@ -2623,14 +2623,10 @@ fn cfg_feature_modules_expand_default_feature_dependencies() {
     let without_defaults = feature_config(None, true, false);
     let root = feature_gated_module_root();
 
-    assert!(
-        !ignored_modules_for_feature_cfg(&with_defaults)
-            .contains(&root.join("src/default_child.rs"))
-    );
-    assert!(
-        ignored_modules_for_feature_cfg(&without_defaults)
-            .contains(&root.join("src/default_child.rs"))
-    );
+    assert!(!ignored_modules_for_feature_cfg(&with_defaults)
+        .contains(&root.join("src/default_child.rs")));
+    assert!(ignored_modules_for_feature_cfg(&without_defaults)
+        .contains(&root.join("src/default_child.rs")));
 }
 
 /// Verifies `--all-features` activates every feature declared by the package metadata.
