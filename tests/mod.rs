@@ -223,6 +223,37 @@ fn llvm_sanity_test() {
 }
 
 #[test]
+fn llvm_respects_feature_gated_modules() {
+    let mut config = Config::default();
+    config.set_engine(TraceEngine::Llvm);
+    config.set_include_tests(true);
+    config.set_clean(false);
+
+    let without_feature = check_percentage_with_config(
+        "feature_gated_module",
+        1.0f64,
+        true,
+        config.clone(),
+    );
+    let root = get_test_path("feature_gated_module");
+    assert!(!without_feature.contains_file(&root.join("src/optional.rs")));
+
+    config.features = Some("optional".to_string());
+    let with_feature = check_percentage_with_config(
+        "feature_gated_module",
+        0.4f64,
+        true,
+        config.clone(),
+    );
+    assert!(with_feature.contains_file(&root.join("src/optional.rs")));
+
+    config.features = Some("feature_a".to_string());
+    let with_transitive_feature =
+        check_percentage_with_config("feature_gated_module", 0.2f64, true, config);
+    assert!(with_transitive_feature.contains_file(&root.join("src/transitive.rs")));
+}
+
+#[test]
 fn llvm_uses_configured_target_runner() {
     let temp_dir = unique_temp_dir("tarpaulin_target_runner");
     fs::create_dir_all(&temp_dir).expect("test should create its temp directory");

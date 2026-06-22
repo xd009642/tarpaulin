@@ -6,6 +6,7 @@ file.
 ## [Unreleased]
 ### Added
 - Adding support for custom cargo runners. This will be the basis of wasm and ebpf support
+- Basic feature gate evaluation to skip source analysis on ignored modules
 
 ## [0.35.5] 2026-06-21
 ### Added
