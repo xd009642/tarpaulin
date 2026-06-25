@@ -15,6 +15,7 @@ fn doc_test_env() {
     let test_dir = get_test_path("doctest_env");
     env::set_current_dir(&test_dir).unwrap();
     let mut manifest = test_dir;
+    config.set_current_dir(manifest.clone());
     manifest.push("Cargo.toml");
     config.set_manifest(manifest);
     config.set_profraw_folder(PathBuf::from("doc_test_env"));
@@ -37,6 +38,7 @@ fn doc_test_coverage() {
     let test_dir = get_test_path("doc_coverage");
     env::set_current_dir(&test_dir).unwrap();
     let mut manifest = test_dir;
+    config.set_current_dir(manifest.clone());
     manifest.push("Cargo.toml");
     config.set_manifest(manifest);
 
@@ -67,6 +69,7 @@ fn doc_test_panics() {
     let test_dir = get_test_path("doctest_should_panic");
     env::set_current_dir(&test_dir).unwrap();
     let mut manifest = test_dir;
+    config.set_current_dir(manifest.clone());
     manifest.push("Cargo.toml");
     config.set_manifest(manifest);
 
@@ -97,6 +100,7 @@ fn doc_test_panics_workspace() {
     let test_dir = get_test_path("doctest_workspace_should_panic");
     env::set_current_dir(&test_dir).unwrap();
     let mut manifest = test_dir;
+    config.set_current_dir(manifest.clone());
     manifest.push("Cargo.toml");
     config.set_manifest(manifest);
     config.set_profraw_folder(PathBuf::from("doc_test_panics_workspace_1"));
@@ -127,6 +131,7 @@ fn doc_test_compile_fail() {
     let test_dir = get_test_path("doctest_compile_fail_fail");
     env::set_current_dir(&test_dir).unwrap();
     let mut manifest = test_dir;
+    config.set_current_dir(manifest.clone());
     manifest.push("Cargo.toml");
     config.set_manifest(manifest);
 
@@ -144,6 +149,7 @@ fn doc_test_no_run() {
     let test_dir = get_test_path("doctest_norun");
     env::set_current_dir(&test_dir).unwrap();
     let mut manifest = test_dir;
+    config.set_current_dir(manifest.clone());
     manifest.push("Cargo.toml");
     config.set_manifest(manifest);
 
@@ -164,6 +170,7 @@ fn rustdocflags_handling() {
     let test_dir = get_test_path("rustflags");
     env::set_current_dir(&test_dir).unwrap();
     let mut manifest = test_dir;
+    config.set_current_dir(manifest.clone());
     manifest.push("Cargo.toml");
     config.set_manifest(manifest);
 

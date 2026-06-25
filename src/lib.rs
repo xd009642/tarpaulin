@@ -148,7 +148,7 @@ fn create_logger(configs: &[Config]) -> Option<EventLog> {
         };
 
         Some(EventLog::new(
-            configs.iter().map(|x| x.root()).collect(),
+            configs.iter().map(|x| x.get_current_dir()).collect(),
             config,
         ))
     } else {

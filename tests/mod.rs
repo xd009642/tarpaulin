@@ -79,9 +79,10 @@ pub fn run_config(project_name: &str, mut config: Config) {
     let restore_dir = env::current_dir().unwrap();
     let test_dir = get_test_path(project_name);
     let mut manifest = test_dir;
+    config.set_current_dir(manifest.clone());
     manifest.push("Cargo.toml");
     config.set_manifest(manifest);
-    env::set_current_dir(config.root()).unwrap();
+    env::set_current_dir(config.get_current_dir()).unwrap();
     config.set_clean(false);
 
     run(&[config]).unwrap();
@@ -100,6 +101,7 @@ pub fn check_percentage_with_config(
     let test_dir = get_test_path(project_name);
     env::set_current_dir(&test_dir).unwrap();
     let mut manifest = test_dir;
+    config.set_current_dir(manifest.clone());
     manifest.push("Cargo.toml");
     config.set_manifest(manifest);
     config.set_clean(false);
@@ -187,6 +189,7 @@ fn proc_macro_link() {
     config.test_timeout = Duration::from_secs(60);
     config.set_clean(false);
     let test_dir = get_test_path("proc_macro");
+    config.set_current_dir(test_dir.clone());
     config.set_manifest(test_dir.join("Cargo.toml"));
     assert!(launch_tarpaulin(&config, &None).is_ok());
 }
@@ -373,7 +376,7 @@ fn config_file_coverage() {
     let mut args = vec![
         "tarpaulin".to_string(),
         "--include-tests".to_string(),
-        "--root".to_string(),
+        "--current-dir".to_string(),
         test_dir.display().to_string(),
     ];
     check_percentage_with_cli_args(1.0f64, true, &args);
@@ -387,7 +390,7 @@ fn issue_966_follow_exec() {
     let args = vec![
         "tarpaulin".to_string(),
         "--include-tests".to_string(),
-        "--root".to_string(),
+        "--current-dir".to_string(),
         test_dir.display().to_string(),
         "--post-test-delay".to_string(),
         10.to_string(),
@@ -401,7 +404,7 @@ fn rustflags_config_coverage() {
     let mut args = vec![
         "tarpaulin".to_string(),
         "--include-tests".to_string(),
-        "--root".to_string(),
+        "--current-dir".to_string(),
         test_dir.display().to_string(),
     ];
     check_percentage_with_cli_args(1.0f64, true, &args);
@@ -486,6 +489,7 @@ fn cargo_home_filtering() {
     let test_dir = get_test_path("HttptestAndReqwest");
     env::set_current_dir(&test_dir).unwrap();
     let mut manifest = test_dir;
+    config.set_current_dir(manifest.clone());
     manifest.push("Cargo.toml");
     config.set_manifest(manifest);
 
@@ -517,6 +521,7 @@ fn rustflags_handling() {
     let test_dir = get_test_path("rustflags");
     env::set_current_dir(&test_dir).unwrap();
     let mut manifest = test_dir;
+    config.set_current_dir(manifest.clone());
     manifest.push("Cargo.toml");
     config.set_manifest(manifest);
 
@@ -577,7 +582,7 @@ fn no_test_args() {
     let test_dir = get_test_path("no_test_args");
     let args = vec![
         "tarpaulin".to_string(),
-        "--root".to_string(),
+        "--current-dir".to_string(),
         test_dir.display().to_string(),
         "--implicit-test-threads".to_string(),
         "--include-tests".to_string(),
@@ -596,6 +601,7 @@ fn dot_rs_in_dir_name() {
     let test_dir = get_test_path("not_a_file.rs");
     env::set_current_dir(&test_dir).unwrap();
     let mut manifest = test_dir;
+    config.set_current_dir(manifest.clone());
     manifest.push("Cargo.toml");
     config.set_manifest(manifest);
 
@@ -669,9 +675,10 @@ fn sanitised_paths() {
     let restore_dir = env::current_dir().unwrap();
     let test_dir = get_test_path("assigns");
     let mut manifest = test_dir;
+    config.set_current_dir(manifest.clone());
     manifest.push("Cargo.toml");
     config.set_manifest(manifest);
-    env::set_current_dir(format!(r#"\\?\{}"#, config.root().display())).unwrap();
+    env::set_current_dir(format!(r#"\\?\{}"#, config.get_current_dir().display())).unwrap();
     config.set_manifest(PathBuf::from(format!(r#"\\?\{}"#, config.manifest().display())));
     config.set_clean(false);
 
@@ -769,6 +776,7 @@ fn workspace_no_fail_fast() {
     let test_dir = get_test_path("workspace_with_fail_tests");
     env::set_current_dir(&test_dir).unwrap();
     let mut manifest = test_dir;
+    config.set_current_dir(manifest.clone());
     manifest.push("Cargo.toml");
     config.set_manifest(manifest);
     config.packages = vec!["bar".to_string(), "foo".to_string()];

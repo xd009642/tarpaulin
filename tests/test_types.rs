@@ -24,6 +24,7 @@ fn mix_test_types() {
     let test_dir = get_test_path("all_test_types");
     env::set_current_dir(&test_dir).unwrap();
     let mut manifest = test_dir.clone();
+    config.set_current_dir(test_dir.clone());
     manifest.push("Cargo.toml");
     config.set_manifest(manifest);
     let mut target = test_dir;
@@ -55,6 +56,7 @@ fn only_test_coverage() {
     let test_dir = get_test_path("all_test_types");
     env::set_current_dir(&test_dir).unwrap();
     let mut manifest = test_dir.clone();
+    config.set_current_dir(test_dir.clone());
     manifest.push("Cargo.toml");
     config.set_manifest(manifest);
     let mut target = test_dir;
@@ -86,6 +88,7 @@ fn all_targets_coverage() {
     let test_dir = get_test_path("all_test_types");
     env::set_current_dir(&test_dir).unwrap();
     let mut manifest = test_dir.clone();
+    config.set_current_dir(test_dir.clone());
     manifest.push("Cargo.toml");
     config.set_manifest(manifest);
     let mut target = test_dir;
@@ -119,6 +122,7 @@ fn only_example_coverage() {
     let test_dir = get_test_path("all_test_types");
     env::set_current_dir(&test_dir).unwrap();
     let mut manifest = test_dir.clone();
+    config.set_current_dir(test_dir.clone());
     manifest.push("Cargo.toml");
     config.set_manifest(manifest);
     let mut target = test_dir;
