@@ -48,7 +48,19 @@ impl Add for CoverageStat {
             (CoverageStat::Branch(ref l), CoverageStat::Branch(ref r)) => {
                 CoverageStat::Branch(l + r)
             }
-            t => t.0,
+            (CoverageStat::Condition(ref l), CoverageStat::Condition(ref r)) => {
+                let mut result = Vec::new();
+                for (ls, rs) in l.iter().zip(r.iter()) {
+                    result.push(ls + rs);
+                }
+                if l.len() > r.len() {
+                    result.extend_from_slice(&l[r.len()..]);
+                } else if r.len() > l.len() {
+                    result.extend_from_slice(&r[l.len()..]);
+                }
+                CoverageStat::Condition(result)
+            }
+            _ => panic!("Mismatched CoverageStat variants cannot be added"),
         }
     }
 }
