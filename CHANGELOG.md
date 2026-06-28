@@ -12,6 +12,9 @@ file.
 ### Changed
 - Performance improvements in llvm profraw parsing
 
+### Fixed
+- Issue with config file and CLI merging that lead to CLI --engine being ignored if a config file is used
+
 ## [0.35.5] 2026-06-21
 ### Added
 - Cargo 1.94 onward the `CARGO_BIN_EXE_` env vars are now set at test runtime, replicate this when running under tarpaulin #1833
