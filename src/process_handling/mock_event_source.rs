@@ -606,6 +606,25 @@ mod tests {
     }
 
     #[test]
+    fn breakpoint_stop_reports_arch_specific_program_counter() {
+        let source = MockEventSource::build()
+            .process(100)
+            .breakpoint(1000)
+            .exit(0)
+            .finish();
+        let pid = Pid::from_raw(100);
+
+        source
+            .continue_pid(pid, None)
+            .expect("process should continue to the first breakpoint");
+        let pc = source
+            .current_instruction_pointer(pid)
+            .expect("mock process should have an instruction pointer");
+
+        assert_eq!(pc as u64, 1000 + crate::breakpoint::BREAKPOINT_PC_OFFSET);
+    }
+
+    #[test]
     fn simple_mock_continuation() {
         // let (mut state, mut data) =
         //     create_state_machine(test, &mut traces, analysis, config, logger);

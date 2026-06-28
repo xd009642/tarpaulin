@@ -235,6 +235,19 @@ fn ptrace_sanity_test() {
     check_percentage_with_config("structs", 1.0f64, true, config);
 }
 
+/// Exercises ptrace handling for a project binary spawned by a test.
+#[test]
+#[cfg(ptrace_supported)]
+fn ptrace_follow_exec_sanity_test() {
+    let mut config = Config::default();
+    config.set_engine(TraceEngine::Ptrace);
+    config.follow_exec = true;
+    config.set_include_tests(true);
+    config.set_clean(false);
+
+    check_percentage_with_config("follow_exe", 1.0f64, true, config);
+}
+
 #[test]
 fn llvm_respects_feature_gated_modules() {
     let mut config = Config::default();
