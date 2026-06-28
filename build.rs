@@ -3,6 +3,7 @@ use std::env;
 
 fn main() {
     println!("cargo::rustc-check-cfg=cfg(ptrace_supported)");
+    println!("cargo::rustc-check-cfg=cfg(ptrace_default)");
     println!("cargo::rustc-check-cfg=cfg(tarpaulin_include)");
     println!("cargo::rustc-check-cfg=cfg(tarpaulin)");
     println!("cargo::rustc-check-cfg=cfg(nightly)");
@@ -22,5 +23,8 @@ fn main() {
         && (target_arch == "x86_64" || target_arch == "x86" || target_arch == "aarch64")
     {
         println!("cargo:rustc-cfg=ptrace_supported");
+    }
+    if target_os == "linux" && (target_arch == "x86_64" || target_arch == "x86") {
+        println!("cargo:rustc-cfg=ptrace_default");
     }
 }
