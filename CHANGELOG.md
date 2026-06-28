@@ -7,6 +7,7 @@ file.
 ### Added
 - Adding support for custom cargo runners. This will be the basis of wasm and ebpf support
 - Basic feature gate evaluation to skip source analysis on ignored modules
+- Ptrace support for linux aarch64 (64 bit ARM)
 
 ### Changed
 - Performance improvements in llvm profraw parsing

@@ -222,6 +222,32 @@ fn llvm_sanity_test() {
     check_percentage_with_config("follow_exe", 1.0f64, true, config);
 }
 
+/// Explicitly exercises the ptrace engine on platforms where it is available, even if the
+/// platform's default engine is LLVM.
+#[test]
+#[cfg(ptrace_supported)]
+fn ptrace_sanity_test() {
+    let mut config = Config::default();
+    config.set_engine(TraceEngine::Ptrace);
+    config.set_include_tests(true);
+    config.set_clean(false);
+
+    check_percentage_with_config("structs", 1.0f64, true, config);
+}
+
+/// Exercises ptrace handling for a project binary spawned by a test.
+#[test]
+#[cfg(ptrace_supported)]
+fn ptrace_follow_exec_sanity_test() {
+    let mut config = Config::default();
+    config.set_engine(TraceEngine::Ptrace);
+    config.follow_exec = true;
+    config.set_include_tests(true);
+    config.set_clean(false);
+
+    check_percentage_with_config("follow_exe", 1.0f64, true, config);
+}
+
 #[test]
 fn llvm_respects_feature_gated_modules() {
     let mut config = Config::default();

@@ -53,7 +53,7 @@ walkdir = "2.5.0"
 glob = "0.3.3"
 cargo-config2 = "0.1.44"
 
-[target.'cfg(all(target_os = "linux", any(target_arch = "x86_64", target_arch = "x86")))'.dependencies]
+[target.'cfg(all(target_os = "linux", any(target_arch = "x86_64", target_arch = "x86", target_arch = "aarch64")))'.dependencies]
 libc = "0.2.184"
 nix = {version = "0.31.3", default-features = false, features = ["sched", "signal", "ptrace", "personality"]}
 num_cpus = "1.17.0"
