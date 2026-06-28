@@ -12,11 +12,15 @@ use std::rc::Rc;
 #[cfg(any(target_arch = "x86", target_arch = "x86_64"))]
 pub(crate) const BREAKPOINT_INSTRUCTION_SIZE: u64 = 1;
 #[cfg(any(target_arch = "x86", target_arch = "x86_64"))]
+pub(crate) const BREAKPOINT_PC_OFFSET: u64 = BREAKPOINT_INSTRUCTION_SIZE;
+#[cfg(any(target_arch = "x86", target_arch = "x86_64"))]
 pub(crate) const BREAKPOINT_INSTRUCTION: u64 = 0xCC;
 
 /// AArch64 BRK #0, encoded as the little-endian instruction word 0xd4200000.
 #[cfg(target_arch = "aarch64")]
 pub(crate) const BREAKPOINT_INSTRUCTION_SIZE: u64 = 4;
+#[cfg(target_arch = "aarch64")]
+pub(crate) const BREAKPOINT_PC_OFFSET: u64 = 0;
 #[cfg(target_arch = "aarch64")]
 pub(crate) const BREAKPOINT_INSTRUCTION: u64 = 0xd420_0000;
 

@@ -680,7 +680,7 @@ impl<'a> LinuxData<'a> {
         if let Some(process) = self.get_traced_process_mut(current) {
             let visited = visited_pcs.entry(process.parent).or_default();
             if let Ok(pc) = current_rip {
-                let pc = (pc as u64).saturating_sub(BREAKPOINT_INSTRUCTION_SIZE);
+                let pc = (pc as u64).saturating_sub(BREAKPOINT_PC_OFFSET);
                 trace!("Hit address {:#x}", pc);
                 if process.breakpoints.contains_key(&pc) {
                     let bp = process.breakpoints.get_mut(&pc).unwrap();

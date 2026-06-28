@@ -274,7 +274,7 @@ impl MockEventSource {
         match step {
             ThreadStep::None => {}
             ThreadStep::Breakpoint(addr) => {
-                proc.instruction_pointer = addr + crate::breakpoint::BREAKPOINT_INSTRUCTION_SIZE;
+                proc.instruction_pointer = addr + crate::breakpoint::BREAKPOINT_PC_OFFSET;
                 proc.state = PidState::Stopped;
                 proc.pending_wait = Some(WaitStatus::Stopped(pid, Signal::SIGTRAP));
             }
