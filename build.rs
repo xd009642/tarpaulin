@@ -18,7 +18,9 @@ fn main() {
 
     let target_arch = env::var("CARGO_CFG_TARGET_ARCH").expect("CARGO_CFG_TARGET_ARCH not set");
     let target_os = env::var("CARGO_CFG_TARGET_OS").expect("CARGO_CFG_TARGET_OS not set");
-    if target_os == "linux" && (target_arch == "x86_64" || target_arch == "x86") {
+    if target_os == "linux"
+        && (target_arch == "x86_64" || target_arch == "x86" || target_arch == "aarch64")
+    {
         println!("cargo:rustc-cfg=ptrace_supported");
     }
 }

@@ -29,13 +29,15 @@ jobs:
       - uses: dtolnay/rust-toolchain@master
         with:
           toolchain: ${{ matrix.version }}
+          targets: ${{ matrix.target }}
           components: rustfmt
       - name: cache
         uses: Swatinem/rust-cache@v2
       - name: check_non_default
-        run: cargo check --no-default-features
+        run: cargo check --target ${{ matrix.target }} --no-default-features
       - name: test
-        run: cargo test
+        if: matrix.target == 'x86_64-unknown-linux-gnu'
+        run: cargo test --target ${{ matrix.target }}
       - name: check formatting
         run: cargo fmt -- --check
   windows:
