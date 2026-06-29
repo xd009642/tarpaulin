@@ -75,7 +75,7 @@ impl SourceAnalysis {
 
     fn visit_path(&mut self, path: &ExprPath, ctx: &Context) -> SubResult {
         if let Some(PathSegment {
-            ref ident,
+            ident,
             arguments: _,
         }) = path.path.segments.last()
         {
@@ -343,7 +343,7 @@ impl SourceAnalysis {
         let blk = &unsafe_expr.block;
         if u_line != blk.brace_token.span.join().start().line || blk.stmts.is_empty() {
             let analysis = self.get_line_analysis(ctx.file.to_path_buf());
-            analysis.ignore_tokens(unsafe_expr.unsafe_token);
+            analysis.ignore_tokens(&unsafe_expr.unsafe_token);
         } else if let Some(first_stmt) = blk.stmts.first() {
             let s = match first_stmt {
                 Stmt::Local(l) => l.span(),
@@ -353,7 +353,7 @@ impl SourceAnalysis {
             };
             if u_line != s.start().line {
                 let analysis = self.get_line_analysis(ctx.file.to_path_buf());
-                analysis.ignore_tokens(unsafe_expr.unsafe_token);
+                analysis.ignore_tokens(&unsafe_expr.unsafe_token);
             }
             let reachable = self.process_statements(&blk.stmts, ctx);
             if reachable.is_unreachable() {
@@ -364,7 +364,7 @@ impl SourceAnalysis {
             res += reachable;
         } else {
             let analysis = self.get_line_analysis(ctx.file.to_path_buf());
-            analysis.ignore_tokens(unsafe_expr.unsafe_token);
+            analysis.ignore_tokens(&unsafe_expr.unsafe_token);
             analysis.ignore_span(blk.span());
         }
         res

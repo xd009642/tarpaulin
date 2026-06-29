@@ -1,3 +1,5 @@
+#[cfg(ptrace_supported)]
+use crate::breakpoint::BREAKPOINT_PC_OFFSET;
 use crate::cargo::TestBinary;
 use crate::config::Config;
 #[cfg(ptrace_supported)]
@@ -119,7 +121,9 @@ impl TraceEvent {
                 event.signal = Some(sig.to_string());
                 if *sig == Signal::SIGTRAP {
                     event.description = "Stopped".to_string();
-                    event.addr = current_instruction_pointer(*c).ok().map(|x| (x - 1) as u64);
+                    event.addr = current_instruction_pointer(*c)
+                        .ok()
+                        .map(|x| (x as u64).saturating_sub(BREAKPOINT_PC_OFFSET));
                     if let Some(addr) = event.addr {
                         event.location = traces.get_location(addr - offset);
                     }

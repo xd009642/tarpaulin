@@ -10,7 +10,6 @@ env:
 
 jobs:
   linux:
-    runs-on: ubuntu-latest
     strategy:
       matrix:
         version:
@@ -24,18 +23,21 @@ jobs:
           - x86_64-unknown-linux-musl
           - aarch64-unknown-linux-gnu
       fail-fast: false
+    runs-on: ${{ matrix.target == 'aarch64-unknown-linux-gnu' && 'ubuntu-24.04-arm' || 'ubuntu-latest' }}
     steps:
-      - uses: actions/checkout@v6
+      - uses: actions/checkout@v7
       - uses: dtolnay/rust-toolchain@master
         with:
           toolchain: ${{ matrix.version }}
+          targets: ${{ matrix.target }}
           components: rustfmt
       - name: cache
         uses: Swatinem/rust-cache@v2
       - name: check_non_default
-        run: cargo check --no-default-features
+        run: cargo check --target ${{ matrix.target }} --no-default-features
       - name: test
-        run: cargo test
+        if: matrix.target == 'x86_64-unknown-linux-gnu' || matrix.target == 'aarch64-unknown-linux-gnu'
+        run: cargo test --target ${{ matrix.target }}
       - name: check formatting
         run: cargo fmt -- --check
   windows:
@@ -50,7 +52,7 @@ jobs:
           - x86_64-pc-windows-msvc
       fail-fast: false
     steps:
-      - uses: actions/checkout@v6
+      - uses: actions/checkout@v7
       - uses: dtolnay/rust-toolchain@master
         with:
           toolchain: ${{ matrix.version }}
@@ -69,7 +71,7 @@ jobs:
           - x86_64-apple-darwin	
       fail-fast: false
     steps:
-      - uses: actions/checkout@v6
+      - uses: actions/checkout@v7
       - uses: dtolnay/rust-toolchain@master
         with:
           toolchain: ${{ matrix.version }}

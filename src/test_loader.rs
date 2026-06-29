@@ -1,9 +1,9 @@
-use crate::config::{types::TraceEngine, Config};
+use crate::config::{Config, types::TraceEngine};
 use crate::path_utils::{fix_unc_path, is_coverable_file_path};
 use crate::source_analysis::*;
 use crate::traces::*;
 use gimli::*;
-use object::{read::ObjectSection, Object};
+use object::{Object, read::ObjectSection};
 use rustc_demangle::demangle;
 use std::collections::{HashMap, HashSet};
 use std::fs::File;
@@ -283,14 +283,12 @@ fn get_line_addresses<'data>(
                 }
                 let temp_map = temp_map
                     .into_iter()
-                    .filter(|(ref k, _)| {
+                    .filter(|(k, _)| {
                         config.include_tests() || !k.path.starts_with(project.join("tests"))
                     })
-                    .filter(|(ref k, _)| !(config.exclude_path(&k.path)))
-                    .filter(|(ref k, _)| config.include_path(&k.path))
-                    .filter(|(ref k, _)| {
-                        !analysis.should_ignore(k.path.as_ref(), &(k.line as usize))
-                    })
+                    .filter(|(k, _)| !(config.exclude_path(&k.path)))
+                    .filter(|(k, _)| config.include_path(&k.path))
+                    .filter(|(k, _)| !analysis.should_ignore(k.path.as_ref(), &(k.line as usize)))
                     .map(|(k, v)| {
                         let ret = analysis.normalise(k.path.as_ref(), k.line as usize);
                         let k_n = SourceLocation::from(ret);

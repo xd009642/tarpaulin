@@ -42,9 +42,12 @@ fn get_git_info(manifest_path: &Path) -> Result<GitInfo, String> {
 
     let mut remotes = vec![];
     if let Ok(remote_names) = repo.remotes() {
-        for name in remote_names.into_iter().filter_map(|x| x) {
+        for name in remote_names.into_iter().filter_map(|x| x.ok()) {
+            let Some(name) = name else {
+                continue;
+            };
             if let Ok(url) = repo.find_remote(name) {
-                if let Some(url) = url.url() {
+                if let Ok(url) = url.url() {
                     remotes.push(Remote {
                         name: name.to_string(),
                         url: url.to_string(),
@@ -56,11 +59,11 @@ fn get_git_info(manifest_path: &Path) -> Result<GitInfo, String> {
     Ok(GitInfo {
         head: Head {
             id: commit.id().to_string(),
-            author_name: get_string(author.name())?,
-            author_email: get_string(author.email())?,
-            committer_name: get_string(committer.name())?,
-            committer_email: get_string(committer.email())?,
-            message: get_string(commit.message())?,
+            author_name: get_string(author.name().ok())?,
+            author_email: get_string(author.email().ok())?,
+            committer_name: get_string(committer.name().ok())?,
+            committer_email: get_string(committer.email().ok())?,
+            message: get_string(commit.message().ok())?,
         },
         branch: branch_name,
         remotes,
@@ -69,7 +72,7 @@ fn get_git_info(manifest_path: &Path) -> Result<GitInfo, String> {
 
 fn get_identity(ci_tool: &Option<CiService>, key: &str) -> Identity {
     match ci_tool {
-        Some(ref service) => {
+        Some(service) => {
             let service_object = match Service::from_ci(service.clone()) {
                 Some(s) => s,
                 None => Service {
@@ -108,7 +111,9 @@ pub fn export(coverage_data: &TraceMap, config: &Config) -> Result<(), RunError>
                         lines.insert(c.line as usize, hits as usize);
                     }
                     _ => {
-                        info!("Support for coverage statistic not implemented or supported for coveralls.io");
+                        info!(
+                            "Support for coverage statistic not implemented or supported for coveralls.io"
+                        );
                     }
                 }
             }

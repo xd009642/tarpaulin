@@ -1,7 +1,7 @@
-use crate::process_handling::event_source::*;
-use crate::statemachine::TestState;
 use crate::Config;
 use crate::RunError;
+use crate::process_handling::event_source::*;
+use crate::statemachine::TestState;
 use libc::c_long;
 use nix::sys::signal::Signal;
 use nix::sys::wait::{WaitPidFlag, WaitStatus};
@@ -198,7 +198,7 @@ struct MockInner {
     /// Ordered so tests can assert on what the tracer did
     action_log: Vec<TraceAction>,
     image: HashMap<u64, c_long>,
-    /// breakpoint addr -> original byte before INT3 was written
+    /// breakpoint addr -> original word before the trap instruction was written
     breakpoints: HashMap<u64, c_long>,
 }
 
@@ -274,7 +274,7 @@ impl MockEventSource {
         match step {
             ThreadStep::None => {}
             ThreadStep::Breakpoint(addr) => {
-                proc.instruction_pointer = addr + 1; // after INT3
+                proc.instruction_pointer = addr + crate::breakpoint::BREAKPOINT_PC_OFFSET;
                 proc.state = PidState::Stopped;
                 proc.pending_wait = Some(WaitStatus::Stopped(pid, Signal::SIGTRAP));
             }
@@ -531,13 +531,20 @@ impl EventSource for MockEventSource {
         inner
             .action_log
             .push(TraceAction::WriteAddress(pid, addr, data));
-        // Track whether this is setting or clearing a breakpoint
-        if data & 0xff == 0xcc {
-            // Placing INT3: save original if we haven't already
+        // Track whether this is setting or clearing a breakpoint.
+        let data_bits = data as u64;
+        let is_breakpoint_write = (0..=(64 - crate::breakpoint::BREAKPOINT_INSTRUCTION_SIZE * 8))
+            .step_by(crate::breakpoint::BREAKPOINT_INSTRUCTION_SIZE as usize * 8)
+            .any(|shift| {
+                ((data_bits >> shift) & crate::breakpoint::BREAKPOINT_MASK)
+                    == crate::breakpoint::BREAKPOINT_INSTRUCTION
+            });
+        if is_breakpoint_write {
+            // Placing a trap instruction: save original if we haven't already
             let original = inner.image.get(&addr).copied().unwrap_or(data);
             inner.breakpoints.insert(addr, original);
         } else {
-            // Restoring original byte
+            // Restoring original instruction bytes
             inner.breakpoints.remove(&addr);
         }
         inner.image.insert(addr, data);
@@ -580,10 +587,10 @@ impl EventSource for MockEventSource {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::statemachine::linux::{create_state_machine, LinuxData};
-    use crate::statemachine::TestState;
-    use crate::traces::{CoverageStat, Trace, TraceMap};
     use crate::TestHandle;
+    use crate::statemachine::TestState;
+    use crate::statemachine::linux::{LinuxData, create_state_machine};
+    use crate::traces::{CoverageStat, Trace, TraceMap};
     use std::path::Path;
     use std::rc::Rc;
 
@@ -596,6 +603,25 @@ mod tests {
             }
         }
         panic!("Test didn't end in 100 steps. Unexpectedly long simulation");
+    }
+
+    #[test]
+    fn breakpoint_stop_reports_arch_specific_program_counter() {
+        let source = MockEventSource::build()
+            .process(100)
+            .breakpoint(1000)
+            .exit(0)
+            .finish();
+        let pid = Pid::from_raw(100);
+
+        source
+            .continue_pid(pid, None)
+            .expect("process should continue to the first breakpoint");
+        let pc = source
+            .current_instruction_pointer(pid)
+            .expect("mock process should have an instruction pointer");
+
+        assert_eq!(pc as u64, 1000 + crate::breakpoint::BREAKPOINT_PC_OFFSET);
     }
 
     #[test]

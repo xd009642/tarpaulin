@@ -106,18 +106,10 @@ impl Ord for Trace {
         self.line.cmp(&other.line)
     }
     fn max(self, other: Trace) -> Trace {
-        if self.line > other.line {
-            self
-        } else {
-            other
-        }
+        if self.line > other.line { self } else { other }
     }
     fn min(self, other: Trace) -> Trace {
-        if self.line < other.line {
-            self
-        } else {
-            other
-        }
+        if self.line < other.line { self } else { other }
     }
 }
 

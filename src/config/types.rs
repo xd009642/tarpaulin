@@ -42,9 +42,9 @@ impl fmt::Display for Color {
 #[value(rename_all = "PascalCase")]
 pub enum TraceEngine {
     Auto,
-    #[cfg_attr(ptrace_supported, default)]
+    #[cfg_attr(ptrace_default, default)]
     Ptrace,
-    #[cfg_attr(not(ptrace_supported), default)]
+    #[cfg_attr(not(ptrace_default), default)]
     Llvm,
 }
 
@@ -81,6 +81,23 @@ pub enum RunType {
     Lib,
     Bins,
     AllTargets,
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    #[cfg(ptrace_default)]
+    fn ptrace_default_platforms_default_to_ptrace() {
+        assert_eq!(TraceEngine::default(), TraceEngine::Ptrace);
+    }
+
+    #[test]
+    #[cfg(not(ptrace_default))]
+    fn non_ptrace_default_platforms_default_to_llvm() {
+        assert_eq!(TraceEngine::default(), TraceEngine::Llvm);
+    }
 }
 
 #[derive(

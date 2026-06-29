@@ -2448,15 +2448,17 @@ fn module_nesting_correct() {
     let mut analysis = SourceAnalysis::new();
     analysis.process_items(&parser.items, &ctx);
     println!("{:?}", ctx.ignore_mods.borrow());
-    assert!(ctx
-        .ignore_mods
-        .borrow()
-        .contains(&PathBuf::from("src/tests/inner.rs")));
+    assert!(
+        ctx.ignore_mods
+            .borrow()
+            .contains(&PathBuf::from("src/tests/inner.rs"))
+    );
 
-    assert!(ctx
-        .ignore_mods
-        .borrow()
-        .contains(&PathBuf::from("src/tests/foo/innermost.rs")));
+    assert!(
+        ctx.ignore_mods
+            .borrow()
+            .contains(&PathBuf::from("src/tests/foo/innermost.rs"))
+    );
 
     let ctx = Context {
         config: &config,
@@ -2474,10 +2476,11 @@ fn module_nesting_correct() {
     let mut analysis = SourceAnalysis::new();
     analysis.process_items(&parser.items, &ctx);
     println!("{:?}", ctx.ignore_mods);
-    assert!(ctx
-        .ignore_mods
-        .borrow()
-        .contains(&PathBuf::from("src/foo/bar/inner.rs")));
+    assert!(
+        ctx.ignore_mods
+            .borrow()
+            .contains(&PathBuf::from("src/foo/bar/inner.rs"))
+    );
 
     // Top-level `#[cfg(test)] mod foo;` in lib.rs must resolve to src/foo.rs,
     // not src/lib/foo.rs. Same for mod.rs and main.rs — all three file stems
@@ -2495,10 +2498,11 @@ fn module_nesting_correct() {
     let parser = parse_file(ctx.file_contents).unwrap();
     let mut analysis = SourceAnalysis::new();
     analysis.process_items(&parser.items, &ctx);
-    assert!(ctx
-        .ignore_mods
-        .borrow()
-        .contains(&PathBuf::from("src/tests.rs")));
+    assert!(
+        ctx.ignore_mods
+            .borrow()
+            .contains(&PathBuf::from("src/tests.rs"))
+    );
 
     let ctx = Context {
         config: &config,
@@ -2513,10 +2517,11 @@ fn module_nesting_correct() {
     let parser = parse_file(ctx.file_contents).unwrap();
     let mut analysis = SourceAnalysis::new();
     analysis.process_items(&parser.items, &ctx);
-    assert!(ctx
-        .ignore_mods
-        .borrow()
-        .contains(&PathBuf::from("src/sub/tests.rs")));
+    assert!(
+        ctx.ignore_mods
+            .borrow()
+            .contains(&PathBuf::from("src/sub/tests.rs"))
+    );
 
     let ctx = Context {
         config: &config,
@@ -2531,10 +2536,134 @@ fn module_nesting_correct() {
     let parser = parse_file(ctx.file_contents).unwrap();
     let mut analysis = SourceAnalysis::new();
     analysis.process_items(&parser.items, &ctx);
-    assert!(ctx
-        .ignore_mods
-        .borrow()
-        .contains(&PathBuf::from("src/tests.rs")));
+    assert!(
+        ctx.ignore_mods
+            .borrow()
+            .contains(&PathBuf::from("src/tests.rs"))
+    );
+}
+
+fn feature_gated_module_root() -> PathBuf {
+    PathBuf::from(
+        std::env::var("CARGO_MANIFEST_DIR").expect("tests should know the crate manifest dir"),
+    )
+    .join("tests/data/feature_gated_module")
+}
+
+fn feature_config(features: Option<&str>, no_default_features: bool, all_features: bool) -> Config {
+    let mut config = Config::default();
+    config.set_manifest(feature_gated_module_root().join("Cargo.toml"));
+    config.features = features.map(str::to_string);
+    config.no_default_features = no_default_features;
+    config.all_features = all_features;
+    config
+}
+
+fn ignored_modules_for_feature_cfg(config: &Config) -> HashSet<PathBuf> {
+    let file = feature_gated_module_root().join("src/lib.rs");
+    let file_contents = r#"
+        #[cfg(feature = "default_child")]
+        mod default_child;
+
+        #[cfg(feature = "feature_b")]
+        mod feature_b;
+
+        #[cfg(feature = "feature_c")]
+        mod feature_c;
+
+        #[cfg(any(feature = "missing", feature = "feature_c"))]
+        mod any_with_transitive_feature;
+
+        #[cfg(all(feature = "feature_c", target_os = "definitely-not-a-target"))]
+        mod all_with_unknown_target;
+
+        #[cfg(not(feature = "feature_b"))]
+        mod not_feature_b;
+    "#;
+    let ctx = Context {
+        config,
+        file_contents,
+        file: &file,
+        ignore_mods: RefCell::new(HashSet::new()),
+        symbol_stack: RefCell::new(Vec::new()),
+    };
+
+    let parser = parse_file(ctx.file_contents).expect("feature cfg test source should parse");
+    let mut analysis = SourceAnalysis::new();
+    analysis.process_items(&parser.items, &ctx);
+    ctx.ignore_mods.into_inner()
+}
+
+/// Verifies source analysis skips modules gated by inactive explicit features.
+#[test]
+fn cfg_feature_modules_ignore_inactive_features() {
+    let config = feature_config(None, false, false);
+    let ignored_modules = ignored_modules_for_feature_cfg(&config);
+    let root = feature_gated_module_root();
+
+    assert!(ignored_modules.contains(&root.join("src/feature_b.rs")));
+    assert!(ignored_modules.contains(&root.join("src/feature_c.rs")));
+    assert!(ignored_modules.contains(&root.join("src/any_with_transitive_feature.rs")));
+    assert!(!ignored_modules.contains(&root.join("src/default_child.rs")));
+    assert!(!ignored_modules.contains(&root.join("src/not_feature_b.rs")));
+}
+
+/// Verifies `--features feature_a` activates modules gated only by feature_b or feature_c.
+#[test]
+fn cfg_feature_modules_expand_transitive_feature_dependencies() {
+    let config = feature_config(Some("feature_a"), true, false);
+    let ignored_modules = ignored_modules_for_feature_cfg(&config);
+    let root = feature_gated_module_root();
+
+    assert!(!ignored_modules.contains(&root.join("src/feature_b.rs")));
+    assert!(!ignored_modules.contains(&root.join("src/feature_c.rs")));
+    assert!(!ignored_modules.contains(&root.join("src/any_with_transitive_feature.rs")));
+    assert!(ignored_modules.contains(&root.join("src/default_child.rs")));
+    assert!(ignored_modules.contains(&root.join("src/not_feature_b.rs")));
+}
+
+/// Verifies default features are expanded unless `--no-default-features` is set.
+#[test]
+fn cfg_feature_modules_expand_default_feature_dependencies() {
+    let with_defaults = feature_config(None, false, false);
+    let without_defaults = feature_config(None, true, false);
+    let root = feature_gated_module_root();
+
+    assert!(
+        !ignored_modules_for_feature_cfg(&with_defaults)
+            .contains(&root.join("src/default_child.rs"))
+    );
+    assert!(
+        ignored_modules_for_feature_cfg(&without_defaults)
+            .contains(&root.join("src/default_child.rs"))
+    );
+}
+
+/// Verifies `--all-features` activates every feature declared by the package metadata.
+#[test]
+fn cfg_feature_modules_include_all_manifest_features() {
+    let config = feature_config(None, true, true);
+    let ignored_modules = ignored_modules_for_feature_cfg(&config);
+    let root = feature_gated_module_root();
+
+    assert!(!ignored_modules.contains(&root.join("src/default_child.rs")));
+    assert!(!ignored_modules.contains(&root.join("src/feature_b.rs")));
+    assert!(!ignored_modules.contains(&root.join("src/feature_c.rs")));
+    assert!(ignored_modules.contains(&root.join("src/not_feature_b.rs")));
+}
+
+/// Verifies unknown cfg predicates only skip modules when a known predicate proves false.
+#[test]
+fn cfg_feature_modules_keep_unknown_predicates_unless_definitely_false() {
+    let config = feature_config(Some("feature_a"), true, false);
+    let ignored_modules = ignored_modules_for_feature_cfg(&config);
+    let root = feature_gated_module_root();
+
+    assert!(!ignored_modules.contains(&root.join("src/all_with_unknown_target.rs")));
+
+    let config = feature_config(None, true, false);
+    let ignored_modules = ignored_modules_for_feature_cfg(&config);
+    assert!(ignored_modules.contains(&root.join("src/all_with_unknown_target.rs")));
 }
 
 #[test]

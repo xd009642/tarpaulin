@@ -1,9 +1,9 @@
+use crate::LineAnalysis;
+use crate::TestHandle;
 use crate::config::{Config, TraceEngine};
 use crate::errors::RunError;
 use crate::event_log::*;
 use crate::traces::*;
-use crate::LineAnalysis;
-use crate::TestHandle;
 use std::collections::HashMap;
 use std::path::PathBuf;
 use std::time::Instant;

@@ -181,7 +181,7 @@ pub struct Config {
     #[serde(rename = "implicit-test-threads")]
     pub implicit_test_threads: bool,
     /// Engine to use to collect coverage
-    engine: RefCell<TraceEngine>,
+    engine: RefCell<Option<TraceEngine>>,
     /// Specifying per-config rust flags
     pub rustflags: Option<String>,
     /// Flag to include test functions in coverage statistics
@@ -305,7 +305,7 @@ impl From<ConfigArgs> for ConfigWrapper {
             manifest: process_manifest(args.manifest_path, args.root.clone()),
             config: None,
             root: args.root,
-            engine: RefCell::new(args.engine.unwrap_or_default()),
+            engine: RefCell::new(args.engine),
             command: args.command.unwrap_or(Mode::Test),
             verbose: args.logging.verbose || args.logging.debug,
             debug: args.logging.debug,
@@ -392,13 +392,15 @@ impl Config {
     /// This returns the engine selected for tarpaulin to run. This function will not return Auto
     /// instead it will resolve to the best-fit `TraceEngine` for the given configuration
     pub fn engine(&self) -> TraceEngine {
-        let engine = *self.engine.borrow();
+        let engine = self.engine.borrow().unwrap_or_default();
         match engine {
             TraceEngine::Auto | TraceEngine::Llvm if supports_llvm_coverage() => TraceEngine::Llvm,
             engine => {
                 if engine == TraceEngine::Llvm {
-                    error!("unable to utilise llvm coverage, due to compiler support. Falling back to Ptrace");
-                    self.engine.replace(TraceEngine::Ptrace);
+                    error!(
+                        "unable to utilise llvm coverage, due to compiler support. Falling back to Ptrace"
+                    );
+                    self.engine.replace(Some(TraceEngine::Ptrace));
                 }
                 TraceEngine::Ptrace
             }
@@ -406,7 +408,7 @@ impl Config {
     }
 
     pub fn set_engine(&self, engine: TraceEngine) {
-        self.engine.replace(engine);
+        self.engine.replace(Some(engine));
     }
 
     pub fn get_tracemap_settings(&self) -> TraceMapSettings {
@@ -664,6 +666,10 @@ impl Config {
         self.target_dir = Config::pick_optional_config(&self.target_dir, &other.target_dir);
         self.output_directory =
             Config::pick_optional_config(&self.output_directory, &other.output_directory);
+        let other_engine = *other.engine.borrow();
+        if other_engine.is_some() {
+            self.engine.replace(other_engine);
+        }
         self.all |= other.all;
         self.frozen |= other.frozen;
         self.locked |= other.locked;
@@ -1206,6 +1212,29 @@ mod tests {
 
         a.merge(&b);
         assert!(a.all);
+    }
+
+    #[test]
+    fn explicit_engine_overrides_config_merge() {
+        let mut config_file: Config = toml::from_str(r#"engine = "Ptrace""#).unwrap();
+        let cli = Config {
+            engine: RefCell::new(Some(TraceEngine::Llvm)),
+            ..Config::default()
+        };
+
+        config_file.merge(&cli);
+
+        assert_eq!(*config_file.engine.borrow(), Some(TraceEngine::Llvm));
+    }
+
+    #[test]
+    fn absent_engine_does_not_override_config_merge() {
+        let mut config_file: Config = toml::from_str(r#"engine = "Llvm""#).unwrap();
+        let cli = Config::default();
+
+        config_file.merge(&cli);
+
+        assert_eq!(*config_file.engine.borrow(), Some(TraceEngine::Llvm));
     }
 
     #[test]

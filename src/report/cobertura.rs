@@ -47,8 +47,8 @@ use std::path::{Path, PathBuf};
 use std::time::{SystemTime, UNIX_EPOCH};
 
 use quick_xml::{
-    events::{BytesDecl, BytesEnd, BytesStart, BytesText, Event},
     Writer,
+    events::{BytesDecl, BytesEnd, BytesStart, BytesText, Event},
 };
 
 use chrono::offset::Utc;
@@ -73,7 +73,7 @@ impl fmt::Display for Error {
     #[inline]
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         match self {
-            Error::ExportError(ref e) => write!(f, "Export Error {e}"),
+            Error::ExportError(e) => write!(f, "Export Error {e}"),
             Error::Unknown => write!(f, "Unknown Error"),
         }
     }
@@ -244,10 +244,7 @@ impl Report {
         for line in lines {
             let mut l = BytesStart::new(line_tag);
             match line {
-                Line::Plain {
-                    ref number,
-                    ref hits,
-                } => {
+                Line::Plain { number, hits } => {
                     l.push_attribute(("number", number.to_string().as_ref()));
                     l.push_attribute(("hits", hits.to_string().as_ref()));
                 }
