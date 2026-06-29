@@ -3,7 +3,7 @@
 From 2019 onwards, all notable changes to tarpaulin will be documented in this
 file.
 
-## [Unreleased]
+## [0.36.0] 2026-06-29
 ### Added
 - Adding support for custom cargo runners. This will be the basis of wasm and ebpf support
 - Basic feature gate evaluation to skip source analysis on ignored modules
@@ -11,6 +11,9 @@ file.
 
 ### Changed
 - Performance improvements in llvm profraw parsing
+
+### Fixed
+- Issue with config file and CLI merging that lead to CLI --engine being ignored if a config file is used
 
 ### Fixed
 - Issue with config file and CLI merging that lead to CLI --engine being ignored if a config file is used
