@@ -18,7 +18,7 @@ use std::io;
 use std::path::Path;
 #[cfg(windows)]
 use std::path::PathBuf;
-use std::process::{self, Command};
+use std::process::{self, Command, Stdio};
 use std::time::Duration;
 use std::time::{SystemTime, UNIX_EPOCH};
 use std::{env, fs};
@@ -155,9 +155,40 @@ fn host_target() -> String {
 }
 
 fn target_runner_env_key(target: &str) -> String {
+    target_env_key(target, "RUNNER")
+}
+
+fn target_rustflags_env_key(target: &str) -> String {
+    target_env_key(target, "RUSTFLAGS")
+}
+
+fn target_env_key(target: &str, suffix: &str) -> String {
     let mut target = target.replace(['-', '.'], "_");
     target.make_ascii_uppercase();
-    format!("CARGO_TARGET_{target}_RUNNER")
+    format!("CARGO_TARGET_{target}_{suffix}")
+}
+
+fn command_succeeds(program: &str, args: &[&str]) -> bool {
+    Command::new(program)
+        .args(args)
+        .stdout(Stdio::null())
+        .stderr(Stdio::null())
+        .status()
+        .map(|status| status.success())
+        .unwrap_or(false)
+}
+
+fn nightly_wasm_target_installed() -> bool {
+    let output = match Command::new("rustup")
+        .args(["+nightly", "target", "list", "--installed"])
+        .output()
+    {
+        Ok(output) if output.status.success() => output,
+        _ => return false,
+    };
+    String::from_utf8_lossy(&output.stdout)
+        .lines()
+        .any(|line| line == "wasm32-unknown-unknown")
 }
 
 fn unique_temp_dir(prefix: &str) -> std::path::PathBuf {
@@ -838,4 +869,66 @@ fn workspace_default_members() {
     assert!(files[1].ends_with(Path::new("workspace_2/src/lib.rs")));
 }
 
+}
+
+#[test]
+fn llvm_wasm_coverage_uses_target_runner_and_target_rustflags() {
+    const WASM_TARGET: &str = "wasm32-unknown-unknown";
+
+    if !command_succeeds("wasm-bindgen-test-runner", &["--version"]) {
+        eprintln!("skipping wasm coverage integration test: wasm-bindgen-test-runner not found");
+        return;
+    }
+    if !nightly_wasm_target_installed() {
+        eprintln!("skipping wasm coverage integration test: nightly wasm32 target not installed");
+        return;
+    }
+
+    let output_dir = unique_temp_dir("tarpaulin_wasm_coverage");
+    fs::create_dir_all(&output_dir).expect("test should create report output directory");
+
+    let test_dir = get_test_path("wasm_coverage");
+    let cargo_tarpaulin = env::var_os("CARGO_BIN_EXE_cargo-tarpaulin")
+        .expect("cargo should expose the cargo-tarpaulin binary path to integration tests");
+    let output = Command::new(cargo_tarpaulin)
+        .arg("tarpaulin")
+        .args(["--engine", "llvm"])
+        .args(["--target", WASM_TARGET])
+        .arg("--manifest-path")
+        .arg(test_dir.join("Cargo.toml"))
+        .args(["--out", "Lcov"])
+        .arg("--output-dir")
+        .arg(&output_dir)
+        .arg("--skip-clean")
+        .env(target_runner_env_key(WASM_TARGET), "wasm-bindgen-test-runner")
+        .env(
+            target_rustflags_env_key(WASM_TARGET),
+            "-Zno-profiler-runtime -Clink-args=--no-gc-sections --cfg=wasm_bindgen_unstable_test_coverage",
+        )
+        .env("RUSTUP_TOOLCHAIN", "nightly")
+        .env_remove("RUSTFLAGS")
+        .env_remove("CARGO_ENCODED_RUSTFLAGS")
+        .output()
+        .expect("wasm tarpaulin run should start");
+
+    assert!(
+        output.status.success(),
+        "wasm tarpaulin run should succeed\nstdout:\n{}\nstderr:\n{}",
+        String::from_utf8_lossy(&output.stdout),
+        String::from_utf8_lossy(&output.stderr)
+    );
+
+    let lcov = fs::read_to_string(output_dir.join("lcov.info"))
+        .expect("wasm tarpaulin run should write lcov output");
+    let source = test_dir.join("src/lib.rs");
+    assert!(
+        lcov.contains(&format!("SF:{}", source.display())),
+        "lcov output should include the wasm fixture source file"
+    );
+    assert!(lcov.contains("DA:1,1"));
+    assert!(lcov.contains("DA:2,1"));
+    assert!(lcov.contains("DA:5,0"));
+    assert!(lcov.contains("DA:6,0"));
+
+    let _ = fs::remove_dir_all(output_dir);
 }

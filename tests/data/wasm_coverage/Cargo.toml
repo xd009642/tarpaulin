@@ -1,0 +1,14 @@
+[package]
+name = "wasm_coverage"
+version = "0.1.0"
+edition = "2024"
+rust-version = "1.87"
+
+[lib]
+crate-type = ["cdylib", "rlib"]
+
+[dependencies]
+wasm-bindgen = "0.2.100"
+
+[dev-dependencies]
+wasm-bindgen-test = "0.3.57"

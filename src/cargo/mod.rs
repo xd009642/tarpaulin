@@ -832,6 +832,8 @@ pub fn rust_flags(config: &Config, cargo_config: &CargoConfigFields) -> String {
         let vtemp = cargo_config.rust_flags.join(" ");
         value.push_str(&DEBUG_INFO.replace_all(&vtemp, " "));
     }
+    value.push(' ');
+    value.push_str(&cargo_config.target_rust_flags.join(" "));
 
     deduplicate_flags(&value)
 }
@@ -974,6 +976,24 @@ mod tests {
         config.no_dead_code = true;
         assert!(!rustdoc_flags(&config, &cargo_config).contains("link-dead-code"));
         assert!(!rust_flags(&config, &cargo_config).contains("link-dead-code"));
+    }
+
+    #[test]
+    fn target_rustflags_are_merged_with_config_rustflags() {
+        let mut config = Config::default();
+        config.rustflags = Some("--cfg=from_config".to_string());
+        let cargo_config = CargoConfigFields {
+            target_rust_flags: vec![
+                "-Zno-profiler-runtime".to_string(),
+                "--cfg=target_specific".to_string(),
+            ],
+            ..Default::default()
+        };
+        let flags = rust_flags(&config, &cargo_config);
+
+        assert!(flags.contains("--cfg=from_config"));
+        assert!(flags.contains("-Zno-profiler-runtime"));
+        assert!(flags.contains("--cfg=target_specific"));
     }
 
     #[test]
