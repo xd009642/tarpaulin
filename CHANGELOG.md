@@ -3,6 +3,10 @@
 From 2019 onwards, all notable changes to tarpaulin will be documented in this
 file.
 
+## [0.37.0] 2026-07-04
+### Added
+- Support for wasm coverage
+
 ## [0.36.0] 2026-06-29
 ### Added
 - Adding support for custom cargo runners. This will be the basis of wasm and ebpf support

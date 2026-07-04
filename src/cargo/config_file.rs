@@ -10,6 +10,7 @@ use tracing::{info, warn};
 pub struct CargoConfigFields {
     pub rust_doc_flags: Vec<String>,
     pub rust_flags: Vec<String>,
+    pub target_rust_flags: Vec<String>,
     pub env_vars: HashMap<String, String>,
     pub target_runner: Option<CargoTargetRunner>,
 }
@@ -46,6 +47,18 @@ fn host_target() -> Option<String> {
         .map(str::to_string)
 }
 
+fn target_env_key(target: &str, suffix: &str) -> String {
+    let mut target = target.replace(['-', '.'], "_");
+    target.make_ascii_uppercase();
+    format!("CARGO_TARGET_{target}_{suffix}")
+}
+
+fn target_rustflags_env(target: &str) -> Option<Vec<String>> {
+    env::var(target_env_key(target, "RUSTFLAGS"))
+        .ok()
+        .map(|flags| flags.split_whitespace().map(str::to_string).collect())
+}
+
 pub fn get_cargo_config(config: &Config) -> CargoConfigFields {
     let cargo_config = match cargo_config2::Config::load_with_cwd(config.root()) {
         Ok(c) => c,
@@ -66,6 +79,21 @@ pub fn get_cargo_config(config: &Config) -> CargoConfigFields {
     for (key, value) in &cargo_config.env {
         if let Some(value) = resolve_value(&root, key.as_str(), value) {
             result.env_vars.insert(key.to_string(), value);
+        }
+    }
+    if let Some(target) = config.target.as_deref() {
+        if env::var_os("RUSTFLAGS").is_some() || env::var_os("CARGO_ENCODED_RUSTFLAGS").is_some() {
+            if let Some(rust_flags) = target_rustflags_env(target) {
+                result.target_rust_flags = rust_flags;
+            }
+        } else {
+            match cargo_config.rustflags(target) {
+                Ok(Some(rust_flags)) => {
+                    result.target_rust_flags = rust_flags.flags;
+                }
+                Ok(None) => {}
+                Err(e) => warn!("Unable to read target rustflags from cargo config: {}", e),
+            }
         }
     }
     if let Some(target) = config.target.clone().or_else(host_target) {
@@ -105,9 +133,11 @@ mod tests {
     }
 
     fn target_runner_env_key(target: &str) -> String {
-        let mut target = target.replace(['-', '.'], "_");
-        target.make_ascii_uppercase();
-        format!("CARGO_TARGET_{target}_RUNNER")
+        target_env_key(target, "RUNNER")
+    }
+
+    fn target_rustflags_env_key(target: &str) -> String {
+        target_env_key(target, "RUSTFLAGS")
     }
 
     fn temp_manifest_root(prefix: &str) -> PathBuf {
@@ -163,6 +193,81 @@ mod tests {
             PathBuf::from("runner-for-the-wrong-target")
         );
         assert_eq!(other_cargo_config.target_runner, None);
+    }
+
+    #[test]
+    fn target_rustflags_env_for_matching_target_is_used() {
+        let _lock = ENV_LOCK
+            .lock()
+            .expect("env test lock should not be poisoned");
+        let root = temp_manifest_root("tarpaulin_target_rustflags");
+
+        let rustflags_key = target_rustflags_env_key("wasm32-unknown-unknown");
+        let previous_rustflags = env::var_os(&rustflags_key);
+        unsafe {
+            env::set_var(
+                &rustflags_key,
+                "-Zno-profiler-runtime --cfg=wasm_bindgen_unstable_test_coverage",
+            );
+        }
+
+        let mut matching_config = Config::default();
+        matching_config.set_manifest(root.join("Cargo.toml"));
+        matching_config.target = Some("wasm32-unknown-unknown".to_string());
+        let matching_cargo_config = get_cargo_config(&matching_config);
+
+        let mut other_config = Config::default();
+        other_config.set_manifest(root.join("Cargo.toml"));
+        other_config.target = Some("x86_64-unknown-linux-gnu".to_string());
+        let other_cargo_config = get_cargo_config(&other_config);
+
+        restore_env_var(&rustflags_key, previous_rustflags);
+        let _ = fs::remove_dir_all(root);
+
+        assert_eq!(
+            matching_cargo_config.target_rust_flags,
+            vec![
+                "-Zno-profiler-runtime".to_string(),
+                "--cfg=wasm_bindgen_unstable_test_coverage".to_string()
+            ]
+        );
+        assert!(other_cargo_config.target_rust_flags.is_empty());
+    }
+
+    #[test]
+    fn target_rustflags_env_is_used_when_rustflags_env_is_set() {
+        let _lock = ENV_LOCK
+            .lock()
+            .expect("env test lock should not be poisoned");
+        let root = temp_manifest_root("tarpaulin_target_rustflags_with_rustflags");
+
+        let rustflags_key = target_rustflags_env_key("wasm32-unknown-unknown");
+        let previous_rustflags = env::var_os("RUSTFLAGS");
+        let previous_target_rustflags = env::var_os(&rustflags_key);
+        unsafe {
+            env::set_var("RUSTFLAGS", "--cfg=from_global_rustflags");
+            env::set_var(
+                &rustflags_key,
+                "-Zno-profiler-runtime --cfg=wasm_bindgen_unstable_test_coverage",
+            );
+        }
+
+        let mut config = Config::default();
+        config.set_manifest(root.join("Cargo.toml"));
+        config.target = Some("wasm32-unknown-unknown".to_string());
+        let cargo_config = get_cargo_config(&config);
+
+        restore_env_var("RUSTFLAGS", previous_rustflags);
+        restore_env_var(&rustflags_key, previous_target_rustflags);
+        let _ = fs::remove_dir_all(root);
+
+        assert_eq!(
+            cargo_config.target_rust_flags,
+            vec![
+                "-Zno-profiler-runtime".to_string(),
+                "--cfg=wasm_bindgen_unstable_test_coverage".to_string()
+            ]
+        );
     }
 
     #[test]

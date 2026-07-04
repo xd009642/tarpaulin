@@ -285,6 +285,11 @@ coverage results submitted (although you can still see them on the coveralls
 web interface). For an example of a project using Tarpaulin, you can check out
 my crate [keygraph-rs](https://github.com/xd009642/keygraph-rs).
 
+### Wasm Support
+
+See the [wasm-bindgen guide](https://wasm-bindgen.github.io/wasm-bindgen/wasm-bindgen-test/coverage.html)
+on how to get coverage for the wasm32-unknown-unknown target.
+
 ### Ignoring code in files
 
 Tarpaulin allows you to ignore modules or functions using attributes.
