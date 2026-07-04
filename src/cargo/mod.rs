@@ -832,6 +832,8 @@ pub fn rust_flags(config: &Config, cargo_config: &CargoConfigFields) -> String {
         let vtemp = cargo_config.rust_flags.join(" ");
         value.push_str(&DEBUG_INFO.replace_all(&vtemp, " "));
     }
+    value.push(' ');
+    value.push_str(&cargo_config.target_rust_flags.join(" "));
 
     deduplicate_flags(&value)
 }
@@ -936,6 +938,19 @@ pub fn llvm_coverage_rustflag() -> &'static str {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use std::ffi::OsString;
+    use std::sync::Mutex;
+
+    static ENV_LOCK: Mutex<()> = Mutex::new(());
+
+    fn restore_env_var(key: &str, previous: Option<OsString>) {
+        unsafe {
+            match previous {
+                Some(value) => env::set_var(key, value),
+                None => env::remove_var(key),
+            }
+        }
+    }
 
     #[test]
     fn old_doctest_name_handling() {
@@ -974,6 +989,33 @@ mod tests {
         config.no_dead_code = true;
         assert!(!rustdoc_flags(&config, &cargo_config).contains("link-dead-code"));
         assert!(!rust_flags(&config, &cargo_config).contains("link-dead-code"));
+    }
+
+    #[test]
+    fn target_rustflags_are_merged_with_rustflags_env() {
+        let _lock = ENV_LOCK
+            .lock()
+            .expect("env test lock should not be poisoned");
+        let previous_rustflags = env::var_os("RUSTFLAGS");
+        unsafe {
+            env::set_var("RUSTFLAGS", "--cfg=from_env");
+        }
+
+        let config = Config::default();
+        let cargo_config = CargoConfigFields {
+            target_rust_flags: vec![
+                "-Zno-profiler-runtime".to_string(),
+                "--cfg=target_specific".to_string(),
+            ],
+            ..Default::default()
+        };
+        let flags = rust_flags(&config, &cargo_config);
+
+        restore_env_var("RUSTFLAGS", previous_rustflags);
+
+        assert!(flags.contains("--cfg=from_env"));
+        assert!(flags.contains("-Zno-profiler-runtime"));
+        assert!(flags.contains("--cfg=target_specific"));
     }
 
     #[test]
