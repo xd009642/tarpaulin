@@ -938,19 +938,6 @@ pub fn llvm_coverage_rustflag() -> &'static str {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use std::ffi::OsString;
-    use std::sync::Mutex;
-
-    static ENV_LOCK: Mutex<()> = Mutex::new(());
-
-    fn restore_env_var(key: &str, previous: Option<OsString>) {
-        unsafe {
-            match previous {
-                Some(value) => env::set_var(key, value),
-                None => env::remove_var(key),
-            }
-        }
-    }
 
     #[test]
     fn old_doctest_name_handling() {
@@ -992,16 +979,9 @@ mod tests {
     }
 
     #[test]
-    fn target_rustflags_are_merged_with_rustflags_env() {
-        let _lock = ENV_LOCK
-            .lock()
-            .expect("env test lock should not be poisoned");
-        let previous_rustflags = env::var_os("RUSTFLAGS");
-        unsafe {
-            env::set_var("RUSTFLAGS", "--cfg=from_env");
-        }
-
-        let config = Config::default();
+    fn target_rustflags_are_merged_with_config_rustflags() {
+        let mut config = Config::default();
+        config.rustflags = Some("--cfg=from_config".to_string());
         let cargo_config = CargoConfigFields {
             target_rust_flags: vec![
                 "-Zno-profiler-runtime".to_string(),
@@ -1011,9 +991,7 @@ mod tests {
         };
         let flags = rust_flags(&config, &cargo_config);
 
-        restore_env_var("RUSTFLAGS", previous_rustflags);
-
-        assert!(flags.contains("--cfg=from_env"));
+        assert!(flags.contains("--cfg=from_config"));
         assert!(flags.contains("-Zno-profiler-runtime"));
         assert!(flags.contains("--cfg=target_specific"));
     }
