@@ -318,12 +318,12 @@ checksum = "773648b94d0e5d620f64f280777445740e61fe701025087ec8b57f45c791888b"
 
 [[package]]
 name = "coveralls-api"
-version = "0.7.0"
+version = "0.7.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "2b0d9065c788bbdef212fd6565a46c151504b7b383fdbe4624621640520a49d5"
+checksum = "e588c11419ba28cc3c26b78001c7a80537ae433a90ba796d2bf91c358e3384b0"
 dependencies = [
  "deflate",
- "md5 0.7.0",
+ "md5",
  "reqwest",
  "serde",
  "serde_json",
@@ -1007,7 +1007,7 @@ dependencies = [
  "flate2",
  "indexmap 1.8.2",
  "leb128",
- "md5 0.8.0",
+ "md5",
  "nom",
  "object",
  "rustc-hash",
@@ -1032,15 +1032,9 @@ dependencies = [
 
 [[package]]
 name = "md5"
-version = "0.7.0"
+version = "0.8.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "490cc448043f947bae3cbee9c203358d62dbee0db12107a74be5c30ccfd09771"
-
-[[package]]
-name = "md5"
-version = "0.8.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "ae960838283323069879657ca3de837e9f7bbb4c7bf6ea7f1b290d5e9476d2e0"
+checksum = "7ebb8d8732c6a6df3d8f032a82911cfc747e00efb95cc46e8d0acd5b5b88570c"
 
 [[package]]
 name = "memchr"
