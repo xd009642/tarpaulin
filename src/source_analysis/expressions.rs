@@ -172,12 +172,16 @@ impl SourceAnalysis {
         all_arms: &[Arm],
         ctx: &Context,
     ) {
-        if !pattern_is_inert(&arm.pat) {
+        let (pat, guard) = match &arm.pat {
+            Pat::Guard(guard) => (&*guard.pat, Some(&*guard.guard)),
+            pat => (pat, None),
+        };
+        if !pattern_is_inert(pat) {
             return;
         }
-        let pat_line = arm.pat.span().start().line;
-        let end_line = match &arm.guard {
-            Some((_, guard)) => guard.span().start().line,
+        let pat_line = pat.span().start().line;
+        let end_line = match guard {
+            Some(guard) => guard.span().start().line,
             None => {
                 let Expr::Block(b) = &*arm.body else {
                     return;
