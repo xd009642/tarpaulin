@@ -212,6 +212,7 @@ impl SourceAnalysis {
                                 attrs: item.attrs,
                                 // Trait functions inherit visibility from the trait
                                 vis: trait_item.vis.clone(),
+                                modifiers: item.modifiers,
                                 sig: item.sig,
                                 block: Box::new(block),
                             };
@@ -245,7 +246,7 @@ impl SourceAnalysis {
             .to_string()
             .replace(' ', "");
         let _guard = match &impl_blk.trait_ {
-            Some((_, path, _)) => {
+            Some((path, _)) => {
                 let trait_name = path
                     .segments
                     .last()
@@ -265,6 +266,7 @@ impl SourceAnalysis {
                         let item_fn = ItemFn {
                             attrs: item.attrs,
                             vis: item.vis,
+                            modifiers: item.modifiers,
                             sig: item.sig,
                             block: Box::new(item.block),
                         };
