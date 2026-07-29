@@ -11,6 +11,7 @@ keywords = ["cargo", "cargo-subcommand", "testing"]
 edition = "2024"
 autotests = false
 build = "build.rs"
+include = ["src/**/*", "LICENSE-*", "README.md", "CHANGELOG.md", "build.rs"]
 
 [features]
 default = ["coveralls", "wasm"]
