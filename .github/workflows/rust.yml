@@ -22,13 +22,18 @@ jobs:
           - x86_64-unknown-linux-gnu
           - x86_64-unknown-linux-musl
           - aarch64-unknown-linux-gnu
+        include:
+          # wasm-bindgen-test's minicov dependency does not yet support LLVM 23.
+          - version: nightly
+            target: x86_64-unknown-linux-gnu
+            toolchain: nightly-2026-08-03
       fail-fast: false
     runs-on: ${{ matrix.target == 'aarch64-unknown-linux-gnu' && 'ubuntu-24.04-arm' || 'ubuntu-latest' }}
     steps:
       - uses: actions/checkout@v7
       - uses: dtolnay/rust-toolchain@master
         with:
-          toolchain: ${{ matrix.version }}
+          toolchain: ${{ matrix.toolchain || matrix.version }}
           targets: ${{ matrix.target }}
           components: rustfmt
       - name: cache
@@ -36,13 +41,15 @@ jobs:
       - name: install wasm coverage test dependencies
         if: matrix.version == 'nightly' && matrix.target == 'x86_64-unknown-linux-gnu'
         run: |
-          rustup +nightly target add wasm32-unknown-unknown
+          rustup +${{ matrix.toolchain || matrix.version }} target add wasm32-unknown-unknown
           cargo install wasm-bindgen-cli --version 0.2.126 --locked
       - name: check_non_default
         run: cargo check --target ${{ matrix.target }} --no-default-features
       - name: test
         if: matrix.target == 'x86_64-unknown-linux-gnu' || matrix.target == 'aarch64-unknown-linux-gnu'
         run: cargo test --target ${{ matrix.target }}
+        env:
+          RUSTUP_TOOLCHAIN: ${{ matrix.toolchain || matrix.version }}
       - name: check formatting
         run: cargo fmt -- --check
   windows:

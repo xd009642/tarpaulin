@@ -11,7 +11,8 @@ jobs:
     strategy:
       matrix:
         version:
-          - nightly
+          # wasm-bindgen-test's minicov dependency does not yet support LLVM 23.
+          - nightly-2026-08-03
         target:
           - x86_64-unknown-linux-gnu
       fail-fast: false
@@ -22,7 +23,9 @@ jobs:
           toolchain: ${{ matrix.version }}
       - name: install wasm coverage test dependencies
         run: |
-          rustup +nightly target add wasm32-unknown-unknown
+          rustup +${{ matrix.version }} target add wasm32-unknown-unknown
           cargo install wasm-bindgen-cli --version 0.2.126 --locked
       - name: coverage
         run: cargo run --release -- tarpaulin --engine llvm --follow-exec --post-test-delay 10 --coveralls ${{ secrets.COVERALLS_TOKEN }} 
+        env:
+          RUSTUP_TOOLCHAIN: ${{ matrix.version }}
