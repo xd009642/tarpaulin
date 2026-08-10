@@ -7,9 +7,6 @@ file.
 ### Added
 - LLVM 23 support to llvm engine
 
-## Fixed
-- Ignore custom build artefacts output from test builds to fix wasm coverage
-
 ## [0.37.0] 2026-07-04
 ### Added
 - Support for wasm coverage
