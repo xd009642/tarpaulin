@@ -1465,6 +1465,83 @@ fn cover_default_trait_methods() {
     assert!(lines.is_force_covered(3));
 }
 
+/// Syn 3 accepts the current const-trait spelling as verbatim items, allowing
+/// source analysis to continue past syntax that Syn 2 rejected outright.
+#[test]
+fn accepts_const_trait_syntax() {
+    let config = Config::default();
+    let source = "const trait Identity {
+        fn identity(self) -> Self;
+    }
+
+    struct Value;
+
+    const impl Identity for Value {
+        fn identity(self) -> Self { self }
+    }
+
+    fn after_const_impl() {}";
+    let ctx = Context {
+        config: &config,
+        file_contents: source,
+        file: Path::new(""),
+        ignore_mods: RefCell::new(HashSet::new()),
+        symbol_stack: RefCell::new(Vec::new()),
+    };
+    let parser = parse_file(source).expect("Syn 3 should accept const traits and const impls");
+    assert!(matches!(parser.items[0], Item::Verbatim(_)));
+    assert!(matches!(parser.items[2], Item::Verbatim(_)));
+    assert!(matches!(parser.items[3], Item::Fn(_)));
+
+    let mut analysis = SourceAnalysis::new();
+    analysis.process_items(&parser.items, &ctx);
+}
+
+/// Nightly specialization and negative impl syntax must remain structured
+/// impl items so source analysis can inspect their bodies and trait paths.
+#[test]
+fn accepts_impl_modifiers() {
+    let source = "default impl Identity for Value {
+        fn identity(self) -> Self { self }
+    }
+
+    impl !Marker for Value {}";
+    let parser = parse_file(source).expect("Syn 3 should accept nightly impl modifiers");
+
+    let Item::Impl(default_impl) = &parser.items[0] else {
+        panic!("specialization should parse as an impl item");
+    };
+    assert!(default_impl.modifiers.defaultness.is_some());
+
+    let Item::Impl(negative_impl) = &parser.items[1] else {
+        panic!("negative implementation should parse as an impl item");
+    };
+    assert!(negative_impl.modifiers.polarity.is_some());
+}
+
+/// Explicitly safe functions and statics in an unsafe extern block must parse
+/// as safe foreign items rather than opaque tokens.
+#[test]
+fn accepts_explicitly_safe_foreign_items() {
+    let source = "unsafe extern \"C\" {
+        safe fn read_value() -> u8;
+        safe static VALUE: u8;
+    }";
+    let parser = parse_file(source).expect("Syn 3 should accept explicitly safe foreign items");
+    let Item::ForeignMod(foreign) = &parser.items[0] else {
+        panic!("extern block should parse as a foreign module");
+    };
+
+    assert!(matches!(
+        &foreign.items[0],
+        ForeignItem::Fn(function) if matches!(function.sig.safety, Safety::Safe(_))
+    ));
+    assert!(matches!(
+        &foreign.items[1],
+        ForeignItem::Static(item) if matches!(item.safety, Safety::Safe(_))
+    ));
+}
+
 #[test]
 fn cover_impl_trait_generic_fns() {
     let config = Config::default();
