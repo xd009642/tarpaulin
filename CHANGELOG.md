@@ -3,6 +3,10 @@
 From 2019 onwards, all notable changes to tarpaulin will be documented in this
 file.
 
+## [0.37.1] 2026-08-10
+### Added
+- LLVM 23 support to llvm engine
+
 ## [0.37.0] 2026-07-04
 ### Added
 - Support for wasm coverage
