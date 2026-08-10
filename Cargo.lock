@@ -156,7 +156,7 @@ dependencies = [
 
 [[package]]
 name = "cargo-tarpaulin"
-version = "0.37.0"
+version = "0.37.1"
 dependencies = [
  "cargo-config2",
  "cargo_metadata",
@@ -174,7 +174,7 @@ dependencies = [
  "llvm_profparser",
  "nix",
  "num_cpus",
- "object",
+ "object 0.40.0",
  "proc-macro2",
  "procfs",
  "quick-xml",
@@ -999,9 +999,9 @@ checksum = "92daf443525c4cce67b150400bc2316076100ce0b3686209eb8cf3c31612e6f0"
 
 [[package]]
 name = "llvm_profparser"
-version = "0.12.0"
+version = "0.13.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "df3243c876d15c4bdc6523f308e949dfb66ec2a490afad4555f342a4264f2e29"
+checksum = "edac0ee0af5312d4a4e4d748fa64ca8f47e4c18dc01fd07364a95ae56caf145d"
 dependencies = [
  "anyhow",
  "flate2",
@@ -1009,7 +1009,7 @@ dependencies = [
  "leb128",
  "md5",
  "nom",
- "object",
+ "object 0.39.1",
  "rustc-hash",
  "thiserror 1.0.69",
  "tracing",
@@ -1160,8 +1160,19 @@ checksum = "2e5a6c098c7a3b6547378093f5cc30bc54fd361ce711e05293a5cc589562739b"
 dependencies = [
  "flate2",
  "memchr",
- "ruzstd",
+ "ruzstd 0.8.2",
  "wasmparser 0.247.0",
+]
+
+[[package]]
+name = "object"
+version = "0.40.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "dd229a0361b9d0d4396176e02d65897f487eebeab7caa6d443855ee152ca0b9c"
+dependencies = [
+ "flate2",
+ "memchr",
+ "ruzstd 0.9.0",
 ]
 
 [[package]]
@@ -1469,6 +1480,15 @@ name = "ruzstd"
 version = "0.8.2"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "e5ff0cc5e135c8870a775d3320910cd9b564ec036b4dc0b8741629020be63f01"
+dependencies = [
+ "twox-hash",
+]
+
+[[package]]
+name = "ruzstd"
+version = "0.9.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "a252f5e20f038fe7b4ea53e073e65398d652c864cc162fc77c56c2f13717b888"
 dependencies = [
  "twox-hash",
 ]
