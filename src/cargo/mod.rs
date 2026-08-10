@@ -347,6 +347,11 @@ fn run_cargo(
         for msg in Message::parse_stream(reader) {
             match msg {
                 Ok(Message::CompilerArtifact(art)) => {
+                    // Cargo may mark custom-build artifacts as test-profile executables, but they
+                    // are build-script outputs rather than test binaries to run for coverage.
+                    if art.target.is_custom_build() {
+                        continue;
+                    }
                     if let Some(path) = art.executable.as_ref() {
                         if !art.profile.test && config.command == Mode::Test {
                             if art.target.is_bin() {
