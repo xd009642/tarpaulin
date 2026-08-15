@@ -3,6 +3,10 @@
 From 2019 onwards, all notable changes to tarpaulin will be documented in this
 file.
 
+## [0.37.2] 2026-08-15
+### Fixed
+- Fix LLVM 23 support for 32 bit profiles
+
 ## [0.37.1] 2026-08-10
 ### Added
 - LLVM 23 support to llvm engine
@@ -19,9 +23,6 @@ file.
 
 ### Changed
 - Performance improvements in llvm profraw parsing
-
-### Fixed
-- Issue with config file and CLI merging that lead to CLI --engine being ignored if a config file is used
 
 ### Fixed
 - Issue with config file and CLI merging that lead to CLI --engine being ignored if a config file is used
