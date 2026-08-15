@@ -179,14 +179,8 @@ fn command_succeeds(program: &str, args: &[&str]) -> bool {
 }
 
 fn nightly_wasm_target_installed() -> bool {
-    let toolchain = env::var("RUSTUP_TOOLCHAIN").unwrap_or_else(|_| "nightly".to_string());
     let output = match Command::new("rustup")
-        .args([
-            format!("+{toolchain}"),
-            "target".to_string(),
-            "list".to_string(),
-            "--installed".to_string(),
-        ])
+        .args(["+nightly", "target", "list", "--installed"])
         .output()
     {
         Ok(output) if output.status.success() => output,
@@ -911,10 +905,7 @@ fn llvm_wasm_coverage_uses_target_runner_and_target_rustflags() {
             target_rustflags_env_key(WASM_TARGET),
             "-Zno-profiler-runtime -Clink-args=--no-gc-sections --cfg=wasm_bindgen_unstable_test_coverage",
         )
-        .env(
-            "RUSTUP_TOOLCHAIN",
-            env::var("RUSTUP_TOOLCHAIN").unwrap_or_else(|_| "nightly".to_string()),
-        )
+        .env("RUSTUP_TOOLCHAIN", "nightly")
         .env_remove("RUSTFLAGS")
         .env_remove("CARGO_ENCODED_RUSTFLAGS")
         .output()

@@ -16,7 +16,9 @@ fn run_test() -> Result<(), tokio::time::error::Elapsed> {
 }
 
 async fn healthy_or_timeout() -> Result<(), tokio::time::error::Elapsed> {
-    tokio::time::timeout(std::time::Duration::from_secs(5), wait_for_healthy()).await
+    // The tracee's Tokio clock advances while ptrace stops it, so this deadline must allow for
+    // time spent collecting coverage as well as time spent running the application.
+    tokio::time::timeout(std::time::Duration::from_secs(30), wait_for_healthy()).await
 }
 
 async fn wait_for_healthy() {
