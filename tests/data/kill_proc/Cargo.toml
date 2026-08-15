@@ -9,7 +9,5 @@ edition = "2021"
 http = "0.2.6"
 hyper = "0.14.16"
 nix = "0.23.1"
-test_bin = "0.4.0"
 tokio = { version = "1", features = ["full"] }
 warp = "0.3"
-
