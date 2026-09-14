@@ -39,7 +39,7 @@ indexmap = { version = "~1.8", features = ["serde-1"] }
 llvm_profparser = { version = "0.13",  default-features = false }
 object = "0.40"
 proc-macro2 = { version = "1.0", features = ["span-locations"] }
-quick-xml = "0.41"
+quick-xml = "0.42"
 quote = "1.0"
 regex = "1.12"
 rustc-demangle = "0.1.27"
