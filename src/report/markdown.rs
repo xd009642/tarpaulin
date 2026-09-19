@@ -152,3 +152,40 @@ pub fn export(coverage_data: &TraceMap, config: &Config) -> Result<(), RunError>
 
     Ok(())
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::traces::Trace;
+    use std::path::Path;
+    use std::time::{SystemTime, UNIX_EPOCH};
+
+    /// A pipe in a source path must remain inside the Markdown table's file column.
+    #[test]
+    fn escapes_pipe_in_file_path() {
+        let report_dir = std::env::temp_dir().join(format!(
+            "tarpaulin-markdown-pipe-{}-{}",
+            std::process::id(),
+            SystemTime::now()
+                .duration_since(UNIX_EPOCH)
+                .expect("system time must be after the Unix epoch")
+                .as_nanos()
+        ));
+        std::fs::create_dir(&report_dir).expect("create Markdown report directory");
+
+        let mut config = Config::default();
+        config.output_directory = Some(report_dir.clone());
+        config.set_target_dir(report_dir.clone());
+        let mut traces = TraceMap::new();
+        traces.add_trace(Path::new("src/value|helper.rs"), Trace::new_stub(1));
+
+        export(&traces, &config).expect("write Markdown report");
+        let report = std::fs::read_to_string(report_dir.join("tarpaulin-report.md"))
+            .expect("read Markdown report");
+        assert!(
+            report.contains("| src/value\\|helper.rs |"),
+            "the source path should be escaped in the Markdown table: {report}"
+        );
+        std::fs::remove_dir_all(report_dir).expect("remove Markdown report directory");
+    }
+}
