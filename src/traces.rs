@@ -44,7 +44,9 @@ impl Add for CoverageStat {
 
     fn add(self, other: CoverageStat) -> CoverageStat {
         match (self, other) {
-            (CoverageStat::Line(ref l), CoverageStat::Line(ref r)) => CoverageStat::Line(l.saturating_add(r)),
+            (CoverageStat::Line(ref l), CoverageStat::Line(ref r)) => {
+                CoverageStat::Line(l.saturating_add(*r))
+            }
             (CoverageStat::Branch(ref l), CoverageStat::Branch(ref r)) => {
                 CoverageStat::Branch(l + r)
             }
