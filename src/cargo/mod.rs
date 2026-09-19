@@ -839,13 +839,13 @@ pub fn rust_flags(config: &Config, cargo_config: &CargoConfigFields) -> String {
 }
 
 pub fn rustdoc_flags(config: &Config, cargo_config: &CargoConfigFields) -> String {
+    rustdoc_args(config, cargo_config).join(" ")
+}
+
+fn rustdoc_args(config: &Config, cargo_config: &CargoConfigFields) -> Vec<String> {
     const RUSTDOC: &str = "RUSTDOCFLAGS";
     let common_opts = " -Cdebuginfo=2 --cfg=tarpaulin -Cstrip=none ";
-    let mut value = format!(
-        "{} --persist-doctests {} -Zunstable-options ",
-        common_opts,
-        config.doctest_dir().display()
-    );
+    let mut value = format!("{} -Zunstable-options ", common_opts);
     if let Ok(vtemp) = env::var(RUSTDOC) {
         if !vtemp.contains("--persist-doctests") {
             value.push_str(vtemp.as_ref());
@@ -855,7 +855,13 @@ pub fn rustdoc_flags(config: &Config, cargo_config: &CargoConfigFields) -> Strin
         value.push_str(&vtemp);
     }
     handle_llvm_flags(&mut value, config);
-    deduplicate_flags(&value)
+    let mut args: Vec<String> = deduplicate_flags(&value)
+        .split_whitespace()
+        .map(str::to_owned)
+        .collect();
+    args.push("--persist-doctests".to_owned());
+    args.push(config.doctest_dir().to_string_lossy().into_owned());
+    args
 }
 
 fn deduplicate_flags(flags: &str) -> String {
@@ -901,10 +907,11 @@ fn setup_environment(cmd: &mut Command, config: &Config, cargo_config: &CargoCon
     let value = rust_flags(config, cargo_config);
     cmd.env(rustflags, value);
     // doesn't matter if we don't use it
-    let rustdoc = "RUSTDOCFLAGS";
-    let value = rustdoc_flags(config, cargo_config);
-    trace!("Setting RUSTDOCFLAGS='{}'", value);
-    cmd.env(rustdoc, value);
+    let rustdoc_args = rustdoc_args(config, cargo_config);
+    trace!("Setting rustdoc flags: {:?}", rustdoc_args);
+    // Cargo splits RUSTDOCFLAGS on whitespace, including whitespace in path arguments.
+    cmd.env_remove("RUSTDOCFLAGS");
+    cmd.env("CARGO_ENCODED_RUSTDOCFLAGS", rustdoc_args.join("\x1f"));
     if let Ok(bootstrap) = env::var("RUSTC_BOOTSTRAP") {
         cmd.env("RUSTC_BOOTSTRAP", bootstrap);
     }
@@ -976,6 +983,29 @@ mod tests {
         config.no_dead_code = true;
         assert!(!rustdoc_flags(&config, &cargo_config).contains("link-dead-code"));
         assert!(!rust_flags(&config, &cargo_config).contains("link-dead-code"));
+    }
+
+    /// Cargo must receive the doctest directory as one argument even when its path has spaces.
+    #[test]
+    fn doctest_directory_with_spaces_is_one_encoded_rustdoc_argument() {
+        let mut config = Config::default();
+        config.set_target_dir(PathBuf::from("target with spaces"));
+        let mut cmd = Command::new("cargo");
+        setup_environment(&mut cmd, &config, &CargoConfigFields::default());
+        let encoded = cmd
+            .get_envs()
+            .find(|(key, _)| *key == "CARGO_ENCODED_RUSTDOCFLAGS")
+            .and_then(|(_, value)| value)
+            .expect("Cargo should receive encoded rustdoc flags")
+            .to_str()
+            .expect("test rustdoc flags should be UTF-8");
+        let args: Vec<_> = encoded.split('\x1f').collect();
+        let path_index = args
+            .iter()
+            .position(|arg| *arg == "--persist-doctests")
+            .expect("encoded rustdoc flags should contain --persist-doctests");
+        assert_eq!(args[path_index + 1], config.doctest_dir().to_string_lossy());
+        assert_eq!(args.len(), path_index + 2);
     }
 
     #[test]
