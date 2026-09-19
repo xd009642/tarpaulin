@@ -812,8 +812,6 @@ fn output_dir_workspace() {
     }
 }
 
-
-
 #[test]
 fn stripped_crate() {
     let mut config = Config::default();
