@@ -236,10 +236,10 @@ pub struct LoggingArgs {
 
 #[derive(Debug, Clone, Copy, Args)]
 pub struct PrintFlagsArgs {
-    /// Print the RUSTFLAGS options that tarpaulin will compile your program with and exit
+    /// Print the CARGO_ENCODED_RUSTFLAGS options that tarpaulin will compile your program with and exit
     #[arg(long)]
     pub print_rust_flags: bool,
-    /// Print the RUSTDOCFLAGS options that tarpaulin will compile any doctests with and exit
+    /// Print the CARGO_ENCODED_RUSTDOCFLAGS options that tarpaulin will compile any doctests with and exit
     #[arg(long)]
     pub print_rustdoc_flags: bool,
 }

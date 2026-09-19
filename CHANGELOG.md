@@ -3,6 +3,11 @@
 From 2019 onwards, all notable changes to tarpaulin will be documented in this
 file.
 
+## [0.37.3] 2026-09-19
+### Changed
+- Use `CARGO_ENCODED_RUST(DOC)FLAGS` to avoid space splitting issues 
+- Saturating add when adding two line hit counts together.
+
 ## [0.37.2] 2026-08-15
 ### Fixed
 - Fix LLVM 23 support for 32 bit profiles
