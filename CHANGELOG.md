@@ -3,6 +3,13 @@
 From 2019 onwards, all notable changes to tarpaulin will be documented in this
 file.
 
+## [Unreleased]
+### Changed
+- LLVM engine tests now respect `--timeout` argument
+- Repeated `-Clink-arg` values are preserved when updating rustflags and rustdocflags
+- RUSTDOCFLAGS values are joined to existing values instead of overwriting
+- Projects with markdown relevant characters in the name now don't cause markdown misrendering
+
 ## [0.37.3] 2026-09-19
 ### Changed
 - Use `CARGO_ENCODED_RUST(DOC)FLAGS` to avoid space splitting issues 
