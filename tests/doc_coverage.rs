@@ -1,5 +1,5 @@
 use crate::utils::get_test_path;
-use cargo_tarpaulin::config::{Color, Config, RunType};
+use cargo_tarpaulin::config::{Color, Config, RunType, TraceEngine};
 use cargo_tarpaulin::launch_tarpaulin;
 use rusty_fork::rusty_fork_test;
 use std::time::Duration;
@@ -175,5 +175,32 @@ fn rustdocflags_handling() {
     let (_, ret) = launch_tarpaulin(&config, &None).unwrap();
     env::set_current_dir(&restore_dir).unwrap();
     assert_eq!(ret, 0);
+}
+
+/// An existing rustdoc persistence option must not discard unrelated user flags.
+#[test]
+fn rustdoc_persist_doctests_preserves_other_flags() {
+    let mut config = Config::default();
+    config.set_engine(TraceEngine::Llvm);
+    config.run_types = vec![RunType::Doctests];
+    config.set_clean(false);
+    config.test_timeout = Duration::from_secs(60);
+
+    let test_dir = get_test_path("rustdoc_persist_flags");
+    let mut manifest = test_dir.clone();
+    manifest.push("Cargo.toml");
+    config.set_manifest(manifest);
+    crate::set_env_var(
+        "RUSTDOCFLAGS",
+        format!(
+            "--persist-doctests {} --cfg=doc_custom",
+            test_dir.join("unused-doctests").display()
+        ),
+    );
+    let result = launch_tarpaulin(&config, &None);
+    crate::remove_env_var("RUSTDOCFLAGS");
+
+    let (_, exit_code) = result.expect("tarpaulin should run the doctest");
+    assert_eq!(exit_code, 0, "the doctest should receive doc_custom");
 }
 }
