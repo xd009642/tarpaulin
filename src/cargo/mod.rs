@@ -890,7 +890,8 @@ fn deduplicate_flags(flags: &str) -> String {
             }
         } else {
             let id = val.split('=').next().unwrap();
-            if !flag_set.contains(id) {
+            // Each link argument is passed separately to the linker, in order.
+            if id == "-Clink-arg" || !flag_set.contains(id) {
                 flag_set.insert(id);
                 result.push(val);
             }
@@ -1108,6 +1109,12 @@ mod tests {
         assert_eq!(
             deduplicate_flags("--cfg=tarpaulin --cfg tarpauline --cfg=tarp"),
             "--cfg=tarpaulin --cfg=tarpauline --cfg=tarp"
+        );
+        assert_eq!(
+            deduplicate_flags(
+                "-C link-arg=-Wl,--defsym=FIRST=11 -C link-arg=-Wl,--defsym=SECOND=22"
+            ),
+            "-Clink-arg=-Wl,--defsym=FIRST=11 -Clink-arg=-Wl,--defsym=SECOND=22"
         );
     }
 }
