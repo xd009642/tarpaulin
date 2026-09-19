@@ -71,15 +71,16 @@ impl<'a> StateData for LlvmInstrumentedData<'a> {
     }
 
     fn last_wait_attempt(&mut self) -> Result<Option<TestState>, RunError> {
-        unreachable!();
+        self.wait()
     }
 
     fn wait(&mut self) -> Result<Option<TestState>, RunError> {
         let should_panic = self.should_panic();
         if let Some(parent) = self.process.as_mut() {
-            match parent.child.wait() {
-                Ok(exit) => {
+            match parent.child.try_wait() {
+                Ok(Some(exit)) => {
                     if !exit.success() && !should_panic {
+                        self.process = None;
                         return Err(RunError::TestFailed);
                     }
                     if let Some(delay) = self.config.post_test_delay {
@@ -203,6 +204,10 @@ impl<'a> StateData for LlvmInstrumentedData<'a> {
                     let code = exit.code().unwrap_or(1);
                     Ok(Some(TestState::End(code)))
                 }
+                Ok(None) => {
+                    sleep(std::time::Duration::from_millis(10));
+                    Ok(None)
+                }
                 Err(e) => Err(e.into()),
             }
         } else {
@@ -212,5 +217,14 @@ impl<'a> StateData for LlvmInstrumentedData<'a> {
 
     fn stop(&mut self) -> Result<TestState, RunError> {
         unreachable!();
+    }
+}
+
+impl Drop for LlvmInstrumentedData<'_> {
+    fn drop(&mut self) {
+        if let Some(process) = self.process.as_mut() {
+            let _ = process.child.kill();
+            let _ = process.child.wait();
+        }
     }
 }
