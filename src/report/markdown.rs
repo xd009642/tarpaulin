@@ -132,6 +132,9 @@ pub fn export(coverage_data: &TraceMap, config: &Config) -> Result<(), RunError>
             path.to_string_lossy()
         };
 
+        // Escape table delimiters after backslashes so filenames cannot add columns.
+        let path_str = path_str.replace('\\', "\\\\").replace('|', "\\|");
+
         // Push the file result to the markdown table
         markdown_content.push_str(&format!(
             "| {} | {}/{} | {:.2}% | {} |\n",

@@ -803,6 +803,35 @@ fn output_dir_workspace() {
     }
 }
 
+/// A pipe in a source filename must stay inside the Markdown file column.
+#[cfg(unix)]
+#[test]
+fn markdown_report_escapes_pipe_in_file_path() {
+    let report_dir = env::temp_dir().join(format!(
+        "tarpaulin-markdown-pipe-{}-{}",
+        process::id(),
+        SystemTime::now()
+            .duration_since(UNIX_EPOCH)
+            .expect("system time must be after the Unix epoch")
+            .as_nanos()
+    ));
+    fs::create_dir(&report_dir).expect("create Markdown report directory");
+
+    let mut config = Config::default();
+    config.set_engine(TraceEngine::Llvm);
+    config.generate.push(OutputFile::Markdown);
+    config.output_directory = Some(report_dir.clone());
+    run_config("markdown_pipe_path", config);
+
+    let report = fs::read_to_string(report_dir.join("tarpaulin-report.md"))
+        .expect("read Markdown report");
+    assert!(
+        report.contains("| src/value\\|helper.rs |"),
+        "the source path should be escaped in the Markdown table: {report}"
+    );
+    fs::remove_dir_all(report_dir).expect("remove Markdown report directory");
+}
+
 
 
 #[test]
