@@ -3,7 +3,7 @@
 From 2019 onwards, all notable changes to tarpaulin will be documented in this
 file.
 
-## [Unreleased]
+## [0.37.4] 2026-09-21
 ### Changed
 - LLVM engine tests now respect `--timeout` argument
 - Repeated `-Clink-arg` values are preserved when updating rustflags and rustdocflags

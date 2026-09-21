@@ -2,7 +2,6 @@ use crate::source_analysis::prelude::*;
 use proc_macro2::TokenTree;
 use std::cmp::{max, min};
 use std::ops::Range;
-use syn::*;
 
 pub fn ignore_macro_name(ident: &Ident, ctx: &Context) -> (SubResult, bool) {
     let ident_s = ident.to_string();
