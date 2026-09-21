@@ -587,6 +587,15 @@ fn rustflags_handling() {
     assert_eq!(ret, 0);
 }
 
+/// Cargo config can supply multiple linker arguments with the same rustc flag.
+#[test]
+#[cfg(target_os = "linux")]
+fn repeated_link_args_from_cargo_config() {
+    let config = Config::default();
+    config.set_engine(TraceEngine::Llvm);
+    check_percentage_with_config("repeated_link_args", 1.0, true, config);
+}
+
 #[test]
 fn follow_exes_down() {
     let mut config = Config::default();
@@ -802,8 +811,6 @@ fn output_dir_workspace() {
         serde_json::from_slice::<EventLog>(log.as_slice()).unwrap();
     }
 }
-
-
 
 #[test]
 fn stripped_crate() {

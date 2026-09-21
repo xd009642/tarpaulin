@@ -80,6 +80,8 @@ pub fn export(coverage_data: &TraceMap, config: &Config) -> Result<(), RunError>
 <html>
 <head>
     <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>Tarpaulin coverage report</title>
     <style>{}</style>
 </head>
 <body>

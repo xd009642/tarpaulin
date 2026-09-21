@@ -2,7 +2,6 @@ use crate::source_analysis::prelude::*;
 use std::collections::HashSet;
 use std::path::{Path, PathBuf};
 use syn::punctuated::Punctuated;
-use syn::*;
 
 pub mod predicates {
     pub fn is_test_attribute(id: &syn::Path) -> bool {

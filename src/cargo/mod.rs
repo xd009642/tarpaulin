@@ -846,13 +846,15 @@ fn rustdoc_args(config: &Config, cargo_config: &CargoConfigFields) -> Vec<String
     const RUSTDOC: &str = "RUSTDOCFLAGS";
     let common_opts = " -Cdebuginfo=2 --cfg=tarpaulin -Cstrip=none ";
     let mut value = format!("{} -Zunstable-options ", common_opts);
-    if let Ok(vtemp) = env::var(RUSTDOC) {
-        if !vtemp.contains("--persist-doctests") {
-            value.push_str(vtemp.as_ref());
+    let supplied = env::var(RUSTDOC).unwrap_or_else(|_| cargo_config.rust_doc_flags.join(" "));
+    let mut supplied_args = supplied.split_whitespace();
+    while let Some(arg) = supplied_args.next() {
+        if arg == "--persist-doctests" {
+            supplied_args.next();
+        } else if !arg.starts_with("--persist-doctests=") {
+            value.push_str(arg);
+            value.push(' ');
         }
-    } else {
-        let vtemp = cargo_config.rust_doc_flags.join(" ");
-        value.push_str(&vtemp);
     }
     handle_llvm_flags(&mut value, config);
     let mut args: Vec<String> = deduplicate_flags(&value)
@@ -890,7 +892,8 @@ fn deduplicate_flags(flags: &str) -> String {
             }
         } else {
             let id = val.split('=').next().unwrap();
-            if !flag_set.contains(id) {
+            // Each link argument is passed separately to the linker, in order.
+            if id == "-Clink-arg" || !flag_set.contains(id) {
                 flag_set.insert(id);
                 result.push(val);
             }
@@ -1108,6 +1111,12 @@ mod tests {
         assert_eq!(
             deduplicate_flags("--cfg=tarpaulin --cfg tarpauline --cfg=tarp"),
             "--cfg=tarpaulin --cfg=tarpauline --cfg=tarp"
+        );
+        assert_eq!(
+            deduplicate_flags(
+                "-C link-arg=-Wl,--defsym=FIRST=11 -C link-arg=-Wl,--defsym=SECOND=22"
+            ),
+            "-Clink-arg=-Wl,--defsym=FIRST=11 -Clink-arg=-Wl,--defsym=SECOND=22"
         );
     }
 }

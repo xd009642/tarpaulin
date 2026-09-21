@@ -1,5 +1,5 @@
 use crate::source_analysis::prelude::*;
-use syn::{punctuated::Pair, punctuated::Punctuated, token::Comma, *};
+use syn::{punctuated::Pair, punctuated::Punctuated, token::Comma};
 
 impl SourceAnalysis {
     pub(crate) fn process_expr(&mut self, expr: &Expr, ctx: &Context) -> SubResult {

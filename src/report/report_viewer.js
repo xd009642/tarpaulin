@@ -62,10 +62,10 @@ function findFolders(files) {
       children,
       covered: children.reduce((sum, file) => sum + file.covered, 0),
       coverable: children.reduce((sum, file) => sum + file.coverable, 0),
-      prevRun: {
-        covered: children.reduce((sum, file) => sum + file.prevRun.covered, 0),
-        coverable: children.reduce((sum, file) => sum + file.prevRun.coverable, 0),
-      },
+      prevRun: children.some(file => file.prevRun) ? {
+        covered: children.reduce((sum, file) => sum + (file.prevRun ? file.prevRun.covered : 0), 0),
+        coverable: children.reduce((sum, file) => sum + (file.prevRun ? file.prevRun.coverable : 0), 0),
+      } : null,
     };
   });
 
@@ -78,12 +78,19 @@ class App extends React.Component {
 
     this.state = {
       current: [],
+      theme: document.documentElement.getAttribute('data-theme') || 'light',
     };
+    this.updateStateFromLocation = this.updateStateFromLocation.bind(this);
+    this.toggleTheme = this.toggleTheme.bind(this);
   }
 
   componentDidMount() {
     this.updateStateFromLocation();
-    window.addEventListener('hashchange', () => this.updateStateFromLocation(), false);
+    window.addEventListener('hashchange', this.updateStateFromLocation);
+  }
+
+  componentWillUnmount() {
+    window.removeEventListener('hashchange', this.updateStateFromLocation);
   }
 
   updateStateFromLocation() {
@@ -118,11 +125,17 @@ class App extends React.Component {
         folder: file,
         onSelectFile: this.selectFile.bind(this),
         onBack: path.length > 1 ? this.back.bind(this) : null,
+        rootPath: this.props.root.path,
+        theme: this.state.theme,
+        onToggleTheme: this.toggleTheme,
       });
     } else {
       w = e(DisplayFile, {
         file,
         onBack: this.back.bind(this),
+        rootPath: this.props.root.path,
+        theme: this.state.theme,
+        onToggleTheme: this.toggleTheme,
       });
     }
 
@@ -151,17 +164,28 @@ class App extends React.Component {
     if (!this.state.current || !this.state.current.length) {
       window.location = '#';
     } else {
-      window.location = '#' + this.state.current.join('/');
+      window.location = '#' + this.state.current.map(encodeURIComponent).join('/');
     }
+  }
+
+  toggleTheme() {
+    const theme = this.state.theme === 'dark' ? 'light' : 'dark';
+    document.documentElement.setAttribute('data-theme', theme);
+    try {
+      window.localStorage.setItem('tarpaulin-theme', theme);
+    } catch (_) {
+      // Local files can be opened with storage disabled; the button still works.
+    }
+    this.setState({theme});
   }
 }
 
-function FilesList({folder, onSelectFile, onBack}) {
+function FilesList({folder, onSelectFile, onBack, rootPath, theme, onToggleTheme}) {
   let files = folder.children;
   return e(
     'div',
     {className: 'display-folder'},
-    e(FileHeader, {file: folder, onBack}),
+    e(FileHeader, {file: folder, onBack, rootPath, theme, onToggleTheme}),
     e(
       'table',
       {className: 'files-list'},
@@ -169,7 +193,7 @@ function FilesList({folder, onSelectFile, onBack}) {
       e(
         'tbody',
         {className: 'files-list__body'},
-        files.map(file => e(File, {file, onClick: onSelectFile})),
+        files.map(file => e(File, {key: file.path[0], file, onClick: onSelectFile})),
       ),
     ),
   );
@@ -177,8 +201,9 @@ function FilesList({folder, onSelectFile, onBack}) {
 
 function File({file, onClick}) {
   const coverage = file.coverable ? (file.covered / file.coverable) * 100 : -1;
-  const coverageDelta =
-    file.prevRun && (file.covered / file.coverable) * 100 - (file.prevRun.covered / file.prevRun.coverable) * 100;
+  const coverageDelta = file.prevRun && file.coverable && file.prevRun.coverable
+    ? coverage - (file.prevRun.covered / file.prevRun.coverable) * 100
+    : null;
 
   return e(
     'tr',
@@ -189,9 +214,8 @@ function File({file, onClick}) {
         (coverage >= 50 && coverage < 80 ? ' files-list__file_medium' : '') +
         (coverage >= 80 ? ' files-list__file_high' : '') +
         (file.is_folder ? ' files-list__file_folder' : ''),
-      onClick: () => onClick(file),
     },
-    e('td', null, e('a', null, pathToString(file.path))),
+    e('td', null, e('button', {className: 'file-link', type: 'button', onClick: () => onClick(file)}, pathToString(file.path))),
     e(
       'td',
       null,
@@ -199,37 +223,47 @@ function File({file, onClick}) {
       e(
         'span',
         {title: 'Change from the previous run'},
-        coverageDelta ? ` (${coverageDelta > 0 ? '+' : ''}${coverageDelta.toFixed(2)}%)` : '',
+        coverageDelta !== null && coverageDelta !== 0 ? ` (${coverageDelta > 0 ? '+' : ''}${coverageDelta.toFixed(2)}%)` : '',
       ),
     ),
   );
 }
 
-function DisplayFile({file, onBack}) {
-  return e('div', {className: 'display-file'}, e(FileHeader, {file, onBack}), e(FileContent, {file}));
+function DisplayFile({file, onBack, rootPath, theme, onToggleTheme}) {
+  return e('div', {className: 'display-file'}, e(FileHeader, {file, onBack, rootPath, theme, onToggleTheme}), e(FileContent, {file}));
 }
 
-function FileHeader({file, onBack}) {
-  const coverage = (file.covered / file.coverable) * 100;
-  const coverageDelta = file.prevRun && coverage - (file.prevRun.covered / file.prevRun.coverable) * 100;
+function FileHeader({file, onBack, rootPath, theme, onToggleTheme}) {
+  const coverage = file.coverable ? (file.covered / file.coverable) * 100 : null;
+  const coverageDelta = file.prevRun && file.coverable && file.prevRun.coverable
+    ? coverage - (file.prevRun.covered / file.prevRun.coverable) * 100
+    : null;
+  const fullPath = [...file.parent, ...file.path];
+  const displayPath = pathToString(fullPath.slice(rootPath.length)) || 'Coverage report';
 
   return e(
     'div',
     {className: 'file-header'},
-    onBack ? e('a', {className: 'file-header__back', onClick: onBack}, 'Back') : null,
-    e('div', {className: 'file-header__name'}, pathToString([...file.parent, ...file.path])),
+    onBack ? e('button', {className: 'file-header__back', type: 'button', onClick: onBack}, '← Back') : null,
+    e('h1', {className: 'file-header__name', title: pathToString(fullPath)}, displayPath),
     e(
       'div',
       {className: 'file-header__stat'},
-      'Covered: ' + file.covered + ' of ' + file.coverable + (file.coverable ? ' (' + coverage.toFixed(2) + '%)' : ''),
+      file.covered + ' / ' + file.coverable + ' lines' + (coverage !== null ? ' (' + coverage.toFixed(2) + '%)' : ''),
       e(
         'span',
         {title: 'Change from the previous run'},
-        coverageDelta ? ` (${coverageDelta > 0 ? '+' : ''}${coverageDelta.toFixed(2)}%)` : '',
+        coverageDelta !== null && coverageDelta !== 0 ? ` (${coverageDelta > 0 ? '+' : ''}${coverageDelta.toFixed(2)}%)` : '',
       ),
-      e('input', {id: 'theme-toggle', type: 'checkbox', hidden: true}),
-      e('label', {for: 'theme-toggle', id: 'theme-toggle-label'}, '🌙'),
     ),
+    e('button', {
+      className: 'theme-toggle',
+      type: 'button',
+      onClick: onToggleTheme,
+      'aria-label': theme === 'dark' ? 'Switch to light mode' : 'Switch to dark mode',
+      'aria-pressed': theme === 'dark',
+      title: theme === 'dark' ? 'Switch to light mode' : 'Switch to dark mode',
+    }, theme === 'dark' ? '☀' : '☾'),
   );
 }
 
@@ -237,14 +271,15 @@ function FileContent({file}) {
   return e(
     'pre',
     {className: 'file-content'},
-    file.content.split(/\r?\n/).map((line, index) => {
+    file.content.replace(/\r?\n$/, '').split(/\r?\n/).map((line, index) => {
       const trace = file.traces.find(trace => trace.line === index + 1);
-      const covered = trace && trace.stats.Line;
-      const uncovered = trace && !trace.stats.Line;
-      const nbHit = covered? trace.stats.Line: 0;
+      const hits = trace && trace.stats.Line;
+      const covered = hits > 0;
+      const uncovered = hits === 0;
       return e(
         'div',
-        { className: 'code-text-container' },
+        {className: 'code-text-container' + (covered ? ' line-covered' : '') + (uncovered ? ' line-uncovered' : ''), key: index},
+        e('span', {className: 'line-number', 'aria-hidden': true}, index + 1),
         e(
           'code',
           {
@@ -252,15 +287,7 @@ function FileContent({file}) {
           },
           line
         ),
-        e(
-          'div',
-          { className: 'cover-indicator' + (covered? ' check-cover': '') + (uncovered? ' no-cover': '')},
-          e(
-            'div',
-            { className: (covered? 'stat-line-hit': '')},
-            covered? nbHit: ""
-          )
-        )
+        e('span', {className: 'cover-indicator', title: covered ? `${hits} hits` : uncovered ? 'Not covered' : 'Not coverable'}, covered ? hits : uncovered ? '×' : ''),
       );
     }),
   );
@@ -278,12 +305,11 @@ function FileContent({file}) {
 
   const files = data.files.map(file => {
     const path = file.path.slice(commonPath.length);
-    const {covered = 0, coverable = 0} = prevFilesMap.get(path.join('/')) || {};
     return {
       ...file,
       path,
       parent: commonPath,
-      prevRun: {covered, coverable},
+      prevRun: prevFilesMap.get(path.join('/')) || null,
     };
   });
 
@@ -296,29 +322,20 @@ function FileContent({file}) {
     parent: [],
     covered: children.reduce((sum, file) => sum + file.covered, 0),
     coverable: children.reduce((sum, file) => sum + file.coverable, 0),
-    prevRun: {
-      covered: children.reduce((sum, file) => sum + file.prevRun.covered, 0),
-      coverable: children.reduce((sum, file) => sum + file.prevRun.coverable, 0),
-    },
+    prevRun: previousData ? {
+      covered: children.reduce((sum, file) => sum + (file.prevRun ? file.prevRun.covered : 0), 0),
+      coverable: children.reduce((sum, file) => sum + (file.prevRun ? file.prevRun.coverable : 0), 0),
+    } : null,
   };
 
-  if (window.matchMedia('(prefers-color-scheme: dark)').matches) {
-    document.documentElement.setAttribute('data-theme', 'dark');
+  let theme;
+  try {
+    theme = window.localStorage.getItem('tarpaulin-theme');
+  } catch (_) {}
+  if (theme !== 'light' && theme !== 'dark') {
+    theme = window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light';
   }
+  document.documentElement.setAttribute('data-theme', theme);
 
   ReactDOM.render(e(App, {root, prevFilesMap}), document.getElementById('root'));
-
-  const toggle = document.getElementById('theme-toggle');
-  const label = document.getElementById('theme-toggle-label');
-  label.textContent = '🌙';
-
-  toggle.addEventListener('change', () => {
-    if (toggle.checked) {
-      document.documentElement.setAttribute('data-theme', 'dark');
-      label.textContent = '☀️';
-    } else {
-      document.documentElement.removeAttribute('data-theme');
-      label.textContent = '🌙';
-    }
-  });
 })();

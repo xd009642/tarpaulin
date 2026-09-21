@@ -1,6 +1,6 @@
 use crate::utils::get_test_path;
 use cargo_tarpaulin::{
-    config::{Config, Mode},
+    config::{Config, Mode, TraceEngine},
     errors::RunError,
 };
 use cargo_tarpaulin::{launch_tarpaulin, run};
@@ -68,6 +68,21 @@ fn error_if_test_fails() {
     } else {
         panic!("Expected a TestFailed error: {:?}", result);
     }
+}
+
+/// A successful test that exceeds the configured LLVM timeout must fail coverage collection.
+#[test]
+fn llvm_test_timeout() {
+    let mut config = Config::default();
+    let test_dir = get_test_path("llvm_timeout");
+    env::set_current_dir(&test_dir).expect("change to timeout fixture directory");
+    config.set_manifest(test_dir.join("Cargo.toml"));
+    config.set_engine(TraceEngine::Llvm);
+    config.set_clean(false);
+    config.test_timeout = std::time::Duration::from_secs(1);
+
+    let result = launch_tarpaulin(&config, &None);
+    assert!(matches!(result, Err(RunError::TestRuntime(_))), "{result:?}");
 }
 
 #[test]
