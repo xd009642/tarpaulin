@@ -137,6 +137,7 @@ pub fn check_percentage(project_name: &str, minimum_coverage: f64, has_lines: bo
     let mut config = Config::default();
     config.set_include_tests(true);
     config.set_clean(false);
+    config.dump_traces = true;
     check_percentage_with_config(project_name, minimum_coverage, has_lines, config)
 }
 
