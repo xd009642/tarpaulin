@@ -73,9 +73,9 @@ no-default-features = false
 # Build all packages in the workspace.
 workspace = false
 
-# Timeout duration for tests to finish.
+# The LLVM timeout covers the whole integration test binary, including fixture builds.
 # (in a format that human-time library can parse, e.g., "5m" for 5 minutes)
-test-timeout = "10m"
+timeout = "10m"
 
 # Build in release mode for optimized builds.
 release = false

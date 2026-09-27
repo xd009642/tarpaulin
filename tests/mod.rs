@@ -137,6 +137,7 @@ pub fn check_percentage(project_name: &str, minimum_coverage: f64, has_lines: bo
     let mut config = Config::default();
     config.set_include_tests(true);
     config.set_clean(false);
+    config.dump_traces = true;
     check_percentage_with_config(project_name, minimum_coverage, has_lines, config)
 }
 
@@ -591,6 +592,10 @@ fn rustflags_handling() {
 #[test]
 #[cfg(target_os = "linux")]
 fn repeated_link_args_from_cargo_config() {
+    // An outer tarpaulin run supplies RUSTFLAGS, which would override the fixture's
+    // Cargo config. This test runs in its own rusty-fork process.
+    remove_env_var("RUSTFLAGS");
+    remove_env_var("CARGO_ENCODED_RUSTFLAGS");
     let config = Config::default();
     config.set_engine(TraceEngine::Llvm);
     check_percentage_with_config("repeated_link_args", 1.0, true, config);

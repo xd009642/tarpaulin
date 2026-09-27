@@ -3,6 +3,10 @@
 From 2019 onwards, all notable changes to tarpaulin will be documented in this
 file.
 
+## [0.37.5] 2026-09-27
+### Changed
+- Improved performance of path filtering in llvm-profparsers
+
 ## [0.37.4] 2026-09-21
 ### Changed
 - LLVM engine tests now respect `--timeout` argument
