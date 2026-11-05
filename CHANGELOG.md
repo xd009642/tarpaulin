@@ -3,6 +3,10 @@
 From 2019 onwards, all notable changes to tarpaulin will be documented in this
 file.
 
+## [0.37.6] 2026-11-05
+### Changed
+- Prevent value injection by grouping arguments to cargo like `--package=p` instead of `--package p` 
+
 ## [0.37.5] 2026-09-27
 ### Changed
 - Improved performance of path filtering in llvm-profparsers

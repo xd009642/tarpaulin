@@ -131,7 +131,7 @@ fn print_missing_lines(config: &Config, result: &TraceMap) {
         let (groups, last_group) = uncovered_lines
             .into_iter()
             .fold((vec![], vec![]), accumulate_lines);
-        let (groups, _) = accumulate_lines((groups, last_group), u64::max_value());
+        let (groups, _) = accumulate_lines((groups, last_group), u64::MAX);
         if !groups.is_empty() {
             writeln!(w, "|| {}: {}", path.display(), groups.join(", ")).unwrap();
         }
