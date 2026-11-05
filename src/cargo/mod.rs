@@ -685,21 +685,19 @@ fn create_command(
             RunType::Bins => test_cmd.arg("--bins"),
         };
     } else {
+        // Bind selector values to their flags so Cargo cannot parse them as options
+        // when accepting an empty selector (rust-lang/cargo#17684).
         for test in &config.test_names {
-            test_cmd.arg("--test");
-            test_cmd.arg(test);
+            test_cmd.arg(format!("--test={test}"));
         }
         for test in &config.bin_names {
-            test_cmd.arg("--bin");
-            test_cmd.arg(test);
+            test_cmd.arg(format!("--bin={test}"));
         }
         for test in &config.example_names {
-            test_cmd.arg("--example");
-            test_cmd.arg(test);
+            test_cmd.arg(format!("--example={test}"));
         }
         for test in &config.bench_names {
-            test_cmd.arg("--bench");
-            test_cmd.arg(test);
+            test_cmd.arg(format!("--bench={test}"));
         }
     }
     init_args(&mut test_cmd, config);
@@ -747,8 +745,7 @@ fn init_args(test_cmd: &mut Command, config: &Config) {
         test_cmd.arg("--release");
     }
     config.packages.iter().for_each(|package| {
-        test_cmd.arg("--package");
-        test_cmd.arg(package);
+        test_cmd.arg(format!("--package={package}"));
     });
     config.exclude.iter().for_each(|package| {
         test_cmd.arg("--exclude");
@@ -757,7 +754,7 @@ fn init_args(test_cmd: &mut Command, config: &Config) {
     test_cmd.arg("--color");
     test_cmd.arg(config.color.to_string().to_ascii_lowercase());
     if let Some(target) = config.target.as_ref() {
-        test_cmd.args(["--target", target]);
+        test_cmd.arg(format!("--target={target}"));
     }
     let args = vec![
         "--target-dir".to_string(),
@@ -951,6 +948,42 @@ pub fn llvm_coverage_rustflag() -> &'static str {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    /// Selector values must not become Cargo options, on Unix or Windows (cargo#17684).
+    #[test]
+    fn cargo_selectors_cannot_inject_options() {
+        let manifest =
+            Path::new(env!("CARGO_MANIFEST_DIR")).join("tests/data/simple_project/Cargo.toml");
+        for selector in ["package", "test", "bin", "example", "bench", "target"] {
+            let mut config = Config::default();
+            config.offline = true;
+            let names = ["--help".to_string()];
+            match selector {
+                "package" => {
+                    config.packages = vec!["simple_project".to_string(), "--help".to_string()]
+                }
+                "test" => config.test_names = names.into(),
+                "bin" => config.bin_names = names.into(),
+                "example" => config.example_names = names.into(),
+                "bench" => config.bench_names = names.into(),
+                "target" => config.target = Some("--help".to_string()),
+                _ => unreachable!("all selectors are listed above"),
+            }
+            let output = create_command(
+                manifest.to_str().expect("fixture path should be UTF-8"),
+                &config,
+                &CargoConfigFields::default(),
+                None,
+            )
+            .output()
+            .expect("Cargo should run");
+            let stderr = String::from_utf8_lossy(&output.stderr);
+            assert!(
+                !output.status.success() && stderr.contains("--help"),
+                "--{selector} should reject --help as a value instead of printing help: {output:?}"
+            );
+        }
+    }
 
     #[test]
     fn old_doctest_name_handling() {
