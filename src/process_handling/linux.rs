@@ -111,8 +111,6 @@ pub fn execute(
     let arg_ref = argv.iter().map(AsRef::as_ref).collect::<Vec<&CStr>>();
     let env_ref = envar.iter().map(AsRef::as_ref).collect::<Vec<&CStr>>();
     execve(&program, &arg_ref, &env_ref).map_err(|_| RunError::Internal)?;
-
-    unreachable!();
 }
 
 #[cfg(test)]

@@ -25,6 +25,14 @@ mod config_file;
 
 const BUILD_PROFRAW: &str = "build_rs_cov.profraw";
 
+pub(crate) const COVERAGE_WRAPPER_ENV: [&str; 5] = [
+    "RUSTC_WORKSPACE_WRAPPER",
+    "RUSTC_WRAPPER",
+    "__TARPAULIN_COVERAGE_FLAGS",
+    "__TARPAULIN_PREVIOUS_WRAPPER",
+    "__TARPAULIN_LOCAL_PACKAGES_FILE",
+];
+
 cfg_if::cfg_if! {
     if #[cfg(target_os = "windows")] {
         pub const LD_PATH_VAR: &'static str ="PATH";
@@ -230,17 +238,12 @@ static CARGO_VERSION_INFO: LazyLock<Option<CargoVersionInfo>> = LazyLock::new(||
 });
 
 pub fn get_tests(config: &Config) -> Result<CargoOutput, RunError> {
-    let cargo_config = Rc::new(get_cargo_config(config));
+    let mut cargo_config = get_cargo_config(config);
     if config.engine() == TraceEngine::Ptrace && cargo_config.target_runner.is_some() {
         warn!(
             "Target runner configured, but the ptrace engine does not support target runners. The runner will be ignored"
         );
     }
-    let mut result = CargoOutput {
-        test_binaries: vec![],
-        binaries: vec![],
-        cargo_config: cargo_config.clone(),
-    };
     if config.force_clean() {
         let cleanup_dir = if config.release {
             config.target_dir().join("release")
@@ -283,6 +286,15 @@ pub fn get_tests(config: &Config) -> Result<CargoOutput, RunError> {
     let metadata = metadata
         .exec()
         .map_err(|e| RunError::Cargo(e.to_string()))?;
+
+    config_file::configure_coverage_wrapper(config, &metadata, &mut cargo_config)
+        .map_err(|e| RunError::Cargo(format!("Unable to configure coverage wrapper: {e}")))?;
+    let cargo_config = Rc::new(cargo_config);
+    let mut result = CargoOutput {
+        test_binaries: vec![],
+        binaries: vec![],
+        cargo_config: cargo_config.clone(),
+    };
 
     for ty in &config.run_types {
         run_cargo(
@@ -803,6 +815,22 @@ fn handle_llvm_flags(value: &mut String, config: &Config) {
 }
 
 pub fn rust_flags(config: &Config, cargo_config: &CargoConfigFields) -> String {
+    rust_flags_impl(config, cargo_config, true)
+}
+
+pub(crate) fn build_rust_flags(config: &Config, cargo_config: &CargoConfigFields) -> String {
+    let wrapped = cargo_config
+        .env_vars
+        .contains_key("__TARPAULIN_COVERAGE_FLAGS");
+    let mut flags = rust_flags_impl(config, cargo_config, !wrapped);
+    if wrapped {
+        // Nested build systems can clear rustflags to opt out of instrumentation.
+        flags.push_str(" --cfg=tarpaulin_instrumentation");
+    }
+    flags
+}
+
+fn rust_flags_impl(config: &Config, cargo_config: &CargoConfigFields, instrument: bool) -> String {
     const RUSTFLAGS: &str = "RUSTFLAGS";
     let mut value = config.rustflags.clone().unwrap_or_default();
     value.push_str(" -Cdebuginfo=2 ");
@@ -813,7 +841,9 @@ pub fn rust_flags(config: &Config, cargo_config: &CargoConfigFields) -> String {
     if config.release {
         value.push_str("-Cdebug-assertions=off ");
     }
-    handle_llvm_flags(&mut value, config);
+    if instrument || config.engine() != TraceEngine::Llvm {
+        handle_llvm_flags(&mut value, config);
+    }
     static DEBUG_INFO: LazyLock<Regex> =
         LazyLock::new(|| Regex::new(r"\-C\s*debuginfo=\d").unwrap());
     static DEAD_CODE: LazyLock<Regex> =
@@ -903,7 +933,12 @@ fn setup_environment(cmd: &mut Command, config: &Config, cargo_config: &CargoCon
     // https://github.com/rust-lang/rust/issues/107447
     cmd.env("LLVM_PROFILE_FILE", config.root().join(BUILD_PROFRAW));
     cmd.env("TARPAULIN", "1");
-    let value = rust_flags(config, cargo_config);
+    let value = build_rust_flags(config, cargo_config);
+    for key in COVERAGE_WRAPPER_ENV {
+        if let Some(value) = cargo_config.env_vars.get(key) {
+            cmd.env(key, value);
+        }
+    }
     // Cargo splits RUSTFLAGS on whitespace, so pass each flag as an encoded argument.
     cmd.env_remove("RUSTFLAGS");
     cmd.env(
