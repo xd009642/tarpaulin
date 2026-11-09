@@ -43,6 +43,12 @@ fn llvm_cli_instruments_local_packages() {
 
     for (workspace_members, sibling) in [(true, false), (false, true), (true, true)] {
         let root = unique_temp_dir("tarpaulin local instrumentation");
+        fs::create_dir_all(&root).expect("create instrumentation fixture root");
+        // macOS temporary directories can be symlinked. Cargo retains that path
+        // while LLVM resolves it, so use the same physical root for both.
+        let root = root
+            .canonicalize()
+            .expect("resolve instrumentation fixture root");
         let project = root.join("project");
         let dependency = if sibling {
             root.join("dependency")
@@ -230,7 +236,7 @@ fn check() {
                 lcov.lines()
                     .filter_map(|line| line.strip_prefix("DA:1,"))
                     .any(|hits| hits.parse::<u64>().expect("numeric LCOV count") > 0),
-                "{lcov}"
+                "{diagnostics}\nLCOV:\n{lcov}"
             );
         }
         fs::remove_dir_all(root).expect("remove fixture");
