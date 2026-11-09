@@ -186,6 +186,7 @@ dependencies = [
  "serde",
  "serde_json",
  "syn 3.0.9",
+ "tempfile",
  "test-log",
  "toml",
  "tracing",
@@ -999,9 +1000,9 @@ checksum = "92daf443525c4cce67b150400bc2316076100ce0b3686209eb8cf3c31612e6f0"
 
 [[package]]
 name = "llvm_profparser"
-version = "0.15.0"
+version = "0.16.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "159806dacc915b3b54e269cd7bb565534ec7b8052bea1e1ee52468440e6f097b"
+checksum = "d8871134ab2d2391ef5985d7dcc15fa6f659bef7649d9755294cbf0ab02d27ad"
 dependencies = [
  "anyhow",
  "flate2",

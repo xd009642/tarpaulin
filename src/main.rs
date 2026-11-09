@@ -6,6 +6,8 @@ use cargo_tarpaulin::{run, setup_logging};
 use std::collections::HashMap;
 use tracing::{info, trace};
 
+mod rustc_wrapper;
+
 fn print_env(seen_rustflags: HashMap<String, Vec<String>>, prefix: &str, default_val: &str) {
     info!("Printing `{}`", prefix);
     if seen_rustflags.is_empty() {
@@ -23,6 +25,13 @@ fn print_env(seen_rustflags: HashMap<String, Vec<String>>, prefix: &str, default
 }
 
 fn main() -> Result<(), String> {
+    if rustc_wrapper::is_active() {
+        return rustc_wrapper::run().map_err(|e| e.to_string());
+    }
+    let executable = std::env::current_exe().map_err(|e| e.to_string())?;
+    // SAFETY: CLI startup is single-threaded; this runs before argument parsing,
+    // logging initialization, or any application threads are started.
+    unsafe { std::env::set_var("__TARPAULIN_WRAPPER_EXE", executable) };
     let args = CargoTarpaulinCli::from_args();
 
     let logging_args = args.config.logging;
