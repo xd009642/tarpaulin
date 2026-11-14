@@ -169,10 +169,16 @@ impl<'a> StateData for LlvmInstrumentedData<'a> {
                                 }
                             }
                             if let Some(analysis) = analysis {
+                                let result = report.files.get(file);
                                 for line in analysis.cover.iter() {
                                     if !self.traces.contains_location(file, *line as u64) {
+                                        let hits = result
+                                            .and_then(|result| {
+                                                function_entry_hits(analysis, result, *line)
+                                            })
+                                            .unwrap_or_default();
                                         let mut trace = Trace::new_stub(*line as u64);
-                                        trace.stats = CoverageStat::Line(0);
+                                        trace.stats = CoverageStat::Line(hits as u64);
                                         self.traces.add_trace(file, trace);
                                     }
                                 }
@@ -183,8 +189,15 @@ impl<'a> StateData for LlvmInstrumentedData<'a> {
 
                         for (file, result) in report.files.iter() {
                             if let Some(traces) = self.traces.file_traces_mut(file) {
+                                let analysis = self.analysis.get(file);
                                 for trace in traces.iter_mut() {
-                                    if let Some(hits) = result.hits_for_line(trace.line as usize) {
+                                    let line = trace.line as usize;
+                                    let hits = line_hits(result, line).or_else(|| {
+                                        analysis.and_then(|analysis| {
+                                            function_entry_hits(analysis, result, line)
+                                        })
+                                    });
+                                    if let Some(hits) = hits {
                                         if let CoverageStat::Line(ref mut x) = trace.stats {
                                             *x = hits as _;
                                         }
@@ -226,5 +239,102 @@ impl Drop for LlvmInstrumentedData<'_> {
             let _ = process.child.kill();
             let _ = process.child.wait();
         }
+    }
+}
+
+/// Hits of `line` the way `llvm-cov` counts them: the most of any region on the line.
+///
+/// A line can hold several regions, such as a call and a closure passed to it that never runs,
+/// and the line ran when any of them did.
+fn line_hits(result: &CoverageResult, line: usize) -> Option<usize> {
+    result
+        .hits
+        .iter()
+        .filter(|(loc, _)| loc.line_start <= line && loc.line_end >= line)
+        .map(|(_, hits)| *hits)
+        .max()
+}
+
+/// Hits of a line the compiler gave no region, inside a function it did map: the times that
+/// function was entered.
+///
+/// The debug info and the forced lines of generic, inline and generic impl functions hold lines
+/// no region covers. Since rustc 1.100 these include match arm patterns and `let` patterns, so
+/// leaving them at zero reports arms whose bodies run as uncovered. A function with no region
+/// at all gets `None`, and its lines stay uncovered.
+fn function_entry_hits(
+    analysis: &LineAnalysis,
+    result: &CoverageResult,
+    line: usize,
+) -> Option<usize> {
+    let (start, end) = analysis
+        .functions
+        .values()
+        .filter(|(start, end)| (*start..=*end).contains(&line))
+        .max_by_key(|(start, _)| *start)?;
+    result
+        .hits
+        .iter()
+        .filter(|(loc, _)| (*start..=*end).contains(&loc.line_start))
+        .min_by_key(|(loc, _)| (loc.line_start, loc.column_start))
+        .map(|(_, hits)| *hits)
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    fn result(regions: &[(usize, usize, usize, usize)]) -> CoverageResult {
+        let mut result = CoverageResult::default();
+        for (line_start, column_start, line_end, hits) in regions {
+            let loc = SourceLocation {
+                line_start: *line_start,
+                line_end: *line_end,
+                column_start: *column_start,
+                column_end: 80,
+            };
+            result.insert("f", loc, *hits);
+        }
+        result
+    }
+
+    fn analysis(functions: &[(usize, usize)]) -> LineAnalysis {
+        let mut analysis = LineAnalysis::default();
+        for (i, function) in functions.iter().enumerate() {
+            analysis.functions.insert(format!("f{i}"), *function);
+        }
+        analysis
+    }
+
+    #[test]
+    fn lines_take_the_most_hits_of_their_regions() {
+        let result = result(&[(1, 1, 2, 3), (2, 20, 2, 0), (4, 1, 4, 0)]);
+        assert_eq!(line_hits(&result, 2), Some(3));
+        assert_eq!(line_hits(&result, 4), Some(0));
+        assert_eq!(line_hits(&result, 3), None);
+    }
+
+    #[test]
+    fn lines_without_regions_take_the_entries_of_their_mapped_function() {
+        let analysis = analysis(&[(1, 10)]);
+        let result = result(&[(5, 9, 5, 0), (1, 1, 1, 4), (1, 30, 1, 2)]);
+        assert_eq!(function_entry_hits(&analysis, &result, 3), Some(4));
+    }
+
+    #[test]
+    fn lines_of_unmapped_functions_get_no_hits() {
+        let analysis = analysis(&[(1, 10), (12, 20)]);
+        let result = result(&[(1, 1, 1, 4)]);
+        assert_eq!(function_entry_hits(&analysis, &result, 15), None);
+        assert_eq!(function_entry_hits(&analysis, &result, 11), None);
+    }
+
+    #[test]
+    fn the_innermost_function_decides() {
+        // A function nested in another has its own mapping
+        let analysis = analysis(&[(1, 20), (5, 10)]);
+        let result = result(&[(1, 1, 1, 4), (5, 1, 5, 0), (15, 1, 15, 4)]);
+        assert_eq!(function_entry_hits(&analysis, &result, 7), Some(0));
+        assert_eq!(function_entry_hits(&analysis, &result, 12), Some(4));
     }
 }
