@@ -2,6 +2,7 @@ use crate::config::Config;
 use std::collections::HashMap;
 use std::env;
 use std::ffi::OsString;
+use std::io::{self, Write};
 use std::path::{Path, PathBuf};
 use std::process::Command;
 use tracing::{info, warn};
@@ -13,6 +14,8 @@ pub struct CargoConfigFields {
     pub target_rust_flags: Vec<String>,
     pub env_vars: HashMap<String, String>,
     pub target_runner: Option<CargoTargetRunner>,
+    // Keep the allowlist available to rustc wrappers and nested Cargo builds.
+    pub(crate) local_packages_file: Option<tempfile::NamedTempFile>,
 }
 
 #[derive(Clone, Debug, Eq, PartialEq)]
@@ -111,6 +114,64 @@ pub fn get_cargo_config(config: &Config) -> CargoConfigFields {
     }
 
     result
+}
+
+pub(super) fn configure_coverage_wrapper(
+    config: &Config,
+    metadata: &cargo_metadata::Metadata,
+    result: &mut CargoConfigFields,
+) -> io::Result<()> {
+    // A library caller's executable need not implement our compiler protocol.
+    let Ok(executable) = env::var("__TARPAULIN_WRAPPER_EXE") else {
+        return Ok(());
+    };
+    if config.engine() != crate::config::TraceEngine::Llvm || config.instrument_all {
+        return Ok(());
+    }
+    let cargo_config =
+        cargo_config2::Config::load_with_cwd(config.root()).map_err(io::Error::other)?;
+    let directories: Vec<_> = metadata
+        .packages
+        .iter()
+        .filter(|package| package.source.is_none())
+        .map(|package| {
+            package
+                .manifest_path
+                .parent()
+                .expect("Cargo manifest has a parent directory")
+                .as_str()
+        })
+        .collect();
+    // A large workspace can exceed the OS limit for a single environment value.
+    let mut packages_file = tempfile::Builder::new()
+        .prefix("tarpaulin-packages-")
+        .tempfile()?;
+    packages_file.write_all(
+        serde_json::to_string(&directories)
+            .expect("package paths serialize to JSON")
+            .as_bytes(),
+    )?;
+    result.env_vars.insert(
+        "__TARPAULIN_LOCAL_PACKAGES_FILE".into(),
+        packages_file.path().to_string_lossy().into_owned(),
+    );
+    result.local_packages_file = Some(packages_file);
+    info!("Using RUSTC_WRAPPER for local-package coverage");
+    result.env_vars.insert("RUSTC_WRAPPER".into(), executable);
+    result.env_vars.insert(
+        "__TARPAULIN_PREVIOUS_WRAPPER".into(),
+        cargo_config
+            .build
+            .rustc_wrapper
+            .as_ref()
+            .map(|path| path.to_string_lossy().into_owned())
+            .unwrap_or_default(),
+    );
+    result.env_vars.insert(
+        "__TARPAULIN_COVERAGE_FLAGS".into(),
+        super::llvm_coverage_rustflag().trim().into(),
+    );
+    Ok(())
 }
 
 #[cfg(test)]

@@ -36,7 +36,7 @@ gimli = { version = "0.34.0", default-features = false, features = ["read", "std
 git2 =  { version = "0.21", optional = true }
 humantime-serde = "1"
 indexmap = { version = "~1.8", features = ["serde-1"] }
-llvm_profparser = { version = "0.15",  default-features = false }
+llvm_profparser = { version = "0.16",  default-features = false }
 object = "0.40"
 proc-macro2 = { version = "1.0", features = ["span-locations"] }
 quick-xml = "0.42"
@@ -59,6 +59,7 @@ tracing-subscriber = { version = "0.3.23", default-features = false, features = 
 walkdir = "2.5.0"
 glob = "0.3.3"
 cargo-config2 = "0.1.44"
+tempfile = "3"
 
 [target.'cfg(all(target_os = "linux", any(target_arch = "x86_64", target_arch = "x86", target_arch = "aarch64")))'.dependencies]
 libc = "0.2.184"

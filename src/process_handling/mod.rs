@@ -1,4 +1,4 @@
-use crate::cargo::{CargoConfigFields, LD_PATH_VAR, rust_flags};
+use crate::cargo::{CargoConfigFields, LD_PATH_VAR};
 use crate::config::Color;
 use crate::generate_tracemap;
 use crate::path_utils::get_profile_walker;
@@ -223,7 +223,15 @@ fn get_env_vars(
     if test.has_linker_paths() {
         envars.insert(LD_PATH_VAR.to_string(), test.ld_library_path());
     }
-    envars.insert("RUSTFLAGS".to_string(), rust_flags(config, cargo_config));
+    envars.insert(
+        "RUSTFLAGS".to_string(),
+        crate::cargo::build_rust_flags(config, cargo_config),
+    );
+    for key in crate::cargo::COVERAGE_WRAPPER_ENV {
+        if let Some(value) = cargo_config.env_vars.get(key) {
+            envars.insert(key.into(), value.clone());
+        }
+    }
 
     envars
 }
