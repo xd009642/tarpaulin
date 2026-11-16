@@ -3,6 +3,10 @@
 From 2019 onwards, all notable changes to tarpaulin will be documented in this
 file.
 
+## [Unreleased]
+### Fixed
+- LLVM engine counts a line by the most hits of any region on it, as `llvm-cov` does, and gives a line no region covers the entries of its function when the compiler mapped that function. Since rustc 1.100 match arm and `let` patterns get no region, so arms whose bodies ran were reported as uncovered.
+
 ## [0.37.6] 2026-11-05
 ### Changed
 - Prevent value injection by grouping arguments to cargo like `--package=p` instead of `--package p` 

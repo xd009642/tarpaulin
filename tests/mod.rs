@@ -251,6 +251,7 @@ fn llvm_sanity_test() {
     check_percentage_with_config("structs", 1.0f64, true, config.clone());
     check_percentage_with_config("ifelse", 1.0f64, true, config.clone());
     check_percentage_with_config("returns", 1.0f64, true, config.clone());
+    check_percentage_with_config("generic_matches", 1.0f64, true, config.clone());
     check_percentage_with_config("follow_exe", 1.0f64, true, config);
 }
 
