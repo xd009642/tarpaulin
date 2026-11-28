@@ -33,6 +33,216 @@ mod test_types;
 mod utils;
 mod workspaces;
 
+/// Local dependency coverage must survive moving a crate outside the workspace.
+/// User wrappers remain chained; unrelated nested builds can clear our flags.
+/// Toggling --instrument-all must rebuild registry crates with the chosen policy.
+#[test]
+#[cfg(unix)]
+fn llvm_cli_instruments_local_packages() {
+    use std::os::unix::fs::PermissionsExt;
+
+    for (workspace_members, sibling) in [(true, false), (false, true), (true, true)] {
+        let root = unique_temp_dir("tarpaulin local instrumentation");
+        fs::create_dir_all(&root).expect("create instrumentation fixture root");
+        // macOS temporary directories can be symlinked. Cargo retains that path
+        // while LLVM resolves it, so use the same physical root for both.
+        let root = root
+            .canonicalize()
+            .expect("resolve instrumentation fixture root");
+        let project = root.join("project");
+        let dependency = if sibling {
+            root.join("dependency")
+        } else {
+            project.join("member")
+        };
+        let nested = project.join("nested");
+        for directory in [&project, &dependency, &nested] {
+            fs::create_dir_all(directory.join("src")).expect("create fixture source directory");
+        }
+        let workspace = if workspace_members {
+            "[workspace]\nmembers = [\"member\"]\n"
+        } else {
+            ""
+        };
+        let dependency_path = if sibling { "../dependency" } else { "member" };
+        fs::write(project.join("Cargo.toml"), format!(
+            "[package]\nname=\"app\"\nversion=\"0.1.0\"\nedition=\"2024\"\n{workspace}[lib]\nname=\"shared_name\"\n[dependencies]\nlocal={{package=\"local-dependency\",path=\"{dependency_path}\"}}\ncfg-if=\"1\"\n"
+        )).expect("write project manifest");
+        fs::write(dependency.join("Cargo.toml"), "[package]\nname=\"local-dependency\"\nversion=\"0.1.0\"\nedition=\"2024\"\n[lib]\nname=\"shared_name\"\n")
+            .expect("write dependency manifest");
+        fs::write(
+            dependency.join("src/lib.rs"),
+            "pub fn answer() -> u32 { 42 }\n",
+        )
+        .expect("write dependency source");
+        if workspace_members && sibling {
+            let member = project.join("member");
+            fs::create_dir_all(member.join("src")).expect("create member source directory");
+            fs::write(
+                member.join("Cargo.toml"),
+                "[package]\nname=\"member\"\nversion=\"0.1.0\"\nedition=\"2024\"\n",
+            )
+            .expect("write member manifest");
+            fs::write(member.join("src/lib.rs"), "pub fn member() {}\n")
+                .expect("write member source");
+        }
+        fs::write(
+            nested.join("Cargo.toml"),
+            "[package]\nname=\"nested\"\nversion=\"0.1.0\"\nedition=\"2024\"\n[workspace]\n",
+        )
+        .expect("write nested manifest");
+        fs::write(nested.join("src/lib.rs"), "pub fn answer() -> u32 { 42 }\n")
+            .expect("write nested source");
+        fs::write(
+            project.join("src/lib.rs"),
+            r#"pub fn answer() -> u32 { local::answer() }
+#[test]
+fn check() {
+    assert_eq!(answer(), 42);
+    let manifest = std::path::Path::new(env!("CARGO_MANIFEST_DIR")).join("nested/Cargo.toml");
+    assert!(std::process::Command::new("cargo").args(["build", "--offline", "--manifest-path"])
+        .arg(manifest).env_remove("RUSTFLAGS").env_remove("CARGO_ENCODED_RUSTFLAGS")
+        .status().expect("run nested Cargo build").success());
+    let dependency = std::path::Path::new(env!("CARGO_MANIFEST_DIR")).join("__LOCAL_PATH__/Cargo.toml");
+    assert!(std::process::Command::new("cargo").args(["build", "--offline", "--manifest-path"])
+        .arg(dependency).arg("--target-dir").arg("nested/target/cleared-flags")
+        .env_remove("RUSTFLAGS").env_remove("CARGO_ENCODED_RUSTFLAGS")
+        .status().expect("build local dependency without coverage flags").success());
+}
+"#.replace("__LOCAL_PATH__", dependency_path),
+        )
+        .expect("write project source");
+        for (name, log) in [("outer", "OUTER_LOG"), ("inner", "INNER_LOG")] {
+            let path = root.join(name);
+            fs::write(&path, format!("#!/bin/sh\nprintf '%s\\t%s\\n' \"$CARGO_MANIFEST_DIR\" \"$*\" >> \"${log}\"\nexec \"$@\"\n")).expect("write compiler recorder");
+            fs::set_permissions(&path, fs::Permissions::from_mode(0o755))
+                .expect("make recorder executable");
+        }
+        let outer_log = root.join("outer.log");
+        let inner_log = root.join("inner.log");
+        for (iteration, (user_flag, instrument_all)) in [
+            ("--cfg=first_configuration", false),
+            ("--cfg=second_configuration", false),
+            ("--cfg=second_configuration", true),
+            ("--cfg=second_configuration", false),
+        ]
+        .into_iter()
+        .enumerate()
+        {
+            fs::write(&outer_log, "").expect("clear outer log");
+            fs::write(&inner_log, "").expect("clear inner log");
+            let output = Command::new(env!("CARGO_BIN_EXE_cargo-tarpaulin"))
+                .args([
+                    "tarpaulin",
+                    "--engine",
+                    "llvm",
+                    "--skip-clean",
+                    "--offline",
+                    "--out",
+                    "Lcov",
+                ])
+                .args(instrument_all.then_some("--instrument-all"))
+                .arg("--manifest-path")
+                .arg(project.join("Cargo.toml"))
+                .arg("--output-dir")
+                .arg(&root)
+                .env("CARGO_NET_OFFLINE", "true")
+                .env("RUSTFLAGS", user_flag)
+                .env_remove("CARGO_ENCODED_RUSTFLAGS")
+                .env("RUSTC_WRAPPER", root.join("outer"))
+                .env("RUSTC_WORKSPACE_WRAPPER", root.join("inner"))
+                .env("OUTER_LOG", &outer_log)
+                .env("INNER_LOG", &inner_log)
+                .output()
+                .expect("run Tarpaulin CLI");
+            let diagnostics = format!(
+                "{}\n{}",
+                String::from_utf8_lossy(&output.stdout),
+                String::from_utf8_lossy(&output.stderr)
+            );
+            assert!(output.status.success(), "{diagnostics}");
+            assert!(
+                diagnostics.contains("Using RUSTC_WRAPPER for local-package coverage")
+                    == !instrument_all,
+                "{diagnostics}"
+            );
+            let outer = fs::read_to_string(&outer_log).expect("read outer log");
+            let inner = fs::read_to_string(&inner_log).expect("read inner log");
+            let dependency_log = if sibling { &outer } else { &inner };
+            let invocations: Vec<_> = dependency_log
+                .lines()
+                .filter(|line| {
+                    line.starts_with(dependency.to_str().expect("UTF-8 fixture path"))
+                        && line.contains("--crate-name shared_name")
+                        && line.contains(user_flag)
+                })
+                .collect();
+            assert!(
+                iteration == 3 || !invocations.is_empty(),
+                "dependency must compile for a new configuration: {dependency_log}"
+            );
+            for invocation in invocations {
+                assert!(invocation.contains("-Cinstrument-coverage"), "{invocation}");
+                assert!(invocation.contains(user_flag), "{invocation}");
+            }
+            let registry: Vec<_> = outer
+                .lines()
+                .filter(|line| line.contains("--crate-name cfg_if"))
+                .collect();
+            assert!(
+                iteration == 3 || !registry.is_empty(),
+                "registry dependency must compile for a new configuration: {outer}"
+            );
+            assert!(
+                registry
+                    .iter()
+                    .all(|line| line.contains("instrument-coverage") == instrument_all),
+                "{outer}"
+            );
+            let app = inner.lines().find(|line| {
+                line.starts_with(project.to_str().expect("UTF-8 fixture path"))
+                    && line.contains("--crate-name shared_name")
+            });
+            // Returning to a previous flag set can reuse Cargo's cached artifacts.
+            assert!(
+                iteration == 3 || app.is_some(),
+                "user wrapper must run for app: {inner}"
+            );
+            if let Some(app) = app {
+                assert!(app.contains("-Cinstrument-coverage"), "{app}");
+            }
+            if user_flag == "--cfg=first_configuration" {
+                let cleared = inner
+                    .lines()
+                    .find(|line| {
+                        line.starts_with(dependency.to_str().expect("UTF-8 fixture path"))
+                            && line.contains("--crate-name shared_name")
+                            && !line.contains(user_flag)
+                    })
+                    .expect("local dependency must recompile after clearing flags");
+                assert!(!cleared.contains("instrument-coverage"), "{cleared}");
+
+                let nested_invocation = inner
+                    .lines()
+                    .find(|line| line.contains("--crate-name nested"))
+                    .expect("nested Cargo must preserve user wrapper");
+                assert!(
+                    !nested_invocation.contains("instrument-coverage"),
+                    "{nested_invocation}"
+                );
+            }
+            let lcov = fs::read_to_string(root.join("lcov.info")).expect("read coverage report");
+            assert!(
+                lcov.lines()
+                    .filter_map(|line| line.strip_prefix("DA:1,"))
+                    .any(|hits| hits.parse::<u64>().expect("numeric LCOV count") > 0),
+                "{diagnostics}\nLCOV:\n{lcov}"
+            );
+        }
+        fs::remove_dir_all(root).expect("remove fixture");
+    }
+}
+
 pub(crate) fn set_env_var<K: AsRef<OsStr>, V: AsRef<OsStr>>(key: K, value: V) {
     unsafe {
         env::set_var(key, value);

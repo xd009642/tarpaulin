@@ -59,6 +59,7 @@ tracing-subscriber = { version = "0.3.23", default-features = false, features = 
 walkdir = "2.5.0"
 glob = "0.3.3"
 cargo-config2 = "0.1.44"
+tempfile = "3"
 
 [target.'cfg(all(target_os = "linux", any(target_arch = "x86_64", target_arch = "x86", target_arch = "aarch64")))'.dependencies]
 libc = "0.2.184"

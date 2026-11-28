@@ -85,6 +85,9 @@ pub struct Config {
     /// Doesn't link projects with `-Clink-dead-code`
     #[serde(rename = "no-dead-code")]
     pub no_dead_code: bool,
+    /// Instrument registry and Git dependencies as well as local crates (LLVM only).
+    #[serde(rename = "instrument-all")]
+    pub instrument_all: bool,
     /// Include all available features in target build
     #[serde(rename = "all-features")]
     pub all_features: bool,
@@ -220,6 +223,7 @@ impl Default for Config {
             force_clean: true,
             skip_clean: false,
             no_dead_code: false,
+            instrument_all: false,
             verbose: false,
             debug: false,
             follow_exec: false,
@@ -316,6 +320,7 @@ impl From<ConfigArgs> for ConfigWrapper {
             include_tests: args.include_tests,
             ignore_panics: args.ignore_panics,
             no_dead_code: args.no_dead_code,
+            instrument_all: args.instrument_all,
             force_clean,
             skip_clean: !force_clean,
             no_fail_fast: args.no_fail_fast,
@@ -636,6 +641,7 @@ impl Config {
         self.run_ignored |= other.run_ignored;
         self.release |= other.release;
         self.no_dead_code |= other.no_dead_code;
+        self.instrument_all |= other.instrument_all;
         self.count |= other.count;
         self.all_features |= other.all_features;
         self.implicit_test_threads |= other.implicit_test_threads;
@@ -978,6 +984,21 @@ mod tests {
         let args = TarpaulinCli::parse_from(vec!["tarpaulin", "-r", "."]);
         let conf = ConfigWrapper::from(args.config).0;
         assert!(conf[0].root().is_absolute());
+    }
+
+    /// CLI and file opt-outs survive merging in either direction.
+    #[test]
+    fn instrument_all_configuration() {
+        let args = TarpaulinCli::parse_from(["tarpaulin", "--ignore-config", "--instrument-all"]);
+        let cli = ConfigWrapper::from(args.config).0.remove(0);
+        assert!(cli.instrument_all);
+        let file: Config =
+            toml::from_str("instrument-all = true").expect("parse instrumentation opt-out");
+        let default = Config::default();
+        for (mut base, override_config) in [(default.clone(), cli), (file, default)] {
+            base.merge(&override_config);
+            assert!(base.instrument_all);
+        }
     }
 
     #[test]

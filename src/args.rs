@@ -74,6 +74,9 @@ pub struct ConfigArgs {
     /// Stops tarpaulin from building projects with -Clink-dead-code
     #[arg(long)]
     pub no_dead_code: bool,
+    /// Instrument all dependencies as well as project crates (LLVM only)
+    #[arg(long)]
+    pub instrument_all: bool,
     /// Include lines of test functions when collecting coverage
     #[arg(long)]
     pub include_tests: bool,

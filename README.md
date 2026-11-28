@@ -61,6 +61,7 @@ Options:
       --profile <NAME>             Build artifacts with the specified profile
       --ignore-tests               Ignore lines of test functions when collecting coverage (default)
       --no-dead-code               Stops tarpaulin from building projects with -Clink-dead-code
+      --instrument-all            Instrument all dependencies as well as project crates (LLVM only)
       --include-tests              Include lines of test functions when collecting coverage
       --ignore-panics              Ignore panic macros in tests
       --count                      Counts the number of hits during coverage
